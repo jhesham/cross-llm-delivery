@@ -1,0 +1,16 @@
+[project]
+name = "cld"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["langgraph>=0.2", "langfuse>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "deepeval>=1.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-q"
+# Scope root collection to the cld package's own tests. The Phase-0 `smoketest/`
+# tree is a self-contained sandbox (its own pyproject + a deliberately-unfinished
+# slice) and must not be collected by the root verify run.
+testpaths = ["tests"]
