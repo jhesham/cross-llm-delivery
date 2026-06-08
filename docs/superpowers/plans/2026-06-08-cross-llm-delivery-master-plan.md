@@ -28,7 +28,7 @@
 **Files:**
 - Create: `pyproject.toml`, `src/cld/__init__.py`, `src/cld/_skeleton.py`, `tests/test_skeleton.py`, `verify.ps1`
 
-- [ ] **Step 1: pyproject with deps**
+- [x] **Step 1: pyproject with deps**
 
 `pyproject.toml`:
 ```toml
@@ -46,7 +46,7 @@ pythonpath = ["src"]
 addopts = "-q"
 ```
 
-- [ ] **Step 2: walking-skeleton module + failing test**
+- [x] **Step 2: walking-skeleton module + failing test**
 
 `src/cld/_skeleton.py`:
 ```python
@@ -61,7 +61,7 @@ def test_healthcheck():
     assert healthcheck() == "cld-ok"
 ```
 
-- [ ] **Step 3: verify script (the single command the judge runs)**
+- [x] **Step 3: verify script (the single command the judge runs)**
 
 `verify.ps1`:
 ```powershell
@@ -70,12 +70,12 @@ python -m pytest $Path
 exit $LASTEXITCODE
 ```
 
-- [ ] **Step 4: install + run**
+- [x] **Step 4: install + run**
 
 Run: `python -m pip install -e ".[dev]"` then `python -m pytest`
 Expected: 1 passed.
 
-- [ ] **Step 5: commit + STATUS update**
+- [x] **Step 5: commit + STATUS update**
 
 ```bash
 git add -A && git commit -m "feat(T1.1): project scaffold + walking skeleton + verify"

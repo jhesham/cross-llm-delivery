@@ -7,9 +7,9 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-08 (Phase 0 complete)
+**Last updated:** 2026-06-08 (T1.1 complete)
 
-**Next task:** `T1.1` — Project scaffold (package layout + walking skeleton + verify script)
+**Next task:** `T1.2` — Langfuse tracing (self-hosted, with cloud fallback)
 
 ## Progress ledger
 
@@ -17,8 +17,8 @@
 |------|-------|--------|--------|
 | Design + plan | — | ✅ done | 1f8dd98 |
 | Phase 0 (executor smoke test) | 0 | ✅ GO | d734534 |
-| T1.1 Project scaffold | 1 | ⬜ next | |
-| T1.2 Langfuse tracing | 1 | ⬜ | |
+| T1.1 Project scaffold | 1 | ✅ done | (pending) |
+| T1.2 Langfuse tracing | 1 | ⬜ next | |
 | T1.3 deepeval harness | 1 | ⬜ | |
 | T1.4 Cost-validation slice | 1 | ⬜ | |
 | T2.1 Executor interface | 2 | ⬜ | |
