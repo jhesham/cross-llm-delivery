@@ -127,7 +127,7 @@ def test_tracer_reads_env(monkeypatch):
 **DoD:** a deepeval-based test runs under `python -m pytest` and passes on a trivial golden case (LLM-as-judge metric, mocked/threshold so it's deterministic-enough for CI). Committed.
 **Files:** Create `tests/evals/test_eval_smoke.py`, `docs/notes/evals.md`
 
-- [ ] **Step 1: write a minimal deepeval test**
+- [x] **Step 1: write a minimal deepeval test**
 ```python
 from deepeval.test_case import LLMTestCase
 from deepeval.metrics import AnswerRelevancyMetric
@@ -140,9 +140,9 @@ def test_eval_smoke():
 ```
 (If deepeval requires an eval model/key, document it in `evals.md` and gate the test with `@pytest.mark.eval` so the default `pytest` run stays fast; evals run via `pytest -m eval`.)
 
-- [ ] **Step 2: confirm both regimes run** — `python -m pytest` (structural, fast) and `python -m pytest -m eval` (behavioral). Document the two commands in `evals.md`.
+- [x] **Step 2: confirm both regimes run** — `python -m pytest` (structural, fast) and `python -m pytest -m eval` (behavioral). Document the two commands in `evals.md`.
 
-- [ ] **Step 3: commit + STATUS update** (`feat(T1.3): deepeval harness + two-regime verify`).
+- [x] **Step 3: commit + STATUS update** (`feat(T1.3): deepeval harness + two-regime verify`).
 
 ### T1.4 — Cost-validation slice (validate the 10× premise) [PREMISE GATE]
 

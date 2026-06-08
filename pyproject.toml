@@ -9,7 +9,12 @@ dev = ["pytest>=8", "deepeval>=1.0"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-addopts = "-q"
+# Default run is fast/offline/deterministic: deselect behavioral evals (which call
+# a live LLM). Run them explicitly with `pytest -m eval` (needs OPENAI_API_KEY).
+addopts = "-q -m 'not eval'"
+markers = [
+    "eval: behavioral eval that calls a live LLM judge (deepeval); needs an API key. Excluded from default run.",
+]
 # Scope root collection to the cld package's own tests. The Phase-0 `smoketest/`
 # tree is a self-contained sandbox (its own pyproject + a deliberately-unfinished
 # slice) and must not be collected by the root verify run.
