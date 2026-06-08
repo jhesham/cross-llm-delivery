@@ -149,11 +149,11 @@ def test_eval_smoke():
 **DoD:** one *representative-size* real slice (a 3–4 node LangGraph subgraph with injected model/tools + ~6 tests) built via Gemini using the Phase-0 invocation; tokens captured from `-o json`; compared to a Claude-equivalent estimate; verdict recorded. Committed.
 **Files:** Create `docs/notes/cost-validation.md` (+ throwaway slice in a worktree, then removed)
 
-- [ ] **Step 1:** Claude authors the slice spec + failing tests (representative size, not a toy).
-- [ ] **Step 2:** worktree + dispatch via `GEMINI_CLI_TRUST_WORKSPACE=true gemini -p "<task>" -m gemini-3.1-pro-preview --yolo --skip-trust -o json`; capture token stats.
-- [ ] **Step 3:** Claude judges (run verify + diff review); record executor tokens vs estimated Claude tokens for the same work in `cost-validation.md`.
-- [ ] **Step 4: DECISION.** If cost advantage is real on representative work → continue. If not → reassess executor/model (try `gemini-3-pro-preview`, or Composer) before Phase 2. Record in `cost-validation.md` + STATUS.
-- [ ] **Step 5:** remove worktree; commit notes (`docs(T1.4): cost-validation verdict`).
+- [x] **Step 1:** Claude authors the slice spec + failing tests (representative size, not a toy).
+- [x] **Step 2:** worktree + dispatch via `GEMINI_CLI_TRUST_WORKSPACE=true gemini -p "<task>" -m gemini-3.1-pro-preview --yolo --skip-trust -o json`; capture token stats.
+- [x] **Step 3:** Claude judges (run verify + diff review); record executor tokens vs estimated Claude tokens for the same work in `cost-validation.md`.
+- [x] **Step 4: DECISION.** (CONDITIONAL GO) If cost advantage is real on representative work → continue. If not → reassess executor/model (try `gemini-3-pro-preview`, or Composer) before Phase 2. Record in `cost-validation.md` + STATUS.
+- [x] **Step 5:** remove worktree; commit notes (`docs(T1.4): cost-validation verdict`).
 
 ---
 
