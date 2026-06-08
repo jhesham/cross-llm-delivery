@@ -19,7 +19,7 @@
 | Phase 0 (executor smoke test) | 0 | ✅ GO | d734534 |
 | T1.1 Project scaffold | 1 | ✅ done | e265425 |
 | T1.2 Langfuse tracing | 1 | ✅ done | 5b075bb |
-| T1.3 deepeval harness | 1 | ✅ done | (pending) |
+| T1.3 deepeval harness | 1 | ✅ done | 7e7815a |
 | T1.4 Cost-validation slice | 1 | ⬜ next | |
 | T2.1 Executor interface | 2 | ⬜ | |
 | T2.2 GeminiExecutor adapter | 2 | ⬜ | |
