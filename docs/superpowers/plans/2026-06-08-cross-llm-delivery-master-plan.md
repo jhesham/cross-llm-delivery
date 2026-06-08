@@ -87,9 +87,9 @@ Then tick T1.1 in STATUS.md, set Next task = T1.2, commit that.
 **DoD:** a `cld.tracing` helper emits a trace for a dummy span; a test asserts the client initializes; tracing target documented. Committed.
 **Files:** Create `docs/notes/langfuse-setup.md`, `src/cld/tracing.py`, `tests/test_tracing.py`
 
-- [ ] **Step 1: decide host.** Check Docker: `docker --version`. If present → self-host via Langfuse `docker-compose` (document compose + the 3 env vars: `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`). If Docker absent → use Langfuse Cloud free tier; record decision in `langfuse-setup.md`. **(This is a real fork — surface to the user if Docker is missing.)**
+- [x] **Step 1: decide host.** Check Docker: `docker --version`. If present → self-host via Langfuse `docker-compose` (document compose + the 3 env vars: `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`). If Docker absent → use Langfuse Cloud free tier; record decision in `langfuse-setup.md`. **(This is a real fork — surface to the user if Docker is missing.)**
 
-- [ ] **Step 2: tracing helper**
+- [x] **Step 2: tracing helper**
 
 `src/cld/tracing.py`:
 ```python
@@ -106,7 +106,7 @@ def get_tracer() -> Langfuse:
     )
 ```
 
-- [ ] **Step 3: test (no network — assert config wiring)**
+- [x] **Step 3: test (no network — assert config wiring)**
 
 `tests/test_tracing.py`:
 ```python
@@ -120,7 +120,7 @@ def test_tracer_reads_env(monkeypatch):
     assert tr is not None
 ```
 
-- [ ] **Step 4: run + commit + STATUS update** (`feat(T1.2): langfuse tracing helper`).
+- [x] **Step 4: run + commit + STATUS update** (`feat(T1.2): langfuse tracing helper`).
 
 ### T1.3 — deepeval behavioral-eval harness
 
