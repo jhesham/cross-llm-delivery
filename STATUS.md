@@ -17,7 +17,7 @@
 |------|-------|--------|--------|
 | Design + plan | — | ✅ done | 1f8dd98 |
 | Phase 0 (executor smoke test) | 0 | ✅ GO | d734534 |
-| T1.1 Project scaffold | 1 | ✅ done | (pending) |
+| T1.1 Project scaffold | 1 | ✅ done | e265425 |
 | T1.2 Langfuse tracing | 1 | ⬜ next | |
 | T1.3 deepeval harness | 1 | ⬜ | |
 | T1.4 Cost-validation slice | 1 | ⬜ | |
