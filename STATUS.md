@@ -1,0 +1,38 @@
+# Build Status — cross-llm-delivery
+
+> **Resume protocol (read this first every new sitting):**
+> 1. Read this file — the "Next task" line tells you exactly where to start.
+> 2. Read `docs/superpowers/plans/2026-06-08-cross-llm-delivery-master-plan.md` for the task detail.
+> 3. Check the memory `cross-llm-delivery-project` for high-level context.
+> 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
+> 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
+
+**Last updated:** 2026-06-08 (Phase 0 complete)
+
+**Next task:** `T1.1` — Project scaffold (package layout + walking skeleton + verify script)
+
+## Progress ledger
+
+| Task | Phase | Status | Commit |
+|------|-------|--------|--------|
+| Design + plan | — | ✅ done | 1f8dd98 |
+| Phase 0 (executor smoke test) | 0 | ✅ GO | d734534 |
+| T1.1 Project scaffold | 1 | ⬜ next | |
+| T1.2 Langfuse tracing | 1 | ⬜ | |
+| T1.3 deepeval harness | 1 | ⬜ | |
+| T1.4 Cost-validation slice | 1 | ⬜ | |
+| T2.1 Executor interface | 2 | ⬜ | |
+| T2.2 GeminiExecutor adapter | 2 | ⬜ | |
+| T2.3 Executor registry + Composer stub | 2 | ⬜ | |
+| T3.1 Slice spec model | 3 | ⬜ | |
+| T3.2 Worktree manager | 3 | ⬜ | |
+| T3.3 Judge module | 3 | ⬜ | |
+| T3.4 Single-slice loop | 3 | ⬜ | |
+| T4.1 Ledger schema | 4 | ⬜ | |
+| T4.2 Resumable orchestrator | 4 | ⬜ | |
+| T5.1 DAG scheduler | 5 | ⬜ | |
+| T5.2 Parallel fan-out | 5 | ⬜ | |
+| T5.3 Integration gate | 5 | ⬜ | |
+| T6.1 Package as skill | 6 | ⬜ | |
+| T6.2 Sharing docs/README | 6 | ⬜ | |
+| T6.3 (opt) enforcement hook | 6 | ⬜ | |
