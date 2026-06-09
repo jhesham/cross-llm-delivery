@@ -211,7 +211,7 @@ def test_eval_smoke():
 **Files:** `src/cld/dag.py`, `tests/test_dag.py`
 **DoD:** topological layering from slice `deps[]`; detect cycles; yield parallelizable batches. Pure-function tests.
 
-### T5.2 — Parallel fan-out
+### T5.2 — Parallel fan-out ✅ DONE (Claude-direct)
 **Files:** modify `src/cld/orchestrator.py`, `tests/test_orchestrator_parallel.py`
 **DoD:** run a batch's independent slices concurrently (separate worktrees), each judged; aggregate results. Test with fake executors + a small DAG.
 

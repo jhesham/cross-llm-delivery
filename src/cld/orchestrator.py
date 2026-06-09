@@ -1,6 +1,9 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from cld.dag import parallel_batches
 from cld.executors.base import SliceTask
 from cld.judge import JudgeResult
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
@@ -56,6 +59,7 @@ class PlanResult:
     completed: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    deferred: list[str] = field(default_factory=list)
 
 
 def run_plan(
@@ -88,7 +92,82 @@ def run_plan(
         else:
             ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts)
             result.failed.append(task.id)
-            
+
         ledger.save()
-        
+
+    return result
+
+
+def run_plan_parallel(
+    slices: list[SliceTask],
+    ledger: Ledger,
+    *,
+    executor: Any,
+    judge_fn: Callable,
+    max_retries: int = 2,
+    max_workers: int = 4,
+    quota_check: Callable[[], int] | None = None,
+    quota_threshold: int = 95,
+) -> PlanResult:
+    """Run a plan with DAG-aware parallel fan-out.
+
+    Slices are layered via `parallel_batches` (the DAG): all slices in a layer are
+    independent and run concurrently in a thread pool; layers run in order so deps
+    are satisfied before dependents start. Each slice is delivered via `deliver_slice`
+    and its outcome persisted to the ledger (serialized by a lock, since Ledger is
+    not thread-safe).
+
+    Quota-awareness: if `quota_check` is provided and returns a percentage >=
+    `quota_threshold`, slices are NOT dispatched — they are recorded in
+    `result.deferred` so a later run (after the quota window resets) picks them up.
+    This protects the flat-rate executor's quota bucket during large fan-outs.
+    """
+    result = PlanResult()
+    by_id = {s.id: s for s in slices}
+    deps = {s.id: list(s.deps) for s in slices}
+    ledger_lock = threading.Lock()
+
+    def _process(task: SliceTask) -> None:
+        # Quota gate (checked per slice so a window can fill mid-run).
+        if quota_check is not None and quota_check() >= quota_threshold:
+            with ledger_lock:
+                result.deferred.append(task.id)
+            return
+
+        with ledger_lock:
+            ledger.set(task.id, status=IN_PROGRESS)
+            ledger.save()
+
+        deliver_res = deliver_slice(
+            task, executor=executor, judge_fn=judge_fn, max_retries=max_retries
+        )
+
+        with ledger_lock:
+            if deliver_res.accepted:
+                ledger.set(task.id, status=DONE, attempts=deliver_res.attempts)
+                result.completed.append(task.id)
+            else:
+                ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts)
+                result.failed.append(task.id)
+            ledger.save()
+
+    for layer in parallel_batches(deps):
+        # A layer may include dep-only ids not in this plan — keep only real tasks
+        # that aren't already done in the ledger.
+        runnable = []
+        for sid in layer:
+            task = by_id.get(sid)
+            if task is None:
+                continue
+            if ledger.is_done(sid):
+                result.skipped.append(sid)
+                continue
+            runnable.append(task)
+
+        if not runnable:
+            continue
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            list(pool.map(_process, runnable))
+
     return result
