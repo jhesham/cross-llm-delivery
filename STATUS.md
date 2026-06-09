@@ -25,7 +25,7 @@
 | T1.4 Cost-validation slice | 1 | ✅ GO (gate closed) | a99a121 |
 | T2.1 Executor interface | 2 | ✅ done (via T1.4) | d8b2bf6 |
 | T2.2 GeminiExecutor adapter | 2 | ✅ done | 9520e00 |
-| T2.3 Executor registry + Composer stub | 2 | ✅ done (dogfood) | (this commit) |
+| T2.3 Executor registry + Composer stub | 2 | ✅ done (dogfood) | d95d15a |
 | T3.1 Slice spec model | 3 | ✅ done (via bulk) | f94707a |
 | T3.2 Worktree manager | 3 | ✅ done (via bulk) | f94707a |
 | T3.3 Judge module | 3 | ✅ done | f94707a |
