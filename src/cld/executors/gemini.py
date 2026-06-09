@@ -101,8 +101,14 @@ class GeminiExecutor:
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
 
+        # Resolve the CLI command per-platform. On Windows the npm shim is
+        # `gemini.cmd`, which subprocess (without shell=True) cannot find under
+        # the bare name `gemini`. Allow an explicit override via GEMINI_CLI_CMD.
+        gemini_cmd = os.environ.get("GEMINI_CLI_CMD") or (
+            "gemini.cmd" if os.name == "nt" else "gemini"
+        )
         dispatch = [
-            "gemini",
+            gemini_cmd,
             "-p",
             prompt,
             "-m",
