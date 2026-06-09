@@ -18,6 +18,14 @@
 3. **No defined "collect result from worktree" step.** The pipeline never `git add`s / commits / merges the worktree back; it implicitly relies on Gemini self-committing (unmanaged) → "code landed on slice-S2."
 **This is an architectural gap, not a one-line race fix — NOT pure-dogfood-able.** Needs a design decision (Claude): should the pipeline `git add -A` in the worktree before diffing? should the judge run REAL pytest in `wt_path`? should there be an explicit commit+collect step? THEN individual fixes could be dogfooded. **Mitigation still valid:** `--workers 1` + verify-then-cherry-pick (what the user did). **Add a REAL integration test** (real temp git repo, real subprocess runner, a slice that CREATES a file) — the fake-runner tests can never catch this class of bug.
 
+#### BUG 1 DECOMPOSED into sitting-sized tasks (2026-06-09) — do in order, each ends in a commit:
+- **B1.1 — Real integration-test harness (CLAUDE, small).** Reusable fixture: real temp git repo + real subprocess git_runner + a fake executor that ACTUALLY creates a file in the worktree. No fix assertions yet — just scaffolding that observes real behavior. Unlocks B1.2–B1.5. The missing piece (all current tests use fakes). Fits a LOW window.
+- **B1.2 — Failing test for Defect 1 (CLAUDE, small).** Using B1.1, assert `files_changed` currently comes back EMPTY for a created file (reproduces the bug as a RED test). Debugging discipline: pin before fix.
+- **B1.3 — Fix Defect 1 (DOGFOOD, small).** Executor `git add -A` (or `--intent-to-add`) before `git diff` so new files appear in `files_changed`; B1.2 goes green. First dogfood-able piece (real "make this failing test pass"). Fits a LOW window.
+- **B1.4 — Fix Defect 2 (CLAUDE, medium).** `make_judge_fn` runs REAL pytest in the worktree (`python -m pytest <acceptance_test>` in `wt_path`), not `lambda: result.raw_log`. Test: judge fails wrong code, passes right code — verified by real execution. THE load-bearing fix (why the ledger lied); judge is the safety core, Claude writes it.
+- **B1.5 — Fix Defect 3 + collect-from-worktree contract (CLAUDE design, medium/large).** Decide & implement how a slice's result is committed/collected back. Real CONCURRENT integration test: 2 slices' distinct files land in distinct branches. Largest; do last when others are solid. Save for a fuller window.
+- **Suggested grouping:** B1.1+B1.2+B1.3 = one satisfying arc in a low window (harness → red → dogfood-green). B1.4 own sitting. B1.5 a fuller window.
+
 ### BUG 2 — No way to choose the executor/model at invocation ✅ FIXED 2026-06-09
 `run_delivery.py` now has `--executor gemini[:<model>]` (default gemini); `parse_executor_spec`
 splits name:model and passes model through to `get_executor`. 6 tests; verified end-to-end via
