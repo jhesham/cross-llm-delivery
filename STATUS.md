@@ -9,7 +9,7 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `T5.2` — Parallel fan-out (run a DAG batch's independent slices concurrently in separate worktrees, each judged; aggregate). **CLAUDE-DIRECT** per routing policy — concurrency + **quota-awareness** (throttle/Flash-fallback near the Pro cap) make it judgment-heavy. Uses T5.1 `parallel_batches` + T4.2 `run_plan`. Remaining: T5.3 (borderline), T6.1-6.3 (Claude). **16/20 done.**
+**Next task:** `T5.3` — Integration gate (after a batch merges, run the FULL suite on the merged tree; on failure mark the batch for rework). Test merged-green vs merged-red. **BORDERLINE** — wires the real verify path; core "run full suite + classify pass/fail" is contract-able, so likely a dogfood with an injected runner. Remaining: T6.1-6.3 (Claude). **17/20 done.**
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
