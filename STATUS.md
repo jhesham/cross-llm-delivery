@@ -9,7 +9,7 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `T6.1` — Package as a Claude Code skill (`skill/` = SKILL.md + scripts wiring the orchestrator). **CLAUDE-DIRECT** (uses skill-creator; structural/meta). DoD: a `cross-llm-delivery` skill that, given a writing-plans plan, runs Phases 3-5; smoke-tested on a small real plan end-to-end. **Phases 0-5 COMPLETE (18/20).** Only Phase 6 left: T6.1 (skill), T6.2 (README/sharing), T6.3 (opt hook).
+**Next task:** `T5.4` — Worktree isolation for the parallel path (multi-agent safety). Wire T3.2's `worktree` CM into `run_plan_parallel` so concurrent Gemini agents each run in their OWN worktree (currently they'd share a dir — unsafe for real git). **CLAUDE-DIRECT.** Added 2026-06-09 after noticing the gap. Must land before T6.1 packaging so the shipped skill is concurrency-safe. Then Phase 6: T6.1 (skill), T6.2 (README), T6.3 (opt hook).
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
@@ -37,6 +37,7 @@
 | T5.1 DAG scheduler | 5 | ✅ done (dogfood) | 730bc92 |
 | T5.2 Parallel fan-out | 5 | ✅ done (Claude) | faee112 |
 | T5.3 Integration gate | 5 | ✅ done (dogfood) | ebffe51 |
+| T5.4 Worktree isolation (parallel) | 5 | ✅ done (Claude) | PH |
 | T6.1 Package as skill | 6 | ⬜ | |
 | T6.2 Sharing docs/README | 6 | ⬜ | |
 | T6.3 (opt) enforcement hook | 6 | ⬜ | |
