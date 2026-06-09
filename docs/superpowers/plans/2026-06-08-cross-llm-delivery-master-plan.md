@@ -195,7 +195,7 @@ def test_eval_smoke():
 
 ## Phase 4 — Progress ledger / resumability (task-specs)
 
-### T4.1 — Ledger schema
+### T4.1 — Ledger schema ✅ DONE (dogfood)
 **Files:** `src/cld/ledger.py`, `tests/test_ledger.py`
 **DoD:** JSON ledger (slice id → status done|pending|failed|in_progress, commit, attempts) with atomic read/write; round-trip + corruption-safe load tests.
 
