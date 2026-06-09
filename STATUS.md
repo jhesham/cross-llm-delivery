@@ -43,4 +43,4 @@
 | T5.7 GeminiExecutor consumes feedback | 5 | ✅ done (dogfood) | 2350b6a |
 | T6.1 Package as skill | 6 | ✅ done (Claude) | 17ffe1b |
 | T6.2 Sharing docs/README | 6 | ✅ done (Claude) | b9c4fcd |
-| T6.3 (opt) enforcement hook | 6 | ✅ done (Claude) | PH |
+| T6.3 (opt) enforcement hook | 6 | ✅ done (Claude) | 93a66e1 |
