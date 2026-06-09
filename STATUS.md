@@ -35,7 +35,7 @@
 | T4.1 Ledger schema | 4 | ✅ done (dogfood) | 3370a7e |
 | T4.2 Resumable orchestrator | 4 | ✅ done (dogfood) | 55c4ba0 |
 | T5.1 DAG scheduler | 5 | ✅ done (dogfood) | 730bc92 |
-| T5.2 Parallel fan-out | 5 | ✅ done (Claude) | PH |
+| T5.2 Parallel fan-out | 5 | ✅ done (Claude) | faee112 |
 | T5.3 Integration gate | 5 | ⬜ | |
 | T6.1 Package as skill | 6 | ⬜ | |
 | T6.2 Sharing docs/README | 6 | ⬜ | |
