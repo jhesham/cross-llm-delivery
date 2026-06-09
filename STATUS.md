@@ -37,7 +37,7 @@
 | T5.1 DAG scheduler | 5 | ✅ done (dogfood) | 730bc92 |
 | T5.2 Parallel fan-out | 5 | ✅ done (Claude) | faee112 |
 | T5.3 Integration gate | 5 | ✅ done (dogfood) | ebffe51 |
-| T5.4 Worktree isolation (parallel) | 5 | ✅ done (Claude) | PH |
+| T5.4 Worktree isolation (parallel) | 5 | ✅ done (Claude) | 2d300e4 |
 | T6.1 Package as skill | 6 | ⬜ | |
 | T6.2 Sharing docs/README | 6 | ⬜ | |
 | T6.3 (opt) enforcement hook | 6 | ⬜ | |
