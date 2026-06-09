@@ -169,12 +169,58 @@ requests; 0 errors.
 - The Gemini CLI has a native `--worktree` flag — may simplify T3.2's real-git wiring later.
 
 ## Open action items (the $ close-out)
-- [ ] Obtain Gemini 3.1 Pro Preview pricing (input / cached-input / output per 1M). User to
-      provide what the Gemini CLI / Google billing exposes.
-- [ ] Compute per-slice $ for all four slices (esp. bulk: 73,891 fresh-in + 74,515 cached-in +
-      2,241 out) vs the Opus-direct estimate (Opus 4.8 = $5/1M in, $25/1M out). Record here.
-- [ ] If Gemini $ < Opus $ on real slices → premise CONFIRMED, proceed at scale. If not →
-      revisit executor/model (`gemini-3-pro-preview`) or batch multiple slices per dispatch.
+- [x] Obtain Gemini pricing model — **DONE (2026-06-09): it's a FLAT SUBSCRIPTION, not metered.**
+- [x] Compute $ comparison — **DONE: see "COST GATE CLOSED" below.**
+- [x] Confirm premise — **CONFIRMED via subscription economics (not token efficiency).**
+
+---
+
+# COST GATE CLOSED — 2026-06-09: ✅ GO (executor cost ≈ $0 marginal)
+
+## The decisive fact: Gemini runs on a FLAT-RATE plan, not per-token billing
+
+User is on **Google AI Pro — A$32.99/month** (Australia). The Gemini CLI usage screen confirms
+the billing model is **quota-based, not metered**: usage shows as **percentages with a rolling
+reset timer** ("Pro — 24%, Resets in 12h 17m"), with separate buckets for Flash / Flash-Lite /
+Pro. There is no per-token dollar charge.
+
+**This dissolves the entire token-overhead concern.** Token *inefficiency* (the ~98% input
+overhead, the non-amortizing scaling) only costs money under metered billing. On a flat plan,
+Gemini's tokens are a **sunk cost** — they draw down a quota bucket that refills every ~12h, at
+**$0.00 marginal** per dispatch.
+
+## The corrected dollar comparison
+
+| | Opus-direct (metered, what we'd pay) | Gemini via AI Pro (flat) |
+|---|---|---|
+| Pricing model | $5/1M in, $25/1M out | A$32.99/mo flat |
+| Bulk slice (114 lines, 73.9k in + 2.2k out) | ≈ **US$0.42 marginal** | **$0.00 marginal** |
+| 100 such slices | ≈ **US$42** | **$0.00** (within quota) |
+| Marginal cost scales with | every token | nothing (until quota cap) |
+
+Empirical quota draw: our **entire session** — four real gate dispatches plus experiments — left
+the **Pro bucket at 24%** with a 12h reset. Headroom is large; we'd need ~4× this session's
+dispatch volume per 12h window to approach the ceiling.
+
+## VERDICT: ✅ GO — premise CONFIRMED (by a different mechanism than assumed)
+
+- The original "10× fewer tokens" (Composer 2.5 / Cursor) was never the right test for our
+  executor. The right test was **dollars**, and on a flat plan the answer is decisive:
+  **routing bulk implementation to Gemini is effectively free**, while the same work in Opus
+  burns metered output tokens at $25/1M.
+- **Quality: proven** (4/4 grade A). **Cost: $0 marginal.** Both halves of the premise now hold.
+- **Proceed with the cross-llm-delivery build at scale.**
+
+## The constraint that REPLACES dollars: quota / rate budget
+
+Cost is no longer the limiter; **quota exhaustion + rate limits** are. Design implications:
+- The orchestrator should be **quota-aware** for big parallel builds (Phase 5 fan-out could burn
+  the 12h Pro bucket fast). Track the Pro % and **throttle or fall back to Flash** near the cap.
+- **Minimize retries** still matters — not for $, but to conserve quota. First-dispatch-correct
+  (4/4 so far) keeps quota draw low.
+- A heavy build may need to **pace across reset windows** rather than fire everything at once.
+- Open (low priority): confirm 100%-quota behavior (hard block till reset vs Flash fallback vs
+  paid overage). Doesn't change the GO; affects only worst-case big-build pacing.
 
 ## Slices banked from the gate
 - T2.1 executor interface (merged earlier).
