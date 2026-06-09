@@ -219,6 +219,20 @@ def test_eval_smoke():
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
+### T5.6 — Behavioral eval: Claude-as-judge via DeepEval G-Eval (no OpenAI) [added 2026-06-09]
+**Why:** resolves the deepeval OpenAI-key dependency AND gives the (currently unexercised) behavioral-verification regime a real job. Based on user-supplied design feedback (Claude-as-judge headless pipeline), corrected for our as-built stack.
+**Adopt (the good parts of the feedback):**
+- Rewire the deepeval judge to **`AnthropicClaude(model="claude-sonnet-4-6", temperature=0.0)`** — kills the OpenAI dependency (no key needed; uses ANTHROPIC_API_KEY we already have).
+- Replace the T1.3 smoke test's `AnswerRelevancyMetric` (wrong fit — Q&A relevance) with **`GEval`** + a **code-compliance rubric**: INPUT = the slice spec/contract, ACTUAL_OUTPUT = Gemini's produced diff/code; criteria = "satisfies every function/constraint/error-handling in the spec."
+- **Feedback loop:** pipe the judge's `metric.reason` back into `deliver_slice`'s retry as the next-attempt prompt (smarter than blind re-dispatch). Keep `max_retries`.
+**Corrections to the feedback (do NOT adopt verbatim):**
+- Feedback's judge model `claude-3-5-sonnet-20241022` is **RETIRED** (Oct 2025) → use `claude-sonnet-4-6`.
+- Feedback has Claude *plan* via an API call; **our arch keeps Claude (Opus) as the live architect** — no scripted planning API step. Don't regress that.
+- Feedback assumes **Docker/self-hosted Langfuse**; we're on **Cloud** (Docker absent). Keep Cloud unless Docker is installed.
+- Feedback uses **old Langfuse SDK** (`langfuse.trace()/.span()`); we wired **v4** (`record_dispatch`, T5.5) — reuse our seam, don't revert.
+- **Layer, don't replace:** behavioral G-Eval is the SECOND regime; keep the deterministic pytest pass/fail + diff-rule as the primary gate. Don't swap the objective gate for a fuzzy 0.8 threshold.
+**Files:** modify `tests/evals/test_eval_smoke.py` (G-Eval + Claude judge), `src/cld/judge.py` or a new `src/cld/behavioral.py` (G-Eval wrapper), `src/cld/orchestrator.py` (reason→retry), `docs/notes/evals.md`. **CLAUDE-DIRECT.** Reference: claude-api skill for current Anthropic SDK + model ids.
+
 ### T5.5 — Langfuse span emission ✅ DONE (Claude-direct)
 **Why:** `tracing.py` (T1.2) was built but never wired — no spans are emitted, so a real run is a black box and judging relied solely on git-diff + pytest (fine for deterministic slices, but the shipped skill needs observability). This integrates the dead tracing module into the pipeline BEFORE packaging.
 **Files:** modify `src/cld/tracing.py` (+`record_dispatch`), `src/cld/orchestrator.py` (call it in `deliver_slice`), `tests/test_tracing_dispatch.py`

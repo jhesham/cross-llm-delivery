@@ -9,7 +9,10 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `T6.1` — Package as a Claude Code skill (`skill/` = SKILL.md + scripts wiring the orchestrator). **CLAUDE-DIRECT** (uses skill-creator). DoD: a `cross-llm-delivery` skill that, given a writing-plans plan, runs Phases 3-5; smoke-tested on a small real plan end-to-end (real Gemini dispatches through the assembled pipeline — the payoff). **Phases 0-5 COMPLETE incl. T5.4 multi-agent isolation + T5.5 observability (20/22).** Then T6.2 (README/sharing), T6.3 (opt hook). NOTE: engine now has worktree isolation (T5.4) + Langfuse spans (T5.5) wired — T6.1 assembles these into the runnable skill.
+**Next task:** choose between `T5.6` (banked) and `T6.1`.
+- **`T5.6` — Behavioral eval: Claude-as-judge via DeepEval G-Eval (no OpenAI).** Banked 2026-06-09 from user feedback. Rewires deepeval judge to `claude-sonnet-4-6`, swaps to G-Eval code-compliance, feeds `metric.reason` into `deliver_slice` retry. Resolves the OpenAI-key issue + makes deepeval real. See full task spec (incl. corrections to the feedback) in the master plan under T5.6. **CLAUDE-DIRECT.**
+- **`T6.1` — Package as a Claude Code skill** (skill-creator; SKILL.md + scripts wiring the orchestrator). DoD: given a writing-plans plan, runs Phases 3-5; smoke-tested on a real plan end-to-end. **CLAUDE-DIRECT.**
+**Recommendation:** do **T5.6 before T6.1** so the packaged skill ships with the behavioral regime working (no OpenAI dep) rather than as dead scaffolding. **Phases 0-5 COMPLETE incl. T5.4 isolation + T5.5 observability (20/22, +T5.6 banked). Then T6.2 (README), T6.3 (opt hook).**
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
@@ -39,6 +42,7 @@
 | T5.3 Integration gate | 5 | ✅ done (dogfood) | ebffe51 |
 | T5.4 Worktree isolation (parallel) | 5 | ✅ done (Claude) | 2d300e4 |
 | T5.5 Langfuse span emission | 5 | ✅ done (Claude) | d840653 |
+| T5.6 Behavioral eval (Claude judge, G-Eval) | 5 | ⬜ banked | |
 | T6.1 Package as skill | 6 | ⬜ | |
 | T6.2 Sharing docs/README | 6 | ⬜ | |
 | T6.3 (opt) enforcement hook | 6 | ⬜ | |
