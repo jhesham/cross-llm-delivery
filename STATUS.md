@@ -23,11 +23,14 @@ The plan is done; these are the gates to *wider sharing*. Do them IN ORDER — d
      diffs (quality + diff-rule compliance), real token/quota cost, retry/self-correction
      behavior, and whether the SLICING (not the executor) was the bottleneck. Iterate on findings.
    - Repeat until it works well "a few times" (user's bar before considering sharing).
-2. **Incorporate the OpenCode second executor.** Only after live testing proves the core.
-   Add `OpenCodeExecutor` to the registry (the `composer` stub slot). See
-   `docs/notes/opencode-executor-option.md`. (NB: user said "openai cli" — interpreted as
-   OpenCode, the headless multi-model CLI we reviewed; OpenAI has no comparable coding CLI.
-   Confirm if they meant otherwise.) Keep Gemini flat-rate as DEFAULT; OpenCode opt-in.
+2. **Incorporate the OpenCode CLI as a second executor** (user-confirmed 2026-06-09: OpenCode
+   CLI, not OpenAI). Only after live testing proves the core. Add `OpenCodeExecutor` to the
+   registry (the `composer` stub slot), wrapping `opencode run "..." --model provider/model
+   --format json --dangerously-skip-permissions --dir <wt>`. See
+   `docs/notes/opencode-executor-option.md` for the CLI mapping + cost caveat (Zen is metered
+   pay-as-you-go — keep Gemini flat-rate as DEFAULT; OpenCode opt-in, best on its cheap/free
+   tier). Mirror GeminiExecutor's shape: build argv, run via injected runner, parse tokens,
+   capture diff. Validate with one dispatch through `opencode run --format json` first.
 3. **THEN consider wider sharing** — possibly publish to GitHub. Not before steps 1–2 pass.
 
 **Gate rationale:** prove on real work → multi-executor → publish. Don't share an untested tool.
