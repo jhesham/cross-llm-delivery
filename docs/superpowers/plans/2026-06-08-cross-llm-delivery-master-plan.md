@@ -247,7 +247,7 @@ def test_eval_smoke():
 
 ## Phase 6 — Skill packaging + sharing (task-specs)
 
-### T6.1 — Package as Claude Code skill
+### T6.1 — Package as Claude Code skill ✅ DONE
 **Deps:** Phases 2–5. **Approach:** use skill-creator. **Files:** `skill/` (SKILL.md + scripts wiring orchestrator).
 **DoD:** a `cross-llm-delivery` skill that, given a writing-plans plan (slices+contracts+tests+DAG), runs Phases 3–5; smoke-tested on a small real plan end-to-end.
 

@@ -40,6 +40,6 @@
 | T5.4 Worktree isolation (parallel) | 5 | ✅ done (Claude) | 2d300e4 |
 | T5.5 Langfuse span emission | 5 | ✅ done (Claude) | d840653 |
 | T5.6 Behavioral eval (Claude judge, G-Eval) | 5 | ✅ done (mixed) | a51bf1f |
-| T6.1 Package as skill | 6 | ⬜ | |
+| T6.1 Package as skill | 6 | ✅ done (Claude) | PH |
 | T6.2 Sharing docs/README | 6 | ⬜ | |
 | T6.3 (opt) enforcement hook | 6 | ⬜ | |
