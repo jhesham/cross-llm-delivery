@@ -259,7 +259,7 @@ def test_eval_smoke():
 ### T6.2 — Sharing docs/README ✅ DONE
 **DoD:** README (install, prereqs incl. Gemini CLI + trust env var, configuring executors, cross-platform notes for macOS/Linux), LICENSE, quickstart. Honors the "share much wider" intent — no machine-specific paths.
 
-### T6.3 — (optional) Enforcement hook
+### T6.3 — (optional) Enforcement hook ✅ DONE
 **DoD:** opt-in PreToolUse hook that routes large-build implementation to the executor and keeps Claude as judge. Documented as optional/advanced.
 
 ---
