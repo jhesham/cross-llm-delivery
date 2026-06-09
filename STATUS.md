@@ -42,5 +42,5 @@
 | T5.6 Behavioral eval (Claude judge, G-Eval) | 5 | ✅ done (mixed) | a51bf1f |
 | T5.7 GeminiExecutor consumes feedback | 5 | ✅ done (dogfood) | 2350b6a |
 | T6.1 Package as skill | 6 | ✅ done (Claude) | 17ffe1b |
-| T6.2 Sharing docs/README | 6 | ⬜ | |
+| T6.2 Sharing docs/README | 6 | ✅ done (Claude) | PH |
 | T6.3 (opt) enforcement hook | 6 | ⬜ | |

@@ -256,7 +256,7 @@ def test_eval_smoke():
 **Deps:** Phases 2–5. **Approach:** use skill-creator. **Files:** `skill/` (SKILL.md + scripts wiring orchestrator).
 **DoD:** a `cross-llm-delivery` skill that, given a writing-plans plan (slices+contracts+tests+DAG), runs Phases 3–5; smoke-tested on a small real plan end-to-end.
 
-### T6.2 — Sharing docs/README
+### T6.2 — Sharing docs/README ✅ DONE
 **DoD:** README (install, prereqs incl. Gemini CLI + trust env var, configuring executors, cross-platform notes for macOS/Linux), LICENSE, quickstart. Honors the "share much wider" intent — no machine-specific paths.
 
 ### T6.3 — (optional) Enforcement hook
