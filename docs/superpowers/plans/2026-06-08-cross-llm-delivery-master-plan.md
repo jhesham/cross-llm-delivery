@@ -207,7 +207,7 @@ def test_eval_smoke():
 
 ## Phase 5 — Parallel fan-out + integration gate (task-specs)
 
-### T5.1 — DAG scheduler
+### T5.1 — DAG scheduler ✅ DONE (dogfood)
 **Files:** `src/cld/dag.py`, `tests/test_dag.py`
 **DoD:** topological layering from slice `deps[]`; detect cycles; yield parallelizable batches. Pure-function tests.
 
