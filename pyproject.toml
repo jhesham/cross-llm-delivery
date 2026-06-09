@@ -1,6 +1,9 @@
 [project]
 name = "cld"
 version = "0.1.0"
+description = "Route bulk implementation of large builds to a cheap executor LLM (Gemini) with Claude as architect + judge."
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = ["langfuse>=2.0"]
 
