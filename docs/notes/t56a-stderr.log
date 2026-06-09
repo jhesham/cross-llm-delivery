@@ -1,0 +1,5 @@
+Warning: 256-color support not detected. Using a terminal with at least 256-color support is recommended for a better visual experience.
+YOLO mode is enabled. All tool calls will be automatically approved.
+YOLO mode is enabled. All tool calls will be automatically approved.
+Ripgrep is not available. Falling back to GrepTool.
+Error executing tool read_file: Path not in workspace: Attempted path "C:\Users\Administrator\AppData\Local\Programs\Python\Python313\Lib\site-packages\deepeval\models\llms\anthropic_model.py" resolves outside the allowed workspace directories: D:\claude_server\cld-t56a-wt or the project temp directory: C:\Users\Administrator\.gemini\tmp\cld-t56a-wt
