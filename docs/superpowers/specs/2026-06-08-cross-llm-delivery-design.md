@@ -94,6 +94,19 @@ node). This keeps deterministic tests deterministic and enables later Composer/G
   blocks cursor-agent on this Windows Server machine.
 - **Pluggable executor adapter:** single contract `(task + worktree) → diff`. Composer
   (cursor-agent) and others become drop-in additions, not redesigns.
+- **v2 candidate (decided 2026-06-09): OpenCodeExecutor.** OpenCode CLI (`opencode run
+  "..." --model provider/model --format json --dangerously-skip-permissions --dir <wt>`)
+  is a clean headless executor with a major advantage: **one CLI fronts 40+ models**
+  (OpenCode Zen gateway — Gemini, GPT, Claude, DeepSeek, Qwen, etc.), giving true per-slice
+  model selection through a single adapter. Slots into the existing registry (the `composer`
+  stub slot). **Cost caveat — load-bearing:** OpenCode **Zen is metered pay-as-you-go**
+  ($/1M tokens), which would **re-introduce the per-token cost the flat-rate Gemini plan
+  dissolved** (recall: every dispatch is ~98% input overhead — irrelevant under flat billing,
+  real money under metered). **Decision: Gemini flat-rate stays the DEFAULT executor ($0
+  marginal preserved); OpenCodeExecutor is an opt-in second adapter** — attractive for (a)
+  driving a different *flat-rate/free* model, or (b) Zen's dirt-cheap tier (e.g. DeepSeek V4
+  Flash ~$0.14/$0.28 per 1M, where 98% overhead is still trivially cheap). Do NOT make a
+  metered provider the default path. See `docs/notes/opencode-executor-option.md`.
 - **Open validation:** the "≈Opus quality at ~10× fewer tokens" claim was Composer's; we
   must re-validate *cost and quality* for Gemini 3.1 Pro on a real slice (smoke test)
   before trusting it.
