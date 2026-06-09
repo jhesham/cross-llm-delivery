@@ -7,11 +7,11 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-09 (cost gate measured to bulk slice; Phases 2–3 built early by Gemini)
+**Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
 **Next task:** `T2.2` — GeminiExecutor adapter (the real-CLI wrapper). Phase 3 modules (T3.1/T3.2/T3.4 + T3.3 judge) are already built & merged via the cost-gate dispatches; T2.2 wires the executor interface to the actual Gemini CLI so the loop can run live.
 
-> ✅ **Cost gate measured (4 slices), premise RE-ANCHORED:** the "10× fewer tokens" figure was **Cursor's Composer 2.5 claim, not Gemini's** — we were measuring against the wrong bar. Confirmed: every Gemini dispatch is ~98% input overhead, non-amortizing (output stayed ~1.4% from 8→114 lines; total tokens scaled 45k→158k). BUT ~half the bulk prompt was **cached**, and Gemini input $ is cheap — so the **dollar verdict is OPEN, not NO-GO**. Quality is proven (4/4 grade A). **Open: get Gemini 3.1 Pro $ rate → compute $ vs Opus-direct.** See `docs/notes/cost-validation.md`.
+> ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
 ## Progress ledger
 
@@ -22,7 +22,7 @@
 | T1.1 Project scaffold | 1 | ✅ done | e265425 |
 | T1.2 Langfuse tracing | 1 | ✅ done | 5b075bb |
 | T1.3 deepeval harness | 1 | ✅ done | 7e7815a |
-| T1.4 Cost-validation slice | 1 | ✅ measured ($ open) | a261d1c |
+| T1.4 Cost-validation slice | 1 | ✅ GO (gate closed) | a99a121 |
 | T2.1 Executor interface | 2 | ✅ done (via T1.4) | d8b2bf6 |
 | T2.2 GeminiExecutor adapter | 2 | ⬜ next | |
 | T2.3 Executor registry + Composer stub | 2 | ⬜ | |
