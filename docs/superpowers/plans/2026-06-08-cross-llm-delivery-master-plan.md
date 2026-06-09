@@ -167,7 +167,7 @@ def test_eval_smoke():
 **Deps:** T2.1, Phase 0 notes. **Files:** `src/cld/executors/gemini.py`, `tests/executors/test_gemini.py`
 **DoD:** wraps the locked CLI form (env trust + `--yolo --skip-trust -o json`), parses `stats.models.*.tokens` into `token_usage`, returns diff via git. Unit-test by **mocking subprocess** (no live calls) — assert correct argv + parsing of a captured sample JSON (use the real Phase-0 JSON as fixture).
 
-### T2.3 — Executor registry + Composer stub
+### T2.3 — Executor registry + Composer stub ✅ DONE (dogfood)
 **Deps:** T2.2. **Files:** `src/cld/executors/__init__.py`, `src/cld/executors/composer.py` (stub raising NotImplementedError), `tests/executors/test_registry.py`
 **DoD:** `get_executor(name)` selects gemini|composer; Composer is a documented stub. Proves pluggability without building Composer.
 
