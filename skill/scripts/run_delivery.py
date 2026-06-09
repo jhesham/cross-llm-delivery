@@ -50,12 +50,32 @@ def make_judge_fn(repo_dir: str):
     return judge_fn
 
 
+def parse_executor_spec(spec: str) -> tuple[str, dict]:
+    """Parse an --executor value into (name, kwargs).
+
+    Forms: "gemini" -> ("gemini", {}); "gemini:gemini-3-pro-preview" ->
+    ("gemini", {"model": "gemini-3-pro-preview"}). The part before the first
+    colon is the executor name; the remainder (if any) is the model. This is how
+    the USER picks the LLM at invocation (not the orchestrator autonomously).
+    """
+    spec = (spec or "gemini").strip()
+    if ":" in spec:
+        name, model = spec.split(":", 1)
+        name = name.strip() or "gemini"
+        model = model.strip()
+        return (name, {"model": model} if model else {})
+    return (spec or "gemini", {})
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
+    p.add_argument("--executor", default="gemini",
+                   help="Executor to use: 'gemini' or 'gemini:<model-id>' "
+                        "(the user picks the LLM here; default gemini)")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
     args = p.parse_args(argv)
@@ -75,7 +95,8 @@ def main(argv=None) -> int:
         return 0
 
     ledger = Ledger.load(args.ledger)
-    executor = get_executor("gemini")
+    exec_name, exec_kwargs = parse_executor_spec(args.executor)
+    executor = get_executor(exec_name, **exec_kwargs)
     judge_fn = make_judge_fn(args.repo)
 
     result = run_plan_parallel(

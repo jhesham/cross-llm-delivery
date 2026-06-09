@@ -83,6 +83,11 @@ to write good slices (vertical not horizontal, injectable boundaries, right-sizi
 python skill/scripts/run_delivery.py <plan.md> --repo <repo_dir> --workers 4
 ```
 
+**Choose the executor/LLM at invocation** (the user decides, not the orchestrator):
+`--executor gemini` (default) or `--executor gemini:<model-id>` to pin a specific model.
+On Windows, prefer `--workers 1` until the parallel-worktree isolation fix lands (a
+known issue — concurrent dispatch can collide; serial is safe).
+
 What happens per slice:
 1. **Isolate** — a git worktree (`slice-<id>`) so parallel agents never collide.
 2. **Dispatch** — Gemini implements the slice in its worktree.
