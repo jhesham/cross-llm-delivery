@@ -35,3 +35,51 @@ def get_tracer() -> Langfuse:
         public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
         secret_key=os.environ["LANGFUSE_SECRET_KEY"],
     )
+
+
+def record_dispatch(
+    *,
+    slice_id: str,
+    model: str,
+    token_usage: dict,
+    accepted: bool,
+    attempts: int,
+    diff_len: int,
+    failing_tests: list,
+    tracer=None,
+) -> None:
+    """Emit one observability span per executor dispatch.
+
+    This is the integration point that makes a real run observable: each Gemini
+    dispatch records what slice ran, on which model, the token usage, whether the
+    judge accepted it, retry count, diff size, and any failing tests.
+
+    Safety contract (load-bearing): this is **best-effort and never raises**.
+    - If no `tracer` is passed, it tries `get_tracer()`; when Langfuse keys are
+      absent that raises, which we swallow → tracing is simply OFF (the current
+      default state). Missing observability must never break the build pipeline.
+    - Any error from the tracer itself is also swallowed.
+
+    `tracer` is injectable so tests (and alternative backends) can capture spans
+    without a live Langfuse. The tracer is expected to expose
+    `span(*, name, metadata)`.
+    """
+    if tracer is None:
+        try:
+            tracer = get_tracer()
+        except Exception:
+            return  # no keys / no client → tracing off, no-op
+
+    metadata = {
+        "slice_id": slice_id,
+        "model": model,
+        "token_usage": token_usage,
+        "accepted": accepted,
+        "attempts": attempts,
+        "diff_len": diff_len,
+        "failing_tests": failing_tests,
+    }
+    try:
+        tracer.span(name=f"dispatch:{slice_id}", metadata=metadata)
+    except Exception:
+        return  # observability is best-effort; never break the pipeline
