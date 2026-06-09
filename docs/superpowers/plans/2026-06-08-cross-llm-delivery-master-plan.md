@@ -163,7 +163,7 @@ def test_eval_smoke():
 **Deps:** T1.1. **Files:** `src/cld/executors/base.py`, `tests/executors/test_base.py`
 **DoD:** `Executor` Protocol with `run(task: SliceTask, workdir: Path) -> ExecutorResult`; `ExecutorResult` dataclass (diff/files_changed, token_usage, raw_log, ok); unit test for the dataclass. No real CLI yet.
 
-### T2.2 — GeminiExecutor adapter
+### T2.2 — GeminiExecutor adapter ✅ DONE
 **Deps:** T2.1, Phase 0 notes. **Files:** `src/cld/executors/gemini.py`, `tests/executors/test_gemini.py`
 **DoD:** wraps the locked CLI form (env trust + `--yolo --skip-trust -o json`), parses `stats.models.*.tokens` into `token_usage`, returns diff via git. Unit-test by **mocking subprocess** (no live calls) — assert correct argv + parsing of a captured sample JSON (use the real Phase-0 JSON as fixture).
 
