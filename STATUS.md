@@ -33,7 +33,7 @@
 | T3.3 Judge module | 3 | ✅ done | f94707a |
 | T3.4 Single-slice loop | 3 | ✅ done (via bulk) | f94707a |
 | T4.1 Ledger schema | 4 | ✅ done (dogfood) | 3370a7e |
-| T4.2 Resumable orchestrator | 4 | ✅ done (dogfood) | PH |
+| T4.2 Resumable orchestrator | 4 | ✅ done (dogfood) | 55c4ba0 |
 | T5.1 DAG scheduler | 5 | ✅ done (dogfood) | 730bc92 |
 | T5.2 Parallel fan-out | 5 | ⬜ | |
 | T5.3 Integration gate | 5 | ⬜ | |
