@@ -14,8 +14,15 @@
 ### BUG 1 — Windows parallel worktree collision (HIGH)
 On the first live run, `run_plan_parallel` with multiple workers on Windows **collided**: all 3 slices' output landed on ONE branch (`slice-S2`) instead of 3 separate worktrees. The ledger labels became unreliable as a result (called S1 "done" with no code, S2 "failed" with all the code). User recovered by NOT trusting the ledger — ran the acceptance tests as ground truth, cherry-picked the correct code, gated on the real suite (the test-as-judge discipline worked). **Root cause to investigate:** worktree creation/cwd handling under concurrent threads on Windows (likely the worktree path or the executor's cwd isn't actually isolated per-thread, or git worktree add races). **Mitigation in use:** `--workers 1` (serial — no collision) or verify-then-cherry-pick. **Fix:** make per-slice worktree isolation actually hold under Windows concurrency; add a real (non-fake) integration test that dispatches 2 slices concurrently and asserts distinct branches/dirs receive distinct files.
 
-### BUG 2 — No way to choose the executor/model at invocation (MEDIUM)
-`GeminiExecutor(model=...)` + `get_executor("gemini", model=...)` already accept a model, BUT `run_delivery.py` hardcodes `get_executor("gemini")` with NO `--executor`/`--model` flag. So the user CANNOT specify the LLM at run time. Implement the already-speced executor-selection design (see POST-BUILD ROADMAP step 2): run-level `--executor gemini[:model]` flag on run_delivery.py, default gemini. (NB: separate from any "Gemini ignores its slice contract / edits beyond allowed files" behavior — if that's the actual complaint, it's a PROMPT/diff-rule-enforcement issue, not model selection: the judge's diff-rule already flags out-of-bounds edits, but the executor prompt could be made stricter. Clarify with user which problem.)
+### BUG 2 — No way to choose the executor/model at invocation ✅ FIXED 2026-06-09
+`run_delivery.py` now has `--executor gemini[:<model>]` (default gemini); `parse_executor_spec`
+splits name:model and passes model through to `get_executor`. 6 tests; verified end-to-end via
+--dry-run. The USER picks the LLM at invocation (not the orchestrator). Forward-compatible with
+the future `opencode:<provider/model>` executor.
+(NB STILL OPEN if the real complaint was "Gemini edits beyond its slice contract / goes
+off-script" — that's NOT model selection, it's a PROMPT/diff-rule-enforcement issue: the judge's
+diff-rule already FLAGS out-of-bounds edits, but the executor prompt could be made stricter to
+PREVENT them. Clarify with user which problem they meant.)
 
 ## POST-BUILD ROADMAP (gated by the user, 2026-06-09) — sequence matters
 
