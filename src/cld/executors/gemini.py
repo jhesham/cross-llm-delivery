@@ -81,19 +81,25 @@ class GeminiExecutor:
         self._runner = runner
         self._model = model
 
-    def _build_prompt(self, task: SliceTask) -> str:
+    def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
-        return (
+        prompt = (
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
             f"Acceptance tests: {task.acceptance_test_path}\n"
             f"Do not edit the test file. Run pytest yourself and iterate until green."
         )
+        if feedback:
+            prompt += (
+                f"\n\nYour previous attempt did not pass. {feedback}\n"
+                f"Address this specifically before trying again."
+            )
+        return prompt
 
-    def run(self, task: SliceTask, workdir: Path) -> ExecutorResult:
+    def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         cwd = str(workdir)
-        prompt = self._build_prompt(task)
+        prompt = self._build_prompt(task, feedback)
 
         dispatch = [
             "gemini",
