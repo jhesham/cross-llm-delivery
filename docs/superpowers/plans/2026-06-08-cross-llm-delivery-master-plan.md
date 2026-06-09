@@ -215,7 +215,7 @@ def test_eval_smoke():
 **Files:** modify `src/cld/orchestrator.py`, `tests/test_orchestrator_parallel.py`
 **DoD:** run a batch's independent slices concurrently (separate worktrees), each judged; aggregate results. Test with fake executors + a small DAG.
 
-### T5.3 — Integration gate
+### T5.3 — Integration gate ✅ DONE (dogfood)
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
