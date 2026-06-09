@@ -7,6 +7,7 @@ from cld.dag import parallel_batches
 from cld.executors.base import SliceTask
 from cld.judge import JudgeResult
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
+from cld.tracing import record_dispatch
 from cld.worktree import worktree
 
 @dataclass
@@ -23,6 +24,8 @@ def deliver_slice(
     judge_fn: Callable,
     max_retries: int = 2,
     workdir: str | None = None,
+    model: str = "gemini-3.1-pro-preview",
+    tracer=None,
 ) -> DeliverResult:
     # workdir defaults to task.id (prior behavior); callers wiring real worktrees
     # pass the worktree path so the executor operates in an isolated directory.
@@ -33,16 +36,28 @@ def deliver_slice(
 
     for attempt in range(1, total_attempts + 1):
         result = executor.run(task, effective_workdir)
-        
+
         judge_result = judge_fn(
             files_changed=result.files_changed,
             allowed=task.files,
             run_tests=lambda: result.raw_log
         )
-        
+
         history.append(judge_result)
         final_judge_result = judge_result
-        
+
+        # Observability: record one span per dispatch (best-effort, never raises).
+        record_dispatch(
+            slice_id=task.id,
+            model=model,
+            token_usage=getattr(result, "token_usage", {}) or {},
+            accepted=judge_result.passed,
+            attempts=attempt,
+            diff_len=len(getattr(result, "diff", "") or ""),
+            failing_tests=getattr(judge_result, "failing_tests", []) or [],
+            tracer=tracer,
+        )
+
         if judge_result.passed:
             return DeliverResult(
                 accepted=True,
@@ -50,7 +65,7 @@ def deliver_slice(
                 final=final_judge_result,
                 history=history
             )
-            
+
     return DeliverResult(
         accepted=False,
         attempts=total_attempts,

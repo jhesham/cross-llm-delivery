@@ -219,6 +219,11 @@ def test_eval_smoke():
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
+### T5.5 — Langfuse span emission ✅ DONE (Claude-direct)
+**Why:** `tracing.py` (T1.2) was built but never wired — no spans are emitted, so a real run is a black box and judging relied solely on git-diff + pytest (fine for deterministic slices, but the shipped skill needs observability). This integrates the dead tracing module into the pipeline BEFORE packaging.
+**Files:** modify `src/cld/tracing.py` (+`record_dispatch`), `src/cld/orchestrator.py` (call it in `deliver_slice`), `tests/test_tracing_dispatch.py`
+**DoD:** `record_dispatch(*, slice_id, model, token_usage, accepted, attempts, diff_len, failing_tests, tracer=None)` emits a Langfuse span; **no-op (swallowed) when Langfuse keys are absent** so runs/tests never break; injectable `tracer` for testing. `deliver_slice` calls it once per slice with the dispatch facts. Tests: injected fake tracer captures a span with the right payload; absent-keys path is a safe no-op. **CLAUDE-DIRECT.**
+
 ### T5.4 — Worktree isolation for the parallel path (multi-agent safety) [added 2026-06-09]
 **Why:** `run_plan_parallel` (T5.2) runs concurrent Gemini agents but passed `task.id` as a placeholder workdir — concurrent agents would share a directory, unsafe for real git. T3.2's worktree CM existed but wasn't wired in. This task makes multi-agent dispatch provably isolated BEFORE packaging (T6.1).
 **Files:** modify `src/cld/orchestrator.py`, `tests/test_orchestrator_worktree.py`
