@@ -9,7 +9,9 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `T6.3` — **(OPTIONAL)** enforcement hook: an opt-in PreToolUse hook that routes large-build implementation to the executor and keeps Claude as judge. Documented as optional/advanced. **CLAUDE-DIRECT.** **24/25 done — the product is COMPLETE and shippable; T6.3 is the only remaining (optional) task.** The build can be declared finished here if T6.3 isn't wanted. REMAINING FOLLOW-UP (optional): a live-Gemini end-to-end smoke of the skill (assembly verified deterministically, not yet a live dispatch).
+**Next task:** 🎉 **NONE — PLAN COMPLETE (25/25).** Every task T1.1–T6.3 is done, tested (108 passed), committed. The product is built, packaged as a skill, documented for sharing, and the cost premise is proven. Nothing remains in the plan.
+
+**OPTIONAL future work (not plan tasks):** (1) a **live-Gemini end-to-end smoke** of the assembled skill on a real use case (user deferred to a separate sitting — assembly was verified deterministically, not yet a live full-pipeline dispatch); (2) the **OpenCode second-executor adapter** (banked option, `docs/notes/opencode-executor-option.md`).
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
