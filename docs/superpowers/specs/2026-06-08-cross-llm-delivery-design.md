@@ -72,7 +72,7 @@ elevated to **judge**. The parallel fan-out reuses the `dispatching-parallel-age
 |---|---|---|
 | Deterministic plumbing tests (the bulk) | **pytest** | structural: state transitions, wiring, routing, tools, persistence — mocked LLM/tool boundary |
 | Behavioral evals | **deepeval** (pytest-native) | agent reasoning/routing quality via golden scenarios + LLM-as-judge; runs under the same `pytest` command |
-| Tracing / observability | **Langfuse** (open-source, self-hosted) | the behavioral verification *signal* — Claude judges agent behavior by reading traces |
+| Tracing / observability | **Langfuse Cloud** (self-host was the original intent; Docker absent → Cloud, T1.2. Wired via `record_dispatch`, T5.5) | the behavioral verification *signal* — Claude judges agent behavior by reading traces |
 
 Build only the domain-specific scenarios and glue; harnesses are off-the-shelf.
 

@@ -6,7 +6,7 @@
 
 **Architecture:** Claude decomposes a build into vertical slices (contracts + acceptance tests + dependency DAG). An orchestrator dispatches each slice to a headless executor CLI in an isolated git worktree, then Claude judges the diff against pytest/deepeval. Independent slices run in parallel; an integration gate validates merges; a progress ledger makes builds resumable. Packaged as a shareable Claude Code skill.
 
-**Tech stack:** Python 3.13, LangGraph, pytest, deepeval, Langfuse (self-hosted), Gemini CLI (`gemini-3.1-pro-preview`), git worktrees, Claude Code skill.
+**Tech stack (as-built, corrected 2026-06-09):** Python ≥3.11 (dev on 3.13), pytest, Langfuse **Cloud** (wired via `record_dispatch`, T5.5), Gemini CLI (`gemini-3.1-pro-preview`), git worktrees, Claude Code skill (T6.1). **deepeval** is a *dev-only* harness gated behind `pytest -m eval` (not used by the engine). **LangGraph removed** — it was a vestigial dep from the original design assumption; `cld` itself is plain Python (threads/dataclasses/subprocess) and never imported it. (Executor-*built* systems may be LangGraph agents, but the orchestrator is not.)
 
 ---
 
