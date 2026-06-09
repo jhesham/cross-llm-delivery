@@ -32,7 +32,7 @@
 | T3.2 Worktree manager | 3 | ✅ done (via bulk) | f94707a |
 | T3.3 Judge module | 3 | ✅ done | f94707a |
 | T3.4 Single-slice loop | 3 | ✅ done (via bulk) | f94707a |
-| T4.1 Ledger schema | 4 | ✅ done (dogfood) | PLACEHOLDER |
+| T4.1 Ledger schema | 4 | ✅ done (dogfood) | 3370a7e |
 | T4.2 Resumable orchestrator | 4 | ⬜ | |
 | T5.1 DAG scheduler | 5 | ⬜ | |
 | T5.2 Parallel fan-out | 5 | ⬜ | |
