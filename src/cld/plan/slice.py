@@ -1,0 +1,49 @@
+import re
+from typing import List
+from cld.executors.base import SliceTask
+
+def load_slices(markdown: str) -> list[SliceTask]:
+    slices = []
+    current_slice = {}
+    lines = markdown.splitlines()
+    for line in lines:
+        if line.startswith("## SLICE:"):
+            if current_slice:
+                slices.append(_dict_to_slice(current_slice))
+            current_slice = {"id": line.replace("## SLICE:", "").strip()}
+        elif current_slice and ":" in line:
+            key, val = line.split(":", 1)
+            key = key.strip()
+            val = val.strip()
+            if key == "brief":
+                current_slice["brief"] = val
+            elif key == "acceptance_test_path":
+                current_slice["acceptance_test_path"] = val
+            elif key in ("files", "deps"):
+                if val:
+                    current_slice[key] = [v.strip() for v in val.split(",") if v.strip()]
+                else:
+                    current_slice[key] = []
+    if current_slice:
+        slices.append(_dict_to_slice(current_slice))
+    return slices
+
+def _dict_to_slice(d: dict) -> SliceTask:
+    return SliceTask(
+        id=d.get("id", ""),
+        brief=d.get("brief", ""),
+        files=d.get("files", []),
+        acceptance_test_path=d.get("acceptance_test_path", ""),
+        deps=d.get("deps", [])
+    )
+
+def slices_to_markdown(slices: list[SliceTask]) -> str:
+    lines = []
+    for s in slices:
+        lines.append(f"## SLICE: {s.id}")
+        lines.append(f"brief: {s.brief}")
+        lines.append(f"files: {', '.join(s.files)}")
+        lines.append(f"acceptance_test_path: {s.acceptance_test_path}")
+        lines.append(f"deps: {', '.join(s.deps)}")
+        lines.append("")
+    return "\n".join(lines)
