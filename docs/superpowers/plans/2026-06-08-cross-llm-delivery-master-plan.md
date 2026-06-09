@@ -219,6 +219,11 @@ def test_eval_smoke():
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
+### T5.4 — Worktree isolation for the parallel path (multi-agent safety) [added 2026-06-09]
+**Why:** `run_plan_parallel` (T5.2) runs concurrent Gemini agents but passed `task.id` as a placeholder workdir — concurrent agents would share a directory, unsafe for real git. T3.2's worktree CM existed but wasn't wired in. This task makes multi-agent dispatch provably isolated BEFORE packaging (T6.1).
+**Files:** modify `src/cld/orchestrator.py`, `tests/test_orchestrator_worktree.py`
+**DoD:** `run_plan_parallel` accepts optional `repo_dir` + `git_runner`; when given, each slice runs inside its own `worktree(repo_dir, branch="slice-<id>", runner=git_runner)` and the executor receives the **yielded worktree path** as its workdir. Distinct branch/path per concurrent slice. Backward-compatible: without `repo_dir`, falls back to current behavior. Test: two concurrent slices get distinct worktree paths; worktree add/remove issued per slice; fallback path unchanged. **CLAUDE-DIRECT** (concurrency wiring + fallback judgment).
+
 ---
 
 ## Phase 6 — Skill packaging + sharing (task-specs)
