@@ -1,12 +1,10 @@
 import dataclasses
 import os
-from deepeval.metrics import GEval
-from deepeval.test_case import LLMTestCase
-from deepeval.test_case import LLMTestCaseParams
-from deepeval.models import AnthropicModel
 
-# Ensure AnthropicModel can be constructed offline without failing
-os.environ.setdefault("ANTHROPIC_API_KEY", "mock-offline")
+from deepeval.metrics import GEval
+from deepeval.models import AnthropicModel
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+
 
 @dataclasses.dataclass
 class BehavioralResult:
@@ -14,12 +12,26 @@ class BehavioralResult:
     passed: bool
     reason: str = ""
 
+
 def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8) -> GEval:
+    """Build the code-compliance G-Eval metric judged by Claude (no OpenAI).
+
+    `AnthropicModel` requires an API key at construction time. When ANTHROPIC_API_KEY
+    is absent (offline tests that inject a fake metric and never call the judge), we
+    pass a scoped placeholder so the object constructs — it is never used unless
+    `.measure()` actually runs, which only happens with a real key present. This keeps
+    the workaround local to the factory instead of a module-import side effect.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or "offline-placeholder"
     return GEval(
         name="Architectural Compliance",
-        criteria="Assess whether the generated code satisfies every function, constraint, and error-handling requirement in the spec. Penalise missing functions or ignored constraints.",
+        criteria=(
+            "Assess whether the generated code satisfies every function, constraint, "
+            "and error-handling requirement in the spec. Penalise missing functions "
+            "or ignored constraints."
+        ),
         evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
-        model=AnthropicModel(model=judge_model, temperature=0.0),
+        model=AnthropicModel(model=judge_model, temperature=0.0, api_key=api_key),
         threshold=threshold,
     )
 

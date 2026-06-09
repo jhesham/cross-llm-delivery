@@ -33,9 +33,18 @@ def deliver_slice(
     history = []
     final_judge_result = None
     total_attempts = max_retries + 1
+    feedback = None  # set after a failed attempt, fed to the next dispatch
 
     for attempt in range(1, total_attempts + 1):
-        result = executor.run(task, effective_workdir)
+        # Pass judge feedback into the retry so the executor can self-correct.
+        # Executors that don't accept a `feedback` kwarg (legacy) keep working.
+        if feedback is None:
+            result = executor.run(task, effective_workdir)
+        else:
+            try:
+                result = executor.run(task, effective_workdir, feedback=feedback)
+            except TypeError:
+                result = executor.run(task, effective_workdir)
 
         judge_result = judge_fn(
             files_changed=result.files_changed,
@@ -65,6 +74,20 @@ def deliver_slice(
                 final=final_judge_result,
                 history=history
             )
+
+        # Failed: build feedback for the next attempt from the judge result.
+        failing = getattr(judge_result, "failing_tests", []) or []
+        disallowed = getattr(judge_result, "disallowed_edits", []) or []
+        parts = []
+        if failing:
+            parts.append("Failing tests: " + ", ".join(failing))
+        if disallowed:
+            parts.append("Edited files outside the allowed set: " + ", ".join(disallowed))
+        feedback = (
+            "Your previous attempt did not pass. "
+            + " ".join(parts)
+            + " Fix these and try again."
+        ) if parts else "Your previous attempt did not pass. Fix the failures and try again."
 
     return DeliverResult(
         accepted=False,

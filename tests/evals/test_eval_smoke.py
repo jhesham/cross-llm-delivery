@@ -1,8 +1,11 @@
-"""T1.3: deepeval behavioral-eval smoke test.
+"""T5.6: behavioral-eval smoke test — Claude-as-judge G-Eval (no OpenAI).
 
-This is the *intelligence* verification regime (see design doc): non-deterministic,
-LLM-as-judge. It is marked `eval` and excluded from the default `pytest` run, which
-stays fast/offline. Run it with `pytest -m eval` (needs OPENAI_API_KEY).
+The *intelligence* verification regime (design doc): non-deterministic, LLM-as-judge.
+Marked `eval` and excluded from the default `pytest` run, which stays fast/offline.
+Run the live judge with `pytest -m eval` (needs ANTHROPIC_API_KEY — NOT OpenAI).
+
+This exercises cld.behavioral.evaluate_compliance with the real Claude judge: it scores
+a trivially-compliant code sample against a tiny spec and asserts a passing score.
 """
 
 import os
@@ -12,14 +15,14 @@ import pytest
 pytestmark = pytest.mark.eval
 
 
-def test_eval_smoke():
-    if not os.environ.get("OPENAI_API_KEY"):
-        pytest.skip("OPENAI_API_KEY not set; deepeval LLM-judge eval skipped")
+def test_behavioral_eval_smoke_claude_judge():
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set; Claude-judge behavioral eval skipped")
 
-    from deepeval.metrics import AnswerRelevancyMetric
-    from deepeval.test_case import LLMTestCase
+    from cld.behavioral import evaluate_compliance
 
-    tc = LLMTestCase(input="say hi", actual_output="hi there")
-    metric = AnswerRelevancyMetric(threshold=0.1)
-    metric.measure(tc)
-    assert metric.score >= 0.1
+    spec = "Write a function add(a, b) that returns the sum of a and b."
+    code = "def add(a, b):\n    return a + b\n"
+    result = evaluate_compliance(spec, code)  # real Claude judge via G-Eval
+    assert result.score >= 0.5
+    assert isinstance(result.reason, str)

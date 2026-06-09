@@ -219,7 +219,7 @@ def test_eval_smoke():
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
-### T5.6 — Behavioral eval: Claude-as-judge via DeepEval G-Eval (no OpenAI) [added 2026-06-09]
+### T5.6 — Behavioral eval: Claude-as-judge G-Eval ✅ DONE (5.6a dogfood + 5.6b/c Claude)
 **Why:** resolves the deepeval OpenAI-key dependency AND gives the (currently unexercised) behavioral-verification regime a real job. Based on user-supplied design feedback (Claude-as-judge headless pipeline), corrected for our as-built stack.
 **Adopt (the good parts of the feedback):**
 - Rewire the deepeval judge to **`AnthropicClaude(model="claude-sonnet-4-6", temperature=0.0)`** — kills the OpenAI dependency (no key needed; uses ANTHROPIC_API_KEY we already have).
