@@ -1,0 +1,97 @@
+You are implementing THREE Python modules to make a pre-written pytest acceptance test pass.
+
+# BULK slice brief — single-slice loop (T3.1 + T3.2 + T3.4 in one dispatch)
+
+Implement THREE modules so that `tests/test_bulk_loop.py` passes. This is a deliberately large,
+multi-file slice. Do NOT modify the test file. Only create/modify:
+`src/cld/plan/__init__.py`, `src/cld/plan/slice.py`, `src/cld/worktree.py`, `src/cld/orchestrator.py`.
+
+You may import the EXISTING contracts (do not modify them):
+- `from cld.executors.base import SliceTask, ExecutorResult, Executor`
+- `from cld.judge import judge, JudgeResult`
+
+## Module 1 — `src/cld/plan/slice.py`  (loader for SliceTask)
+
+`SliceTask` already exists in `cld.executors.base` (fields: id, brief, files, acceptance_test_path,
+deps). Implement a loader:
+
+`load_slices(markdown: str) -> list[SliceTask]`
+Parse a plan markdown of the following shape and return SliceTask objects in document order:
+
+```
+## SLICE: T1
+brief: Do the first thing
+files: src/a.py, tests/test_a.py
+acceptance_test_path: tests/test_a.py
+deps:
+
+## SLICE: T2
+brief: Do the second thing
+files: src/b.py
+acceptance_test_path: tests/test_b.py
+deps: T1
+```
+
+Rules:
+- Each slice starts at a line `## SLICE: <id>`. `<id>` is trimmed.
+- `brief:`, `files:`, `acceptance_test_path:`, `deps:` are `key: value` lines under a slice header.
+- `files` and `deps` are comma-separated; empty value → empty list. Strip each entry.
+- Ignore blank lines and any line not matching a known key (be tolerant).
+- Return `[]` for empty input.
+
+Also implement `slices_to_markdown(slices: list[SliceTask]) -> str` producing the same format,
+such that `load_slices(slices_to_markdown(x))` round-trips (same ids/briefs/files/deps).
+
+## Module 2 — `src/cld/worktree.py`  (git worktree context manager)
+
+`worktree(repo_dir: str, branch: str, *, runner=...) -> context manager yielding the worktree path`
+
+- Implement as a `@contextlib.contextmanager`.
+- On enter: choose a worktree path (e.g. sibling dir `<repo_dir>-wt-<branch>`), then invoke the
+  injected `runner` to run `git worktree add -b <branch> <path> <base>` (base defaults to "HEAD").
+- On exit (even on exception): invoke `runner` to run `git worktree remove --force <path>`.
+- `runner` is an INJECTED callable `runner(args: list[str], cwd: str) -> tuple[int, str]` returning
+  `(returncode, output)`. Do NOT hardcode subprocess — DI so tests pass a fake runner.
+- `yield` the worktree path string.
+- If the add command returns nonzero, raise `RuntimeError(output)` and do not attempt removal.
+- Expose the worktree path and provide a way for tests to see which git commands were issued via
+  the injected runner (the runner records them — tests own the runner).
+
+## Module 3 — `src/cld/orchestrator.py`  (deliver_slice loop)
+
+`deliver_slice(task: SliceTask, *, executor, judge_fn, max_retries=2) -> DeliverResult`
+
+Where `DeliverResult` is a dataclass you define here with fields:
+`accepted: bool`, `attempts: int`, `final: JudgeResult | None`, `history: list[JudgeResult]`
+(history defaults to empty list via default_factory).
+
+Logic (sequential, one slice):
+1. For attempt in 1..(max_retries+1):
+   a. Call `executor.run(task, workdir)` — use `task.id` as a stand-in workdir path string
+      (a real worktree is wired later; here the executor is injected/fake).
+   b. Call `judge_fn(files_changed=result.files_changed, allowed=task.files, run_tests=...)`.
+      For `run_tests`, pass a callable returning `result.raw_log` (the executor's captured test
+      output). i.e. `run_tests=lambda: result.raw_log`.
+   c. Append the JudgeResult to history.
+   d. If `judge_result.passed` → return DeliverResult(accepted=True, attempts=attempt,
+      final=judge_result, history=history).
+2. If all attempts fail → return DeliverResult(accepted=False, attempts=max_retries+1,
+   final=<last judge result>, history=history).
+
+- `executor` satisfies the `Executor` protocol (injected; tests pass a fake).
+- `judge_fn` is injected (tests pass the real `cld.judge.judge` or a fake). DI throughout.
+
+## Design rules (enforced by Claude as judge)
+- ALL external effects (git, subprocess, executor, judge) go through injected callables/objects.
+  No hardcoded subprocess in any module.
+- stdlib only (`dataclasses`, `re`, `contextlib`, `typing`). Reuse existing cld contracts.
+- Mutable dataclass defaults via `field(default_factory=...)`.
+- Round-trip and loop invariants must hold exactly as the tests specify.
+
+## Done
+`python -m pytest tests/test_bulk_loop.py` → all tests pass.
+
+
+Work in the current directory. Create the files listed in the brief to satisfy the tests. Run
+python -m pytest tests/test_bulk_loop.py -q yourself and iterate until ALL tests pass.
+Do not edit the test file. Do not touch files outside the four listed source files.
