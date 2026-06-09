@@ -148,3 +148,42 @@ def test_gemini_run_nonzero_dispatch_is_not_ok():
     res = ex.run(task, "/work")
     assert res.ok is False
     assert "boom" in res.raw_log
+
+
+# ---- T5.7: retry feedback flows into the dispatched prompt ----
+
+def test_gemini_feedback_appears_in_prompt_on_retry():
+    runner = _runner_ok()
+    ex = GeminiExecutor(runner=runner)
+    task = SliceTask(id="T", brief="do the thing", files=["src/cld/x.py"],
+                     acceptance_test_path="tests/test_x.py")
+    feedback = "Failing tests: tests/test_x.py::test_foo"
+    ex.run(task, "/work", feedback=feedback)
+    dispatch_argv = runner.calls[0][0]
+    joined = " ".join(dispatch_argv)
+    # the feedback text must land inside the dispatched prompt
+    assert "test_foo" in joined
+    assert "previous attempt" in joined.lower()
+
+
+def test_gemini_no_feedback_prompt_unchanged_first_attempt():
+    runner = _runner_ok()
+    ex = GeminiExecutor(runner=runner)
+    task = SliceTask(id="T", brief="do the thing", files=["src/cld/x.py"],
+                     acceptance_test_path="tests/test_x.py")
+    ex.run(task, "/work")  # no feedback
+    joined = " ".join(runner.calls[0][0])
+    # first-attempt prompt must NOT contain retry-feedback framing
+    assert "previous attempt" not in joined.lower()
+    # but still contains the brief
+    assert "do the thing" in joined
+
+
+def test_gemini_run_still_works_without_feedback_kwarg():
+    # backward-compat: positional call with no feedback behaves as before
+    ex = GeminiExecutor(runner=_runner_ok(diff="D"))
+    task = SliceTask(id="T", brief="b", files=["src/cld/x.py"],
+                     acceptance_test_path="t.py")
+    res = ex.run(task, "/work")
+    assert res.ok is True
+    assert res.diff == "D"

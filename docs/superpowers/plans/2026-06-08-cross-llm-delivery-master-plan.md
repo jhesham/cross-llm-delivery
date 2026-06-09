@@ -219,6 +219,11 @@ def test_eval_smoke():
 **Files:** `src/cld/integration_gate.py`, `tests/test_integration_gate.py`
 **DoD:** after a batch merges, run full suite on merged tree; on failure, mark batch for rework. Test merged-green vs merged-red.
 
+### T5.7 — GeminiExecutor consumes retry feedback [added 2026-06-09] (DOGFOOD)
+**Why:** T5.6c plumbed judge feedback into `deliver_slice`'s retry, but `GeminiExecutor.run(task, workdir)` has no `feedback` param, so feedback was dropped via the TypeError fallback — retries re-dispatched the SAME prompt, blind. This connects the last inch so the executor self-corrects.
+**Files:** modify `src/cld/executors/gemini.py`, add cases to `tests/executors/test_gemini.py`.
+**DoD:** `GeminiExecutor.run(self, task, workdir, feedback=None)` (backward compatible). `_build_prompt(task, feedback=None)` appends a "previous attempt failed: <reason>; fix and retry" section when feedback present. Tests: feedback appears in dispatched prompt argv when passed; absent on first attempt; existing T2.2 tests still pass.
+
 ### T5.6 — Behavioral eval: Claude-as-judge G-Eval ✅ DONE (5.6a dogfood + 5.6b/c Claude)
 **Why:** resolves the deepeval OpenAI-key dependency AND gives the (currently unexercised) behavioral-verification regime a real job. Based on user-supplied design feedback (Claude-as-judge headless pipeline), corrected for our as-built stack.
 **Adopt (the good parts of the feedback):**
