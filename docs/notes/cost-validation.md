@@ -108,3 +108,76 @@ parallel fan-out. Record that measurement here.
 Per the user's decision to **keep** the slice (not throw it away), `src/cld/executors/base.py`
 (+ `__init__.py`) is merged to master. **T2.1 is therefore complete** — built by Gemini, judged by
 Claude. Even on the cost caveat, the code is correct `cld` code and is kept regardless of the gate.
+
+---
+
+# UPDATE — 2026-06-09: Large-slice + bulk-slice measurements + premise re-anchoring
+
+## Correction to the premise (important)
+
+The "**≈Opus quality at ~10× fewer tokens**" figure was **Cursor's claim for Composer 2.5** —
+it was **never a Gemini 3.1 Pro claim**. Earlier framing in this doc that treated "10× fewer
+tokens" as the bar for Gemini was holding Gemini to a number it never promised — a
+measurement-design error. The correct question for our **chosen** v1 executor (Gemini 3.1 Pro)
+is simply: **does routing a slice to Gemini cost fewer DOLLARS than implementing it directly in
+Opus**, given Gemini's (cheap, heavily-cached) input pricing? That is a $ question, not a
+token-ratio question.
+
+## Two more slices measured (the carry-forward gate)
+
+| Slice | Total tokens | Output (cand.) | Lines | Output/Total | Quality |
+|---|---|---|---|---|---|
+| Phase 0 (toy) | 45,162 | 498 | 8 | 1.1% | A |
+| T1.4 (interface) | 52,188 | 578 | 24 | 1.1% | A |
+| **T3.3 (judge)** | 78,494 | 1,063 | 51 | 1.4% | A |
+| **Bulk (3 files, T3.1+T3.2+T3.4)** | 157,956 | 2,241 | 114 | 1.4% | A |
+
+Bulk-slice token breakdown: input 73,891 fresh + **74,515 cached** + 2,241 output; 9 API
+requests; 0 errors.
+
+## What is now PROVEN (token structure)
+
+1. **Quality: settled.** Four A-grade dispatches, four contract-correct results, zero rework.
+   Gemini reliably turns a Claude-authored failing-test contract into clean, idiomatic,
+   DI-honoring code. This is no longer in question.
+2. **Per-dispatch token cost is ~98% input overhead, and it does NOT amortize — it scales.**
+   Tripling the work (51→114 lines) left output at ~1.4% of total and pushed *total* tokens
+   45k→158k, because the workspace + test re-read recurs on each internal iteration/retry.
+   **Bigger slices cost proportionally more tokens, not less.** This kills any expectation of a
+   *token-count* advantage from large slices on this codebase.
+3. **BUT ~half the bulk prompt was CACHED (74.5k of 148k).** Gemini's input is cheap and its
+   cache is cheaper still — so the *dollar* verdict can diverge sharply from the token verdict.
+
+## DECISION: continue building; cost verdict remains OPEN pending the real $ rate
+
+- **NOT a NO-GO.** The earlier instinct to call NO-GO was anchored to the wrong (Composer)
+  benchmark. Against the correct question — Gemini $ vs Opus $ — we have **not yet computed
+  dollars**, because the Gemini 3.1 Pro Preview price is not available in this environment and
+  the CLI exposes no cost/usage field (confirmed: `gemini --help` has no billing surface; the
+  `-o json` stats carry tokens only).
+- **Industry context (user):** Gemini 3.1 Pro is noted for lower token usage / higher cost
+  efficiency; cheap cached input could make the $ comparison favorable *despite* the 1.4% output
+  ratio. Plausible but **unmeasured** — must be confirmed with the actual rate.
+
+## Design input carried forward (regardless of $ outcome)
+
+- **Prefer fewer, larger dispatches** only if $-justified — but note retries multiply the
+  re-read cost, so **minimize retries** (tighten contracts so first-dispatch-correct stays the
+  norm; it has been 4/4 so far).
+- **Lean on Gemini's prompt caching** — keep the workspace/test prefix byte-stable across the
+  dispatch + any retry so cached-input pricing applies.
+- The Gemini CLI has a native `--worktree` flag — may simplify T3.2's real-git wiring later.
+
+## Open action items (the $ close-out)
+- [ ] Obtain Gemini 3.1 Pro Preview pricing (input / cached-input / output per 1M). User to
+      provide what the Gemini CLI / Google billing exposes.
+- [ ] Compute per-slice $ for all four slices (esp. bulk: 73,891 fresh-in + 74,515 cached-in +
+      2,241 out) vs the Opus-direct estimate (Opus 4.8 = $5/1M in, $25/1M out). Record here.
+- [ ] If Gemini $ < Opus $ on real slices → premise CONFIRMED, proceed at scale. If not →
+      revisit executor/model (`gemini-3-pro-preview`) or batch multiple slices per dispatch.
+
+## Slices banked from the gate
+- T2.1 executor interface (merged earlier).
+- **T3.3 judge module** — merged (`feat(T3.3)`), 13/13 tests, grade A.
+- **T3.1 + T3.2 + T3.4** (plan loader, worktree CM, deliver_slice loop) — merged via the bulk
+  slice, 11/11 tests, grade A. **Phase 3 is now effectively complete**, built by Gemini.
