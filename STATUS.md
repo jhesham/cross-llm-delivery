@@ -9,7 +9,7 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `T4.1` — Ledger schema (JSON: slice id → status done|pending|failed|in_progress, commit, attempts; atomic R/W; corruption-safe). Phase 2 & 3 complete. DOGFOOD candidate (clean self-contained logic). Phase 4 is the resumability the build hand-rolls via STATUS.md.
+**Next task:** `T4.2` — Resumable orchestrator (orchestrator reads ledger, skips done slices, persists after each; simulated mid-build stop + fresh start resumes from right slice). **BORDERLINE** per routing policy — it edits the existing `orchestrator.py`; decide dogfood-vs-Claude at the time (lean: tightly-scoped dispatch or Claude-direct since it touches a load-bearing file).
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
@@ -32,7 +32,7 @@
 | T3.2 Worktree manager | 3 | ✅ done (via bulk) | f94707a |
 | T3.3 Judge module | 3 | ✅ done | f94707a |
 | T3.4 Single-slice loop | 3 | ✅ done (via bulk) | f94707a |
-| T4.1 Ledger schema | 4 | ⬜ | |
+| T4.1 Ledger schema | 4 | ✅ done (dogfood) | PLACEHOLDER |
 | T4.2 Resumable orchestrator | 4 | ⬜ | |
 | T5.1 DAG scheduler | 5 | ⬜ | |
 | T5.2 Parallel fan-out | 5 | ⬜ | |
