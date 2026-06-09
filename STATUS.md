@@ -11,7 +11,26 @@
 
 **Next task:** 🎉 **NONE — PLAN COMPLETE (25/25).** Every task T1.1–T6.3 is done, tested (108 passed), committed. The product is built, packaged as a skill, documented for sharing, and the cost premise is proven. Nothing remains in the plan.
 
-**OPTIONAL future work (not plan tasks):** (1) a **live-Gemini end-to-end smoke** of the assembled skill on a real use case (user deferred to a separate sitting — assembly was verified deterministically, not yet a live full-pipeline dispatch); (2) the **OpenCode second-executor adapter** (banked option, `docs/notes/opencode-executor-option.md`).
+## POST-BUILD ROADMAP (gated by the user, 2026-06-09) — sequence matters
+
+The plan is done; these are the gates to *wider sharing*. Do them IN ORDER — do not jump to publishing.
+
+1. **LIVE TEST(S) on a real use case.** User finds a real build, runs it via the skill
+   (`python skill/scripts/run_delivery.py <plan.md> --repo <dir>`), sees how it goes. First
+   EXTERNAL use — will surface what our internal 11/11 clean dogfood runs never did.
+   - **Claude review after each run** (user requested): point Claude at the repo + the ledger
+     (`.cld-ledger.json`) + run output. Review covers: per-slice pass/fail/attempts, Gemini's
+     diffs (quality + diff-rule compliance), real token/quota cost, retry/self-correction
+     behavior, and whether the SLICING (not the executor) was the bottleneck. Iterate on findings.
+   - Repeat until it works well "a few times" (user's bar before considering sharing).
+2. **Incorporate the OpenCode second executor.** Only after live testing proves the core.
+   Add `OpenCodeExecutor` to the registry (the `composer` stub slot). See
+   `docs/notes/opencode-executor-option.md`. (NB: user said "openai cli" — interpreted as
+   OpenCode, the headless multi-model CLI we reviewed; OpenAI has no comparable coding CLI.
+   Confirm if they meant otherwise.) Keep Gemini flat-rate as DEFAULT; OpenCode opt-in.
+3. **THEN consider wider sharing** — possibly publish to GitHub. Not before steps 1–2 pass.
+
+**Gate rationale:** prove on real work → multi-executor → publish. Don't share an untested tool.
 
 > ✅ **COST GATE CLOSED = GO.** Decisive fact: Gemini runs on a **flat-rate plan** (Google AI Pro, A$32.99/mo) — billing is **quota %, not per-token** (CLI shows "Pro 24%, resets 12h"). So executor tokens are **$0 marginal**; the token-overhead finding (~98% input, non-amortizing) is economically **irrelevant** under flat billing. vs Opus-direct (~$0.42/bulk slice metered) Gemini wins decisively. Quality proven 4/4 grade A. **New constraint = quota/rate budget, not $:** make the orchestrator quota-aware (throttle/Flash-fallback near cap) for Phase 5 fan-out. See `docs/notes/cost-validation.md` → "COST GATE CLOSED".
 
