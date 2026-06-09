@@ -115,7 +115,8 @@ def test_gemini_run_builds_locked_argv():
     dispatch_argv = runner.calls[0][0]
     joined = " ".join(dispatch_argv)
     # locked invocation form (the proven one): -p, model, --yolo, --skip-trust, -o json
-    assert "gemini" in dispatch_argv
+    # argv[0] is the gemini CLI — bare "gemini" on POSIX, "gemini.cmd" on Windows.
+    assert dispatch_argv[0] in ("gemini", "gemini.cmd")
     assert "-p" in dispatch_argv
     assert "gemini-3.1-pro-preview" in dispatch_argv
     assert "--yolo" in dispatch_argv
