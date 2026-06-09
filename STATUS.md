@@ -9,7 +9,13 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** 🎉 **NONE — PLAN COMPLETE (25/25).** Every task T1.1–T6.3 is done, tested (108 passed), committed. The product is built, packaged as a skill, documented for sharing, and the cost premise is proven. Nothing remains in the plan.
+**Next task:** 🔧 **FIRST-LIVE-RUN BUGS — fix before continuing the advisor build (Sitting B).** The plan was 25/25 complete, but the FIRST real external run (rac-agent advisor S1–S3, 2026-06-09) surfaced two real defects. Fix these next sitting:
+
+### BUG 1 — Windows parallel worktree collision (HIGH)
+On the first live run, `run_plan_parallel` with multiple workers on Windows **collided**: all 3 slices' output landed on ONE branch (`slice-S2`) instead of 3 separate worktrees. The ledger labels became unreliable as a result (called S1 "done" with no code, S2 "failed" with all the code). User recovered by NOT trusting the ledger — ran the acceptance tests as ground truth, cherry-picked the correct code, gated on the real suite (the test-as-judge discipline worked). **Root cause to investigate:** worktree creation/cwd handling under concurrent threads on Windows (likely the worktree path or the executor's cwd isn't actually isolated per-thread, or git worktree add races). **Mitigation in use:** `--workers 1` (serial — no collision) or verify-then-cherry-pick. **Fix:** make per-slice worktree isolation actually hold under Windows concurrency; add a real (non-fake) integration test that dispatches 2 slices concurrently and asserts distinct branches/dirs receive distinct files.
+
+### BUG 2 — No way to choose the executor/model at invocation (MEDIUM)
+`GeminiExecutor(model=...)` + `get_executor("gemini", model=...)` already accept a model, BUT `run_delivery.py` hardcodes `get_executor("gemini")` with NO `--executor`/`--model` flag. So the user CANNOT specify the LLM at run time. Implement the already-speced executor-selection design (see POST-BUILD ROADMAP step 2): run-level `--executor gemini[:model]` flag on run_delivery.py, default gemini. (NB: separate from any "Gemini ignores its slice contract / edits beyond allowed files" behavior — if that's the actual complaint, it's a PROMPT/diff-rule-enforcement issue, not model selection: the judge's diff-rule already flags out-of-bounds edits, but the executor prompt could be made stricter. Clarify with user which problem.)
 
 ## POST-BUILD ROADMAP (gated by the user, 2026-06-09) — sequence matters
 
