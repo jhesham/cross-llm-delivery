@@ -24,7 +24,7 @@
 | T1.3 deepeval harness | 1 | ✅ done | 7e7815a |
 | T1.4 Cost-validation slice | 1 | ✅ GO (gate closed) | a99a121 |
 | T2.1 Executor interface | 2 | ✅ done (via T1.4) | d8b2bf6 |
-| T2.2 GeminiExecutor adapter | 2 | ✅ done | (this commit) |
+| T2.2 GeminiExecutor adapter | 2 | ✅ done | 9520e00 |
 | T2.3 Executor registry + Composer stub | 2 | ⬜ next | |
 | T3.1 Slice spec model | 3 | ✅ done (via bulk) | f94707a |
 | T3.2 Worktree manager | 3 | ✅ done (via bulk) | f94707a |
