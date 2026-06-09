@@ -31,6 +31,21 @@ The plan is done; these are the gates to *wider sharing*. Do them IN ORDER — d
    pay-as-you-go — keep Gemini flat-rate as DEFAULT; OpenCode opt-in, best on its cheap/free
    tier). Mirror GeminiExecutor's shape: build argv, run via injected runner, parse tokens,
    capture diff. Validate with one dispatch through `opencode run --format json` first.
+
+   **EXECUTOR-SELECTION DESIGN (decided 2026-06-09, ours differs from sub-agents-skills):**
+   The USER chooses the LLM at invocation — NOT the orchestrating Claude autonomously. Two levels:
+   (a) **Run-level** `--executor gemini|opencode:<provider/model>` flag on `run_delivery.py`
+   ("run this whole build on X"); default `gemini` (flat-rate, $0 marginal).
+   (b) **Per-slice override** (optional) via an `executor:` field in the plan markdown, for
+   "send this one heavy slice to a stronger model"; inherits run-level if absent.
+   **DELIBERATELY AVOID** orchestrator-autonomous per-dispatch model picking — it breaks
+   reproducibility, hides cost, and makes the paid backend unpredictable. User-explicit beats
+   agent-clever (same principle as the T6.3 hook defaulting hands-off).
+   Prior art: sub-agents-skills (github.com/shinpr/sub-agents-skills) uses author-locked
+   `run-agent:` frontmatter + a `--cli` override + default; their UNIT is the agent/task, OURS
+   is the plan/build — hence run-level default + optional per-slice override fits us better.
+   Their backend-selection priority chain (explicit flag → frontmatter → auto-detect → default)
+   is a clean pattern worth mirroring in the registry.
 3. **THEN consider wider sharing** — possibly publish to GitHub. Not before steps 1–2 pass.
 
 **Gate rationale:** prove on real work → multi-executor → publish. Don't share an untested tool.

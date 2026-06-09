@@ -46,3 +46,33 @@ tiers where it stays trivial.
   packaging (multi-model support is a nice "share wider" selling point).
 - If pursued: one validation dispatch through `opencode run --format json` to confirm the
   token/cost parse shape, same as the Phase-0 Gemini smoke test.
+
+---
+
+# Prior art: sub-agents-skills — and how we differ (2026-06-09)
+
+Reviewed https://github.com/shinpr/sub-agents-skills (independent project, same core premise:
+route coding to external CLIs — codex/claude/cursor/gemini — to break vendor lock-in + cut cost).
+
+## They are a DISPATCHER; we are a DELIVERY SYSTEM
+They route a *task* to a backend and return its output. They explicitly have **no
+verification/judging, no test-running, no retry, no worktree isolation, no parallel fan-out, no
+ledger/resumability, no token capture** (confirmed from their run_subagent.py + SKILL.md). We have
+all of those — the verify→judge→retry→integrate loop is our substance. Their UNIT is the agent
+(one task); OURS is the plan (a whole build of slices).
+
+## Backend selection: theirs vs ours
+- **Theirs:** author-locked per agent via `run-agent:` frontmatter; priority chain
+  `--cli arg → frontmatter → auto-detect → default codex`. The orchestrating AI does NOT
+  autonomously pick the model (their docs give no task-complexity decision framework). So it's
+  author-configured + human-overridable, not free-for-all and not orchestrator-determined.
+- **Ours (decided):** USER chooses at invocation. Run-level `--executor` flag (default gemini)
+  + optional per-slice `executor:` field in the plan. Deliberately NOT orchestrator-autonomous
+  (reproducibility + cost predictability). See STATUS roadmap step 2 for the full design.
+
+## Positioning (if we ever publish)
+Not "better than sub-agents-skills" — different altitude. Honest pitch:
+**"sub-agents-skills routes a task; cross-llm-delivery delivers a build."** They win on breadth
+(4 backends today) + portability (plain-markdown agent defs across 30+ tools); we win on rigor
+(judging, isolation, parallelism, resumability) for LARGE builds. Their breadth is exactly our
+step-2 gap — adding OpenCode narrows it. Complementary, not competitive.
