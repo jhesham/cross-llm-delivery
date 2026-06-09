@@ -199,7 +199,7 @@ def test_eval_smoke():
 **Files:** `src/cld/ledger.py`, `tests/test_ledger.py`
 **DoD:** JSON ledger (slice id → status done|pending|failed|in_progress, commit, attempts) with atomic read/write; round-trip + corruption-safe load tests.
 
-### T4.2 — Resumable orchestrator
+### T4.2 — Resumable orchestrator ✅ DONE (dogfood)
 **Files:** modify `src/cld/orchestrator.py`, `tests/test_orchestrator_resume.py`
 **DoD:** orchestrator reads ledger, skips done slices, persists after each; a simulated mid-build stop + fresh start resumes from the right slice. Replaces the hand-rolled `STATUS.md` for product builds.
 
