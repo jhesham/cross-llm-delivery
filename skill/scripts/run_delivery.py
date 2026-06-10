@@ -40,14 +40,28 @@ def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
 
 
 def make_judge_fn(repo_dir: str):
-    """Judge runs the slice's acceptance tests via pytest in the repo/worktree."""
+    """Judge wrapper — delegates to cld.judge.judge with the run_tests deliver_slice
+    supplies. The TRUSTWORTHY test output comes from `pytest_test_runner` (below),
+    which deliver_slice invokes in the worktree; this just forwards it."""
 
     def judge_fn(*, files_changed, allowed, run_tests):
-        # run_tests is provided by deliver_slice (executor's raw log); but for a real
-        # judgment we re-run pytest in the workdir to get authoritative results.
         return judge(files_changed=files_changed, allowed=allowed, run_tests=run_tests)
 
     return judge_fn
+
+
+def pytest_test_runner(workdir: str) -> str:
+    """Run pytest in the slice's worktree and return its raw output.
+
+    This is the authoritative judge signal (BUG1/Defect2 fix): the verdict comes
+    from REALLY running the tests in the worktree, never from the executor's
+    self-reported stdout. Wired as deliver_slice's `test_runner`.
+    """
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q"],
+        cwd=workdir, capture_output=True, text=True,
+    )
+    return (proc.stdout or "") + (proc.stderr or "")
 
 
 def parse_executor_spec(spec: str) -> tuple[str, dict]:
@@ -104,6 +118,7 @@ def main(argv=None) -> int:
         executor=executor, judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner,
+        test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
     )
 
     print(f"completed: {result.completed}")
