@@ -126,6 +126,7 @@ class GeminiExecutor:
         token_usage = parse_token_usage(raw)
 
         # Capture what changed via git (also through the injected runner).
+        self._runner(["git", "add", "--intent-to-add", "-A"], cwd)
         _, diff = self._runner(["git", "diff", "HEAD"], cwd)
         _, names = self._runner(["git", "diff", "HEAD", "--name-only"], cwd)
         files_changed = [line.strip() for line in names.splitlines() if line.strip()]
