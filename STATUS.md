@@ -9,7 +9,9 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** 🔧 **FIRST-LIVE-RUN BUGS — fix before continuing the advisor build (Sitting B).** The plan was 25/25 complete, but the FIRST real external run (rac-agent advisor S1–S3, 2026-06-09) surfaced two real defects. Fix these next sitting:
+**Next task:** `B1.2` — Failing test for Defect 1 (CLAUDE, small). Using the B1.1 harness (`tests/integration/`), write a RED test asserting the capture currently reports `files_changed == []` for a CREATED file (and `git status` shows it untracked) — i.e. pin BUG1/Defect1 as a failing test. Then **B1.3** (DOGFOOD): executor `git add -A` before `git diff` → green. **Progress on BUG 1:** B1.1 ✅ done (harness, 84e4364). BUG 2 ✅ fixed earlier. Remaining: B1.2 → B1.3 → B1.4 → B1.5 (see decomposition below). `--workers 1` still mitigates BUG 1 for advisor Sitting B if needed.
+
+🔧 **FIRST-LIVE-RUN BUGS context (rac-agent advisor S1–S3, 2026-06-09):**
 
 ### BUG 1 — "worktree collision" → ACTUALLY a capture/judge-path architectural gap (HIGH)
 **DIAGNOSED 2026-06-09 (systematic-debugging). The git-worktree-race theory was DISPROVEN by reproduction:** concurrent `git worktree add` runs 3/3 clean every time on this Windows host (see `docs/notes/bug1_repro.py`). Isolation works. The real root cause is THREE coupled defects in the capture-and-judge path (all masked by our fake-runner tests — only a REAL run exposes them):
@@ -19,7 +21,7 @@
 **This is an architectural gap, not a one-line race fix — NOT pure-dogfood-able.** Needs a design decision (Claude): should the pipeline `git add -A` in the worktree before diffing? should the judge run REAL pytest in `wt_path`? should there be an explicit commit+collect step? THEN individual fixes could be dogfooded. **Mitigation still valid:** `--workers 1` + verify-then-cherry-pick (what the user did). **Add a REAL integration test** (real temp git repo, real subprocess runner, a slice that CREATES a file) — the fake-runner tests can never catch this class of bug.
 
 #### BUG 1 DECOMPOSED into sitting-sized tasks (2026-06-09) — do in order, each ends in a commit:
-- **B1.1 — Real integration-test harness (CLAUDE, small).** Reusable fixture: real temp git repo + real subprocess git_runner + a fake executor that ACTUALLY creates a file in the worktree. No fix assertions yet — just scaffolding that observes real behavior. Unlocks B1.2–B1.5. The missing piece (all current tests use fakes). Fits a LOW window.
+- **B1.1 — Real integration-test harness ✅ DONE (84e4364).** `tests/integration/` — real subprocess `git_runner`, `init_repo` (real repo + HEAD), `FileCreatingExecutor` (writes the slice's files for real + captures via GeminiExecutor's git-diff logic). 4 smoke tests; `integration` marker registered (runs by default). **Confirmed it OBSERVES Defect 1 live:** created file exists + `git status` shows `?? src/`, but capture's `files_changed` is `[]`. 118 passed.
 - **B1.2 — Failing test for Defect 1 (CLAUDE, small).** Using B1.1, assert `files_changed` currently comes back EMPTY for a created file (reproduces the bug as a RED test). Debugging discipline: pin before fix.
 - **B1.3 — Fix Defect 1 (DOGFOOD, small).** Executor `git add -A` (or `--intent-to-add`) before `git diff` so new files appear in `files_changed`; B1.2 goes green. First dogfood-able piece (real "make this failing test pass"). Fits a LOW window.
 - **B1.4 — Fix Defect 2 (CLAUDE, medium).** `make_judge_fn` runs REAL pytest in the worktree (`python -m pytest <acceptance_test>` in `wt_path`), not `lambda: result.raw_log`. Test: judge fails wrong code, passes right code — verified by real execution. THE load-bearing fix (why the ledger lied); judge is the safety core, Claude writes it.
