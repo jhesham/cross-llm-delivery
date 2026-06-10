@@ -9,7 +9,14 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** ✅ **BUG 1 + BUG 2 BOTH FIXED (2026-06-09). Resume the advisor build (Sitting B, S4–S5) — `--workers 1` no longer required** (parallel isolation+collect now verified by a real-git concurrent regression test). Advisor plan: `rac-agent/docs/superpowers/plans/2026-06-08-advisor-langgraph-plan.md` (human-format; transcribe slices to cld `## SLICE:` format per the skill workflow = Claude Step 1). 123 passed. Next executor-layer item is the OpenCode CLI second executor (POST-BUILD ROADMAP step 2) when desired.
+**Next task:** 🔍 **INVESTIGATE FIRST (2026-06-10): Claude token drain while Gemini codes + lead Claude confirmed INACTIVE.** User observed Claude tokens being consumed SIGNIFICANTLY even when (a) Gemini is the one coding and (b) the lead/orchestrating Claude is idle. This is a real, unexplained cost leak — investigate before resuming the advisor build. **Leading hypotheses to check (in order):**
+1. **The judge's behavioral G-Eval (T5.6) calls Claude.** `cld.behavioral.evaluate_compliance` uses `AnthropicModel` (claude-sonnet-4-6) via deepeval — if it's being invoked per dispatch (or the eval smoke path runs), every judge call bills Claude. CHECK: is `evaluate_compliance` wired into the live judge path, or only the `-m eval` gated test? (Believed gated — but verify it's not firing during real runs.)
+2. **claude-mem / context-mode / other background hooks.** Settings.json hooks (claude-mem auto-capture, context-mode) may fire on every tool call / prompt and call Claude models in the background — independent of the lead agent being "inactive." CHECK `~/.claude/settings.json` hooks + any MCP servers that call Claude.
+3. **The run_via_cli / headless `claude -p` path (rac-agent advisor).** The advisor build's nodes call `node_llm` → `run_via_cli` → headless `claude -p`. If ANY advisor process or test is running, those are real Claude calls. CHECK if a rac-agent process/agent is active.
+4. **A background Claude agent/session still running** (e.g. the other agent building advisor-langgraph) — "lead inactive" ≠ "no Claude process active." CHECK for other running claude sessions/agents.
+**Method:** check settings.json hooks first (cheapest), then grep cld + run_delivery for any Claude/anthropic/deepeval call in the live dispatch path, then look for background processes. Likely culprit = #1 (behavioral eval firing when it shouldn't) or #2 (background hooks). This is exactly the "invisible cost leak" pattern we keep finding.
+
+**After the investigation:** ✅ BUG 1 + BUG 2 fixed; resume advisor build (Sitting B, S4–S5), `--workers 1` no longer required. Advisor plan: `rac-agent/docs/superpowers/plans/2026-06-08-advisor-langgraph-plan.md` (transcribe to cld `## SLICE:` format = Claude Step 1). 123 passed. Then OpenCode CLI 2nd executor (roadmap step 2).
 
 🔧 **FIRST-LIVE-RUN BUGS context (rac-agent advisor S1–S3, 2026-06-09):**
 
