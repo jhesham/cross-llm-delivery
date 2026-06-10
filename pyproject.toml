@@ -17,6 +17,7 @@ pythonpath = ["src"]
 addopts = "-q -m 'not eval'"
 markers = [
     "eval: behavioral eval that calls a live LLM judge (deepeval); needs an API key. Excluded from default run.",
+    "integration: exercises REAL git/subprocess (temp repo + real runner) — the coverage fake-runner unit tests miss. Fast; runs by default. Deselect with -m 'not integration' if git is unavailable.",
 ]
 # Scope root collection to the cld package's own tests. The Phase-0 `smoketest/`
 # tree is a self-contained sandbox (its own pyproject + a deliberately-unfinished
