@@ -191,14 +191,28 @@ def run_plan_parallel(
     ledger_lock = threading.Lock()
 
     def _run_one(task: SliceTask):
-        """Deliver a slice, isolated in its own worktree when repo_dir is set."""
+        """Deliver a slice, isolated in its own worktree when repo_dir is set.
+
+        Collect step: when the slice is accepted, COMMIT its work inside the worktree
+        before the context manager removes the worktree dir — otherwise
+        `git worktree remove --force` discards the executor's uncommitted files (the
+        original "code lost" bug). The commit lands on branch `slice-<id>`, which the
+        caller can later merge.
+        """
         if repo_dir is not None and git_runner is not None:
             with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
-                return deliver_slice(
+                res = deliver_slice(
                     task, executor=executor, judge_fn=judge_fn,
                     max_retries=max_retries, workdir=wt_path,
                     test_runner=test_runner,
                 )
+                if res.accepted:
+                    git_runner(["git", "add", "-A"], wt_path)
+                    git_runner(
+                        ["git", "commit", "-m", f"slice {task.id}: accepted by cld"],
+                        wt_path,
+                    )
+                return res
         return deliver_slice(
             task, executor=executor, judge_fn=judge_fn, max_retries=max_retries,
             test_runner=test_runner,
