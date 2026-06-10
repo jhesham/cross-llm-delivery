@@ -9,7 +9,7 @@
 
 **Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
 
-**Next task:** `B1.2` — Failing test for Defect 1 (CLAUDE, small). Using the B1.1 harness (`tests/integration/`), write a RED test asserting the capture currently reports `files_changed == []` for a CREATED file (and `git status` shows it untracked) — i.e. pin BUG1/Defect1 as a failing test. Then **B1.3** (DOGFOOD): executor `git add -A` before `git diff` → green. **Progress on BUG 1:** B1.1 ✅ done (harness, 84e4364). BUG 2 ✅ fixed earlier. Remaining: B1.2 → B1.3 → B1.4 → B1.5 (see decomposition below). `--workers 1` still mitigates BUG 1 for advisor Sitting B if needed.
+**Next task:** ✅ **BUG 1 + BUG 2 BOTH FIXED (2026-06-09). Resume the advisor build (Sitting B, S4–S5) — `--workers 1` no longer required** (parallel isolation+collect now verified by a real-git concurrent regression test). Advisor plan: `rac-agent/docs/superpowers/plans/2026-06-08-advisor-langgraph-plan.md` (human-format; transcribe slices to cld `## SLICE:` format per the skill workflow = Claude Step 1). 123 passed. Next executor-layer item is the OpenCode CLI second executor (POST-BUILD ROADMAP step 2) when desired.
 
 🔧 **FIRST-LIVE-RUN BUGS context (rac-agent advisor S1–S3, 2026-06-09):**
 
@@ -22,10 +22,10 @@
 
 #### BUG 1 DECOMPOSED into sitting-sized tasks (2026-06-09) — do in order, each ends in a commit:
 - **B1.1 — Real integration-test harness ✅ DONE (84e4364).** `tests/integration/` — real subprocess `git_runner`, `init_repo` (real repo + HEAD), `FileCreatingExecutor` (writes the slice's files for real + captures via GeminiExecutor's git-diff logic). 4 smoke tests; `integration` marker registered (runs by default). **Confirmed it OBSERVES Defect 1 live:** created file exists + `git status` shows `?? src/`, but capture's `files_changed` is `[]`. 118 passed.
-- **B1.2 — Failing test for Defect 1 (CLAUDE, small).** Using B1.1, assert `files_changed` currently comes back EMPTY for a created file (reproduces the bug as a RED test). Debugging discipline: pin before fix.
-- **B1.3 — Fix Defect 1 (DOGFOOD, small).** Executor `git add -A` (or `--intent-to-add`) before `git diff` so new files appear in `files_changed`; B1.2 goes green. First dogfood-able piece (real "make this failing test pass"). Fits a LOW window.
-- **B1.4 — Fix Defect 2 (CLAUDE, medium).** `make_judge_fn` runs REAL pytest in the worktree (`python -m pytest <acceptance_test>` in `wt_path`), not `lambda: result.raw_log`. Test: judge fails wrong code, passes right code — verified by real execution. THE load-bearing fix (why the ledger lied); judge is the safety core, Claude writes it.
-- **B1.5 — Fix Defect 3 + collect-from-worktree contract (CLAUDE design, medium/large).** Decide & implement how a slice's result is committed/collected back. Real CONCURRENT integration test: 2 slices' distinct files land in distinct branches. Largest; do last when others are solid. Save for a fuller window.
+- **B1.2 ✅ DONE (1b4024e).** Failing test for Defect 1 — Using B1.1, assert `files_changed` currently comes back EMPTY for a created file (reproduces the bug as a RED test). Debugging discipline: pin before fix.
+- **B1.3 ✅ DONE (dogfood, grade A).** git add --intent-to-add before diff — Executor `git add -A` (or `--intent-to-add`) before `git diff` so new files appear in `files_changed`; B1.2 goes green. First dogfood-able piece (real "make this failing test pass"). Fits a LOW window.
+- **B1.4 ✅ DONE (a0388bc).** Judge runs REAL pytest in worktree via deliver_slice test_runner — `make_judge_fn` runs REAL pytest in the worktree (`python -m pytest <acceptance_test>` in `wt_path`), not `lambda: result.raw_log`. Test: judge fails wrong code, passes right code — verified by real execution. THE load-bearing fix (why the ledger lied); judge is the safety core, Claude writes it.
+- **B1.5 ✅ DONE (1c27276).** Collect-from-worktree (commit accepted slice before removal) + concurrent regression test — Decide & implement how a slice's result is committed/collected back. Real CONCURRENT integration test: 2 slices' distinct files land in distinct branches. Largest; do last when others are solid. Save for a fuller window.
 - **Suggested grouping:** B1.1+B1.2+B1.3 = one satisfying arc in a low window (harness → red → dogfood-green). B1.4 own sitting. B1.5 a fuller window.
 
 ### BUG 2 — No way to choose the executor/model at invocation ✅ FIXED 2026-06-09
