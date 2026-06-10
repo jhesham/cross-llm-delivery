@@ -26,6 +26,7 @@ def deliver_slice(
     workdir: str | None = None,
     model: str = "gemini-3.1-pro-preview",
     tracer=None,
+    test_runner: Callable[[str], str] | None = None,
 ) -> DeliverResult:
     # workdir defaults to task.id (prior behavior); callers wiring real worktrees
     # pass the worktree path so the executor operates in an isolated directory.
@@ -46,10 +47,18 @@ def deliver_slice(
             except TypeError:
                 result = executor.run(task, effective_workdir)
 
+        # The judge runs the REAL acceptance tests in the worktree when a
+        # `test_runner` is supplied (the trustworthy path — never trust the
+        # executor's self-reported stdout). Falls back to the executor's raw_log
+        # only when no real runner is wired (legacy/unit-test path).
+        if test_runner is not None:
+            run_tests = lambda: test_runner(effective_workdir)  # noqa: E731
+        else:
+            run_tests = lambda: result.raw_log  # noqa: E731
         judge_result = judge_fn(
             files_changed=result.files_changed,
             allowed=task.files,
-            run_tests=lambda: result.raw_log
+            run_tests=run_tests,
         )
 
         history.append(judge_result)
@@ -111,22 +120,24 @@ def run_plan(
     *,
     executor: Any,
     judge_fn: Callable,
-    max_retries: int = 2
+    max_retries: int = 2,
+    test_runner: Callable[[str], str] | None = None,
 ) -> PlanResult:
     result = PlanResult()
     for task in slices:
         if ledger.is_done(task.id):
             result.skipped.append(task.id)
             continue
-            
+
         ledger.set(task.id, status=IN_PROGRESS)
         ledger.save()
-        
+
         deliver_res = deliver_slice(
             task,
             executor=executor,
             judge_fn=judge_fn,
-            max_retries=max_retries
+            max_retries=max_retries,
+            test_runner=test_runner,
         )
         
         if deliver_res.accepted:
@@ -153,6 +164,7 @@ def run_plan_parallel(
     quota_threshold: int = 95,
     repo_dir: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
+    test_runner: Callable[[str], str] | None = None,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -185,9 +197,11 @@ def run_plan_parallel(
                 return deliver_slice(
                     task, executor=executor, judge_fn=judge_fn,
                     max_retries=max_retries, workdir=wt_path,
+                    test_runner=test_runner,
                 )
         return deliver_slice(
             task, executor=executor, judge_fn=judge_fn, max_retries=max_retries,
+            test_runner=test_runner,
         )
 
     def _process(task: SliceTask) -> None:
