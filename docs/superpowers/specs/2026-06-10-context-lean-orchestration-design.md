@@ -133,6 +133,34 @@ Long deliberation at a gate costs almost nothing because no raw build output acc
 its summary would bloat context, the agent may spawn a throwaway subagent to absorb that one
 slice's detail and report a one-liner. Available, not built into the core loop.
 
+## Prompt caching (complementary lever)
+
+Batch-step and prompt caching attack the same cost from two angles and **compound**:
+- **Batch-step** reduces *how much* context accumulates (raw output stays on disk).
+- **Prompt caching** makes re-reading the *stable prefix* cheap (~0.1× on cache hits), so even
+  the context that does accumulate (per-layer summaries + the user's conversation) is mostly
+  served from cache.
+
+Because the loop **appends** a compact summary per layer and never edits prior turns, the prior
+conversation prefix stays byte-stable — so each gate-turn can hit the cache for the entire prior
+build and pay full price only for the new ~10 lines. This makes the real per-build cost even
+lower than "flat ~10 lines/layer" implies.
+
+**Cache-aware orchestration rules (these live in the SKILL.md loop — caching is harness-automatic
+in Claude Code; `cld`'s Python does not control breakpoints):**
+1. **Append-only, prefix-stable summaries.** Add each layer's summary at the END; never rewrite a
+   prior summary. Editing earlier context invalidates the cached prefix after the edit point.
+2. **Keep volatile fields out of cacheable positions.** Timestamps, per-run UUIDs, and changing
+   token-count totals must not be interpolated into a stable/early position of the summary block
+   (they'd churn the prefix). If shown at all, put them at the very end of the appended block.
+3. **Treat `.cld/` inspection as a one-time, end-of-context injection.** When the user asks to see
+   a diff/log, read it once and let it sit at the tail; do NOT re-read artifacts on later turns
+   (re-injection churns the prefix). One deliberate read, not passive re-accumulation.
+
+**Caveat:** since caching is automatic in the harness, these are *behavioral* guidance for the
+agent's orchestration loop, not code in the emitter. The emitter's only caching-relevant duty is
+to make the summary deterministic and stable for identical results (no incidental volatility).
+
 ## Error handling
 
 | Failure | Behavior |
