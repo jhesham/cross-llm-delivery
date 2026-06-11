@@ -92,6 +92,10 @@ def main(argv=None) -> int:
                         "(the user picks the LLM here; default gemini)")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
+    p.add_argument("--step", action="store_true",
+                   help="Run ONLY the next pending DAG layer, then exit (context-lean "
+                        "orchestration). Re-invoke to advance. Exit codes: 0 layer all-passed, "
+                        "2 some failed/deferred, 3 build complete.")
     args = p.parse_args(argv)
 
     plan_md = Path(args.plan).read_text(encoding="utf-8")
@@ -107,6 +111,33 @@ def main(argv=None) -> int:
         for i, layer in enumerate(parallel_batches(deps)):
             print(f"  layer {i}: {', '.join(layer)}")
         return 0
+
+    if args.step:
+        from cld.orchestrator import next_pending_layer
+        from cld.summary import classify_gate, summarize_layer, write_artifacts
+        ledger = Ledger.load(args.ledger)
+        sel = next_pending_layer(slices, ledger)
+        if sel is None:
+            print("BUILD COMPLETE — no pending layers.")
+            return 3
+        idx, layer_ids, total = sel
+        layer_slices = [s for s in slices if s.id in layer_ids]
+        exec_name, exec_kwargs = parse_executor_spec(args.executor)
+        executor = get_executor(exec_name, **exec_kwargs)
+        judge_fn = make_judge_fn(args.repo)
+        result = run_plan_parallel(
+            layer_slices, ledger,
+            executor=executor, judge_fn=judge_fn,
+            max_workers=args.workers,
+            repo_dir=args.repo, git_runner=git_runner,
+            test_runner=pytest_test_runner,
+        )
+        write_artifacts(result, repo_dir=args.repo)
+        nxt = next_pending_layer(slices, ledger)
+        next_layer = nxt[1] if nxt else []
+        print(summarize_layer(result, layer_index=idx, total_layers=total,
+                              next_layer=next_layer))
+        return classify_gate(result, more_layers=bool(nxt))
 
     ledger = Ledger.load(args.ledger)
     exec_name, exec_kwargs = parse_executor_spec(args.executor)

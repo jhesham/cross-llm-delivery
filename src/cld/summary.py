@@ -1,4 +1,24 @@
-from typing import List, Any
+import json
+import os
+from typing import Any, List
+
+
+def write_artifacts(result: Any, *, repo_dir: str) -> None:
+    """Persist raw per-slice detail under <repo_dir>/.cld/<slice-id>/ so the agent can
+    inspect on request WITHOUT it entering context. Best-effort; never raises."""
+    base = os.path.join(repo_dir, ".cld")
+    for sid, d in (getattr(result, "details", {}) or {}).items():
+        try:
+            sdir = os.path.join(base, sid)
+            os.makedirs(sdir, exist_ok=True)
+            with open(os.path.join(sdir, "detail.json"), "w", encoding="utf-8") as f:
+                json.dump({
+                    "slice_id": d.slice_id, "status": d.status,
+                    "files_changed": d.files_changed, "attempts": d.attempts,
+                    "diff_lines": d.diff_lines, "failing_tests": d.failing_tests,
+                }, f, indent=2)
+        except Exception:
+            continue
 
 def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_layer: List[str]) -> str:
     lines = []
