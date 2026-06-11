@@ -77,29 +77,46 @@ deps: T1
 contract the executor is judged against. See `references/authoring-plans.md` for how
 to write good slices (vertical not horizontal, injectable boundaries, right-sizing).
 
-### 2. Run the plan (the engine's job — the typing + judging)
+### 2. Run the plan — batch-step (context-lean, interactive)
+
+Drive the build ONE DAG layer at a time so your context stays small and you can steer
+between phases. Per layer:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <repo_dir> --workers 4
+python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor gemini[:model]]
 ```
 
-**Choose the executor/LLM at invocation** (the user decides, not the orchestrator):
-`--executor gemini` (default) or `--executor gemini:<model-id>` to pin a specific model.
-On Windows, prefer `--workers 1` until the parallel-worktree isolation fix lands (a
-known issue — concurrent dispatch can collide; serial is safe).
+This runs only the next pending layer (independent slices fan out concurrently in isolated
+worktrees), then EXITS, printing a ~10-line summary. Read the summary, relay it to the user,
+and act on the gate (the exit code):
+- **exit 0** (all passed): "Layer done, all green — continue?" → re-invoke `--step` for the next.
+- **exit 2** (some failed/deferred): surface the failed slice + its failing test; offer
+  inspect / retry / edit-the-slice / skip / abort.
+- **exit 3** (complete): no layers left — review the final ledger, optionally run the integration gate.
 
-What happens per slice:
-1. **Isolate** — a git worktree (`slice-<id>`) so parallel agents never collide.
-2. **Dispatch** — Gemini implements the slice in its worktree.
-3. **Judge** — Claude's deterministic judge runs the acceptance tests + checks the
-   diff rule (no edits outside the allowed files). On failure it feeds the failing
-   tests back into a retry.
-4. **Record** — the outcome is persisted to a JSON ledger (resumable) and emitted as
-   a Langfuse span (observable).
+Re-invoking `--step` advances automatically (the ledger is the state). A partially-done layer
+re-runs only its non-`done` slices, so "fix T3 then continue" works by editing + re-`--step`.
 
-Independent slices in a DAG layer run concurrently; dependent layers run in order.
+Per slice inside a layer: isolate (git worktree `slice-<id>`) → Gemini implements → the
+deterministic judge runs the REAL acceptance tests + diff-rule (failures feed back into a
+retry) → accepted work is committed to its `slice-<id>` branch → ledger updated + Langfuse span.
 
-Use `--dry-run` first to print the execution layers without dispatching.
+**Why batch-step:** running the whole loop in one unbroken context burns large amounts of the
+lead agent's tokens (every turn re-reads a growing context). Stepping one layer at a time keeps
+your context to ~10 lines per layer and flat during interaction.
+
+**Choose the executor/LLM at invocation** (you decide, not the orchestrator):
+`--executor gemini` (default) or `--executor gemini:<model-id>`. Use `--dry-run` first to print
+the layers without dispatching.
+
+**Inspecting on request:** raw diffs/logs/JSON are NOT on stdout — per-slice detail is written
+to `<dir>/.cld/<slice-id>/detail.json`. Only when the user asks "show me T3", read that one
+file. Do not pull raw output into context otherwise.
+
+**Keep orchestration cache-cheap (your context is a cached prefix):**
+1. Summaries are append-only — never edit or re-print a prior layer's summary; just add the new one.
+2. Don't restate volatile data (timestamps, full token totals) at the top of your turns — it churns the cached prefix.
+3. Inspect a `.cld/` artifact at most once, and let it sit at the end of context — re-reading it re-injects and churns the cache.
 
 ### 3. Integrate and verify
 
