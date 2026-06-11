@@ -7,9 +7,21 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-11 (✅ context-lean orchestration FEATURE COMPLETE — batch-step shipped, 137 passed)
+**Last updated:** 2026-06-12 (🐛 TWO real bugs found from a live advisor run — fix next)
 
-**⏭️ RESUME HERE:** ✅ **Context-lean interactive orchestration is BUILT (2026-06-11).** The token-drain fix shipped as the `--step` batch-step feature: lead agent runs ONE DAG layer per invocation, gets a ~10-line summary (exit 0/2/3), re-invokes to advance; raw output → `.cld/<id>/detail.json` (off agent context); concurrent fan-out + worktree isolation preserved; SKILL.md has the loop + cache-aware rules. **7 tasks, all TDD, all committed; 137 passed.** Dogfood scorecard now 14/14 grade A (T2/T3/T4 were Gemini dogfoods). Plan: `docs/superpowers/plans/2026-06-10-context-lean-orchestration-plan.md`.
+**⏭️ RESUME HERE / NEXT TASK (2026-06-12): FIX TWO REAL `cld` BUGS** found when a live advisor build (rac-agent S7 merge_context) failed 3× and stranded — Claude tokens drained with no build progress. Diagnosed: the build process had already died (~6h frozen ledger); recovered rac-agent (deleted orphaned `.-wt-slice-S6a/S6c` dirs + empty `slice-S7` branch). The two bugs (both confirmed in code):
+
+### BUG A — malformed worktree path when `--repo .` (HIGH)
+`src/cld/worktree.py` line 5: `path = f"{repo_dir}-wt-{branch}"`. With `repo_dir="."` this yields `.-wt-slice-S7` — a dir literally named `.-wt-...` INSIDE the repo (not a clean sibling). Pollutes the repo + confuses git. **Fix:** build the worktree path with `os.path` against the repo's PARENT (resolve `repo_dir` to an absolute path first, then put `<abspath>-wt-<branch>` as a real sibling, or use a dedicated temp/worktrees dir). Add a test: `--repo .` (and a relative path) produce a sibling-style path, never `.-wt-*` inside the repo.
+
+### BUG B — judge runs the WHOLE suite, not the slice's acceptance test (HIGH — the token-drain mechanism)
+`skill/scripts/run_delivery.py::pytest_test_runner` runs `python -m pytest -q` = the ENTIRE target-repo suite in the worktree, NOT the slice's `acceptance_test_path`. Consequences: (1) in a repo whose suite calls a paid LLM (rac-agent advisor uses `run_via_cli` → headless `claude -p`), EVERY judge-run bills Claude — this is where the tokens went; (2) a single hang in the full suite freezes the whole build (what stranded S7). **Fix:** `pytest_test_runner` (and/or `deliver_slice`'s judge wiring) must run ONLY `task.acceptance_test_path` (e.g. `pytest <acceptance_test_path> -q`), not the whole suite. Pass the acceptance path through to the runner. Add a test asserting the runner is invoked with the slice's specific test path, not a bare suite run. (Optional hardening: a per-judge timeout so a hung test can't freeze a build.)
+
+**Both are exactly the "judge-side cost/safety" class. After fixing: re-run advisor S7 cleanly (it failed legitimately — merge_context port didn't pass; no code was collected, slice-S7 branch was empty). Then resume advisor Sitting B.**
+
+---
+
+**Context-lean orchestration is BUILT (2026-06-11):** ✅ **Context-lean interactive orchestration is BUILT (2026-06-11).** The token-drain fix shipped as the `--step` batch-step feature: lead agent runs ONE DAG layer per invocation, gets a ~10-line summary (exit 0/2/3), re-invokes to advance; raw output → `.cld/<id>/detail.json` (off agent context); concurrent fan-out + worktree isolation preserved; SKILL.md has the loop + cache-aware rules. **7 tasks, all TDD, all committed; 137 passed.** Dogfood scorecard now 14/14 grade A (T2/T3/T4 were Gemini dogfoods). Plan: `docs/superpowers/plans/2026-06-10-context-lean-orchestration-plan.md`.
 
 **NEXT options (user's choice):** (1) **Resume the advisor build** (rac-agent Sitting B, S4–S5) — now using `--step` so it's context-lean; transcribe advisor plan to cld `## SLICE:` format = Claude Step 1. (2) **OpenCode CLI 2nd executor** (POST-BUILD ROADMAP step 2; OpenCode now installed). (3) **Live end-to-end test** of the full skill on a real plan via `--step`.
 
