@@ -50,17 +50,27 @@ def make_judge_fn(repo_dir: str):
     return judge_fn
 
 
-def pytest_test_runner(workdir: str) -> str:
-    """Run pytest in the slice's worktree and return its raw output.
+def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) -> str:
+    """Run ONLY the slice's acceptance test in the worktree and return raw output.
 
     This is the authoritative judge signal (BUG1/Defect2 fix): the verdict comes
-    from REALLY running the tests in the worktree, never from the executor's
+    from REALLY running the test in the worktree, never from the executor's
     self-reported stdout. Wired as deliver_slice's `test_runner`.
+
+    BUG B fix: scope pytest to the slice's `acceptance_test_path`, NOT the whole
+    repo suite. Running the whole suite (a) bills a paid LLM if the target repo's
+    tests call one (e.g. the advisor's headless `claude -p`), and (b) lets a hang
+    in an unrelated test freeze the entire build. A short timeout guards against a
+    test that hangs anyway.
     """
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q"],
-        cwd=workdir, capture_output=True, text=True,
-    )
+    target = [acceptance_test_path] if acceptance_test_path else []
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", *target, "-q"],
+            cwd=workdir, capture_output=True, text=True, timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        return "1 failed in 600s (timeout — acceptance test did not complete)"
     return (proc.stdout or "") + (proc.stderr or "")
 
 

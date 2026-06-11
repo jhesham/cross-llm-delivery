@@ -39,3 +39,38 @@ def test_other_executor_name():
 
 def test_colon_with_no_model_is_no_kwargs():
     assert parse_executor_spec("gemini:") == ("gemini", {})
+
+
+# ---- Bug B: pytest_test_runner scopes to the slice's acceptance test ----
+
+def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
+    captured = {}
+
+    class _Proc:
+        stdout = "1 passed in 0.0s"
+        stderr = ""
+
+    def fake_run(argv, **kwargs):
+        captured["argv"] = argv
+        captured["cwd"] = kwargs.get("cwd")
+        captured["timeout"] = kwargs.get("timeout")
+        return _Proc()
+
+    monkeypatch.setattr(run_delivery.subprocess, "run", fake_run)
+    out = run_delivery.pytest_test_runner("/wt", "tests/test_merge.py")
+    assert "1 passed" in out
+    # the acceptance path is in the argv; it is NOT a bare whole-suite run
+    assert "tests/test_merge.py" in captured["argv"]
+    assert captured["cwd"] == "/wt"
+    assert captured["timeout"]  # a timeout guard is set
+
+
+def test_pytest_test_runner_without_path_runs_default(monkeypatch):
+    # backward-compatible: no path -> runs pytest with no explicit target (still scoped
+    # by cwd), and must not crash.
+    class _Proc:
+        stdout = "1 passed"
+        stderr = ""
+
+    monkeypatch.setattr(run_delivery.subprocess, "run", lambda argv, **kw: _Proc())
+    assert "passed" in run_delivery.pytest_test_runner("/wt")

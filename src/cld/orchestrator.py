@@ -71,8 +71,18 @@ def deliver_slice(
         # `test_runner` is supplied (the trustworthy path — never trust the
         # executor's self-reported stdout). Falls back to the executor's raw_log
         # only when no real runner is wired (legacy/unit-test path).
+        #
+        # The runner is given the slice's `acceptance_test_path` so it can scope
+        # pytest to JUST that test, NOT the whole repo suite (Bug B: running the
+        # whole suite billed a paid LLM if the target repo's tests call one, and a
+        # hang anywhere froze the build). New runners take (workdir, path); legacy
+        # one-arg runners (workdir) keep working via the TypeError fallback.
         if test_runner is not None:
-            run_tests = lambda: test_runner(effective_workdir)  # noqa: E731
+            def run_tests():
+                try:
+                    return test_runner(effective_workdir, task.acceptance_test_path)
+                except TypeError:
+                    return test_runner(effective_workdir)
         else:
             run_tests = lambda: result.raw_log  # noqa: E731
         judge_result = judge_fn(
