@@ -9,7 +9,9 @@
 
 **Last updated:** 2026-06-12 (🐛 TWO real bugs found from a live advisor run — fix next)
 
-**⏭️ RESUME HERE / NEXT TASK (2026-06-12): FIX TWO REAL `cld` BUGS** found when a live advisor build (rac-agent S7 merge_context) failed 3× and stranded — Claude tokens drained with no build progress. Diagnosed: the build process had already died (~6h frozen ledger); recovered rac-agent (deleted orphaned `.-wt-slice-S6a/S6c` dirs + empty `slice-S7` branch). The two bugs (both confirmed in code):
+**✅ TWO BUGS FIXED (2026-06-12, commit 483826e — 144 passed).** Bug A: worktree.py now resolves repo_dir to abspath → `--repo .` yields a clean sibling `<abs>-wt-<branch>`, never `.-wt-*` inside the repo (3 tests). Bug B (the token-drain): `deliver_slice` passes `task.acceptance_test_path` to `test_runner`; `pytest_test_runner` runs ONLY that test (not the whole suite — which billed `claude -p` in the advisor repo and let a hang freeze the build), + a 600s per-judge timeout; backward-compatible with 1-arg runners (4 tests). **rac-agent S7 / advisor build left ENTIRELY to the advisor thread per user — cld made NO changes to rac-agent.** Below is the original bug write-up (kept for reference):
+
+**(ORIGINAL, NOW FIXED) FIX TWO REAL `cld` BUGS** found when a live advisor build (rac-agent S7 merge_context) failed 3× and stranded — Claude tokens drained with no build progress. Diagnosed: the build process had already died (~6h frozen ledger); recovered rac-agent (deleted orphaned `.-wt-slice-S6a/S6c` dirs + empty `slice-S7` branch). The two bugs (both confirmed in code):
 
 ### BUG A — malformed worktree path when `--repo .` (HIGH)
 `src/cld/worktree.py` line 5: `path = f"{repo_dir}-wt-{branch}"`. With `repo_dir="."` this yields `.-wt-slice-S7` — a dir literally named `.-wt-...` INSIDE the repo (not a clean sibling). Pollutes the repo + confuses git. **Fix:** build the worktree path with `os.path` against the repo's PARENT (resolve `repo_dir` to an absolute path first, then put `<abspath>-wt-<branch>` as a real sibling, or use a dedicated temp/worktrees dir). Add a test: `--repo .` (and a relative path) produce a sibling-style path, never `.-wt-*` inside the repo.
