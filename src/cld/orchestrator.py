@@ -10,12 +10,22 @@ from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
 from cld.tracing import record_dispatch
 from cld.worktree import worktree
 
+def _count_diff_lines(diff: str | None) -> int:
+    """Count added/removed content lines in a unified diff (excludes +++/--- headers)."""
+    return sum(
+        1 for ln in (diff or "").splitlines()
+        if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---"))
+    )
+
+
 @dataclass
 class DeliverResult:
     accepted: bool
     attempts: int
     final: JudgeResult | None
     history: list[JudgeResult] = field(default_factory=list)
+    files_changed: list[str] = field(default_factory=list)
+    diff_lines: int = 0
 
 def deliver_slice(
     task: SliceTask,
@@ -81,7 +91,9 @@ def deliver_slice(
                 accepted=True,
                 attempts=attempt,
                 final=final_judge_result,
-                history=history
+                history=history,
+                files_changed=list(result.files_changed or []),
+                diff_lines=_count_diff_lines(result.diff),
             )
 
         # Failed: build feedback for the next attempt from the judge result.
@@ -102,8 +114,20 @@ def deliver_slice(
         accepted=False,
         attempts=total_attempts,
         final=final_judge_result,
-        history=history
+        history=history,
+        files_changed=list(result.files_changed or []),
+        diff_lines=_count_diff_lines(result.diff),
     )
+
+
+@dataclass
+class SliceDetail:
+    slice_id: str
+    status: str            # "completed" | "failed" | "skipped" | "deferred"
+    files_changed: list[str] = field(default_factory=list)
+    attempts: int = 0
+    diff_lines: int = 0    # count of added/removed lines in the diff (for the summary)
+    failing_tests: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -112,6 +136,7 @@ class PlanResult:
     failed: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     deferred: list[str] = field(default_factory=list)
+    details: dict[str, "SliceDetail"] = field(default_factory=dict)
 
 
 def run_plan(
@@ -223,6 +248,7 @@ def run_plan_parallel(
         if quota_check is not None and quota_check() >= quota_threshold:
             with ledger_lock:
                 result.deferred.append(task.id)
+                result.details[task.id] = SliceDetail(slice_id=task.id, status="deferred")
             return
 
         with ledger_lock:
@@ -235,9 +261,19 @@ def run_plan_parallel(
             if deliver_res.accepted:
                 ledger.set(task.id, status=DONE, attempts=deliver_res.attempts)
                 result.completed.append(task.id)
+                status = "completed"
             else:
                 ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts)
                 result.failed.append(task.id)
+                status = "failed"
+            result.details[task.id] = SliceDetail(
+                slice_id=task.id, status=status,
+                files_changed=list(deliver_res.files_changed or []),
+                attempts=deliver_res.attempts,
+                diff_lines=deliver_res.diff_lines,
+                failing_tests=list(getattr(deliver_res.final, "failing_tests", []) or [])
+                    if deliver_res.final is not None else [],
+            )
             ledger.save()
 
     for layer in parallel_batches(deps):
