@@ -7,14 +7,19 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-11 (context-lean orchestration DESIGN approved + committed; next = writing-plans)
+**Last updated:** 2026-06-11 (✅ context-lean orchestration FEATURE COMPLETE — batch-step shipped, 137 passed)
 
-**⏭️ RESUME HERE (2026-06-11):** The token-drain fix is now a DESIGNED FEATURE, not a usage note. Design approved + committed: `docs/superpowers/specs/2026-06-10-context-lean-orchestration-design.md` (batch-step orchestration — lead runs ONE DAG layer per `--step` invocation, exit = pause, ledger = on-disk state, concurrent fan-out within a layer preserved, compact summary to stdout / raw output to `.cld/`, 3 approval gates keep full interactivity). **NEXT ACTION: invoke `superpowers:writing-plans`** to turn the spec into sliced testable tasks. (Brainstorming was completed; writing-plans is the approved next step.)
+**⏭️ RESUME HERE:** ✅ **Context-lean interactive orchestration is BUILT (2026-06-11).** The token-drain fix shipped as the `--step` batch-step feature: lead agent runs ONE DAG layer per invocation, gets a ~10-line summary (exit 0/2/3), re-invokes to advance; raw output → `.cld/<id>/detail.json` (off agent context); concurrent fan-out + worktree isolation preserved; SKILL.md has the loop + cache-aware rules. **7 tasks, all TDD, all committed; 137 passed.** Dogfood scorecard now 14/14 grade A (T2/T3/T4 were Gemini dogfoods). Plan: `docs/superpowers/plans/2026-06-10-context-lean-orchestration-plan.md`.
 
-**DOGFOOD ROUTING for the implementation plan (decided 2026-06-11 — the plan MUST tag each task):**
-- ✅ **DOGFOOD (Gemini):** the **compact summary emitter** (`PlanResult` → ~10 lines + write `.cld/<id>/` artifacts — pure, fully test-pinnable) and the **gate classifier** (results → exit code 0/2/3 — pure logic). Both B1.3-shaped clean slices.
-- ⚠️ **SPLIT:** `--step` mode — the *next-layer-selection* logic is pure (dogfood), the *wiring into run_delivery.py* is Claude (orchestration seam).
-- ❌ **CLAUDE-DIRECT:** the lead-agent orchestration loop (it's SKILL.md *behavior*, not code — prose/judgment) + the real-git integration test (B1.5-shaped, integration + judgment).
+**NEXT options (user's choice):** (1) **Resume the advisor build** (rac-agent Sitting B, S4–S5) — now using `--step` so it's context-lean; transcribe advisor plan to cld `## SLICE:` format = Claude Step 1. (2) **OpenCode CLI 2nd executor** (POST-BUILD ROADMAP step 2; OpenCode now installed). (3) **Live end-to-end test** of the full skill on a real plan via `--step`.
+
+**Context-lean orchestration — tasks shipped (all committed):**
+- ✅ T1 PlanResult.details + DeliverResult files/diff_lines (Claude, 52eb699)
+- ✅ T2 summarize_layer + T3 classify_gate — `src/cld/summary.py` (DOGFOOD grade A, merged)
+- ✅ T4 next_pending_layer (DOGFOOD grade A, merged)
+- ✅ T5 `--step` mode + write_artifacts (Claude, b4dffc8)
+- ✅ T6 SKILL.md batch-step loop + cache rules (Claude, a9efc13)
+- ✅ T7 real-git step-through integration test (Claude, 254cc06)
 - This is ~the same split as BUG 1, which worked well. **This feature is itself dogfood-able — fitting, since it's a cld feature.**
 
 ---
