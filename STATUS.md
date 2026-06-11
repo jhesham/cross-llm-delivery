@@ -7,7 +7,18 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-09 (✅ COST GATE CLOSED = GO; Phases 2–3 built early by Gemini)
+**Last updated:** 2026-06-11 (context-lean orchestration DESIGN approved + committed; next = writing-plans)
+
+**⏭️ RESUME HERE (2026-06-11):** The token-drain fix is now a DESIGNED FEATURE, not a usage note. Design approved + committed: `docs/superpowers/specs/2026-06-10-context-lean-orchestration-design.md` (batch-step orchestration — lead runs ONE DAG layer per `--step` invocation, exit = pause, ledger = on-disk state, concurrent fan-out within a layer preserved, compact summary to stdout / raw output to `.cld/`, 3 approval gates keep full interactivity). **NEXT ACTION: invoke `superpowers:writing-plans`** to turn the spec into sliced testable tasks. (Brainstorming was completed; writing-plans is the approved next step.)
+
+**DOGFOOD ROUTING for the implementation plan (decided 2026-06-11 — the plan MUST tag each task):**
+- ✅ **DOGFOOD (Gemini):** the **compact summary emitter** (`PlanResult` → ~10 lines + write `.cld/<id>/` artifacts — pure, fully test-pinnable) and the **gate classifier** (results → exit code 0/2/3 — pure logic). Both B1.3-shaped clean slices.
+- ⚠️ **SPLIT:** `--step` mode — the *next-layer-selection* logic is pure (dogfood), the *wiring into run_delivery.py* is Claude (orchestration seam).
+- ❌ **CLAUDE-DIRECT:** the lead-agent orchestration loop (it's SKILL.md *behavior*, not code — prose/judgment) + the real-git integration test (B1.5-shaped, integration + judgment).
+- This is ~the same split as BUG 1, which worked well. **This feature is itself dogfood-able — fitting, since it's a cld feature.**
+
+---
+
 
 **Next task:** Resume advisor build (Sitting B) — but READ THE TOKEN-DRAIN FINDING FIRST (below).
 
