@@ -18,6 +18,16 @@ def _count_diff_lines(diff: str | None) -> int:
     )
 
 
+def next_pending_layer(slices: list[SliceTask], ledger: Ledger) -> tuple[int, list[str], int] | None:
+    deps = {s.id: list(s.deps) for s in slices}
+    layers = parallel_batches(deps)
+    for idx, layer in enumerate(layers):
+        pending = [sid for sid in sorted(layer) if not ledger.is_done(sid)]
+        if pending:
+            return (idx, pending, len(layers))
+    return None
+
+
 @dataclass
 class DeliverResult:
     accepted: bool
