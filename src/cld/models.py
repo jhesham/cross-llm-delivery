@@ -65,10 +65,19 @@ class Recommendation:
     confirm_cost: bool = False
 
 
+# The proven flat-rate workhorse always surfaces in the shortlist, even when it is
+# absent from `available_ids` — it runs via the Gemini CLI, not the OpenCode model
+# list, so filtering the picker to `opencode models` ids must never hide it. (Bug
+# found in a live skill test: shortlist came back with no default/workhorse.)
+DEFAULT_WORKHORSE_ID = "gemini:gemini-3.1-pro-preview"
+
+
 def recommend(*, available_ids, job=None) -> list[Recommendation]:
+    # Always consider the proven default available (it's not an OpenCode model).
+    effective_ids = set(available_ids) | {DEFAULT_WORKHORSE_ID}
     recs: list[Recommendation] = []
     for id, info in MODEL_METADATA.items():
-        if id not in available_ids:
+        if id not in effective_ids:
             continue
         if info.headless_status == "known-bad":
             continue
@@ -107,6 +116,98 @@ def recommend(*, available_ids, job=None) -> list[Recommendation]:
         default_candidate.is_default = True
 
     return recs
+
+
+_BUCKET_LABELS = [
+    ("workhorse", "WORKHORSE (default)"),
+    ("heavy", "HEAVY (hard slices, worth more $)"),
+    ("quick", "QUICK / BUDGET"),
+]
+
+
+def _spec_for(rec: "Recommendation") -> str:
+    """Map a catalogued model id to an `--executor` spec.
+
+    Gemini catalog ids are already spec-shaped (`gemini:<model>`). OpenCode ids
+    look like `opencode/<provider>/<model>` and need the `opencode:` executor
+    prefix in front.
+    """
+    if rec.id.startswith("opencode/"):
+        return f"opencode:{rec.id}"
+    return rec.id  # gemini:<model> (already a spec)
+
+
+def render_shortlist(recs: List["Recommendation"]) -> List[str]:
+    """Build the bucketed shortlist lines (numbered), default marked with '>'."""
+    lines = ["Recommended executors (installed + available):"]
+    n = 0
+    ordered: List["Recommendation"] = []
+    seen = set()
+    for bucket, label in _BUCKET_LABELS:
+        bucket_recs = [r for r in recs if r.bucket == bucket]
+        if not bucket_recs:
+            continue
+        lines.append(f"  {label}")
+        for r in bucket_recs:
+            n += 1
+            ordered.append(r)
+            seen.add(id(r))
+            marker = ">" if r.is_default else " "
+            cost = r.cost_class + (" $" if r.confirm_cost else "")
+            warn = "  (!) " + r.warning if r.warning else ""
+            lines.append(
+                f"  {marker} {n}) {_spec_for(r):42s} {cost:18s} {r.headless_status:8s}{warn}"
+            )
+    # any uncatalogued-bucket recs (defensive) appended last
+    for r in recs:
+        if id(r) not in seen:
+            n += 1
+            ordered.append(r)
+            lines.append(f"    {n}) {_spec_for(r)}")
+    return lines, ordered
+
+
+def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
+    """Interactive picker: show the shortlist, read a choice, return an executor spec.
+
+    - Pressing enter selects the default (proven workhorse).
+    - A number selects that line; a premium-metered pick (confirm_cost) requires a
+      y/N confirmation — declining falls back to the default.
+    - input_fn/output_fn are injected for testing (default to builtin input/print).
+    Returns a spec string suitable for parse_executor_spec / --executor.
+    """
+    lines, ordered = render_shortlist(recs)
+    for ln in lines:
+        output_fn(ln)
+
+    default_rec = next((r for r in ordered if r.is_default), ordered[0] if ordered else None)
+    if default_rec is None:
+        return "gemini"  # empty catalog -> safe default
+
+    raw = (input_fn("Pick one [default: workhorse]: ") or "").strip()
+    if not raw:
+        return _spec_for(default_rec)
+
+    try:
+        choice = int(raw)
+    except ValueError:
+        output_fn("Unrecognized choice — using the default workhorse.")
+        return _spec_for(default_rec)
+
+    if not (1 <= choice <= len(ordered)):
+        output_fn("Out of range — using the default workhorse.")
+        return _spec_for(default_rec)
+
+    chosen = ordered[choice - 1]
+    if chosen.confirm_cost:
+        output_fn(f"(!) {_spec_for(chosen)} bills real $ per dispatch (not flat-rate).")
+        ans = (input_fn("Proceed with a billed model? [y/N]: ") or "").strip().lower()
+        if ans not in ("y", "yes"):
+            output_fn("Declined — using the default workhorse instead.")
+            return _spec_for(default_rec)
+    if chosen.warning:
+        output_fn(f"Note: {chosen.warning}")
+    return _spec_for(chosen)
 
 
 def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:

@@ -105,40 +105,50 @@ retry) → accepted work is committed to its `slice-<id>` branch → ledger upda
 lead agent's tokens (every turn re-reads a growing context). Stepping one layer at a time keeps
 your context to ~10 lines per layer and flat during interaction.
 
-#### Choosing the executor & model (interactive picker)
+#### Choosing the executor & model (the picker)
 
-When helping a user start a build (or when they ask "which model?"), present the recommended
-shortlist and let them pick — the USER decides, never the orchestrator. The default is the proven
-$0 flat-rate workhorse (`gemini:gemini-3.1-pro-preview`); "just go" needs no decision.
+**ALWAYS present the model shortlist before the first dispatch of a build — every time, no
+exceptions.** Do not skip it because "the default needs no decision": the user picks, not you.
+The ONLY time you may skip is when the user has already named an executor this session (e.g. "use
+gemini" / "use opencode deepseek") — then echo that choice and proceed. A default existing is not
+permission to choose on the user's behalf.
 
-Build the shortlist from real data: run `opencode models` (via the project's runner) →
-`cld.models.list_models` → `cld.models.recommend(available_ids=...)`. Present buckets
-(workhorse / heavy / quick), each line:
-`<executor:provider/model> · <cost_class> · <headless_status> · <why>`.
+There are two equivalent surfaces; use whichever fits:
 
-Rules:
-- **Default pre-selected:** the proven workhorse. Pressing enter uses it.
-- **Cost guardrail:** if the user picks a `premium-metered` model (`confirm_cost=True`), CONFIRM
-  explicitly first — "This model bills real $ per dispatch (not flat-rate) — proceed?" Do not
-  dispatch a premium model without that confirmation. (`free`/`flat` models need no confirmation.)
-- **Headless warning:** an `untested` model carries a warning ("may not complete builds reliably").
-  Offer to run `cld.validate.validate_model` on it (one trivial slice, real test as judge) before
-  trusting it — it promotes the model to `proven` or `known-bad` from evidence.
-- The choice maps to `--executor <name>:<provider/model>` — e.g. `--executor gemini` (default),
-  `--executor gemini:<model-id>`, or `--executor opencode:opencode/deepseek-v4-flash-free`. A
-  per-slice `executor:` field in the plan supports "use the heavy model on this one hard slice."
+1. **CLI picker (preferred when you're about to run the script).** Run `run_delivery.py` WITHOUT
+   `--executor`; if stdin is a TTY it prints the shortlist and prompts. (Non-interactive runs and
+   `--step` loops fall back to gemini, so they never block.) This is `cld.models.pick_executor`.
+2. **Agent-presented (in chat).** Build it yourself and ask: `cld.models.list_models(runner=...)`
+   → `cld.models.recommend(available_ids=...)` → show the buckets, take the user's pick, pass it
+   as `--executor`.
 
-Example shown to the user:
+`recommend()` ALWAYS includes the proven Gemini workhorse as the default even though it is not in
+`opencode models` output (it runs via the Gemini CLI) — you do NOT need to merge it in yourself.
+Just pass the OpenCode ids from `list_models`.
+
+Rules (enforced by `pick_executor`, and required of the agent surface too):
+- **Default = the proven $0 flat-rate workhorse** (`gemini:gemini-3.1-pro-preview`). Enter selects it.
+- **Cost guardrail:** a `premium-metered` model (`confirm_cost=True`) requires an explicit "this
+  bills real $ per dispatch — proceed?" confirmation; declining falls back to the default. Never
+  dispatch a billed model without that confirmation. (`free`/`flat` need none.)
+- **Headless warning:** an `untested` model carries a warning. Offer `cld.validate.validate_model`
+  (one trivial slice, real test as judge) to promote it to `proven`/`known-bad` before trusting it.
+- The choice maps to `--executor <name>:<provider/model>` — `gemini`, `gemini:<model-id>`, or
+  `opencode:opencode/<model>`. A per-slice `executor:` field supports "heavy model on this one slice."
+
+Live example (ASCII, Windows-console-safe):
 ```
 Recommended executors (installed + available):
   WORKHORSE (default)
-  ▸ gemini:gemini-3.1-pro-preview         · $0 flat · proven   · 14/14 grade-A workhorse
+  > 1) gemini:gemini-3.1-pro-preview              flat               proven
+    2) opencode:opencode/deepseek-v4-pro          cheap-metered      likely
   HEAVY (hard slices, worth more $)
-    opencode:opencode/claude-opus-4-8     · premium ⚠ · likely  · top capability; confirms cost
+    3) opencode:opencode/claude-opus-4-8          premium-metered $  likely
   QUICK / BUDGET
-    opencode:opencode/deepseek-v4-flash-free · free ⚠ · untested · cheap; validate before trusting
-Pick one [default: gemini workhorse]:
+    4) opencode:opencode/deepseek-v4-flash-free   free               untested  (!) validate first
+Pick one [default: workhorse]:
 ```
+(`$` = bills real money, confirms on pick. `(!)` = untested, offer validation.)
 
 Use `--dry-run` first to print the layers without dispatching.
 

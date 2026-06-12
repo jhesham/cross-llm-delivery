@@ -68,6 +68,73 @@ def test_list_models_survives_missing_cli():
     assert list_models(runner=raising) == []
 
 
+# ---- interactive picker (the CLI prompt surface) ----
+
+from cld.models import pick_executor
+
+
+def _recs_for_picker():
+    return recommend(available_ids=[
+        "gemini:gemini-3.1-pro-preview",      # proven workhorse (default)
+        "opencode/claude-opus-4-8",           # premium -> confirm_cost
+        "opencode/deepseek-v4-flash-free",    # free / untested
+    ])
+
+
+def test_pick_executor_default_on_empty_input():
+    # pressing enter selects the default (proven workhorse) -> gemini spec
+    out = []
+    spec = pick_executor(_recs_for_picker(), input_fn=lambda _: "", output_fn=out.append)
+    assert spec == "gemini:gemini-3.1-pro-preview"
+    # the shortlist was actually shown
+    shown = "\n".join(out)
+    assert "deepseek" in shown and "claude-opus" in shown
+    assert "default" in shown.lower()
+
+
+def test_pick_executor_numeric_choice_maps_to_opencode_spec():
+    recs = _recs_for_picker()
+    # choose the deepseek free line by its number; find its index (1-based)
+    idx = next(i for i, r in enumerate(recs, 1) if "deepseek-v4-flash-free" in r.id)
+    spec = pick_executor(recs, input_fn=lambda _: str(idx), output_fn=lambda _s: None)
+    assert spec == "opencode:opencode/deepseek-v4-flash-free"
+
+
+def test_pick_executor_premium_requires_confirmation():
+    recs = _recs_for_picker()
+    idx = next(i for i, r in enumerate(recs, 1) if "claude-opus-4-8" in r.id)
+    # first prompt: pick the premium model; second prompt (confirm): "n" -> declines,
+    # falls back to the default workhorse rather than dispatching a billed model.
+    answers = iter([str(idx), "n"])
+    out = []
+    spec = pick_executor(recs, input_fn=lambda _: next(answers), output_fn=out.append)
+    assert spec == "gemini:gemini-3.1-pro-preview"  # declined -> default
+    assert any("bill" in line.lower() or "$" in line for line in out)  # warned about cost
+
+
+def test_picker_output_is_windows_console_safe():
+    # The picker must not emit non-cp1252 chars (e.g. the warning glyph) or it
+    # crashes on the default Windows console. All output must encode to cp1252.
+    from cld.models import render_shortlist
+    recs = _recs_for_picker()
+    lines, _ = render_shortlist(recs)
+    blob = "\n".join(lines)
+    blob.encode("cp1252")  # raises UnicodeEncodeError on a bad glyph
+    # also the cost-confirm and warning prompt strings
+    out = []
+    answers = iter(["x", ""])  # bad choice -> falls to default; no second prompt
+    pick_executor(recs, input_fn=lambda _: next(answers, ""), output_fn=out.append)
+    "\n".join(out).encode("cp1252")
+
+
+def test_pick_executor_premium_confirmed_yes():
+    recs = _recs_for_picker()
+    idx = next(i for i, r in enumerate(recs, 1) if "claude-opus-4-8" in r.id)
+    answers = iter([str(idx), "y"])
+    spec = pick_executor(recs, input_fn=lambda _: next(answers), output_fn=lambda _s: None)
+    assert spec == "opencode:opencode/claude-opus-4-8"
+
+
 # ---- T7: recommend() — filter / bucket / annotate for the picker ----
 
 from cld.models import recommend, Recommendation
@@ -86,6 +153,18 @@ def test_recommend_filters_to_available_and_catalogued():
             assert r.warning  # untested carries a warning
         assert r.cost_class   # cost always annotated
         assert r.why          # one-line rationale present
+
+
+def test_recommend_always_includes_proven_default_even_if_unavailable():
+    # BUG (found in live skill test): passing only `opencode models` ids excludes
+    # gemini:gemini-3.1-pro-preview, so the shortlist had NO default/workhorse.
+    # recommend() must always surface the proven default workhorse.
+    recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"])  # no gemini
+    ids = [r.id for r in recs]
+    assert "gemini:gemini-3.1-pro-preview" in ids
+    default = next(r for r in recs if r.is_default)
+    assert default.id == "gemini:gemini-3.1-pro-preview"
+    assert default.headless_status == "proven"
 
 
 def test_recommend_default_is_proven_workhorse():
