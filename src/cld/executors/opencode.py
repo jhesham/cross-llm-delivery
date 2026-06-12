@@ -35,6 +35,23 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
     return (proc.returncode, out)
 
 
+def _has_step_finish(raw: str) -> bool:
+    """True if the output contains at least one step_finish JSONL event — the
+    signature of a real, non-attached `--format json` dispatch."""
+    import json
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(d, dict) and d.get("type") == "step_finish":
+            return True
+    return False
+
+
 def parse_opencode_usage(raw_json: str) -> dict[str, int]:
     import json
     usage = {}
@@ -105,11 +122,28 @@ class OpenCodeExecutor:
         ]
         if self._variant:
             dispatch += ["--variant", self._variant]
+        # Isolation: a running opencode TUI captures `run` (attach mode) — the
+        # dispatch joins ITS project/agent/model, overriding -m/--dir/--format
+        # (observed live: kimi-k2.6 request served by build·claude-opus-4-8 in a
+        # different directory). Bare --port forces a fresh local server. MUST be
+        # last: with no value it takes a random port and must swallow no argv.
+        dispatch.append("--port")
 
         rc, raw = self._runner(dispatch, cwd)
 
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=raw)
+        if not _has_step_finish(raw):
+            # Plain-text output = attach mode (or a format regression): the work,
+            # if any, happened under someone else's session/model/directory.
+            # Never trust it; never capture a diff from it.
+            return ExecutorResult(
+                ok=False, diff="",
+                raw_log=("DISPATCH GUARD: no step_finish JSONL event in output — "
+                         "likely captured by a running opencode instance (attach "
+                         "mode) or wrong output format; refusing this dispatch.\n"
+                         "--- original output ---\n" + raw),
+            )
 
         token_usage = parse_opencode_usage(raw)
         diff, files_changed = capture_diff(self._runner, cwd)
