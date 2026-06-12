@@ -49,6 +49,15 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         headless_status="likely",
         rework_risk="low",
         note="solid choice"
+    ),
+    "opencode/gemini-3.1-pro": ModelInfo(
+        id="opencode/gemini-3.1-pro",
+        provider="opencode",
+        cost_class="cheap-metered",  # via OpenCode's account, NOT the flat-rate Google sub
+        capability_class="workhorse",
+        headless_status="likely",
+        rework_risk="low",
+        note="same model as the flat-rate workhorse, routed through OpenCode (metered)"
     )
 }
 
