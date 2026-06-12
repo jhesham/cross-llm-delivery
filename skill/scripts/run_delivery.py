@@ -98,8 +98,9 @@ def main(argv=None) -> int:
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default="gemini",
-                   help="Executor to use: 'gemini' or 'gemini:<model-id>' "
-                        "(the user picks the LLM here; default gemini)")
+                   help="Executor to use, e.g. 'gemini', 'gemini:<model-id>', or "
+                        "'opencode:<provider/model>' (the user picks the LLM here; "
+                        "default gemini)")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
     p.add_argument("--step", action="store_true",
