@@ -41,6 +41,19 @@ def test_colon_with_no_model_is_no_kwargs():
     assert parse_executor_spec("gemini:") == ("gemini", {})
 
 
+def test_slash_form_from_picker_is_accepted():
+    # The picker's display/catalog id uses a slash (opencode/<model>), but --executor
+    # wants a colon (opencode:<model>). Be liberal: accept the slash form too, so a
+    # copy-pasted catalog id doesn't error with "Unknown executor". (User-reported trap.)
+    assert parse_executor_spec("opencode/deepseek-v4-pro") == (
+        "opencode", {"model": "deepseek-v4-pro"})
+    # the canonical colon form still works identically
+    assert parse_executor_spec("opencode:deepseek-v4-pro") == (
+        "opencode", {"model": "deepseek-v4-pro"})
+    # a slash for an UNKNOWN prefix stays a bare name (don't over-eagerly split)
+    assert parse_executor_spec("anthropic/claude") == ("anthropic/claude", {})
+
+
 # ---- Bug B: pytest_test_runner scopes to the slice's acceptance test ----
 
 def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
