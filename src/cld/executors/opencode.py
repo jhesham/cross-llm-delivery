@@ -122,11 +122,15 @@ class OpenCodeExecutor:
         ]
         if self._variant:
             dispatch += ["--variant", self._variant]
-        # Isolation: a running opencode TUI captures `run` (attach mode) — the
-        # dispatch joins ITS project/agent/model, overriding -m/--dir/--format
-        # (observed live: kimi-k2.6 request served by build·claude-opus-4-8 in a
-        # different directory). Bare --port forces a fresh local server. MUST be
-        # last: with no value it takes a random port and must swallow no argv.
+        # Permissions: the default `build` agent treats writes outside its allowlist
+        # as external_directory -> "ask". Headless `run` cannot answer that prompt,
+        # so writes to our target repo are SILENTLY BLOCKED — the model "runs" but
+        # produces no files (confirmed live: kimi-k2.6 wrote no calc.py). We run in an
+        # isolated git worktree with the diff judged before any merge, so auto-approving
+        # inside that sandbox is safe and consistent with GeminiExecutor's --yolo.
+        dispatch.append("--dangerously-skip-permissions")
+        # Bare --port forces a fresh local server (avoids joining a stray session).
+        # MUST be last: with no value it takes a random port and must swallow no argv.
         dispatch.append("--port")
 
         rc, raw = self._runner(dispatch, cwd)
@@ -134,14 +138,14 @@ class OpenCodeExecutor:
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=raw)
         if not _has_step_finish(raw):
-            # Plain-text output = attach mode (or a format regression): the work,
-            # if any, happened under someone else's session/model/directory.
-            # Never trust it; never capture a diff from it.
+            # No step_finish event = the dispatch produced no valid JSONL result
+            # (e.g. a permission-blocked run that wrote nothing, or a format
+            # regression). Never trust it; never capture a diff from it.
             return ExecutorResult(
                 ok=False, diff="",
                 raw_log=("DISPATCH GUARD: no step_finish JSONL event in output — "
-                         "likely captured by a running opencode instance (attach "
-                         "mode) or wrong output format; refusing this dispatch.\n"
+                         "the dispatch produced no valid result (permission block, "
+                         "no work done, or wrong output format); refusing it.\n"
                          "--- original output ---\n" + raw),
             )
 
