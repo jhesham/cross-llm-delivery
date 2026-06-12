@@ -7,7 +7,34 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-12 (🐛 TWO real bugs found from a live advisor run — fix next)
+**Last updated:** 2026-06-12 (✅ OpenCode executor + model-picker SHIPPED — 9 tasks, 164 passed)
+
+**✅ OPENCODE EXECUTOR + MODEL PICKER COMPLETE (2026-06-12, commits 74c3239→bd9576b — 164 passed).**
+Added OpenCode CLI as a 3rd executor (`KNOWN_EXECUTORS = gemini, composer, opencode`) with a full
+interactive model-picker, all 9 TDD tasks committed one-per-task. Design `aa7f0b8`, plan `bfb00be`.
+- **T1** captured the REAL `opencode --format json` shape — it's **JSONL** (newline-delimited
+  events), tokens at `step_finish → part.tokens {total,input,output,reasoning,cache}`, `part.cost`
+  per step. Sample + notes in `docs/notes/opencode-run-sample.json` / `opencode-cli-notes.md`.
+- **T2** shared `capture_diff` (`src/cld/executors/_capture.py`) — Gemini + OpenCode both reuse it.
+- **T3** `OpenCodeExecutor` seam (`src/cld/executors/opencode.py`): `opencode run <prompt> -m
+  <provider/model> --format json --dir <wt>`, Windows `opencode.cmd`/`OPENCODE_CLI_CMD`.
+- **T4** `parse_opencode_usage` (JSONL, sums step_finish events) — **Gemini dogfood**, judged green.
+- **T5** registry entry. **T6** `src/cld/models.py` catalog + `list_models` — **Gemini dogfood**.
+- **T7** `recommend()` (filter→bucket→annotate, default=proven workhorse, premium→confirm_cost,
+  untested→warning) — **OpenCode SELF-DOGFOOD** via `opencode/deepseek-v4-flash-free`, judged green.
+  This is the milestone: OpenCode built a slice through its own now-proven executor.
+- **T8** `src/cld/validate.py` `validate_model` — evidence-backed headless validation (throwaway
+  real-git repo + trivial add(a,b) slice + real scoped pytest as judge → proven/known-bad/untested).
+- **T9** SKILL.md interactive picker (default workhorse, cost-confirm on premium, warn+offer-validate
+  on untested) + global skill synced. `cld` is an editable install so the package auto-picks-up.
+- **Dogfood scorecard: 17/17 grade A** (T4, T6 Gemini; T7 OpenCode/deepseek — all $0, judged by
+  independent pytest, none trusted on self-report). All dogfood dispatches cost $0 (flat/free tiers).
+- **Safe by inheritance held:** OpenCode inherits Bug A/B, `--step`, judge timeout, feedback loop —
+  it only adds the "type the code" half. No core (protocol/judge/ledger/DAG/orchestrator) changed.
+
+---
+
+**(Earlier 2026-06-12)** 🐛 TWO real bugs found from a live advisor run — now fixed (below).
 
 **✅ TWO BUGS FIXED (2026-06-12, commit 483826e — 144 passed).** Bug A: worktree.py now resolves repo_dir to abspath → `--repo .` yields a clean sibling `<abs>-wt-<branch>`, never `.-wt-*` inside the repo (3 tests). Bug B (the token-drain): `deliver_slice` passes `task.acceptance_test_path` to `test_runner`; `pytest_test_runner` runs ONLY that test (not the whole suite — which billed `claude -p` in the advisor repo and let a hang freeze the build), + a 600s per-judge timeout; backward-compatible with 1-arg runners (4 tests). **rac-agent S7 / advisor build left ENTIRELY to the advisor thread per user — cld made NO changes to rac-agent.** Below is the original bug write-up (kept for reference):
 
@@ -25,7 +52,7 @@
 
 **Context-lean orchestration is BUILT (2026-06-11):** ✅ **Context-lean interactive orchestration is BUILT (2026-06-11).** The token-drain fix shipped as the `--step` batch-step feature: lead agent runs ONE DAG layer per invocation, gets a ~10-line summary (exit 0/2/3), re-invokes to advance; raw output → `.cld/<id>/detail.json` (off agent context); concurrent fan-out + worktree isolation preserved; SKILL.md has the loop + cache-aware rules. **7 tasks, all TDD, all committed; 137 passed.** Dogfood scorecard now 14/14 grade A (T2/T3/T4 were Gemini dogfoods). Plan: `docs/superpowers/plans/2026-06-10-context-lean-orchestration-plan.md`.
 
-**NEXT options (user's choice):** (1) **Resume the advisor build** (rac-agent Sitting B, S4–S5) — now using `--step` so it's context-lean; transcribe advisor plan to cld `## SLICE:` format = Claude Step 1. (2) **OpenCode CLI 2nd executor** (POST-BUILD ROADMAP step 2; OpenCode now installed). (3) **Live end-to-end test** of the full skill on a real plan via `--step`.
+**NEXT options (user's choice):** (1) **Resume the advisor build** (rac-agent Sitting B, S4–S5) — now using `--step` so it's context-lean; transcribe advisor plan to cld `## SLICE:` format = Claude Step 1. (2) ~~OpenCode CLI 2nd executor~~ ✅ DONE (see top). (3) **Live end-to-end test** of the full skill on a real plan via `--step`. (4) **Run a real `--step` build through `--executor opencode:...`** to prove the picker path end-to-end on a non-trivial plan (T1-T9 proved the units + one self-dogfood slice; a full multi-layer OpenCode build is the remaining live proof).
 
 **Context-lean orchestration — tasks shipped (all committed):**
 - ✅ T1 PlanResult.details + DeliverResult files/diff_lines (Claude, 52eb699)
@@ -39,7 +66,9 @@
 ---
 
 
-**Next task:** Resume advisor build (Sitting B) — but READ THE TOKEN-DRAIN FINDING FIRST (below).
+**Next task:** User's choice from "NEXT options" above. Leading candidate: a live multi-layer
+`--step` build via `--executor opencode:opencode/deepseek-v4-flash-free` to prove the picker path
+end-to-end. (Advisor build Sitting B remains an option — READ THE TOKEN-DRAIN FINDING FIRST, below.)
 
 🔍 **CLAUDE TOKEN-DRAIN INVESTIGATION — RESOLVED 2026-06-10.** User: "30 min burned the whole Claude session, observed ONLY while Gemini actively developing, lead Claude appeared inactive." **THREE compelling theories DISPROVEN by reading the actual code (validation > certainty, again):**
 - ❌ **cld behavioral G-Eval judge** — `evaluate_compliance`/`make_compliance_metric` are referenced ONLY in behavioral.py + the gated `-m eval` test + docs. NOTHING in the live path (orchestrator/judge/run_delivery) imports or calls them. Dead code at runtime. Verified by grep.
