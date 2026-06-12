@@ -104,16 +104,36 @@ class ResolveResult:
     note: str = ""
 
 
+def _evidence_key(spec: str) -> str:
+    """Store key = the model id: strip the `opencode:` executor prefix from a spec
+    (`opencode:opencode/x` -> `opencode/x`); gemini specs are already ids."""
+    return spec.split(":", 1)[1] if spec.startswith("opencode:") else spec
+
+
 def resolve_and_validate(spec: str, *, headless_status_of, cost_class_of, validate_fn,
-                         confirm_fn, output_fn, session_known_bad=None) -> ResolveResult:
+                         confirm_fn, output_fn, session_known_bad=None,
+                         evidence_store=None, force_revalidate=False) -> ResolveResult:
     """Validate-on-demand gate: only proven/likely models pass straight through; an
     untested pick is validated against a real trivial slice first (metered models
-    confirm the validation spend), and a known-bad verdict declines the pick and
-    marks it for THIS session only (caller re-presents the picker without it)."""
+    confirm the validation spend), and a known-bad verdict declines the pick.
+    Verdicts persist in the durable evidence_store (keyed by model id) and are
+    consulted before spending again; force_revalidate re-runs and refreshes."""
     skb = session_known_bad if session_known_bad is not None else set()
     if spec in skb:
         return ResolveResult(spec, "known-bad", False, False,
                              "marked known-bad this session — pick another model")
+
+    key = _evidence_key(spec)
+    if evidence_store is not None and not force_revalidate:
+        rec = evidence_store.get(key)
+        if rec and rec.get("status") == "proven":
+            return ResolveResult(spec, "proven", False, True,
+                                 f"proven on record ({rec.get('validated_at', '?')})")
+        if rec and rec.get("status") == "known-bad":
+            return ResolveResult(
+                spec, "known-bad", False, False,
+                f"known-bad on record ({rec.get('validated_at', '?')}) — "
+                f"re-validate to refresh")
 
     status = headless_status_of(spec)
     if status in ("proven", "likely"):
@@ -134,11 +154,15 @@ def resolve_and_validate(spec: str, *, headless_status_of, cost_class_of, valida
     vr = validate_fn(spec)
     if vr.status == "proven":
         output_fn(f"{spec}: proven headless-capable.")
+        if evidence_store is not None:
+            evidence_store.record(key, "proven", note=vr.note or "")
         return ResolveResult(spec, "proven", True, True)
     if vr.status == "known-bad":
         output_fn(f"{spec}: NOT headless-capable (built failing or no code). "
                   f"Pick another model.")
         skb.add(spec)
+        if evidence_store is not None:
+            evidence_store.record(key, "known-bad", note=vr.note or "failed validation")
         return ResolveResult(spec, "known-bad", True, False,
                              vr.note or "failed validation")
     output_fn(f"{spec}: couldn't validate ({vr.note}). Not a model verdict — "

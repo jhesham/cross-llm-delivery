@@ -214,3 +214,16 @@ def test_recommend_hides_session_known_bad():
     assert "opencode/claude-opus-4-8" in ids
     # the proven default is still there and still default
     assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
+
+
+def test_recommend_evidence_overlay():
+    # a durable proven verdict upgrades a catalogued-untested model (warning cleared)
+    recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"],
+                     evidence={"opencode/deepseek-v4-flash-free": "proven"})
+    ds = next(r for r in recs if "flash-free" in r.id)
+    assert ds.headless_status == "proven"
+    assert ds.warning == ""
+    # a durable known-bad verdict excludes the model from the shortlist
+    recs2 = recommend(available_ids=["opencode/deepseek-v4-flash-free"],
+                      evidence={"opencode/deepseek-v4-flash-free": "known-bad"})
+    assert all("flash-free" not in r.id for r in recs2)

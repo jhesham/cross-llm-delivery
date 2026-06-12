@@ -77,3 +77,67 @@ def test_executor_error_is_untested_not_a_verdict():
     assert res.proceeded is False and res.validated is False and res.status == "untested"
     assert "couldn't validate" in res.note
     assert any("couldn't validate" in ln.lower() for ln in out)
+
+
+# ---- durable evidence store integration (supersedes session-only known-bad) ----
+
+from cld.evidence import EvidenceStore
+
+
+def _gate_with_store(spec, store, *, status="untested", cost="free", verdict=None,
+                     confirm=True, force=False):
+    out = []
+    res = resolve_and_validate(
+        spec,
+        headless_status_of=lambda s: status,
+        cost_class_of=lambda s: cost,
+        validate_fn=lambda s: verdict,
+        confirm_fn=lambda m: confirm,
+        output_fn=out.append,
+        evidence_store=store,
+        force_revalidate=force,
+    )
+    return res, out
+
+
+def test_evidence_known_bad_short_circuits_no_respend(tmp_path):
+    store = EvidenceStore(path=tmp_path / "ev.json")
+    store.record("opencode/gpt-5.2", "known-bad", note="never wrote file")
+    calls = []
+    res = resolve_and_validate(
+        "opencode:opencode/gpt-5.2",  # spec form; store key is the model id
+        headless_status_of=lambda s: "untested",
+        cost_class_of=lambda s: "free",
+        validate_fn=lambda s: calls.append(s),
+        confirm_fn=lambda m: True,
+        output_fn=lambda m: None,
+        evidence_store=store,
+    )
+    assert res.proceeded is False and res.status == "known-bad"
+    assert calls == []  # no validation dispatch, no re-spend
+    assert "re-validate" in res.note  # tells the user how to refresh
+
+
+def test_evidence_proven_short_circuits(tmp_path):
+    store = EvidenceStore(path=tmp_path / "ev.json")
+    store.record("m1", "proven")
+    res, _ = _gate_with_store("m1", store)
+    assert res.proceeded is True and res.status == "proven"
+    assert res.validated is False  # no new dispatch needed
+
+
+def test_force_revalidate_bypasses_evidence_and_refreshes(tmp_path):
+    store = EvidenceStore(path=tmp_path / "ev.json")
+    store.record("m2", "known-bad", note="old transient failure")
+    res, _ = _gate_with_store("m2", store, force=True,
+                              verdict=ValidationResult("m2", True, "proven", 1))
+    assert res.proceeded is True and res.status == "proven"
+    assert store.get("m2")["status"] == "proven"  # refreshed on disk
+
+
+def test_new_verdicts_recorded_durably(tmp_path):
+    store = EvidenceStore(path=tmp_path / "ev.json")
+    res, _ = _gate_with_store("opencode:opencode/m3", store,
+                              verdict=ValidationResult("m3", False, "known-bad", 1, "bad"))
+    assert res.proceeded is False
+    assert store.get("opencode/m3")["status"] == "known-bad"  # opencode: prefix stripped
