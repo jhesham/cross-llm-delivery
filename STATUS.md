@@ -7,7 +7,24 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-12 (✅ OpenCode executor + model-picker SHIPPED — 9 tasks, 164 passed)
+**Last updated:** 2026-06-13 (✅ Browse picker + validate-on-demand SHIPPED — 192 passed)
+
+**✅ BROWSE PICKER + VALIDATE-ON-DEMAND COMPLETE (2026-06-13, commits 61ceaa3→ba6e8dd — 192
+passed).** Spec 338e9bc, plan e004785. `browse_models`/`render_browse_list` (full 46-model
+grouped browse, verbatim-render guard), `resolve_and_validate` gate (untested pick → real-slice
+validation w/ "please wait" progress msg; metered → cost confirm; known-bad → decline +
+session-only mark + re-present), `recommend(session_known_bad=...)`. T1 was a Gemini dogfood;
+T2–T5 were applied externally to the working tree mid-session and Claude-judged green.
+**Live finds from validating `opencode/kimi-k2.6`:** (1) all subprocess runners now decode
+utf-8/replace — kimi emitted 0x90, killing the cp1252 reader thread (the first verdict was
+corrupted by our own harness); (2) `validate_model` now returns `untested` (not `known-bad`)
+on a failed dispatch. **Honest verdict after fixes: kimi-k2.6 = known-bad for headless
+slice-building** (dispatch OK, ran pytest, never wrote calc.py — the "explores but doesn't
+write code" failure mode). Session-only; re-validatable. Validate-on-demand proved itself live.
+
+---
+
+**(Earlier)** ✅ OpenCode executor + model-picker SHIPPED — 9 tasks, 164 passed (2026-06-12)
 
 **✅ OPENCODE EXECUTOR + MODEL PICKER COMPLETE (2026-06-12, commits 74c3239→bd9576b — 164 passed).**
 Added OpenCode CLI as a 3rd executor (`KNOWN_EXECUTORS = gemini, composer, opencode`) with a full
