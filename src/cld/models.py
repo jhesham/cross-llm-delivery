@@ -51,6 +51,63 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
     )
 }
 
+@dataclass
+class Recommendation:
+    id: str
+    bucket: str
+    capability_class: str
+    cost_class: str
+    headless_status: str
+    why: str
+    is_default: bool = False
+    warning: str = ""
+    confirm_cost: bool = False
+
+
+def recommend(*, available_ids, job=None) -> list[Recommendation]:
+    recs: list[Recommendation] = []
+    for id, info in MODEL_METADATA.items():
+        if id not in available_ids:
+            continue
+        if info.headless_status == "known-bad":
+            continue
+        warning = ""
+        if info.headless_status == "untested":
+            warning = "untested: may not complete builds reliably; validate first"
+        confirm_cost = info.cost_class == "premium-metered"
+        rec = Recommendation(
+            id=id,
+            bucket=info.capability_class,
+            capability_class=info.capability_class,
+            cost_class=info.cost_class,
+            headless_status=info.headless_status,
+            why=info.note,
+            warning=warning,
+            confirm_cost=confirm_cost,
+        )
+        recs.append(rec)
+
+    default_candidate = None
+    for rec in recs:
+        if rec.id == "gemini:gemini-3.1-pro-preview":
+            default_candidate = rec
+            break
+    if default_candidate is None:
+        for rec in recs:
+            if rec.headless_status == "proven" and rec.bucket == "workhorse":
+                default_candidate = rec
+                break
+    if default_candidate is None:
+        for rec in recs:
+            if rec.headless_status == "proven":
+                default_candidate = rec
+                break
+    if default_candidate is not None:
+        default_candidate.is_default = True
+
+    return recs
+
+
 def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:
     rc, out = runner(["opencode", "models"], ".")
     if rc != 0:
