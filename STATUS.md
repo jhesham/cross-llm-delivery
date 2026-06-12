@@ -7,7 +7,24 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-13 (✅ Durable evidence store + opencode attach-hijack defeated — 203 passed)
+**Last updated:** 2026-06-13 (🔴 BLOCKER: opencode headless ignores -m; serve+attach + leak fix landed — 204 passed)
+
+**🔴 OPENCODE HEADLESS IGNORES `-m` (2026-06-13, commit 5803526 + docs).** PROVEN at $0: requested
+`mimo-v2.5-free` via the executor while the CLI default was `deepseek-v4-flash-free` → dashboard
+showed deepseek (the config default), not mimo. **opencode `run -m` is ignored; it uses the CLI's
+configured default model.** This breaks picker/executor model-selection — `--executor opencode:<model>`
+does NOT control which model runs. Full write-up + next-step fix (set model via per-dispatch config,
+not -m) + the mechanics learned: `docs/notes/opencode-model-selection-blocker.md`. **The entire
+"mystery deepseek caller" saga was our OWN test dispatches** (process tree: python→serve→run);
+no external hijacker ever existed — dashboard showed deepseek because -m was ignored. Real fixes
+that DID land and are correct: serve+attach isolation, leak-proof tree-kill teardown (orphaned
+`serve` had dispatched 25+ min), utf-8 decode, dispatch guard, durable evidence store. kimi-k2.6
+headless = UNVALIDATED (could never run pure kimi; -m ignored). NEXT: fix model selection via
+config mechanism, verify with free models, THEN resume validation.
+
+---
+
+**(earlier 2026-06-13)** ✅ Durable evidence store + (mis-named) attach fixes — 203 passed
 
 **✅ DURABLE EVIDENCE STORE + ATTACH-HIJACK FIXES (2026-06-13, commits d21aea1+64150df — 203
 passed).** (1) **CRITICAL find:** a running opencode TUI captures `opencode run` (attach mode) —
