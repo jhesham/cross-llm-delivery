@@ -8,6 +8,16 @@ list_models parses `opencode models` via an injected runner. recommend() (T7) fi
 from cld.models import MODEL_METADATA, ModelInfo, list_models
 
 
+def test_metadata_has_opencode_gemini_workhorse():
+    # OpenCode also fronts gemini-3.1-pro (via OpenCode's account, NOT the flat-rate
+    # Google AI Pro sub) -> a workhorse option, but metered, not flat, and not yet
+    # proven through OpenCode's harness.
+    g = MODEL_METADATA["opencode/gemini-3.1-pro"]
+    assert g.capability_class == "workhorse"
+    assert g.cost_class != "flat"        # not the flat-rate sub
+    assert g.headless_status in ("likely", "untested")
+
+
 def test_metadata_has_seed_workhorse():
     # the proven flat-rate workhorse must be present and tagged correctly
     g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
