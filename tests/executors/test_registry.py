@@ -58,3 +58,12 @@ def test_known_executors_exposed():
 def test_kwargs_passed_through_to_gemini():
     ex = get_executor("gemini", runner=_fake_runner, model="gemini-3-pro-preview")
     assert ex._model == "gemini-3-pro-preview"
+
+
+def test_get_opencode():
+    from cld.executors.opencode import OpenCodeExecutor
+
+    ex = get_executor("opencode", model="opencode/deepseek-v4-flash-free")
+    assert isinstance(ex, OpenCodeExecutor)
+    assert isinstance(ex, Executor)
+    assert "opencode" in KNOWN_EXECUTORS
