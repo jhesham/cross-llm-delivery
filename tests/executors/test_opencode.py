@@ -70,6 +70,32 @@ def test_nonzero_dispatch_not_ok():
     assert "boom" in res.raw_log
 
 
+def test_argv_includes_port_isolation_flag():
+    # A running opencode TUI captures `opencode run` (attach mode): the dispatch
+    # joins ITS project/agent/model — wrong model, wrong directory, plain-text
+    # output. Bare --port forces a fresh local server (verified live).
+    runner = _ok_runner()
+    OpenCodeExecutor(runner=runner).run(
+        SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py"), "/work")
+    argv = runner.calls[0][0]
+    assert argv[-1] == "--port"  # last, bare (random port), so it swallows no value
+
+
+def test_non_jsonl_output_fails_dispatch_guard():
+    # Attach-mode output is plain text (no JSONL events). Any output without a
+    # step_finish event must be treated as a FAILED dispatch, never trusted.
+    runner = RecordingRunner([
+        ("opencode", 0, "I implemented slice T1!\nAll 8 tests pass."),
+    ])
+    ex = OpenCodeExecutor(runner=runner)
+    task = SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py")
+    res = ex.run(task, "/work")
+    assert res.ok is False
+    assert "step_finish" in res.raw_log  # guard explains itself
+    # and the original output is preserved for diagnosis
+    assert "I implemented slice T1!" in res.raw_log
+
+
 def test_default_runner_survives_non_utf8_console_bytes():
     # Live kimi-k2.6 validation crashed the reader thread: opencode emitted byte
     # 0x90 (invalid cp1252), and text=True without encoding= decodes with the

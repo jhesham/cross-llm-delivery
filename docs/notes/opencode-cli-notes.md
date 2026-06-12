@@ -39,6 +39,23 @@ same way; useful for the premium-metered cost guardrail later.
 `{"input": 8129, "output": 2, "total": 8145, "reasoning": 14}` for this sample
 (single step → those exact numbers). Return `{}` on unparseable/empty input.
 
+## CRITICAL: a running opencode TUI captures `opencode run` (attach mode)
+
+Observed live (2026-06-13): with an interactive opencode TUI open elsewhere on the machine,
+`opencode run "<msg>" -m opencode/kimi-k2.6 --format json --dir <tmp>` was served by the TUI's
+session instead — **agent `build`, model `claude-opus-4-8` (premium, billed), project = the
+TUI's directory** (it edited files in an unrelated worktree there). In attach mode `--dir`
+means "path on the remote server", `-m` and `--format json` are ignored, stdout is plain text
+(no JSONL), and the TUI banner goes to stderr.
+
+**Mitigations (both in `OpenCodeExecutor`):**
+1. Always pass bare `--port` (LAST in argv — with no value it picks a random port): forces a
+   fresh local server instead of attaching. Verified live: clean JSONL, no banner.
+2. Dispatch guard: output without at least one `step_finish` JSONL event → `ok=False`
+   ("DISPATCH GUARD ..."), never trusted, no diff captured.
+
+Practical rule: avoid keeping an opencode TUI open at a project root while builds dispatch.
+
 ## Windows
 
 `opencode` resolves on PATH directly here (no `.cmd` shim needed in Git Bash). For the
