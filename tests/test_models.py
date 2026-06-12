@@ -201,3 +201,16 @@ def test_recommend_buckets_and_cost_flags():
     free = next((r for r in recs if "free" in r.id), None)
     assert free is not None
     assert free.confirm_cost is False
+
+
+def test_recommend_hides_session_known_bad():
+    # a model that failed validation this session is hidden on re-present
+    recs = recommend(
+        available_ids=["opencode/deepseek-v4-flash-free", "opencode/claude-opus-4-8"],
+        session_known_bad={"opencode/deepseek-v4-flash-free"},
+    )
+    ids = [r.id for r in recs]
+    assert "opencode/deepseek-v4-flash-free" not in ids
+    assert "opencode/claude-opus-4-8" in ids
+    # the proven default is still there and still default
+    assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
