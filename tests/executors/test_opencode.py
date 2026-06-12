@@ -32,36 +32,7 @@ def _ok_runner(diff="--- a\n+++ b\n+x\n"):
     ])
 
 
-class FakeServer:
-    """Stand-in for a per-dispatch `opencode serve` bound to the target repo.
-
-    Records the cwd it was started in (must be the target repo, so the server
-    binds to THAT project) and whether it was stopped (teardown must always run)."""
-
-    def __init__(self):
-        self.started_cwd = None
-        self.stopped = False
-        self.url = "http://127.0.0.1:65111"
-
-    def start(self, cwd):
-        self.started_cwd = cwd
-        return self.url
-
-    def stop(self):
-        self.stopped = True
-
-
-def _fake_server_factory(holder):
-    def factory():
-        s = FakeServer()
-        holder.append(s)
-        return s
-    return factory
-
-
 def _executor(**kw):
-    """OpenCodeExecutor with a fake server (no real `opencode serve` spawned)."""
-    kw.setdefault("server_factory", _fake_server_factory([]))
     return OpenCodeExecutor(**kw)
 
 
@@ -69,25 +40,14 @@ def test_satisfies_protocol():
     assert isinstance(_executor(runner=_ok_runner()), Executor)
 
 
-def test_builds_locked_argv_in_attach_mode():
-    # opencode `run --dir` is only AUTHORITATIVE when attaching to a server
-    # ("path on remote server if attaching"). A plain `run` resolves the project
-    # from cwd/git-root and drifts to the wrong repo (confirmed live: kimi kept
-    # doing our smoketest sandbox). So the executor starts a per-dispatch server
-    # bound to the target repo, then attaches the run to it with an authoritative
-    # --dir.
-    servers = []
+def test_builds_locked_argv():
+    # Plain headless run: -m model, --format json, --dir cwd, skip-permissions, --port.
+    # A clean test proved this isolates the work dir correctly (no serve/attach needed).
     runner = _ok_runner()
-    ex = OpenCodeExecutor(runner=runner, model="anthropic/claude-sonnet-4-6",
-                          server_factory=_fake_server_factory(servers))
+    ex = OpenCodeExecutor(runner=runner, model="anthropic/claude-sonnet-4-6")
     task = SliceTask(id="T", brief="do the thing", files=["src/x.py"],
                      acceptance_test_path="tests/test_x.py")
     ex.run(task, "/work")
-
-    # the server was started IN the target repo (binds it as that project)
-    assert servers and servers[0].started_cwd == "/work"
-    # and torn down afterwards
-    assert servers[0].stopped is True
 
     argv = runner.calls[0][0]
     assert argv[0] in ("opencode", "opencode.cmd")
@@ -97,21 +57,10 @@ def test_builds_locked_argv_in_attach_mode():
     assert "--dir" in argv and "/work" in argv
     assert "do the thing" in " ".join(argv)
     assert "--dangerously-skip-permissions" in argv
-    # attach to the per-dispatch server so --dir is authoritative
-    assert "--attach" in argv and servers[0].url in argv
-    # no bare --port in attach mode (the server owns the port)
-    assert "--port" not in argv
-
-
-def test_server_stopped_even_when_run_fails():
-    # teardown must run in a finally — a failed dispatch can't leak a server
-    servers = []
-    runner = RecordingRunner([("opencode", 1, "boom")])
-    ex = OpenCodeExecutor(runner=runner, server_factory=_fake_server_factory(servers))
-    task = SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py")
-    res = ex.run(task, "/work")
-    assert res.ok is False
-    assert servers[0].stopped is True
+    # bare --port last (fresh local server, isolates the session)
+    assert argv[-1] == "--port"
+    # no attach machinery anymore
+    assert "--attach" not in argv
 
 
 def test_captures_diff_and_files():
@@ -146,37 +95,6 @@ def test_non_jsonl_output_fails_dispatch_guard():
     assert "step_finish" in res.raw_log  # guard explains itself
     # and the original output is preserved for diagnosis
     assert "I implemented slice T1!" in res.raw_log
-
-
-def test_server_start_failure_does_not_leak():
-    # If serve never reports a URL, start() must stop the proc before raising —
-    # a leaked `opencode serve` kept dispatching for 25+ min (confirmed live).
-    from cld.executors.opencode import _OpenCodeServer
-
-    class _NoUrlProc:
-        pid = 4242
-        def __init__(self): self.stdout = self
-        def readline(self): return ""        # never emits a URL
-        def poll(self): return 0             # and exits immediately
-
-    srv = _OpenCodeServer()
-    stopped = {"n": 0}
-    srv._make_proc = lambda cwd: _NoUrlProc()  # not used; we patch Popen below
-    import cld.executors.opencode as mod
-    orig_popen = mod.subprocess.Popen
-    orig_run = mod.subprocess.run
-    mod.subprocess.Popen = lambda *a, **k: _NoUrlProc()
-    mod.subprocess.run = lambda *a, **k: stopped.__setitem__("n", stopped["n"] + 1)
-    try:
-        import pytest
-        with pytest.raises(RuntimeError):
-            srv.start("/work")
-        # stop() ran (taskkill invoked) -> no orphan
-        assert stopped["n"] >= 1 or srv._proc is None
-        assert srv._proc is None
-    finally:
-        mod.subprocess.Popen = orig_popen
-        mod.subprocess.run = orig_run
 
 
 def test_default_runner_survives_non_utf8_console_bytes():
