@@ -44,6 +44,30 @@ def test_list_models_empty_on_failure():
     assert list_models(runner=boom) == []
 
 
+def test_list_models_resolves_platform_command(monkeypatch):
+    # On Windows the npm shim is opencode.cmd; bare "opencode" raises WinError 2.
+    # list_models must invoke the platform-correct command, not bare "opencode".
+    import cld.models as m
+    monkeypatch.setattr(m.os, "name", "nt", raising=False)
+    seen = {}
+
+    def fake_runner(args, cwd):
+        seen["cmd"] = args[0]
+        return (0, "opencode/gemini-3.1-pro\n")
+
+    m.list_models(runner=fake_runner)
+    assert seen["cmd"] in ("opencode.cmd", "opencode")  # resolved, platform-aware
+
+
+def test_list_models_survives_missing_cli():
+    # The real default runner raises FileNotFoundError when the CLI isn't on PATH;
+    # list_models must degrade to [] (picker -> "Gemini only"), never crash.
+    def raising(args, cwd):
+        raise FileNotFoundError("[WinError 2] cannot find opencode")
+
+    assert list_models(runner=raising) == []
+
+
 # ---- T7: recommend() — filter / bucket / annotate for the picker ----
 
 from cld.models import recommend, Recommendation

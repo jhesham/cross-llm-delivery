@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import Optional, List, Callable, Tuple, Dict
 
@@ -109,7 +110,20 @@ def recommend(*, available_ids, job=None) -> list[Recommendation]:
 
 
 def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:
-    rc, out = runner(["opencode", "models"], ".")
+    """List available OpenCode model ids via `opencode models`.
+
+    Resolves the platform-correct command (Windows npm shim is `opencode.cmd`,
+    overridable with OPENCODE_CLI_CMD). Degrades to [] on any failure — nonzero
+    exit OR the CLI not being on PATH (FileNotFoundError) — so the picker can
+    fall back to "Gemini only" instead of crashing.
+    """
+    oc_cmd = os.environ.get("OPENCODE_CLI_CMD") or (
+        "opencode.cmd" if os.name == "nt" else "opencode"
+    )
+    try:
+        rc, out = runner([oc_cmd, "models"], ".")
+    except OSError:
+        return []
     if rc != 0:
         return []
     return [line.strip() for line in out.splitlines() if line.strip()]
