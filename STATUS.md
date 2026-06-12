@@ -7,20 +7,20 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-13 (🔴 BLOCKER: opencode headless ignores -m; serve+attach + leak fix landed — 204 passed)
+**Last updated:** 2026-06-13 (✅ RESOLVED: opencode `-m` WORKS; false blocker debunked — 204 passed)
 
-**🔴 OPENCODE HEADLESS IGNORES `-m` (2026-06-13, commit 5803526 + docs).** PROVEN at $0: requested
-`mimo-v2.5-free` via the executor while the CLI default was `deepseek-v4-flash-free` → dashboard
-showed deepseek (the config default), not mimo. **opencode `run -m` is ignored; it uses the CLI's
-configured default model.** This breaks picker/executor model-selection — `--executor opencode:<model>`
-does NOT control which model runs. Full write-up + next-step fix (set model via per-dispatch config,
-not -m) + the mechanics learned: `docs/notes/opencode-model-selection-blocker.md`. **The entire
-"mystery deepseek caller" saga was our OWN test dispatches** (process tree: python→serve→run);
-no external hijacker ever existed — dashboard showed deepseek because -m was ignored. Real fixes
-that DID land and are correct: serve+attach isolation, leak-proof tree-kill teardown (orphaned
-`serve` had dispatched 25+ min), utf-8 decode, dispatch guard, durable evidence store. kimi-k2.6
-headless = UNVALIDATED (could never run pure kimi; -m ignored). NEXT: fix model selection via
-config mechanism, verify with free models, THEN resume validation.
+**✅ OPENCODE `-m` MODEL SELECTION WORKS (2026-06-13).** The earlier "🔴 blocker" was FALSE.
+PROVEN at $0 (dashboard billed-model = ground truth): six dispatches, every one billed the model
+passed via `-m` — including a run with the global config PINNED to deepseek + `-m mimo` → billed
+**mimo** (config does NOT override `-m` either). The one anomaly (2:58 mimo→deepseek) was corruption
+from a leaked server + dispatch-guard at that instant, never reproduced clean. **GOTCHA: a model's
+self-reported id is unreliable (one mimo run claimed "mimo-v2-pro-free") — trust the BILLED model,
+not the text reply.** That mis-led the prior diagnosis. **Implication: picker / `--executor
+opencode:<model>` / recommend / validate_model all correctly control the model — NO executor change
+needed for selection.** Full write-up: `docs/notes/opencode-model-selection-blocker.md`. Real fixes
+that landed (correct): serve+attach isolation, leak-proof tree-kill teardown, utf-8 decode, dispatch
+guard, durable evidence store. **kimi-k2.6 headless still UNVALIDATED** — now achievable; one clean
+validation (config empty, opencode TUI closed) gets the honest verdict.
 
 ---
 

@@ -1,53 +1,58 @@
-# OpenCode headless model selection — BLOCKER (2026-06-13)
+# OpenCode headless model selection — RESOLVED, works (2026-06-13)
 
 ## The proven fact
 
-**`opencode run -m <model>` is IGNORED in headless mode.** opencode uses the CLI's
-**configured default model** instead of the `-m` flag.
+**`opencode run -m <model>` WORKS reliably in headless mode.** The earlier "blocker"
+(claimed `-m` is ignored) was FALSE — an artifact of the leaked-server / dispatch-guard
+mess at the time, not a real selection failure.
 
-**Proof (zero-cost, free models):** with the opencode CLI default set to
-`deepseek-v4-flash-free`, our executor dispatched `OpenCodeExecutor(model="opencode/mimo-v2.5-free")`.
-The usage dashboard showed **`deepseek-v4-flash-free`** (the config default), NOT mimo. Requested
-model ≠ actual model. Session `tnDwk5e4`, $0.00.
+## Proof (dashboard = ground truth, $0 free models)
 
-## Why this matters
+Six dispatches, every one billed the model passed via `-m`:
 
-This breaks the picker + executor model-selection investment: `--executor opencode:<model>`,
-`pick_executor`, `recommend`, `browse_models`, `validate_model` all assume the chosen model is
-the one that runs. It isn't — every dispatch uses the CLI default regardless.
+| session   | `-m` requested              | model billed (dashboard) |
+|-----------|-----------------------------|--------------------------|
+| iTUqmAQg  | mimo-v2.5-free              | **mimo-v2.5-free**       |
+| T5MQl7LZ  | deepseek-v4-flash-free      | **deepseek-v4-flash-free** |
+| Ji7uWi0X  | mimo-v2.5-free              | **mimo-v2.5-free**       |
+| vXZJvUsr  | deepseek-v4-flash-free      | **deepseek-v4-flash-free** |
+| d7CZfCsn  | mimo-v2.5-free  (config empty)        | **mimo-v2.5-free** |
+| Dft22jD2  | mimo-v2.5-free  (config PINNED deepseek!) | **mimo-v2.5-free** |
 
-## What this explained (the whole 2026-06-13 saga)
+**Config `model` does NOT override `-m`** either: the last run had the global
+`opencode.jsonc` pinned to `deepseek-v4-flash-free` AND `-m mimo` — it billed **mimo**.
+`-m` wins.
 
-Every "wrong model on the dashboard" symptom traced to this: kimi requests ran as whatever the
-CLI default was (gemini, then deepseek). There was NO external hijacker — the recurring "mystery
-deepseek caller" was **our own test dispatches** (confirmed via process tree:
-`python _test.py -> opencode serve -> opencode run`, all parented to our script). The dashboard
-showed deepseek because `-m` was ignored, not because someone else was calling.
+## Important gotcha: self-reported model ids are UNRELIABLE
 
-## Confirmed mechanics (all zero-cost, from `opencode --help` / `debug`)
+When asked "what model are you?", a model may answer a wrong/hallucinated id (one
+`mimo-v2.5-free` run replied "mimo-v2-pro-free"). **Never trust the text reply for the
+model id — use the billed model on the dashboard, or `parse_opencode_usage`/the JSONL
+event metadata.** This mis-led earlier diagnosis.
 
-- `run --dir X` is only authoritative in ATTACH mode ("path on remote server if attaching"); a
-  plain `run` resolves the project from cwd / nearest git root.
-- The `build` agent (default) has NO pinned model (`options: {}`), so the agent isn't the
-  override — the **config default** is.
-- `build` agent blocks writes outside its allowlist (`external_directory -> ask`); headless can't
-  answer, silently blocking writes. Mitigated with `--dangerously-skip-permissions`.
-- The `opencode.cmd` shim spawns a real `opencode.exe` child; terminating the shim ORPHANS it.
-  A leaked `serve --port 0` kept dispatching for 25+ min. Fixed with Windows tree-kill
-  (`taskkill /F /T`) in `_OpenCodeServer.stop()`.
+## Implication: our investment is sound
 
-## The fix to investigate next (NOT yet done)
+`--executor opencode:<model>`, `pick_executor`, `recommend`, `browse_models`,
+`validate_model` all correctly control which model runs. No executor change needed for
+model selection. The picker works.
 
-If `-m` is ignored but the **config default IS honored**, the executor should set the model via
-a **per-dispatch config** (write a temp `opencode.jsonc` with `"model": <chosen>` and point
-opencode at it, or find a `--config`/`--model`-equivalent that actually sticks), instead of `-m`.
-Verify with free models (mimo vs deepseek) that the dashboard shows the REQUESTED model before
-trusting it. Until then, opencode model selection is unreliable and the picker's OpenCode options
-cannot be trusted to run the chosen model.
+## Other confirmed mechanics (zero-cost)
 
-## Method lesson (for the next session)
+- `run --dir X` is authoritative only in ATTACH mode; a plain `run` resolves the project
+  from cwd / nearest git root (drifts to enclosing repo). Our serve+attach handles this.
+- `build` agent has NO pinned model; blocks external_directory writes -> `ask` (headless
+  can't answer) → mitigated with `--dangerously-skip-permissions`.
+- `opencode.cmd` shim spawns a real `opencode.exe`; terminating the shim orphans it →
+  `_OpenCodeServer.stop()` does Windows tree-kill (`taskkill /F /T`).
 
-Check the **actual process tree and the actual model in the output/dashboard FIRST**, before
-theorizing about external causes. This saga burned hours and real $ on six wrong external
-theories (TUI hijack, attach mode, another Claude session, claude-mem, OpenCode Zen, cwd) when
-one `Get-CimInstance Win32_Process` + reading the dispatched model would have ended it immediately.
+## The saga, finally settled
+
+The "mystery deepseek caller" was our OWN test dispatches (process tree confirmed). The
+one true anomaly (2:58 tnDwk5e4: mimo→deepseek) was corruption from a leaked server +
+dispatch-guard at that instant, never reproduced under clean conditions.
+
+## Method lesson
+
+The billed-model dashboard is ground truth; model self-reports and a single anomalous run
+are not. Two clean $0 A/B dispatches (config empty vs pinned, both `-m mimo`) settled what
+hours of theorizing could not.
