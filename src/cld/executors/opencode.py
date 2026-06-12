@@ -43,65 +43,11 @@ def _oc_cmd() -> str:
     )
 
 
-class _OpenCodeServer:
-    """A per-dispatch `opencode serve`, started IN the target repo so the server
-    binds to THAT project. Attaching the `run` to this server makes `run --dir`
-    authoritative ("path on remote server if attaching") — the only reliable way
-    to pin opencode to a directory, since a plain `run` resolves the project from
-    cwd/git-root and drifts to the nearest enclosing repo (confirmed live)."""
-
-    def __init__(self):
-        self._proc = None
-        self.url = None
-
-    def start(self, cwd: str) -> str:
-        import re
-        import time
-        self._proc = subprocess.Popen(
-            [_oc_cmd(), "serve", "--port", "0", "--hostname", "127.0.0.1"],
-            cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, encoding="utf-8", errors="replace",
-        )
-        # serve prints the bound URL on startup; read until we see it (or time out)
-        deadline = time.time() + 30
-        try:
-            while time.time() < deadline:
-                line = self._proc.stdout.readline()
-                if not line:
-                    if self._proc.poll() is not None:
-                        break
-                    continue
-                m = re.search(r"https?://127\.0\.0\.1:\d+", line)
-                if m:
-                    self.url = m.group(0)
-                    return self.url
-        except Exception:
-            pass
-        # never leak the server if we couldn't get a URL — kill it before raising
-        self.stop()
-        raise RuntimeError("opencode serve did not report a listening URL")
-
-    def stop(self) -> None:
-        if self._proc is None:
-            return
-        pid = self._proc.pid
-        try:
-            if os.name == "nt":
-                # The opencode.cmd shim spawns a real opencode.exe child; terminating
-                # the shim handle leaves that child ORPHANED (confirmed live: a leaked
-                # `serve` kept dispatching for 25+ min). /T kills the whole tree.
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
-                               capture_output=True)
-            else:
-                self._proc.terminate()
-            self._proc.wait(timeout=10)
-        except Exception:
-            try:
-                self._proc.kill()
-            except Exception:
-                pass
-        finally:
-            self._proc = None
+# NOTE (2026-06-13): an earlier serve+attach `_OpenCodeServer` was removed. A clean test
+# proved a PLAIN `opencode run` with cwd=target-repo + --dir isolates correctly (the file
+# was written in the target repo, with no drift into an enclosing repo). The "drift" that
+# motivated serve+attach was contamination / a leaked-server artifact, not a real `run`
+# limitation. Dropping the per-dispatch server also removes its process-leak surface.
 
 
 def _has_step_finish(raw: str) -> bool:
@@ -149,12 +95,10 @@ class OpenCodeExecutor:
     """Executor implementation backed by the OpenCode CLI."""
 
     def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
-                 variant: str | None = None, server_factory=_OpenCodeServer):
+                 variant: str | None = None):
         self._runner = runner
         self._model = model
         self._variant = variant
-        # factory() -> object with .start(cwd)->url and .stop(); injectable for tests
-        self._server_factory = server_factory
 
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
@@ -172,9 +116,9 @@ class OpenCodeExecutor:
             )
         return prompt
 
-    def _build_dispatch(self, prompt: str, cwd: str, attach_url: str) -> list[str]:
-        """Argv for an attached run. `--dir` is authoritative ONLY in attach mode,
-        so we attach to a per-dispatch server bound to `cwd` and pass `--dir cwd`."""
+    def _build_dispatch(self, prompt: str, cwd: str) -> list[str]:
+        """Argv for a plain headless run. The runner sets cwd=the target repo, and
+        --dir names it too; a clean test confirmed this isolates correctly (no drift)."""
         dispatch = [
             _oc_cmd(),
             "run",
@@ -183,8 +127,6 @@ class OpenCodeExecutor:
             self._model,
             "--format",
             "json",
-            "--attach",
-            attach_url,
             "--dir",
             cwd,
         ]
@@ -194,20 +136,16 @@ class OpenCodeExecutor:
         # external_directory -> "ask"; headless can't answer, silently blocking
         # writes. Safe to auto-approve: isolated worktree, diff judged before merge.
         dispatch.append("--dangerously-skip-permissions")
+        # Bare --port forces a fresh local server so the run can't join a stray
+        # session. MUST be last: with no value it takes a random port (swallows nothing).
+        dispatch.append("--port")
         return dispatch
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
-
-        # Pin opencode to the target repo: start a server IN it, then attach the run.
-        server = self._server_factory()
-        try:
-            attach_url = server.start(cwd)
-            dispatch = self._build_dispatch(prompt, cwd, attach_url)
-            rc, raw = self._runner(dispatch, cwd)
-        finally:
-            server.stop()
+        dispatch = self._build_dispatch(prompt, cwd)
+        rc, raw = self._runner(dispatch, cwd)
 
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=raw)
