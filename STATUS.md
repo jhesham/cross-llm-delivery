@@ -9,6 +9,14 @@
 
 **Last updated:** 2026-06-13 (✅ RESOLVED: opencode `-m` WORKS; false blocker debunked — 204 passed)
 
+**📋 NEXT (captured, not yet designed):** (1) **Per-slice executor by complexity** — user wants the
+lead agent to assess each slice's difficulty and route hard slices to a more capable model, simple
+ones to the $0 workhorse. NOTE: SKILL.md already promises a per-slice `executor:` field but it's
+UNIMPLEMENTED (slice.py doesn't parse it; SliceTask has no field) — close that gap as step 1. Full
+capture + open questions: `docs/notes/future-per-slice-executor-by-complexity.md`. (2) **Picker
+frequency** — agents re-trigger the picker per slice/re-dispatch (seen on S1b); decide once-per-build-
+and-stick vs. re-ask-on-re-dispatch. Design these two together (same surface).
+
 **✅ OPENCODE `-m` MODEL SELECTION WORKS (2026-06-13).** The earlier "🔴 blocker" was FALSE.
 PROVEN at $0 (dashboard billed-model = ground truth): six dispatches, every one billed the model
 passed via `-m` — including a run with the global config PINNED to deepseek + `-m mimo` → billed
