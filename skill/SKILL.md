@@ -130,6 +130,29 @@ There are two equivalent surfaces; use whichever fits:
    sanctioned source.) If you present via a UI dialog, copy each option's id/label straight from
    `render_shortlist` output — same ids, same order, same count.
 
+   **Browsing the full model list.** The shortlist dialog must include a "Browse all models…"
+   option. If chosen: present provider groups (claude / gpt / gemini / deepseek / other), then
+   the chosen group's models — every option rendered VERBATIM from
+   `cld.models.browse_models(available_ids)` → `cld.models.render_browse_list(grouped)` (the
+   same no-improvising guard applies; same ids, order, count). UI dialogs cap at 4 options —
+   page with a "More…" entry when a group exceeds it. Free-text "Other" stays as the final
+   escape hatch; a free-typed id is treated as untested.
+
+   **Validate-on-demand (the headless guarantee).** Before dispatching a build on ANY pick
+   whose `headless_status` is not proven/likely — browsed, free-typed, or uncatalogued — run
+   `cld.validate.resolve_and_validate(spec, ...)`. It:
+   - announces "Validating headless capability for <spec> — this runs one trivial slice
+     (~30s), please wait…" before the dispatch, and a verdict line after;
+   - on a metered model (cheap-metered / premium-metered / metered-unknown) asks "validating
+     bills real $ — proceed?" BEFORE spending; declining means pick again;
+   - on `proven`: proceed with the build;
+   - on `known-bad` (built failing/no code): decline, mark it known-bad for THIS SESSION ONLY
+     (pass the same `session_known_bad` set to `recommend`/`browse_models` so it's hidden),
+     and RE-PRESENT the picker so the user picks another model;
+   - on an executor error: report "couldn't validate" — not a model verdict; let the user
+     retry or pick another.
+   Never dispatch a real build on an untested model without this gate.
+
 `recommend()` ALWAYS includes the proven Gemini workhorse as the default even though it is not in
 `opencode models` output (it runs via the Gemini CLI) — you do NOT need to merge it in yourself.
 Just pass the OpenCode ids from `list_models`.
