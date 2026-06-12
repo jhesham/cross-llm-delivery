@@ -38,6 +38,7 @@ def _pytest(workdir: str, test_path: str) -> str:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", test_path, "-q"],
             cwd=workdir, capture_output=True, text=True, timeout=120,
+            encoding="utf-8", errors="replace",
         )
         return (proc.stdout or "") + (proc.stderr or "")
     except subprocess.TimeoutExpired:
@@ -73,6 +74,11 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         result = executor.run(task, repo)
     except Exception as exc:  # executor blew up -> untested, not a model-failure verdict
         return ValidationResult(model, False, "untested", 0, note=f"executor error: {exc}")
+    if not result.ok:
+        # the dispatch itself failed (CLI/model error) — no code was attempted, so
+        # this is NOT evidence the model writes bad code (found live: kimi-k2.6)
+        return ValidationResult(model, False, "untested", 1,
+                                note="executor dispatch failed (not a model verdict)")
 
     jr = judge(
         result.files_changed, task.files,
@@ -84,3 +90,57 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         model, False, "known-bad", 1,
         note="; ".join(jr.failing_tests) or "acceptance test failed",
     )
+
+
+_METERED = ("cheap-metered", "premium-metered", "metered-unknown")
+
+
+@dataclass
+class ResolveResult:
+    spec: str
+    status: str          # headless status after resolution
+    validated: bool      # did a validation dispatch actually run + conclude
+    proceeded: bool      # may the build proceed with this model
+    note: str = ""
+
+
+def resolve_and_validate(spec: str, *, headless_status_of, cost_class_of, validate_fn,
+                         confirm_fn, output_fn, session_known_bad=None) -> ResolveResult:
+    """Validate-on-demand gate: only proven/likely models pass straight through; an
+    untested pick is validated against a real trivial slice first (metered models
+    confirm the validation spend), and a known-bad verdict declines the pick and
+    marks it for THIS session only (caller re-presents the picker without it)."""
+    skb = session_known_bad if session_known_bad is not None else set()
+    if spec in skb:
+        return ResolveResult(spec, "known-bad", False, False,
+                             "marked known-bad this session — pick another model")
+
+    status = headless_status_of(spec)
+    if status in ("proven", "likely"):
+        return ResolveResult(spec, status, False, True)
+    if status == "known-bad":
+        skb.add(spec)
+        return ResolveResult(spec, "known-bad", False, False, "known-bad in catalog")
+
+    # untested -> validate before allowing the build
+    if cost_class_of(spec) in _METERED:
+        if not confirm_fn(f"Validating {spec} runs one real dispatch that bills real $ "
+                          f"(metered model) — proceed?"):
+            return ResolveResult(spec, "untested", False, False,
+                                 "validation declined (cost)")
+
+    output_fn(f"Validating headless capability for {spec} — this runs one trivial "
+              f"slice (~30s), please wait...")
+    vr = validate_fn(spec)
+    if vr.status == "proven":
+        output_fn(f"{spec}: proven headless-capable.")
+        return ResolveResult(spec, "proven", True, True)
+    if vr.status == "known-bad":
+        output_fn(f"{spec}: NOT headless-capable (built failing or no code). "
+                  f"Pick another model.")
+        skb.add(spec)
+        return ResolveResult(spec, "known-bad", True, False,
+                             vr.note or "failed validation")
+    output_fn(f"{spec}: couldn't validate ({vr.note}). Not a model verdict — "
+              f"you may retry or pick another model.")
+    return ResolveResult(spec, "untested", False, False, f"couldn't validate: {vr.note}")

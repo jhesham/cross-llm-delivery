@@ -26,8 +26,11 @@ DEFAULT_MODEL = "opencode/deepseek-v4-flash-free"
 
 def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Real subprocess runner. stderr is merged into stdout on failure so the
-    error text is captured in raw_log."""
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    error text is captured in raw_log. Decodes utf-8 with replacement: model
+    output can contain bytes invalid in the Windows locale codec (live kimi-k2.6
+    validation emitted 0x90 and crashed the cp1252 reader thread)."""
+    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
     out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
     return (proc.returncode, out)
 

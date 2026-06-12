@@ -68,3 +68,16 @@ def test_nonzero_dispatch_not_ok():
     res = ex.run(task, "/work")
     assert res.ok is False
     assert "boom" in res.raw_log
+
+
+def test_default_runner_survives_non_utf8_console_bytes():
+    # Live kimi-k2.6 validation crashed the reader thread: opencode emitted byte
+    # 0x90 (invalid cp1252), and text=True without encoding= decodes with the
+    # Windows locale codec. The runner must decode utf-8 with replacement.
+    import sys
+    from cld.executors.opencode import _default_runner
+    rc, out = _default_runner(
+        [sys.executable, "-c", r"import sys; sys.stdout.buffer.write(b'ok\x90end')"],
+        ".")
+    assert rc == 0
+    assert "ok" in out and "end" in out  # decoded with replacement, not crashed

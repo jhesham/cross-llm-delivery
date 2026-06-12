@@ -35,7 +35,8 @@ from cld.plan.slice import load_slices
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Run a git command; return (returncode, combined output)."""
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
     return (proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
 
 
@@ -68,6 +69,7 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", *target, "-q"],
             cwd=workdir, capture_output=True, text=True, timeout=600,
+            encoding="utf-8", errors="replace",
         )
     except subprocess.TimeoutExpired:
         return "1 failed in 600s (timeout — acceptance test did not complete)"
