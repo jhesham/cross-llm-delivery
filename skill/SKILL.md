@@ -122,6 +122,15 @@ There are two equivalent surfaces; use whichever fits:
    → `cld.models.recommend(available_ids=...)` → show the buckets, take the user's pick, pass it
    as `--executor`.
 
+   **REQUIRED DIALOG SHAPE — every chat picker MUST contain, in this order:**
+   1. the curated shortlist options (from `render_shortlist`, verbatim);
+   2. **a literal `Browse all models…` option** — selecting it opens the SECONDARY picker
+      (the full grouped list below). This is NOT optional and NOT the same as "Other";
+   3. `Other` (free-text id) as the final escape hatch.
+   If you ever build a picker with only the shortlist + "Other" and no "Browse all models…"
+   entry, you have built it WRONG — the user cannot reach the full model list. The screenshot
+   failure mode: 4 curated models + "Other", no "Browse all" → fix by adding option 2.
+
    **GUARD — render the options verbatim from `render_shortlist`; never improvise them.** Call
    `cld.models.render_shortlist(recs)` (or run the live pipeline) and present EXACTLY those lines /
    model ids. Do NOT hand-type, reorder, abbreviate, or recall the option list from memory — the
@@ -130,13 +139,14 @@ There are two equivalent surfaces; use whichever fits:
    sanctioned source.) If you present via a UI dialog, copy each option's id/label straight from
    `render_shortlist` output — same ids, same order, same count.
 
-   **Browsing the full model list.** The shortlist dialog must include a "Browse all models…"
-   option. If chosen: present provider groups (claude / gpt / gemini / deepseek / other), then
-   the chosen group's models — every option rendered VERBATIM from
-   `cld.models.browse_models(available_ids)` → `cld.models.render_browse_list(grouped)` (the
-   same no-improvising guard applies; same ids, order, count). UI dialogs cap at 4 options —
-   page with a "More…" entry when a group exceeds it. Free-text "Other" stays as the final
-   escape hatch; a free-typed id is treated as untested.
+   **The SECONDARY picker (what `Browse all models…` opens).** When the user picks
+   `Browse all models…`, present the full list: `cld.models.browse_models(available_ids)`
+   → `cld.models.render_browse_list(grouped)` (rendered VERBATIM — same no-improvising guard).
+   Show provider groups (claude / gpt / gemini / deepseek / other); the user picks a group,
+   then a model within it. UI dialogs cap at 4 options — page with a "More…" entry when a
+   group (or the group list) exceeds 4. The full list includes EVERY available model, not just
+   the curated shortlist. Free-text "Other" remains the final escape hatch; a free-typed id is
+   treated as untested.
 
    **Validate-on-demand (the headless guarantee).** Before dispatching a build on ANY pick
    whose `headless_status` is not proven/likely — browsed, free-typed, or uncatalogued — run

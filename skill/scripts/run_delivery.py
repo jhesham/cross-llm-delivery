@@ -27,7 +27,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cld.executors import get_executor
+from cld.executors import KNOWN_EXECUTORS, get_executor
 from cld.judge import judge
 from cld.ledger import Ledger
 from cld.orchestrator import run_plan_parallel
@@ -91,6 +91,11 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
     ("gemini", {"model": "gemini-3-pro-preview"}). The part before the first
     colon is the executor name; the remainder (if any) is the model. This is how
     the USER picks the LLM at invocation (not the orchestrator autonomously).
+
+    TOLERANT: the picker's catalog id uses a SLASH (opencode/<model>) while the
+    canonical form uses a COLON (opencode:<model>). A copy-pasted slash id must not
+    error with "Unknown executor", so if there's no colon but the spec starts with a
+    known executor name followed by "/", we split on that first slash instead.
     """
     spec = (spec or "gemini").strip()
     if ":" in spec:
@@ -98,6 +103,13 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
         name = name.strip() or "gemini"
         model = model.strip()
         return (name, {"model": model} if model else {})
+    # no colon: accept "<known-executor>/<model>" (the picker/catalog slash form)
+    if "/" in spec:
+        head = spec.split("/", 1)[0].strip().lower()
+        if head in KNOWN_EXECUTORS:
+            name, model = spec.split("/", 1)
+            model = model.strip()
+            return (name.strip(), {"model": model} if model else {})
     return (spec or "gemini", {})
 
 
