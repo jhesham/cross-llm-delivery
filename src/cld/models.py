@@ -80,6 +80,52 @@ class Recommendation:
 # found in a live skill test: shortlist came back with no default/workhorse.)
 DEFAULT_WORKHORSE_ID = "gemini:gemini-3.1-pro-preview"
 
+KNOWN_PROVIDERS = ("claude", "gpt", "gemini", "deepseek")
+
+@dataclass
+class BrowseItem:
+    id: str
+    provider: str
+    cost_class: str
+    headless_status: str
+    in_catalog: bool
+
+def _provider_of(model_id: str) -> str:
+    name = model_id
+    if name.startswith("opencode/"):
+        name = name[len("opencode/"):]
+    elif ":" in name:
+        name = name.split(":", 1)[1]
+    token = name.replace(".", "-").split("-", 1)[0].lower()
+    return token if token in KNOWN_PROVIDERS else "other"
+
+def browse_models(available_ids, *, session_known_bad=frozenset()) -> Dict[str, List[BrowseItem]]:
+    ids = [i for i in available_ids if i not in session_known_bad]
+    if DEFAULT_WORKHORSE_ID not in ids and DEFAULT_WORKHORSE_ID not in session_known_bad:
+        ids.append(DEFAULT_WORKHORSE_ID)
+        
+    groups = {}
+    for id in ids:
+        if id in MODEL_METADATA:
+            info = MODEL_METADATA[id]
+            if info.headless_status == "known-bad":
+                continue
+            item = BrowseItem(id, provider=_provider_of(id), cost_class=info.cost_class, headless_status=info.headless_status, in_catalog=True)
+        else:
+            cost_class = "free" if id.endswith("-free") else "metered-unknown"
+            item = BrowseItem(id, provider=_provider_of(id), cost_class=cost_class, headless_status="untested", in_catalog=False)
+            
+        provider = item.provider
+        if provider not in groups:
+            groups[provider] = []
+        groups[provider].append(item)
+        
+    for p in groups:
+        groups[p].sort(key=lambda x: x.id)
+
+    ordered_keys = sorted(groups, key=lambda p: (0 if any(i.in_catalog for i in groups[p]) else 1, p))
+    return {k: groups[k] for k in ordered_keys}
+
 
 def recommend(*, available_ids, job=None) -> list[Recommendation]:
     # Always consider the proven default available (it's not an OpenCode model).
