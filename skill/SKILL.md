@@ -122,6 +122,14 @@ There are two equivalent surfaces; use whichever fits:
    → `cld.models.recommend(available_ids=...)` → show the buckets, take the user's pick, pass it
    as `--executor`.
 
+   **GUARD — render the options verbatim from `render_shortlist`; never improvise them.** Call
+   `cld.models.render_shortlist(recs)` (or run the live pipeline) and present EXACTLY those lines /
+   model ids. Do NOT hand-type, reorder, abbreviate, or recall the option list from memory — the
+   chat surface must match the program surface line-for-line. (A hand-typed dialog once dropped a
+   real catalog entry and reordered the list; rendering from `render_shortlist` is the only
+   sanctioned source.) If you present via a UI dialog, copy each option's id/label straight from
+   `render_shortlist` output — same ids, same order, same count.
+
 `recommend()` ALWAYS includes the proven Gemini workhorse as the default even though it is not in
 `opencode models` output (it runs via the Gemini CLI) — you do NOT need to merge it in yourself.
 Just pass the OpenCode ids from `list_models`.
