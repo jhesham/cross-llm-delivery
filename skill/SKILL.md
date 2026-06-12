@@ -146,9 +146,13 @@ There are two equivalent surfaces; use whichever fits:
    - on a metered model (cheap-metered / premium-metered / metered-unknown) asks "validating
      bills real $ — proceed?" BEFORE spending; declining means pick again;
    - on `proven`: proceed with the build;
-   - on `known-bad` (built failing/no code): decline, mark it known-bad for THIS SESSION ONLY
-     (pass the same `session_known_bad` set to `recommend`/`browse_models` so it's hidden),
-     and RE-PRESENT the picker so the user picks another model;
+   - on `known-bad` (built failing/no code): decline, record the verdict in the DURABLE
+     evidence store (`~/.cld/validation-evidence.json` via `cld.evidence.EvidenceStore`),
+     and RE-PRESENT the picker so the user picks another model. Verdicts persist across
+     sessions: pass `evidence=store.statuses()` into `recommend`/`browse_models` so recorded
+     known-bad models are hidden and recorded proven models show as proven. A recorded
+     verdict is consulted BEFORE spending on a new validation; pass `force_revalidate=True`
+     to re-run and refresh a stale verdict (e.g. a suspected transient failure);
    - on an executor error: report "couldn't validate" — not a model verdict; let the user
      retry or pick another.
    Never dispatch a real build on an untested model without this gate.

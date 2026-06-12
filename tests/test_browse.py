@@ -95,3 +95,13 @@ def test_render_marks_untested_and_premium():
 def test_render_is_cp1252_safe():
     lines, _ = render_browse_list(browse_models(IDS))
     "\n".join(lines).encode("cp1252")  # raises on a bad glyph
+
+
+def test_browse_evidence_overlay_promotes_and_excludes():
+    # evidence (durable verdicts) overrides catalog/default status in the browse view
+    g = browse_models(IDS, evidence={"opencode/gpt-5.2": "proven"})
+    gpt = next(i for i in g["gpt"] if i.id == "opencode/gpt-5.2")
+    assert gpt.headless_status == "proven"  # promoted from default untested
+    # a known-bad verdict hides the model (same treatment as catalog known-bad)
+    g2 = browse_models(IDS, evidence={"opencode/gpt-5.2": "known-bad"})
+    assert "gpt" not in g2 or "opencode/gpt-5.2" not in [i.id for i in g2["gpt"]]

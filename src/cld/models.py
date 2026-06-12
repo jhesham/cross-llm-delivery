@@ -99,21 +99,28 @@ def _provider_of(model_id: str) -> str:
     token = name.replace(".", "-").split("-", 1)[0].lower()
     return token if token in KNOWN_PROVIDERS else "other"
 
-def browse_models(available_ids, *, session_known_bad=frozenset()) -> Dict[str, List[BrowseItem]]:
+def browse_models(available_ids, *, session_known_bad=frozenset(),
+                  evidence=None) -> Dict[str, List[BrowseItem]]:
+    evidence = evidence or {}
     ids = [i for i in available_ids if i not in session_known_bad]
     if DEFAULT_WORKHORSE_ID not in ids and DEFAULT_WORKHORSE_ID not in session_known_bad:
         ids.append(DEFAULT_WORKHORSE_ID)
-        
+
     groups = {}
     for id in ids:
         if id in MODEL_METADATA:
             info = MODEL_METADATA[id]
-            if info.headless_status == "known-bad":
+            # durable validation evidence overrides the static catalog status
+            status = evidence.get(id, info.headless_status)
+            if status == "known-bad":
                 continue
-            item = BrowseItem(id, provider=_provider_of(id), cost_class=info.cost_class, headless_status=info.headless_status, in_catalog=True)
+            item = BrowseItem(id, provider=_provider_of(id), cost_class=info.cost_class, headless_status=status, in_catalog=True)
         else:
+            status = evidence.get(id, "untested")
+            if status == "known-bad":
+                continue
             cost_class = "free" if id.endswith("-free") else "metered-unknown"
-            item = BrowseItem(id, provider=_provider_of(id), cost_class=cost_class, headless_status="untested", in_catalog=False)
+            item = BrowseItem(id, provider=_provider_of(id), cost_class=cost_class, headless_status=status, in_catalog=False)
             
         provider = item.provider
         if provider not in groups:
@@ -147,17 +154,21 @@ def render_browse_list(grouped) -> tuple:
     return lines, ordered
 
 
-def recommend(*, available_ids, job=None, session_known_bad=frozenset()) -> list[Recommendation]:
+def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
+              evidence=None) -> list[Recommendation]:
     # Always consider the proven default available (it's not an OpenCode model).
+    evidence = evidence or {}
     effective_ids = (set(available_ids) | {DEFAULT_WORKHORSE_ID}) - set(session_known_bad)
     recs: list[Recommendation] = []
     for id, info in MODEL_METADATA.items():
         if id not in effective_ids:
             continue
-        if info.headless_status == "known-bad":
+        # durable validation evidence overrides the static catalog status
+        status = evidence.get(id, info.headless_status)
+        if status == "known-bad":
             continue
         warning = ""
-        if info.headless_status == "untested":
+        if status == "untested":
             warning = "untested: may not complete builds reliably; validate first"
         confirm_cost = info.cost_class == "premium-metered"
         rec = Recommendation(
@@ -165,7 +176,7 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset()) -> list
             bucket=info.capability_class,
             capability_class=info.capability_class,
             cost_class=info.cost_class,
-            headless_status=info.headless_status,
+            headless_status=status,
             why=info.note,
             warning=warning,
             confirm_cost=confirm_cost,

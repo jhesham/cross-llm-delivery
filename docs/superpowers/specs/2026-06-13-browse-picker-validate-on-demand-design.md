@@ -147,6 +147,24 @@ re-presented picker. Next session the set is empty → the model is `untested` a
 - NOT a third-level "Other → picker" (the `AskUserQuestion` cap forbids it) — free-text "Other"
   remains the escape hatch, and free-typed ids are validated like any untested pick.
 
+## ADDENDUM (2026-06-13, user-directed): durable evidence store supersedes session-only
+
+The "session-only known-bad" decision above is SUPERSEDED. After kimi-k2.6 cost two
+validation runs to (fail to) learn the same fact, the user directed a durable store:
+`cld.evidence.EvidenceStore` (JSON at `~/.cld/validation-evidence.json`, keyed by model id,
+timestamped). Only CONCLUDED verdicts (proven/known-bad) are recorded; untested/executor
+errors never are. `resolve_and_validate` consults the store before spending and records new
+verdicts; `force_revalidate=True` re-runs and overwrites (the anti-permanent-blacklist
+mitigation — a transient failure is one re-validation away from cleared). `recommend` and
+`browse_models` accept `evidence=` ({id: status}) overriding the static catalog status.
+`session_known_bad` remains as an in-memory veil within a session.
+
+Also discovered while validating kimi-k2.6 (and fixed in the executor, commit d21aea1): a
+running opencode TUI captures `opencode run` (attach mode), overriding -m/--dir/--format —
+the dispatch ran on the TUI's agent/model (claude-opus-4-8, billed) in the TUI's directory.
+Mitigations: bare `--port` (fresh local server) + a dispatch guard refusing any output
+without a `step_finish` JSONL event.
+
 ## SKILL.md updates
 
 Document the browse flow and the validate-on-demand gate under the existing picker section:
