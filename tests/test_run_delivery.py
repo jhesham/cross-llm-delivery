@@ -65,6 +65,30 @@ def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
     assert captured["timeout"]  # a timeout guard is set
 
 
+def test_pytest_test_runner_splits_test_selector(monkeypatch):
+    # Shared accumulating test files need per-slice scoping: an acceptance_test_path
+    # like "tests/test_x.py::test_one" (or with -k) must be split into SEPARATE argv
+    # tokens so pytest applies the node id / -k expr — not passed as one malformed arg.
+    captured = {}
+
+    class _Proc:
+        stdout = "1 passed"
+        stderr = ""
+
+    monkeypatch.setattr(run_delivery.subprocess, "run",
+                        lambda argv, **kw: captured.update(argv=argv) or _Proc())
+
+    run_delivery.pytest_test_runner("/wt", "tests/test_advisor_graph.py::test_merge_dict_reducer")
+    assert "tests/test_advisor_graph.py::test_merge_dict_reducer" in captured["argv"]
+
+    run_delivery.pytest_test_runner("/wt", 'tests/test_advisor_graph.py -k "merge"')
+    argv = captured["argv"]
+    # the path, the -k flag, and the expression are three distinct argv tokens
+    assert "tests/test_advisor_graph.py" in argv
+    assert "-k" in argv
+    assert "merge" in argv  # quotes stripped by shlex, expression is its own token
+
+
 def test_pytest_test_runner_without_path_runs_default(monkeypatch):
     # backward-compatible: no path -> runs pytest with no explicit target (still scoped
     # by cwd), and must not crash.

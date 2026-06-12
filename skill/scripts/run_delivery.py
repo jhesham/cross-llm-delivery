@@ -22,6 +22,7 @@ Exit code 0 if all slices accepted (or already done), 1 otherwise.
 """
 
 import argparse
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -63,8 +64,15 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     tests call one (e.g. the advisor's headless `claude -p`), and (b) lets a hang
     in an unrelated test freeze the entire build. A short timeout guards against a
     test that hangs anyway.
+
+    TEST SELECTOR: `acceptance_test_path` may carry a pytest selector beyond a bare
+    file — a `::node` id or a `-k "expr"` — to scope to JUST the slice's own tests
+    inside a SHARED accumulating test file (where sibling tests are legitimately red
+    until later slices land). We shlex.split it so the selector tokens reach pytest
+    as separate args. Use forward slashes in paths (POSIX split); a bare path with
+    no spaces/`::`/`-k` is unaffected.
     """
-    target = [acceptance_test_path] if acceptance_test_path else []
+    target = shlex.split(acceptance_test_path) if acceptance_test_path else []
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", *target, "-q"],
