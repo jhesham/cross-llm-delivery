@@ -65,3 +65,20 @@ def test_validate_executor_error_is_untested(tmp_path):
                          git_runner=real_git_runner, base_dir=str(tmp_path))
     assert res.passed is False
     assert res.status == "untested"
+
+
+class _DispatchFailExec:
+    """Executor whose dispatch returns ok=False (CLI/model error, no code ran)."""
+
+    def run(self, task, workdir, feedback=None):
+        return ExecutorResult(ok=False, diff="", raw_log="model unavailable")
+
+
+def test_validate_failed_dispatch_is_untested_not_known_bad(tmp_path):
+    # Found live (kimi-k2.6): a broken dispatch must NOT be judged as the model
+    # writing bad code — it's an executor failure, so the verdict is untested.
+    res = validate_model("opencode/x", executor=_DispatchFailExec(),
+                         git_runner=real_git_runner, base_dir=str(tmp_path))
+    assert res.passed is False
+    assert res.status == "untested"
+    assert "dispatch" in res.note.lower()
