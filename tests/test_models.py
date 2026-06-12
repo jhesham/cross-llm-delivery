@@ -1,0 +1,44 @@
+"""Model catalog + list_models (the picker's data layer).
+
+MODEL_METADATA is curated human-authored data (refreshed by evidence, not scraped).
+list_models parses `opencode models` via an injected runner. recommend() (T7) filters
++ buckets + annotates for the picker.
+"""
+
+from cld.models import MODEL_METADATA, ModelInfo, list_models
+
+
+def test_metadata_has_seed_workhorse():
+    # the proven flat-rate workhorse must be present and tagged correctly
+    g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
+    assert g.cost_class == "flat"
+    assert g.capability_class == "workhorse"
+    assert g.headless_status == "proven"
+
+
+def test_metadata_entries_are_modelinfo():
+    assert all(isinstance(v, ModelInfo) for v in MODEL_METADATA.values())
+    # every entry carries the picker-relevant axes
+    for info in MODEL_METADATA.values():
+        assert info.cost_class in ("free", "flat", "cheap-metered", "premium-metered")
+        assert info.capability_class in ("workhorse", "heavy", "quick")
+        assert info.headless_status in ("proven", "likely", "untested", "known-bad")
+
+
+def test_list_models_parses_opencode_output():
+    def fake_runner(args, cwd):
+        assert "models" in args
+        return (0, "opencode/gemini-3.1-pro\nopencode/claude-opus-4-8\n"
+                   "opencode/deepseek-v4-flash-free\n")
+
+    ids = list_models(runner=fake_runner)
+    assert "opencode/gemini-3.1-pro" in ids
+    assert "opencode/deepseek-v4-flash-free" in ids
+    assert len(ids) == 3
+
+
+def test_list_models_empty_on_failure():
+    def boom(args, cwd):
+        return (1, "opencode not found")
+
+    assert list_models(runner=boom) == []
