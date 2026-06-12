@@ -91,16 +91,34 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
     return (spec or "gemini", {})
 
 
+def prompt_for_executor() -> str:
+    """Interactive model picker (the CLI surface). Lists available OpenCode models,
+    builds the recommended shortlist, and prompts the user to choose. The proven
+    Gemini workhorse is always offered as the default. Returns an --executor spec.
+
+    Degrades gracefully: if OpenCode isn't installed, `list_models` returns [] and
+    the shortlist falls back to just the Gemini default."""
+    from cld.executors.opencode import _default_runner
+    from cld.models import list_models, pick_executor, recommend
+
+    available = list_models(runner=_default_runner)
+    recs = recommend(available_ids=available)
+    if not recs:
+        return "gemini"
+    return pick_executor(recs)
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
-    p.add_argument("--executor", default="gemini",
+    p.add_argument("--executor", default=None,
                    help="Executor to use, e.g. 'gemini', 'gemini:<model-id>', or "
-                        "'opencode:<provider/model>' (the user picks the LLM here; "
-                        "default gemini)")
+                        "'opencode:<provider/model>'. If omitted and stdin is a TTY, "
+                        "an interactive picker prompts you to choose (default: the "
+                        "proven Gemini workhorse). Non-interactive: defaults to gemini.")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
     p.add_argument("--step", action="store_true",
@@ -114,6 +132,15 @@ def main(argv=None) -> int:
     if not slices:
         print("No slices found in plan.", file=sys.stderr)
         return 1
+
+    # Resolve the executor. If the user didn't pass --executor and we're attached to
+    # an interactive terminal, show the model picker. Otherwise default to gemini so
+    # automation / --step loops never block on a prompt.
+    if args.executor is None:
+        if not args.dry_run and sys.stdin.isatty():
+            args.executor = prompt_for_executor()
+        else:
+            args.executor = "gemini"
 
     if args.dry_run:
         from cld.dag import parallel_batches
