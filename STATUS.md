@@ -7,7 +7,19 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-13 (✅ Browse picker + validate-on-demand SHIPPED — 192 passed)
+**Last updated:** 2026-06-13 (✅ Durable evidence store + opencode attach-hijack defeated — 203 passed)
+
+**✅ DURABLE EVIDENCE STORE + ATTACH-HIJACK FIXES (2026-06-13, commits d21aea1+64150df — 203
+passed).** (1) **CRITICAL find:** a running opencode TUI captures `opencode run` (attach mode) —
+a kimi-k2.6 request was served by the TUI's `build·claude-opus-4-8` (premium, billed) in the
+TUI's directory, editing unrelated worktrees (cld-live-test wt + our smoketest; both cleaned).
+Fixes: bare `--port` (fresh local server) + dispatch guard (no `step_finish` JSONL event →
+ok=False, no diff trusted). `--dir` exists but means "path on remote server" when attached.
+(2) **Durable evidence store** (user-directed, supersedes session-only): `cld/evidence.py`
+EvidenceStore → `~/.cld/validation-evidence.json`; `resolve_and_validate(evidence_store=,
+force_revalidate=)` consults before spending + records verdicts; `recommend`/`browse_models`
+take `evidence=` overlay. **kimi-k2.6 headless = UNRESOLVED** — cannot validate while a TUI
+is running (all 3 attempts hijacked); revalidate with the TUI closed; nothing recorded.
 
 **✅ BROWSE PICKER + VALIDATE-ON-DEMAND COMPLETE (2026-06-13, commits 61ceaa3→ba6e8dd — 192
 passed).** Spec 338e9bc, plan e004785. `browse_models`/`render_browse_list` (full 46-model
