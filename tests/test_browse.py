@@ -65,3 +65,33 @@ def test_group_order_catalogued_first_then_alpha():
 def test_session_known_bad_filtered_out():
     g = browse_models(IDS, session_known_bad={"opencode/gpt-5.2"})
     assert "gpt" not in g or "opencode/gpt-5.2" not in _ids(g["gpt"])
+
+
+from cld.models import render_browse_list
+
+
+def test_render_numbering_round_trips_to_ids():
+    lines, ordered = render_browse_list(browse_models(IDS))
+    # every numbered line N) contains the spec of ordered[N-1]
+    import re
+    for ln in lines:
+        m = re.match(r"\s*(\d+)\)\s+(\S+)", ln)
+        if not m:
+            continue
+        n, spec = int(m.group(1)), m.group(2)
+        item = ordered[n - 1]
+        expected = item.id if item.id.startswith("gemini:") else f"opencode:{item.id}"
+        assert spec == expected
+
+
+def test_render_marks_untested_and_premium():
+    lines, _ = render_browse_list(browse_models(IDS))
+    blob = "\n".join(lines)
+    assert "(!)" in blob          # untested marker present
+    assert "$" in blob            # premium (claude-opus) billed marker
+    assert "CLAUDE" in blob       # provider headers
+
+
+def test_render_is_cp1252_safe():
+    lines, _ = render_browse_list(browse_models(IDS))
+    "\n".join(lines).encode("cp1252")  # raises on a bad glyph

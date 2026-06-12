@@ -127,9 +127,29 @@ def browse_models(available_ids, *, session_known_bad=frozenset()) -> Dict[str, 
     return {k: groups[k] for k in ordered_keys}
 
 
-def recommend(*, available_ids, job=None) -> list[Recommendation]:
+def render_browse_list(grouped) -> tuple:
+    """Render the grouped browse view verbatim (the chat/CLI surfaces copy these
+    lines — never hand-type options). Returns (lines, ordered) where a numeric
+    pick N maps to ordered[N-1]. ASCII only ($ = billed, (!) = untested)."""
+    lines: List[str] = ["All available models (grouped by provider):"]
+    ordered: List[BrowseItem] = []
+    n = 0
+    for provider, items in grouped.items():
+        lines.append(f"  {provider.upper()}")
+        for it in items:
+            n += 1
+            ordered.append(it)
+            cost = it.cost_class + (" $" if it.cost_class == "premium-metered" else "")
+            warn = "  (!) untested" if it.headless_status == "untested" else ""
+            lines.append(
+                f"    {n}) {_spec_for(it):42s} {cost:18s} {it.headless_status:8s}{warn}"
+            )
+    return lines, ordered
+
+
+def recommend(*, available_ids, job=None, session_known_bad=frozenset()) -> list[Recommendation]:
     # Always consider the proven default available (it's not an OpenCode model).
-    effective_ids = set(available_ids) | {DEFAULT_WORKHORSE_ID}
+    effective_ids = (set(available_ids) | {DEFAULT_WORKHORSE_ID}) - set(session_known_bad)
     recs: list[Recommendation] = []
     for id, info in MODEL_METADATA.items():
         if id not in effective_ids:
