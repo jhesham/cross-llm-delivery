@@ -49,6 +49,11 @@ def test_builds_locked_argv():
     assert "--format" in argv and "json" in argv
     assert "--dir" in argv and "/work" in argv
     assert "do the thing" in " ".join(argv)  # prompt carries the brief
+    # headless can't answer the build agent's external_directory "ask" permission,
+    # so writes to the target repo are silently blocked without this flag (the
+    # confirmed kimi-k2.6 "ran but wrote nothing" failure). The executor runs in an
+    # isolated worktree with a judged diff, so auto-approve inside it is safe.
+    assert "--dangerously-skip-permissions" in argv
 
 
 def test_captures_diff_and_files():
@@ -71,9 +76,8 @@ def test_nonzero_dispatch_not_ok():
 
 
 def test_argv_includes_port_isolation_flag():
-    # A running opencode TUI captures `opencode run` (attach mode): the dispatch
-    # joins ITS project/agent/model — wrong model, wrong directory, plain-text
-    # output. Bare --port forces a fresh local server (verified live).
+    # Bare --port forces a fresh local server so the dispatch can't join a stray
+    # opencode session (verified live).
     runner = _ok_runner()
     OpenCodeExecutor(runner=runner).run(
         SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py"), "/work")
@@ -82,8 +86,8 @@ def test_argv_includes_port_isolation_flag():
 
 
 def test_non_jsonl_output_fails_dispatch_guard():
-    # Attach-mode output is plain text (no JSONL events). Any output without a
-    # step_finish event must be treated as a FAILED dispatch, never trusted.
+    # A permission-blocked or malformed run emits no JSONL step_finish event. Any
+    # output without one must be treated as a FAILED dispatch, never trusted.
     runner = RecordingRunner([
         ("opencode", 0, "I implemented slice T1!\nAll 8 tests pass."),
     ])
