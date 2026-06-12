@@ -44,6 +44,8 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",  # model output may not be valid in the locale codec
     )
     out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
     return (proc.returncode, out)
