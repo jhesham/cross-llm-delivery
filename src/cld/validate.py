@@ -8,6 +8,7 @@ the REAL acceptance test (scoped — the Bug B discipline) as the judge, and rep
 promotion: pass -> proven, fail -> known-bad, executor error -> untested.
 """
 
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -33,10 +34,15 @@ class ValidationResult:
 
 def _pytest(workdir: str, test_path: str) -> str:
     """Run ONLY the slice's acceptance test in the repo (scoped — Bug B), with a
-    timeout so a hung test cannot freeze validation."""
+    timeout so a hung test cannot freeze validation.
+
+    test_path may carry a pytest selector (`::node` id or `-k "expr"`) to scope to
+    a slice's own tests inside a shared file; shlex.split passes it as separate args.
+    """
+    target = shlex.split(test_path) if test_path else []
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", test_path, "-q"],
+            [sys.executable, "-m", "pytest", *target, "-q"],
             cwd=workdir, capture_output=True, text=True, timeout=120,
             encoding="utf-8", errors="replace",
         )
