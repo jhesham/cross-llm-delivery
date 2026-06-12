@@ -83,7 +83,7 @@ Drive the build ONE DAG layer at a time so your context stays small and you can 
 between phases. Per layer:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor gemini[:model]]
+python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor <name>[:model]]
 ```
 
 This runs only the next pending layer (independent slices fan out concurrently in isolated
@@ -105,9 +105,42 @@ retry) → accepted work is committed to its `slice-<id>` branch → ledger upda
 lead agent's tokens (every turn re-reads a growing context). Stepping one layer at a time keeps
 your context to ~10 lines per layer and flat during interaction.
 
-**Choose the executor/LLM at invocation** (you decide, not the orchestrator):
-`--executor gemini` (default) or `--executor gemini:<model-id>`. Use `--dry-run` first to print
-the layers without dispatching.
+#### Choosing the executor & model (interactive picker)
+
+When helping a user start a build (or when they ask "which model?"), present the recommended
+shortlist and let them pick — the USER decides, never the orchestrator. The default is the proven
+$0 flat-rate workhorse (`gemini:gemini-3.1-pro-preview`); "just go" needs no decision.
+
+Build the shortlist from real data: run `opencode models` (via the project's runner) →
+`cld.models.list_models` → `cld.models.recommend(available_ids=...)`. Present buckets
+(workhorse / heavy / quick), each line:
+`<executor:provider/model> · <cost_class> · <headless_status> · <why>`.
+
+Rules:
+- **Default pre-selected:** the proven workhorse. Pressing enter uses it.
+- **Cost guardrail:** if the user picks a `premium-metered` model (`confirm_cost=True`), CONFIRM
+  explicitly first — "This model bills real $ per dispatch (not flat-rate) — proceed?" Do not
+  dispatch a premium model without that confirmation. (`free`/`flat` models need no confirmation.)
+- **Headless warning:** an `untested` model carries a warning ("may not complete builds reliably").
+  Offer to run `cld.validate.validate_model` on it (one trivial slice, real test as judge) before
+  trusting it — it promotes the model to `proven` or `known-bad` from evidence.
+- The choice maps to `--executor <name>:<provider/model>` — e.g. `--executor gemini` (default),
+  `--executor gemini:<model-id>`, or `--executor opencode:opencode/deepseek-v4-flash-free`. A
+  per-slice `executor:` field in the plan supports "use the heavy model on this one hard slice."
+
+Example shown to the user:
+```
+Recommended executors (installed + available):
+  WORKHORSE (default)
+  ▸ gemini:gemini-3.1-pro-preview         · $0 flat · proven   · 14/14 grade-A workhorse
+  HEAVY (hard slices, worth more $)
+    opencode:opencode/claude-opus-4-8     · premium ⚠ · likely  · top capability; confirms cost
+  QUICK / BUDGET
+    opencode:opencode/deepseek-v4-flash-free · free ⚠ · untested · cheap; validate before trusting
+Pick one [default: gemini workhorse]:
+```
+
+Use `--dry-run` first to print the layers without dispatching.
 
 **Inspecting on request:** raw diffs/logs/JSON are NOT on stdout — per-slice detail is written
 to `<dir>/.cld/<slice-id>/detail.json`. Only when the user asks "show me T3", read that one
