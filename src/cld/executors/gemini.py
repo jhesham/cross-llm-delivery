@@ -25,6 +25,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable
 
+from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
 
 # runner(args, cwd) -> (returncode, stdout_or_combined_output)
@@ -126,10 +127,7 @@ class GeminiExecutor:
         token_usage = parse_token_usage(raw)
 
         # Capture what changed via git (also through the injected runner).
-        self._runner(["git", "add", "--intent-to-add", "-A"], cwd)
-        _, diff = self._runner(["git", "diff", "HEAD"], cwd)
-        _, names = self._runner(["git", "diff", "HEAD", "--name-only"], cwd)
-        files_changed = [line.strip() for line in names.splitlines() if line.strip()]
+        diff, files_changed = capture_diff(self._runner, cwd)
 
         return ExecutorResult(
             ok=True,
