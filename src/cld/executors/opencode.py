@@ -33,8 +33,27 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
 
 
 def parse_opencode_usage(raw_json: str) -> dict[str, int]:
-    """Placeholder — replaced in T4 against the REAL captured JSONL. Best-effort: {}."""
-    return {}
+    import json
+    usage = {}
+    if not raw_json:
+        return usage
+    for line in raw_json.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(data, dict) and data.get("type") == "step_finish":
+            part = data.get("part")
+            if isinstance(part, dict):
+                tokens = part.get("tokens")
+                if isinstance(tokens, dict):
+                    for k, v in tokens.items():
+                        if type(v) is int:
+                            usage[k] = usage.get(k, 0) + v
+    return usage
 
 
 class OpenCodeExecutor:
