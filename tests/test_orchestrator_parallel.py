@@ -120,3 +120,26 @@ def test_quota_under_threshold_runs_normally(tmp_path):
     )
     assert res.completed == ["A"]
     assert res.deferred == []
+
+
+def test_run_plan_parallel_accepts_executor_factory(tmp_path):
+    # Additive, backward-compatible: run_plan_parallel accepts executor_factory + default_spec.
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Exec:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    slices = [SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py")]
+    ledger = Ledger(str(tmp_path / "l.json"))
+    res = run_plan_parallel(
+        slices, ledger,
+        executor=_Exec(),
+        executor_factory=None,
+        default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    assert "T1" in res.completed
