@@ -77,3 +77,11 @@ def test_executor_run_signature():
     assert run.__annotations__.get("return") is ExecutorResult
     assert "task" in run.__annotations__
     assert "workdir" in run.__annotations__
+
+
+def test_slicetask_has_optional_executor_field():
+    t = SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py")
+    assert t.executor is None  # defaults to None (use build default)
+    t2 = SliceTask(id="T2", brief="b", files=["x"], acceptance_test_path="t.py",
+                   executor="opencode:opencode/claude-sonnet-4-6")
+    assert t2.executor == "opencode:opencode/claude-sonnet-4-6"
