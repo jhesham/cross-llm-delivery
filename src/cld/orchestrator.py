@@ -254,10 +254,11 @@ def run_plan_parallel(
         original "code lost" bug). The commit lands on branch `slice-<id>`, which the
         caller can later merge.
         """
+        slice_executor = _executor_for(task)
         if repo_dir is not None and git_runner is not None:
             with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
                 res = deliver_slice(
-                    task, executor=executor, judge_fn=judge_fn,
+                    task, executor=slice_executor, judge_fn=judge_fn,
                     max_retries=max_retries, workdir=wt_path,
                     test_runner=test_runner,
                 )
@@ -269,7 +270,7 @@ def run_plan_parallel(
                     )
                 return res
         return deliver_slice(
-            task, executor=executor, judge_fn=judge_fn, max_retries=max_retries,
+            task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
             test_runner=test_runner,
         )
 

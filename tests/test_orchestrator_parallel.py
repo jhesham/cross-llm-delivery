@@ -143,3 +143,33 @@ def test_run_plan_parallel_accepts_executor_factory(tmp_path):
         test_runner=lambda *a, **k: "1 passed",
     )
     assert "T1" in res.completed
+
+
+def test_each_slice_uses_its_own_tagged_executor(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    ran = {}  # slice_id -> spec the executor was built from
+
+    class _Rec:
+        def __init__(self, spec): self.spec = spec
+        def run(self, task, workdir, feedback=None):
+            ran[task.id] = self.spec
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    slices = [
+        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),
+        SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
+                  executor="opencode:opencode/claude-sonnet-4-6"),
+    ]
+    ledger = Ledger(str(tmp_path / "l.json"))
+    run_plan_parallel(
+        slices, ledger,
+        executor_factory=lambda spec: _Rec(spec),
+        default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    assert ran["T1"] == "gemini"
+    assert ran["T2"] == "opencode:opencode/claude-sonnet-4-6"
