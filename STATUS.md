@@ -15,7 +15,12 @@ ones to the $0 workhorse. NOTE: SKILL.md already promises a per-slice `executor:
 UNIMPLEMENTED (slice.py doesn't parse it; SliceTask has no field) — close that gap as step 1. Full
 capture + open questions: `docs/notes/future-per-slice-executor-by-complexity.md`. (2) **Picker
 frequency** — agents re-trigger the picker per slice/re-dispatch (seen on S1b); decide once-per-build-
-and-stick vs. re-ask-on-re-dispatch. Design these two together (same surface).
+and-stick vs. re-ask-on-re-dispatch. Design these two together (same surface). (3) **Unified LLM-usage
+view** (`/cross-llm-delivery-usage` for CLI + VS Code) — feasibility GOOD, most data is LOCAL:
+`opencode stats`/`export` (real $), the engine's per-dispatch `token_usage` (already captured, not yet
+persisted — ledger gap to close first), Gemini flat-rate quota (best-effort). Smallest first: persist
+usage in ledger → `run_delivery.py --usage` markdown table (renders in both surfaces). Full investigation:
+`docs/notes/future-usage-modal.md`.
 
 **✅ OPENCODE `-m` MODEL SELECTION WORKS (2026-06-13).** The earlier "🔴 blocker" was FALSE.
 PROVEN at $0 (dashboard billed-model = ground truth): six dispatches, every one billed the model
