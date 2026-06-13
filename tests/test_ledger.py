@@ -112,3 +112,28 @@ def test_atomic_save_overwrites_existing(tmp_path):
     reloaded = Ledger.load(p)
     assert reloaded.get("T1").status == DONE
     assert reloaded.get("T1").commit == "c9"
+
+
+def test_ledger_entry_carries_usage_and_round_trips(tmp_path):
+    from cld.ledger import Ledger
+    p = str(tmp_path / "l.json")
+    led = Ledger(p)
+    led.set("T1", status="done", commit="abc",
+            model="opencode/claude-sonnet-4-6",
+            token_usage={"input": 100, "output": 20, "total": 120}, cost=0.012)
+    led.save()
+    again = Ledger.load(p)
+    e = again.get("T1")
+    assert e.model == "opencode/claude-sonnet-4-6"
+    assert e.token_usage == {"input": 100, "output": 20, "total": 120}
+    assert e.cost == 0.012
+
+
+def test_old_ledger_without_usage_loads_with_defaults(tmp_path):
+    import json
+    from cld.ledger import Ledger
+    p = str(tmp_path / "old.json")
+    json.dump({"T1": {"status": "done", "commit": "x", "attempts": 1}}, open(p, "w"))
+    e = Ledger.load(p).get("T1")
+    assert e.status == "done" and e.model is None
+    assert e.token_usage == {} and e.cost is None
