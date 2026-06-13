@@ -35,18 +35,19 @@ plans b377868. Executed subagent-driven (fresh subagent per task + 2-stage revie
 
 **(earlier 2026-06-13)** ✅ RESOLVED: opencode `-m` WORKS; false blocker debunked — 204 passed
 
-**📋 NEXT (captured, not yet designed):** (1) **Per-slice executor by complexity** — user wants the
-lead agent to assess each slice's difficulty and route hard slices to a more capable model, simple
-ones to the $0 workhorse. NOTE: SKILL.md already promises a per-slice `executor:` field but it's
-UNIMPLEMENTED (slice.py doesn't parse it; SliceTask has no field) — close that gap as step 1. Full
-capture + open questions: `docs/notes/future-per-slice-executor-by-complexity.md`. (2) **Picker
-frequency** — agents re-trigger the picker per slice/re-dispatch (seen on S1b); decide once-per-build-
-and-stick vs. re-ask-on-re-dispatch. Design these two together (same surface). (3) **Unified LLM-usage
-view** (`/cross-llm-delivery-usage` for CLI + VS Code) — feasibility GOOD, most data is LOCAL:
-`opencode stats`/`export` (real $), the engine's per-dispatch `token_usage` (already captured, not yet
-persisted — ledger gap to close first), Gemini flat-rate quota (best-effort). Smallest first: persist
-usage in ledger → `run_delivery.py --usage` markdown table (renders in both surfaces). Full investigation:
-`docs/notes/future-usage-modal.md`.
+**📋 NEXT (candidates — nothing in flight; user testing the skill on other projects 2026-06-13):**
+The 3 previously-captured items are ALL SHIPPED this session (per-slice executor, picker frequency,
+usage view — see the top block). Remaining open EXECUTOR adapters (pluggable infra is done; each is
+just "write one adapter satisfying the Executor protocol"):
+- **Cursor executor (`cursor-agent`)** — user's leading candidate, but GATE FIRST: the original
+  2026-06-08 design rejected cursor-agent because it needed WSL and couldn't run headless on this
+  Windows Server box. Before any build, do a zero-cost check of whether `cursor` CLI can dispatch
+  headless on Windows NOW. If it still needs WSL, it's a dead end like codex.
+- **Claude-headless executor** (`claude -p`) — the lead model as an executor; no WSL concern; noted
+  as a future adapter alongside cursor.
+- **Codex — EXCLUDED** (no clean headless mode).
+Stale "future" notes `docs/notes/future-per-slice-executor-by-complexity.md` + `future-usage-modal.md`
+are now IMPLEMENTED (kept for design history).
 
 **✅ OPENCODE `-m` MODEL SELECTION WORKS (2026-06-13).** The earlier "🔴 blocker" was FALSE.
 PROVEN at $0 (dashboard billed-model = ground truth): six dispatches, every one billed the model
