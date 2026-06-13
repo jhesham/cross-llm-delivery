@@ -104,3 +104,24 @@ def test_resume_from_simulated_stop(tmp_path):
     assert res.skipped == ["A"]
     assert res.completed == ["B"]
     assert ex2.dispatched == ["B"]  # A not re-run after resume
+
+
+def test_run_plan_persists_usage_to_ledger(tmp_path):
+    from cld.orchestrator import run_plan
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Exec:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="+x", files_changed=["x"],
+                                  token_usage={"total": 7}, raw_log="")
+
+    p = str(tmp_path / "l.json")
+    led = Ledger(p)
+    run_plan([SliceTask(id="A", brief="b", files=["x"], acceptance_test_path="t.py")],
+             led, executor=_Exec(),
+             judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})())
+    e = Ledger.load(p).get("A")
+    assert e.status == "done"
+    assert e.token_usage == {"total": 7}
+    assert e.model

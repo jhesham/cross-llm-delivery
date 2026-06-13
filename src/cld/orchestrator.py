@@ -192,10 +192,12 @@ def run_plan(
         )
         
         if deliver_res.accepted:
-            ledger.set(task.id, status=DONE, attempts=deliver_res.attempts)
+            ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
+                       model=deliver_res.model, token_usage=deliver_res.token_usage)
             result.completed.append(task.id)
         else:
-            ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts)
+            ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts,
+                       model=deliver_res.model, token_usage=deliver_res.token_usage)
             result.failed.append(task.id)
 
         ledger.save()
