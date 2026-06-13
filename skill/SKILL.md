@@ -131,6 +131,25 @@ There are two equivalent surfaces; use whichever fits:
    entry, you have built it WRONG — the user cannot reach the full model list. The screenshot
    failure mode: 4 curated models + "Other", no "Browse all" → fix by adding option 2.
 
+   **Picker frequency — choose ONCE per build, then STICK.** Present the executor picker ONCE,
+   before the first dispatch of a build. That choice is the build default and persists for ALL
+   slices and re-dispatches in the build. Do NOT re-run the picker per slice or on a plain
+   re-dispatch (the live S1b interruption bug) — reuse the executor already chosen. Re-run the
+   picker ONLY when the user says "change executor" or starts a new build. The per-slice
+   overrides below are deliberate exceptions, NOT a per-slice picker.
+
+   **Per-slice executor (`executor:` tag).** A `## SLICE:` block may carry an optional
+   `executor: <name>:<model>` line; that slice runs on that executor SILENTLY (the tag is the
+   decision — no prompt). Untagged slices use the build default. You MAY propose an upgrade for a
+   slice you assess as genuinely HARD (a high bar — not routine), ONCE, for the user to confirm;
+   every other slice stays silent. This must NEVER become a per-slice picker (it would reintroduce
+   the interruption the frequency rule removes). The orchestrator honors the tag automatically via
+   `run_plan_parallel`'s `executor_factory`; an unknown spec fails only that slice, not the build.
+
+   **Gates on any per-slice metered/untested model** (tag or proposal): a metered model hits the
+   cost-confirm before that slice dispatches; an untested one runs
+   `cld.validate.resolve_and_validate` first. The $0 flat workhorse stays the silent default.
+
    **GUARD — render the options verbatim from `render_shortlist`; never improvise them.** Call
    `cld.models.render_shortlist(recs)` (or run the live pipeline) and present EXACTLY those lines /
    model ids. Do NOT hand-type, reorder, abbreviate, or recall the option list from memory — the
@@ -187,10 +206,14 @@ Recommended executors (installed + available):
   WORKHORSE (default)
   > 1) gemini:gemini-3.1-pro-preview              flat               proven
     2) opencode:opencode/deepseek-v4-pro          cheap-metered      likely
+    3) opencode:opencode/gemini-3.1-pro           cheap-metered      likely
   HEAVY (hard slices, worth more $)
-    3) opencode:opencode/claude-opus-4-8          premium-metered $  likely
+    4) opencode:opencode/claude-opus-4-8          premium-metered $  likely
+    5) opencode:opencode/kimi-k2.6                cheap-metered      untested  (!) validate first
+    6) opencode:opencode/claude-sonnet-4-6        premium-metered $  likely
   QUICK / BUDGET
-    4) opencode:opencode/deepseek-v4-flash-free   free               untested  (!) validate first
+    7) opencode:opencode/deepseek-v4-flash-free   free               untested  (!) validate first
+    8) Browse all models...
 Pick one [default: workhorse]:
 ```
 (`$` = bills real money, confirms on pick. `(!)` = untested, offer validation.)
