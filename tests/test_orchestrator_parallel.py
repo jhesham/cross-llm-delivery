@@ -173,3 +173,35 @@ def test_each_slice_uses_its_own_tagged_executor(tmp_path):
     )
     assert ran["T1"] == "gemini"
     assert ran["T2"] == "opencode:opencode/claude-sonnet-4-6"
+
+
+def test_unknown_per_slice_executor_fails_only_that_slice(tmp_path):
+    # An unknown executor spec must FAIL that slice, not crash the build; siblings still run.
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Ok:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    def factory(spec):
+        if spec.startswith("bogus"):
+            raise ValueError(f"Unknown executor: {spec!r}")
+        return _Ok()
+
+    slices = [
+        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),  # ok
+        SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
+                  executor="bogus:whatever"),                                       # bad
+    ]
+    ledger = Ledger(str(tmp_path / "l.json"))
+    res = run_plan_parallel(
+        slices, ledger,
+        executor_factory=factory, default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    assert "T1" in res.completed          # the good slice still ran
+    assert "T2" in res.failed             # the bad slice failed
+    assert "T2" not in res.completed
