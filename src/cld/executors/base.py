@@ -9,6 +9,7 @@ class SliceTask:
     files: list[str]
     acceptance_test_path: str
     deps: list[str] = field(default_factory=list)
+    executor: str | None = None  # optional per-slice executor spec; None -> build default
 
 @dataclass
 class ExecutorResult:
