@@ -111,3 +111,13 @@ def test_pytest_test_runner_without_path_runs_default(monkeypatch):
 
     monkeypatch.setattr(run_delivery.subprocess, "run", lambda argv, **kw: _Proc())
     assert "passed" in run_delivery.pytest_test_runner("/wt")
+
+
+def test_build_executor_factory_resolves_specs():
+    factory = run_delivery.build_executor_factory()
+    from cld.executors.gemini import GeminiExecutor
+    from cld.executors.opencode import OpenCodeExecutor
+    assert isinstance(factory("gemini"), GeminiExecutor)
+    assert isinstance(factory("opencode:opencode/claude-sonnet-4-6"), OpenCodeExecutor)
+    # tolerant slash form also resolves (no Unknown executor)
+    assert isinstance(factory("opencode/deepseek-v4-pro"), OpenCodeExecutor)
