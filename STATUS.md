@@ -7,7 +7,33 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-13 (✅ RESOLVED: opencode `-m` WORKS; false blocker debunked — 204 passed)
+**Last updated:** 2026-06-13 (✅ Multi-LLM build controls SHIPPED + 2 opencode bugs fixed — 226 passed)
+
+**✅ MULTI-LLM BUILD CONTROLS — BOTH PLANS SHIPPED (2026-06-13).** Spec 4d60a2a→e79afc1,
+plans b377868. Executed subagent-driven (fresh subagent per task + 2-stage review).
+- **Plan 1 (per-slice executor)** commits bc23365→6fa4b88: `SliceTask.executor` field, slice.py
+  parses `executor:`, `run_plan_parallel` resolves per-slice via `executor_factory` (mixed
+  executors in one layer; unknown spec fails only that slice), run_delivery wiring, SKILL.md
+  picker-once-and-stick + bounded per-slice proposals + curated shortlist (kimi-k2.6 +
+  claude-sonnet-4-6 added). Catalog dogfooded to Gemini.
+- **Plan 2 (usage view)** commits 5e37c33→b370637: LedgerEntry gains model/token_usage/cost
+  (both run_plan + run_plan_parallel persist it), `cld/usage.py` (parse_opencode_stats +
+  render_usage_table), `run_delivery.py --usage` + `cross-llm-delivery-usage` skill. Markdown
+  table = per-build ledger + `opencode stats` aggregate; renders in CLI + VS Code.
+- **TWO OpenCode bugs fixed** (found via the live picker experiment): (1) the `opencode.cmd` npm
+  shim mangles long multi-line prompts via `cmd.exe /c` → `_oc_cmd` now invokes the real
+  `opencode.exe` behind the shim (commit 7e8f1a5); (2) `capture_diff` reported `__pycache__/.pyc`
+  as changed files → judge falsely flagged disallowed edits → false known-bad; now filtered
+  (commit f771c86). Write-up: `docs/opencode-dispatch-bug-feedback.md`.
+- **DOGFOOD: both Plan-2 pure-logic slices (T3 parse_opencode_stats, T4 render_usage_table) built
+  by OpenCode `deepseek-v4-pro`** through the now-fixed executor — proving it on real feature work.
+- **kimi-k2.6 = PROVEN headless** (finally, after the multi-session saga) — recorded durably in
+  `~/.cld/validation-evidence.json`; the evidence overlay shows it `proven` (no warning) in the
+  picker. deepseek-v4-pro also proven via the dogfoods.
+
+---
+
+**(earlier 2026-06-13)** ✅ RESOLVED: opencode `-m` WORKS; false blocker debunked — 204 passed
 
 **📋 NEXT (captured, not yet designed):** (1) **Per-slice executor by complexity** — user wants the
 lead agent to assess each slice's difficulty and route hard slices to a more capable model, simple
