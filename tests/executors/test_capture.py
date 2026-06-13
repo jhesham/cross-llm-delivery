@@ -39,3 +39,17 @@ def test_capture_diff_empty():
     diff, files = capture_diff(r, "/work")
     assert diff == ""
     assert files == []
+
+
+def test_capture_diff_ignores_pycache_and_pyc():
+    # When the executor runs pytest in the worktree it generates __pycache__/*.pyc;
+    # these are NOT real edits and must NOT appear in files_changed, or the judge's
+    # diff-rule wrongly flags them as disallowed -> false known-bad (found live:
+    # deepseek-v4-pro wrote correct calc.py + test passed, but pyc files failed it).
+    names = ("calc.py\n"
+             "__pycache__/calc.cpython-313.pyc\n"
+             "__pycache__/test_calc.cpython-313-pytest-9.0.3.pyc\n"
+             "src/.pytest_cache/v/cache/lastfailed\n")
+    r = _Runner(names=names)
+    _, files = capture_diff(r, "/work")
+    assert files == ["calc.py"]  # only the real edit; pyc/cache noise filtered
