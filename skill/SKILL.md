@@ -235,6 +235,11 @@ After a batch merges, run the **integration gate** (full suite on the merged tre
 slice-green ≠ system-green). Re-run `run_delivery.py` to resume: already-done slices
 are skipped via the ledger.
 
+**Usage view:** run `run_delivery.py <plan> --usage` (or the `cross-llm-delivery-usage`
+skill) for a combined per-build + OpenCode-account usage table (per-slice model/tokens/cost
+from the ledger + `opencode stats` aggregate). On-demand markdown — renders in CLI and VS Code;
+re-run to refresh.
+
 ## Reference material
 
 - `references/architecture.md` — the cld engine: modules, the locked Gemini CLI form,
