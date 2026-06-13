@@ -22,6 +22,7 @@ Exit code 0 if all slices accepted (or already done), 1 otherwise.
 """
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
@@ -82,6 +83,16 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     except subprocess.TimeoutExpired:
         return "1 failed in 600s (timeout — acceptance test did not complete)"
     return (proc.stdout or "") + (proc.stderr or "")
+
+
+def _opencode_stats_text() -> str:
+    oc = os.environ.get("OPENCODE_CLI_CMD") or ("opencode.cmd" if os.name == "nt" else "opencode")
+    try:
+        proc = subprocess.run([oc, "stats"], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=30)
+        return proc.stdout or ""
+    except Exception:
+        return ""
 
 
 def parse_executor_spec(spec: str) -> tuple[str, dict]:
@@ -156,7 +167,18 @@ def main(argv=None) -> int:
                    help="Run ONLY the next pending DAG layer, then exit (context-lean "
                         "orchestration). Re-invoke to advance. Exit codes: 0 layer all-passed, "
                         "2 some failed/deferred, 3 build complete.")
+    p.add_argument("--usage", action="store_true",
+                   help="Print a combined LLM-usage table (this build's ledger + opencode "
+                        "account stats) and exit. No dispatch.")
     args = p.parse_args(argv)
+
+    if args.usage:
+        from cld.ledger import Ledger
+        from cld.usage import parse_opencode_stats, render_usage_table
+        ledger = Ledger.load(args.ledger)
+        oc_stats = parse_opencode_stats(_opencode_stats_text())
+        print(render_usage_table(ledger, oc_stats))
+        return 0
 
     plan_md = Path(args.plan).read_text(encoding="utf-8")
     slices = load_slices(plan_md)
