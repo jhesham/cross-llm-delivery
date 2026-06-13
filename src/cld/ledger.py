@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 PENDING = "pending"
 IN_PROGRESS = "in_progress"
@@ -14,6 +14,9 @@ class LedgerEntry:
     status: str = PENDING
     commit: str | None = None
     attempts: int = 0
+    model: str | None = None
+    token_usage: dict = field(default_factory=dict)
+    cost: float | None = None
 
 class Ledger:
     def __init__(self, path: str):
@@ -32,6 +35,9 @@ class Ledger:
                     status=entry_data.get("status", PENDING),
                     commit=entry_data.get("commit", None),
                     attempts=entry_data.get("attempts", 0),
+                    model=entry_data.get("model"),
+                    token_usage=entry_data.get("token_usage", {}) or {},
+                    cost=entry_data.get("cost"),
                 )
         except Exception:
             pass
@@ -44,10 +50,10 @@ class Ledger:
     def get(self, slice_id: str) -> LedgerEntry | None:
         return self._entries.get(slice_id)
 
-    def set(self, slice_id: str, *, status=None, commit=None, attempts=None):
+    def set(self, slice_id: str, *, status=None, commit=None, attempts=None,
+            model=None, token_usage=None, cost=None):
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
-        
         entry = self._entries[slice_id]
         if status is not None:
             entry.status = status
@@ -55,6 +61,12 @@ class Ledger:
             entry.commit = commit
         if attempts is not None:
             entry.attempts = attempts
+        if model is not None:
+            entry.model = model
+        if token_usage is not None:
+            entry.token_usage = token_usage
+        if cost is not None:
+            entry.cost = cost
 
     def mark_attempt(self, slice_id: str):
         if slice_id not in self._entries:
@@ -84,6 +96,9 @@ class Ledger:
                 "status": entry.status,
                 "commit": entry.commit,
                 "attempts": entry.attempts,
+                "model": entry.model,
+                "token_usage": entry.token_usage,
+                "cost": entry.cost,
             }
             for slice_id, entry in self._entries.items()
         }
