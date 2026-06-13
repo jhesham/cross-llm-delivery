@@ -17,6 +17,8 @@ def load_slices(markdown: str) -> list[SliceTask]:
             val = val.strip()
             if key == "brief":
                 current_slice["brief"] = val
+            elif key == "executor":
+                current_slice["executor"] = val
             elif key == "acceptance_test_path":
                 current_slice["acceptance_test_path"] = val
             elif key in ("files", "deps"):
@@ -34,7 +36,8 @@ def _dict_to_slice(d: dict) -> SliceTask:
         brief=d.get("brief", ""),
         files=d.get("files", []),
         acceptance_test_path=d.get("acceptance_test_path", ""),
-        deps=d.get("deps", [])
+        deps=d.get("deps", []),
+        executor=d.get("executor")
     )
 
 def slices_to_markdown(slices: list[SliceTask]) -> str:
@@ -44,6 +47,8 @@ def slices_to_markdown(slices: list[SliceTask]) -> str:
         lines.append(f"brief: {s.brief}")
         lines.append(f"files: {', '.join(s.files)}")
         lines.append(f"acceptance_test_path: {s.acceptance_test_path}")
+        if s.executor:
+            lines.append(f"executor: {s.executor}")
         lines.append(f"deps: {', '.join(s.deps)}")
         lines.append("")
     return "\n".join(lines)
