@@ -227,3 +227,27 @@ def test_recommend_evidence_overlay():
     recs2 = recommend(available_ids=["opencode/deepseek-v4-flash-free"],
                       evidence={"opencode/deepseek-v4-flash-free": "known-bad"})
     assert all("flash-free" not in r.id for r in recs2)
+
+
+def test_catalog_has_kimi_and_sonnet_shortlist_entries():
+    # Picker main shortlist additions (ids verified against live `opencode models`:
+    # kimi-k2.6 and claude-sonnet-4-6 exist; kimi-k2.7 / claude-sonnet-2.6 do NOT).
+    kimi = MODEL_METADATA["opencode/kimi-k2.6"]
+    assert kimi.capability_class == "heavy"
+    assert kimi.cost_class == "cheap-metered"
+    assert kimi.headless_status == "untested"   # never cleanly validated -> validate-first
+
+    sonnet = MODEL_METADATA["opencode/claude-sonnet-4-6"]
+    assert sonnet.capability_class == "heavy"
+    assert sonnet.cost_class == "premium-metered"
+    assert sonnet.headless_status == "likely"
+
+
+def test_recommend_surfaces_kimi_and_sonnet():
+    recs = recommend(available_ids=[
+        "opencode/kimi-k2.6", "opencode/claude-sonnet-4-6", "opencode/gemini-3.1-pro",
+    ])
+    ids = [r.id for r in recs]
+    assert "opencode/kimi-k2.6" in ids
+    assert "opencode/claude-sonnet-4-6" in ids
+    assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)

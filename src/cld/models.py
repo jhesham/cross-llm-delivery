@@ -58,7 +58,25 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         headless_status="likely",
         rework_risk="low",
         note="same model as the flat-rate workhorse, routed through OpenCode (metered)"
-    )
+    ),
+    "opencode/kimi-k2.6": ModelInfo(
+        id="opencode/kimi-k2.6",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="heavy",
+        headless_status="untested",
+        rework_risk="medium",
+        note="strong model; never cleanly validated headless - validate before trusting",
+    ),
+    "opencode/claude-sonnet-4-6": ModelInfo(
+        id="opencode/claude-sonnet-4-6",
+        provider="opencode",
+        cost_class="premium-metered",
+        capability_class="heavy",
+        headless_status="likely",
+        rework_risk="low",
+        note="capable Anthropic Sonnet via OpenCode; bills real money",
+    ),
 }
 
 @dataclass
