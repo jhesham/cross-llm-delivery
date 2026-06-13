@@ -121,3 +121,22 @@ def test_build_executor_factory_resolves_specs():
     assert isinstance(factory("opencode:opencode/claude-sonnet-4-6"), OpenCodeExecutor)
     # tolerant slash form also resolves (no Unknown executor)
     assert isinstance(factory("opencode/deepseek-v4-pro"), OpenCodeExecutor)
+
+
+def test_usage_flag_renders_from_ledger_and_stats(monkeypatch, tmp_path, capsys):
+    import json
+    p = str(tmp_path / ".cld-ledger.json")
+    json.dump({"T1": {"status": "done", "commit": "a", "attempts": 1,
+                      "model": "gemini:gemini-3.1-pro-preview",
+                      "token_usage": {"total": 100}, "cost": None}}, open(p, "w"))
+
+    class _P:
+        stdout = "|Total Cost   $5.64 |"
+        stderr = ""
+        returncode = 0
+    monkeypatch.setattr(run_delivery.subprocess, "run", lambda *a, **k: _P())
+
+    rc = run_delivery.main(["dummy-plan.md", "--ledger", p, "--usage"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "T1" in out and "5.64" in out
