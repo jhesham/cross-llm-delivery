@@ -113,6 +113,15 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
     return (spec or "gemini", {})
 
 
+def build_executor_factory():
+    """Return factory(spec) -> executor, resolving a spec via parse_executor_spec +
+    get_executor. Used by run_plan_parallel for per-slice executor selection."""
+    def factory(spec: str):
+        name, kwargs = parse_executor_spec(spec)
+        return get_executor(name, **kwargs)
+    return factory
+
+
 def prompt_for_executor() -> str:
     """Interactive model picker (the CLI surface). Lists available OpenCode models,
     builds the recommended shortlist, and prompts the user to choose. The proven
@@ -182,12 +191,12 @@ def main(argv=None) -> int:
             return 3
         idx, layer_ids, total = sel
         layer_slices = [s for s in slices if s.id in layer_ids]
-        exec_name, exec_kwargs = parse_executor_spec(args.executor)
-        executor = get_executor(exec_name, **exec_kwargs)
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(
             layer_slices, ledger,
-            executor=executor, judge_fn=judge_fn,
+            executor_factory=build_executor_factory(),
+            default_spec=args.executor or "gemini",
+            judge_fn=judge_fn,
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner,
             test_runner=pytest_test_runner,
@@ -200,13 +209,13 @@ def main(argv=None) -> int:
         return classify_gate(result, more_layers=bool(nxt))
 
     ledger = Ledger.load(args.ledger)
-    exec_name, exec_kwargs = parse_executor_spec(args.executor)
-    executor = get_executor(exec_name, **exec_kwargs)
     judge_fn = make_judge_fn(args.repo)
 
     result = run_plan_parallel(
         slices, ledger,
-        executor=executor, judge_fn=judge_fn,
+        executor_factory=build_executor_factory(),
+        default_spec=args.executor or "gemini",
+        judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner,
         test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
