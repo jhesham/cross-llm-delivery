@@ -201,7 +201,9 @@ def run_plan_parallel(
     slices: list[SliceTask],
     ledger: Ledger,
     *,
-    executor: Any,
+    executor: Any = None,
+    executor_factory: Callable[[str], Any] | None = None,
+    default_spec: str = "gemini",
     judge_fn: Callable,
     max_retries: int = 2,
     max_workers: int = 4,
@@ -231,6 +233,14 @@ def run_plan_parallel(
     This protects the flat-rate executor's quota bucket during large fan-outs.
     """
     result = PlanResult()
+
+    def _executor_for(task):
+        # Per-slice executor: build from the slice's tag (or the build default) when a
+        # factory is provided; else fall back to the single legacy executor.
+        if executor_factory is not None:
+            return executor_factory(task.executor or default_spec)
+        return executor
+
     by_id = {s.id: s for s in slices}
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
