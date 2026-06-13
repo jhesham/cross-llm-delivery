@@ -50,7 +50,9 @@ def test_builds_locked_argv():
     ex.run(task, "/work")
 
     argv = runner.calls[0][0]
-    assert argv[0] in ("opencode", "opencode.cmd")
+    # argv[0] is the resolved opencode command: bare name, .cmd shim, or (on Windows
+    # with the real exe found) the full path to opencode.exe.
+    assert "opencode" in argv[0].lower()
     assert "run" in argv
     assert "-m" in argv and "anthropic/claude-sonnet-4-6" in argv
     assert "--format" in argv and "json" in argv
@@ -108,3 +110,41 @@ def test_default_runner_survives_non_utf8_console_bytes():
         ".")
     assert rc == 0
     assert "ok" in out and "end" in out  # decoded with replacement, not crashed
+
+
+def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
+    # BUG (found live): the opencode.cmd npm shim routes through cmd.exe /c, which
+    # MANGLES a long multi-line prompt passed as a positional arg -> the dispatch
+    # silently falls back to interactive/attach mode and produces no step_finish.
+    # The real opencode.exe (invoked directly by subprocess, no shell) handles the
+    # argv correctly. _oc_cmd must resolve the real .exe on Windows when findable.
+    import cld.executors.opencode as mod
+
+    monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
+    monkeypatch.setattr(mod.os, "name", "nt", raising=False)
+    # simulate the npm layout: shim on PATH, real exe under node_modules/.../bin
+    monkeypatch.setattr(mod.shutil, "which",
+                        lambda n: r"C:\npm\opencode.cmd" if n == "opencode.cmd" else None)
+    monkeypatch.setattr(mod.os.path, "exists",
+                        lambda p: p.replace("\\", "/").endswith(
+                            "node_modules/opencode-ai/bin/opencode.exe"))
+
+    cmd = mod._oc_cmd()
+    assert cmd.replace("\\", "/").endswith("opencode-ai/bin/opencode.exe"), cmd
+
+
+def test_oc_cmd_falls_back_to_cmd_when_exe_missing(monkeypatch):
+    # if the real exe can't be located, fall back to the .cmd shim (still works for
+    # short prompts; better than crashing). Override still wins.
+    import cld.executors.opencode as mod
+    monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
+    monkeypatch.setattr(mod.os, "name", "nt", raising=False)
+    monkeypatch.setattr(mod.shutil, "which", lambda n: None)
+    monkeypatch.setattr(mod.os.path, "exists", lambda p: False)
+    assert mod._oc_cmd() == "opencode.cmd"
+
+
+def test_oc_cmd_env_override_wins(monkeypatch):
+    import cld.executors.opencode as mod
+    monkeypatch.setenv("OPENCODE_CLI_CMD", "/custom/opencode")
+    assert mod._oc_cmd() == "/custom/opencode"
