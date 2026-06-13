@@ -286,7 +286,23 @@ def run_plan_parallel(
             ledger.set(task.id, status=IN_PROGRESS)
             ledger.save()
 
-        deliver_res = _run_one(task)
+        try:
+            deliver_res = _run_one(task)
+        except Exception as exc:
+            # A build-time error (e.g. unknown executor spec) must FAIL only this
+            # slice — record it FAILED and let the rest of the build continue.
+            with ledger_lock:
+                ledger.set(task.id, status=FAILED, attempts=0)
+                result.failed.append(task.id)
+                result.details[task.id] = SliceDetail(
+                    slice_id=task.id, status="failed",
+                    files_changed=[],
+                    attempts=0,
+                    diff_lines=0,
+                    failing_tests=[f"executor error: {exc}"],
+                )
+                ledger.save()
+            return
 
         with ledger_lock:
             if deliver_res.accepted:
