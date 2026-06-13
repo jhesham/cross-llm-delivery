@@ -205,3 +205,28 @@ def test_unknown_per_slice_executor_fails_only_that_slice(tmp_path):
     assert "T1" in res.completed          # the good slice still ran
     assert "T2" in res.failed             # the bad slice failed
     assert "T2" not in res.completed
+
+
+def test_usage_written_to_ledger_on_completion(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Exec:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="+x", files_changed=["x"],
+                                  token_usage={"input": 10, "output": 2, "total": 12},
+                                  raw_log="")
+
+    slices = [SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py")]
+    p = str(tmp_path / "l.json")
+    ledger = Ledger(p)
+    run_plan_parallel(
+        slices, ledger, executor=_Exec(),
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    e = Ledger.load(p).get("T1")
+    assert e.status == "done"
+    assert e.token_usage == {"input": 10, "output": 2, "total": 12}
+    assert e.model  # a model string was recorded (non-empty)
