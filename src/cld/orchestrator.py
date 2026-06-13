@@ -36,6 +36,8 @@ class DeliverResult:
     history: list[JudgeResult] = field(default_factory=list)
     files_changed: list[str] = field(default_factory=list)
     diff_lines: int = 0
+    model: str | None = None
+    token_usage: dict = field(default_factory=dict)
 
 def deliver_slice(
     task: SliceTask,
@@ -114,6 +116,8 @@ def deliver_slice(
                 history=history,
                 files_changed=list(result.files_changed or []),
                 diff_lines=_count_diff_lines(result.diff),
+                model=model,
+                token_usage=getattr(result, "token_usage", {}) or {},
             )
 
         # Failed: build feedback for the next attempt from the judge result.
@@ -137,6 +141,8 @@ def deliver_slice(
         history=history,
         files_changed=list(result.files_changed or []),
         diff_lines=_count_diff_lines(result.diff),
+        model=model,
+        token_usage=getattr(result, "token_usage", {}) or {},
     )
 
 
@@ -306,11 +312,13 @@ def run_plan_parallel(
 
         with ledger_lock:
             if deliver_res.accepted:
-                ledger.set(task.id, status=DONE, attempts=deliver_res.attempts)
+                ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
+                           model=deliver_res.model, token_usage=deliver_res.token_usage)
                 result.completed.append(task.id)
                 status = "completed"
             else:
-                ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts)
+                ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts,
+                           model=deliver_res.model, token_usage=deliver_res.token_usage)
                 result.failed.append(task.id)
                 status = "failed"
             result.details[task.id] = SliceDetail(
