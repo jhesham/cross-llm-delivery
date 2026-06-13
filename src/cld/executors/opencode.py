@@ -11,6 +11,7 @@ step_finish event(s). See docs/notes/opencode-cli-notes.md.
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
@@ -36,11 +37,28 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
 
 
 def _oc_cmd() -> str:
-    """The opencode CLI command, per-platform (Windows npm shim is opencode.cmd),
-    overridable via OPENCODE_CLI_CMD."""
-    return os.environ.get("OPENCODE_CLI_CMD") or (
-        "opencode.cmd" if os.name == "nt" else "opencode"
-    )
+    """The opencode CLI command, overridable via OPENCODE_CLI_CMD.
+
+    Windows BUG fix (found live): the npm `opencode.cmd` shim runs via `cmd.exe /c`,
+    which MANGLES a long multi-line prompt passed as a positional arg — the dispatch
+    silently falls back to interactive mode and emits no step_finish. The real
+    `opencode.exe` (invoked directly by subprocess, no shell) handles the argv
+    correctly, so on Windows we resolve the real exe behind the shim
+    (`<npm-prefix>/node_modules/opencode-ai/bin/opencode.exe`) and use it. If it can't
+    be located we fall back to the `.cmd` shim (fine for short prompts).
+    """
+    override = os.environ.get("OPENCODE_CLI_CMD")
+    if override:
+        return override
+    if os.name != "nt":
+        return "opencode"
+    shim = shutil.which("opencode.cmd")
+    if shim:
+        exe = os.path.join(os.path.dirname(shim),
+                           "node_modules", "opencode-ai", "bin", "opencode.exe")
+        if os.path.exists(exe):
+            return exe
+    return "opencode.cmd"
 
 
 # NOTE (2026-06-13): an earlier serve+attach `_OpenCodeServer` was removed. A clean test
