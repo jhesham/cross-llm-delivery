@@ -68,6 +68,17 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         rework_risk="medium",
         note="strong model; never cleanly validated headless - validate before trusting",
     ),
+    "opencode/kimi-k2.7": ModelInfo(
+        id="opencode/kimi-k2.7",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="heavy",
+        headless_status="untested",
+        rework_risk="medium",
+        # Catalogued ahead of availability: stays filtered out of the shortlist until
+        # `opencode models` lists it (gated by available_ids), then auto-appears.
+        note="newer Kimi via OpenCode; validate before trusting headless",
+    ),
     "opencode/claude-sonnet-4-6": ModelInfo(
         id="opencode/claude-sonnet-4-6",
         provider="opencode",
@@ -203,6 +214,12 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
     recs: list[Recommendation] = []
     for id, info in MODEL_METADATA.items():
         if id not in effective_ids:
+            continue
+        # Cursor models are intentionally NOT offered in the first-selection shortlist:
+        # cursor-agent's long-prompt headless dispatch is a known defect (see
+        # docs/notes/cursor-cli-notes.md), so Composer/cursor live ONLY in the Browse
+        # drill-down (build_model_index), never as a default shortlist pick.
+        if id.startswith("cursor:"):
             continue
         # durable validation evidence overrides the static catalog status
         status = evidence.get(id, info.headless_status)
