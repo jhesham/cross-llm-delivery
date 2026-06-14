@@ -1,6 +1,6 @@
 from cld.executors.base import Executor
 
-KNOWN_EXECUTORS = ("gemini", "composer", "opencode")
+KNOWN_EXECUTORS = ("gemini", "composer", "opencode", "cursor")
 
 def get_executor(name: str, **kwargs) -> Executor:
     """Factory to get an executor by name."""
@@ -15,6 +15,9 @@ def get_executor(name: str, **kwargs) -> Executor:
     elif clean_name == "opencode":
         from cld.executors.opencode import OpenCodeExecutor
         return OpenCodeExecutor(**kwargs)
+    elif clean_name == "cursor":
+        from cld.executors.cursor import CursorExecutor
+        return CursorExecutor(**kwargs)
     else:
         raise ValueError(
             f"Unknown executor: '{name}'. Known executors are: {', '.join(KNOWN_EXECUTORS)}"
