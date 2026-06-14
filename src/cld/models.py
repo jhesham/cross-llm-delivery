@@ -77,6 +77,15 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         rework_risk="low",
         note="capable Anthropic Sonnet via OpenCode; bills real money",
     ),
+    "cursor:composer-2.5": ModelInfo(
+        id="cursor:composer-2.5",
+        provider="cursor",
+        cost_class="cheap-metered",
+        capability_class="heavy",
+        headless_status="untested",
+        rework_risk="low",
+        note="Cursor's cost-optimized Composer; resolve_composer_default tracks the current version",
+    ),
 }
 
 @dataclass

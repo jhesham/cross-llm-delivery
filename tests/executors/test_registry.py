@@ -67,3 +67,17 @@ def test_get_opencode():
     assert isinstance(ex, OpenCodeExecutor)
     assert isinstance(ex, Executor)
     assert "opencode" in KNOWN_EXECUTORS
+
+
+def test_get_cursor():
+    from cld.executors import get_executor, KNOWN_EXECUTORS
+    from cld.executors.cursor import CursorExecutor
+    ex = get_executor("cursor", model="composer-2.5")
+    assert isinstance(ex, CursorExecutor)
+    assert "cursor" in KNOWN_EXECUTORS
+
+
+def test_get_cursor_passes_effort():
+    from cld.executors import get_executor
+    ex = get_executor("cursor", model="claude-opus-4-8", effort="medium")
+    assert ex._model == "claude-opus-4-8" and ex._effort == "medium"

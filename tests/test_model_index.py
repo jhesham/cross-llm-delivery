@@ -222,3 +222,15 @@ def test_resolve_composer_prefers_current():
 
 def test_resolve_composer_falls_back_to_static_on_empty():
     assert resolve_composer_default(runner=lambda a, c: (1, "")) == "composer-2.5"
+
+
+def test_composer_in_catalog_and_spec_for_passthrough():
+    from cld.models import MODEL_METADATA, _spec_for
+    assert "cursor:composer-2.5" in MODEL_METADATA
+    entry = MODEL_METADATA["cursor:composer-2.5"]
+    assert entry.cost_class == "cheap-metered"
+    assert entry.headless_status == "untested"
+
+    class _C:
+        id = "cursor:composer-2.5"
+    assert _spec_for(_C()) == "cursor:composer-2.5"  # already spec-shaped -> unchanged
