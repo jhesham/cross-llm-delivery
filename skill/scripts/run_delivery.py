@@ -95,20 +95,18 @@ def _opencode_stats_text() -> str:
         return ""
 
 
-def parse_executor_spec(spec: str) -> tuple[str, dict]:
-    """Parse an --executor value into (name, kwargs).
+def _parse_name_model(spec: str) -> tuple[str, dict]:
+    """Parse the name:model (or slash) portion of an executor spec.
 
     Forms: "gemini" -> ("gemini", {}); "gemini:gemini-3-pro-preview" ->
     ("gemini", {"model": "gemini-3-pro-preview"}). The part before the first
-    colon is the executor name; the remainder (if any) is the model. This is how
-    the USER picks the LLM at invocation (not the orchestrator autonomously).
+    colon is the executor name; the remainder (if any) is the model.
 
     TOLERANT: the picker's catalog id uses a SLASH (opencode/<model>) while the
     canonical form uses a COLON (opencode:<model>). A copy-pasted slash id must not
     error with "Unknown executor", so if there's no colon but the spec starts with a
     known executor name followed by "/", we split on that first slash instead.
     """
-    spec = (spec or "gemini").strip()
     if ":" in spec:
         name, model = spec.split(":", 1)
         name = name.strip() or "gemini"
@@ -122,6 +120,28 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
             model = model.strip()
             return (name.strip(), {"model": model} if model else {})
     return (spec or "gemini", {})
+
+
+def parse_executor_spec(spec: str) -> tuple[str, dict]:
+    """Parse an --executor value into (name, kwargs).
+
+    Forms: "gemini" -> ("gemini", {}); "gemini:gemini-3-pro-preview" ->
+    ("gemini", {"model": "gemini-3-pro-preview"}). The part before the first
+    colon is the executor name; the remainder (if any) is the model. This is how
+    the USER picks the LLM at invocation (not the orchestrator autonomously).
+
+    An optional @<effort> suffix (e.g. "cursor:claude-opus-4-8@low") is split
+    off and returned as kwargs["effort"]. Specs without @ are unchanged.
+    """
+    spec = (spec or "gemini").strip()
+    effort = None
+    if "@" in spec:
+        spec, effort = spec.rsplit("@", 1)
+        spec, effort = spec.strip(), (effort.strip() or None)
+    name, kwargs = _parse_name_model(spec)
+    if effort:
+        kwargs["effort"] = effort
+    return name, kwargs
 
 
 def build_executor_factory():
