@@ -439,3 +439,57 @@ def rank_provider_models(choices: List[ModelChoice], *, n: int = 12) -> List[Mod
     sorted_choices = sorted(choices, key=lambda c: ranks.get(c.headless_status, 3))
     return sorted_choices[:n]
 
+
+def render_executor_level(index):
+    execs = []
+    for c in index:
+        if c.executor not in execs:
+            execs.append(c.executor)
+    lines = ["Choose an executor:"]
+    for i, e in enumerate(execs, 1):
+        n = sum(1 for c in index if c.executor == e)
+        lines.append(f"  {i}) {e}   ({n} models)")
+    lines.append("  S) Search models...")
+    return lines, execs
+
+
+def render_provider_level(index, *, executor):
+    provs = []
+    for c in index:
+        if c.executor == executor and c.provider not in provs:
+            provs.append(c.provider)
+    provs.sort()
+    lines = [f"{executor} - choose a provider:"]
+    for i, p in enumerate(provs, 1):
+        n = sum(1 for c in index if c.executor == executor and c.provider == p)
+        lines.append(f"  {i}) {p}   ({n})")
+    lines.append("  S) Search models...")
+    return lines, provs
+
+
+def render_model_level(index, *, executor, provider, headless_only=True, n=12):
+    pool = [c for c in index if c.executor == executor and c.provider == provider]
+    pool = browse_filter(pool, headless_only=headless_only)
+    ranked = rank_provider_models(pool, n=n)
+    lines = [f"{executor}/{provider} - choose a model:"]
+    ordered = []
+    for i, c in enumerate(ranked, 1):
+        ordered.append(c)
+        eff = f"  efforts: {','.join(c.efforts)}" if c.efforts else ""
+        warn = "  (!) untested" if c.headless_status == "untested" else ""
+        lines.append(f"  {i}) {c.spec:42s} {c.cost_class:16s} {c.headless_status:8s}{eff}{warn}")
+    if len(pool) > len(ranked):
+        lines.append(f"  M) More... ({len(pool) - len(ranked)} more)")
+    lines.append("  S) Search models...")
+    return lines, ordered
+
+
+def render_effort_level(choice):
+    if not choice.efforts:
+        return [], []
+    lines = [f"{choice.label} - choose effort:"]
+    for i, e in enumerate(choice.efforts, 1):
+        mark = "  (default)" if e == choice.default_effort else ""
+        lines.append(f"  {i}) {e}{mark}")
+    return lines, list(choice.efforts)
+

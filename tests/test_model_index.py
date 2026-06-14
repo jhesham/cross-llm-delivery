@@ -80,3 +80,59 @@ def test_rank_is_base_models_only_no_effort_rows():
                        headless_status="likely", efforts=["low", "medium", "high"], default_effort="high")
     ranked = rank_provider_models([base], n=12)
     assert len(ranked) == 1 and ranked[0].efforts == ["low", "medium", "high"]
+
+
+from cld.models import (render_executor_level, render_provider_level,
+                        render_model_level, render_effort_level)
+
+
+def _idx():
+    return build_model_index(
+        opencode_ids=["opencode/deepseek-v4-pro", "opencode/gpt-5"], cursor_models=[],
+        evidence={"opencode/deepseek-v4-pro": "proven"})
+
+
+def test_executor_level_lists_executors_and_search():
+    lines, ordered = render_executor_level(_idx())
+    blob = "\n".join(lines)
+    assert "gemini" in blob and "opencode" in blob
+    assert any("Search" in l for l in lines)
+    assert "gemini" in ordered and "opencode" in ordered
+
+
+def test_provider_level_lists_providers_under_executor():
+    lines, ordered = render_provider_level(_idx(), executor="opencode")
+    assert "deepseek" in ordered and "gpt" in ordered
+    assert any("Search" in l for l in lines)
+
+
+def test_model_level_topN_plus_search():
+    lines, ordered = render_model_level(_idx(), executor="opencode", provider="deepseek")
+    assert any("deepseek-v4-pro" in l for l in lines)
+    assert any("Search" in l for l in lines)
+    import re
+    for l in lines:
+        m = re.match(r"\s*(\d+)\)\s+(\S+)", l)
+        if m:
+            assert m.group(2) == ordered[int(m.group(1)) - 1].spec
+
+
+def test_effort_level_only_when_efforts_present():
+    base = ModelChoice(spec="cursor:claude-opus-4-8", executor="cursor", provider="claude",
+                       model="claude-opus-4-8", label="Opus", cost_class="metered-unknown",
+                       headless_status="likely", efforts=["low", "high"], default_effort="high")
+    lines, ordered = render_effort_level(base)
+    assert ordered == ["low", "high"]
+    assert any("high" in l and "default" in l.lower() for l in lines)
+    plain = ModelChoice(spec="opencode:opencode/gpt-5", executor="opencode", provider="gpt",
+                        model="gpt-5", label="gpt-5", cost_class="metered-unknown",
+                        headless_status="untested")
+    lines2, ordered2 = render_effort_level(plain)
+    assert ordered2 == []
+
+
+def test_nav_render_cp1252_safe():
+    for fn_lines in (render_executor_level(_idx())[0],
+                     render_provider_level(_idx(), executor="opencode")[0],
+                     render_model_level(_idx(), executor="opencode", provider="gpt")[0]):
+        "\n".join(fn_lines).encode("cp1252")
