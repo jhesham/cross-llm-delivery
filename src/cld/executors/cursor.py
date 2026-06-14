@@ -59,9 +59,36 @@ def _cursor_cmd() -> str:
     return "cursor-agent"
 
 
-def parse_cursor_usage(raw_json: str) -> dict:
-    """Placeholder — replaced in a later task against the real fixture. {} for now."""
-    return {}
+import json
+
+def parse_cursor_usage(raw_json: str) -> dict[str, int]:
+    """Parse Cursor JSON usage statistics."""
+    try:
+        data = json.loads(raw_json)
+        if not isinstance(data, dict):
+            return {}
+        usage_data = data.get("usage")
+        if not isinstance(usage_data, dict):
+            return {}
+        
+        mapping = {
+            "inputTokens": "input",
+            "outputTokens": "output",
+            "cacheReadTokens": "cache_read",
+            "cacheWriteTokens": "cache_write"
+        }
+        
+        result = {}
+        for k, v in usage_data.items():
+            if k in mapping and isinstance(v, int):
+                result[mapping[k]] = v
+                
+        if "input" in result or "output" in result:
+            result["total"] = result.get("input", 0) + result.get("output", 0)
+            
+        return result
+    except Exception:
+        return {}
 
 
 class CursorExecutor:
