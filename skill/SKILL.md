@@ -217,10 +217,17 @@ Rules (enforced by `pick_executor`, and required of the agent surface too):
   dispatch a billed model without that confirmation. (`free`/`flat` need none.)
 - **Headless warning:** an `untested` model carries a warning. Offer `cld.validate.validate_model`
   (one trivial slice, real test as judge) to promote it to `proven`/`known-bad` before trusting it.
-- The choice maps to `--executor <name>:<provider/model>` — `gemini`, `gemini:<model-id>`, or
-  `opencode:opencode/<model>`, optionally with an `@<effort>` suffix
-  (`opencode:opencode/gpt-5@high`; effort = reasoning level, default omits the suffix). A
-  per-slice `executor:` field supports "heavy model on this one slice."
+- The choice maps to `--executor <name>:<provider/model>` — `gemini`, `gemini:<model-id>`,
+  `opencode:opencode/<model>`, or `cursor:<model>`, optionally with an `@<effort>` suffix
+  (`opencode:opencode/gpt-5@high`, `cursor:claude-opus-4-8@medium`; effort = reasoning level,
+  default omits the suffix). For cursor, `@<effort>` maps to the model-id suffix cursor expects
+  (`claude-opus-4-8-medium`); the bare `cursor:composer-2.5` tracks the current Composer via
+  `resolve_composer_default`. A per-slice `executor:` field supports "heavy model on this one slice."
+- **Cursor is invoked headless only** (`cursor-agent -p --output-format json --workspace … --model …
+  --force --trust`), never bare/interactive — same discipline as the other executors. (Note:
+  cursor-agent 2026.06.12 hangs on long `-p` prompts without a TTY, so real long-prompt slices are
+  not yet reliable on that version; short dispatches — `--list-models`, `about` — work. See
+  `docs/notes/cursor-cli-notes.md`.)
 
 Live example (ASCII, Windows-console-safe):
 ```
@@ -260,7 +267,10 @@ are skipped via the ledger.
 **Usage view:** run `run_delivery.py <plan> --usage` (or the `cross-llm-delivery-usage`
 skill) for a combined per-build + OpenCode-account usage table (per-slice model/tokens/cost
 from the ledger + `opencode stats` aggregate). On-demand markdown — renders in CLI and VS Code;
-re-run to refresh.
+re-run to refresh. When the build used a `cursor:` model, a **Cursor account** block is appended
+(tier + default model from `cursor-agent about`); cursor exposes no headless token/cost metric, so
+that block points to server-side usage (`/usage` in the Cursor TUI or cursor.com) rather than
+per-slice dollars.
 
 ## Reference material
 
