@@ -354,3 +354,90 @@ def test_effort_recorded_from_spec_suffix(tmp_path):
     assert ledger.get("T1").effort == "medium"
     assert ledger.get("T2").effort is None
     assert ledger.get("T1").model == "cursor:claude-opus-4-8@medium"  # model unchanged (full spec)
+
+
+def test_parent_runs_subslices_each_with_own_executor(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    ran = []
+    class _Rec:
+        def __init__(self, spec): self.spec = spec
+        def run(self, task, workdir, feedback=None):
+            ran.append((task.id, self.spec))
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    parent = SliceTask(id="P", brief="b", files=["p"], acceptance_test_path="t.py", subslices=[
+        SliceTask(id="Pa", brief="b", files=["a"], acceptance_test_path="t.py",
+                  parent_id="P", executor="cursor:composer-2.5"),
+        SliceTask(id="Pb", brief="b", files=["b"], acceptance_test_path="t.py", parent_id="P"),
+    ])
+    p = str(tmp_path / "l.json")
+    ledger = Ledger(p)
+    res = run_plan_parallel(
+        [parent], ledger,
+        executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed")
+    d = dict(ran)
+    assert d["Pa"] == "cursor:composer-2.5"   # child tag honored
+    assert d["Pb"] == "gemini"                # untagged child -> default
+    assert "P" in res.completed               # parent done iff all children accepted
+    led = Ledger.load(p)
+    assert led.get("P/Pa") is not None and led.get("P/Pb") is not None
+    assert led.get("P/Pa").model == "cursor:composer-2.5"
+
+
+def test_failed_subslice_fails_only_itself_and_parent_incomplete(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Ok:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    # Drive the failure through the REAL judge: the test_runner returns failing
+    # pytest output for Pb (whose no-repo workdir is "P/Pb"), passing for the rest.
+    def tr(workdir, path=None):
+        return "1 failed" if str(workdir).endswith("Pb") else "1 passed"
+
+    def judge(**kw):
+        passed = kw["run_tests"]() == "1 passed"
+        return type("J", (), {"passed": passed, "failing_tests": []})()
+
+    parent = SliceTask(id="P", brief="b", files=["p"], acceptance_test_path="t.py", subslices=[
+        SliceTask(id="Pa", brief="b", files=["a"], acceptance_test_path="t.py", parent_id="P"),
+        SliceTask(id="Pb", brief="b", files=["b"], acceptance_test_path="t.py", parent_id="P"),
+    ])
+    p = str(tmp_path / "l.json")
+    res = run_plan_parallel(
+        [parent], Ledger(p),
+        executor=_Ok(),
+        judge_fn=judge,
+        test_runner=tr)
+    assert "P" not in res.completed   # parent NOT complete (a child failed)
+    assert "P" in res.failed
+    led = Ledger.load(p)
+    assert led.get("P/Pa").status == "done"
+    assert led.get("P/Pb").status == "failed"
+
+
+def test_leaf_slice_unchanged_no_subslice_ledger_keys(tmp_path):
+    # A normal leaf slice must NOT create any "/"-keyed child entries.
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    class _Ok:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+    p = str(tmp_path / "l.json")
+    ledger = Ledger(p)
+    run_plan_parallel(
+        [SliceTask(id="L", brief="b", files=["x"], acceptance_test_path="t.py")],
+        ledger, executor=_Ok(),
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed")
+    keys = list(Ledger.load(p).entries.keys())
+    assert keys == ["L"]   # no child keys
