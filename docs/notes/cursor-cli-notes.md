@@ -42,6 +42,30 @@ model's text reply. A failed dispatch would have `is_error: true` (and likely a 
 There is NO cost/dollar field in the JSON (consistent with cursor exposing no headless cost
 metric). Per-slice `cost` stays None for cursor.
 
+## ⚠️ KNOWN BUG: long multi-line prompt + headless invocation (2026-06-14)
+
+The CursorExecutor's argv is correct (`--force --trust` present, verified), and **short** prompts
+work headlessly. But a **long multi-line slice prompt** breaks dispatch — three invocation forms
+tried, each fails:
+
+1. **Positional prompt via `cursor-agent.cmd`** (current executor form): the `.cmd → .ps1 → node`
+   shim splats `%*`/`$args`, and the multi-line prompt MANGLES argv so `--trust`/`--workspace`
+   don't register → cursor demands "Workspace Trust" and falls back to the cwd (showed OUR repo
+   path, not `--workspace`). Same class as the opencode `.cmd` bug.
+2. **Direct `node.exe index.js <argv>`** (bypassing the shim, like the opencode `.exe` fix):
+   **hangs** (120s timeout) — the `.ps1` sets env the direct call lacks (`CURSOR_INVOKED_AS`,
+   `NODE_COMPILE_CACHE`); something waits.
+3. **Prompt piped via stdin** (`-p` with no positional, prompt on stdin): **hangs** (120s) — with
+   no positional prompt cursor waits for interactive stdin that never resolves.
+
+NET: CursorExecutor as built (P2 T2) cannot run a REAL slice yet (real slices = long prompts).
+Short-prompt dispatch works, so `--list-models`/`about`/feasibility all fine. The fix is an open
+item — candidates not yet cracked: (a) replicate the `.ps1` env for the direct `node index.js`
+call; (b) find a `--prompt-file`-style input; (c) a stdin form that also passes a sentinel
+positional. The Composer-via-CLI dogfood was deferred because of this (resolve_composer_default
+was built by Gemini per the plan's fallback). **All Part-2 NON-dispatch code (catalog, registry,
+list_cursor_models, parse_cursor_usage, usage block) is done + tested.**
+
 ## Windows
 The versioned binary `<LOCALAPPDATA>/cursor-agent/versions/<latest>/cursor-agent.cmd` works; the
 top-level shim was broken (replaced with a working one, but the executor resolves the versioned
