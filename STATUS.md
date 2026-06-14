@@ -7,7 +7,34 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-14 (✅ PART 1 of 4 SHIPPED — scalable picker + effort axis; 246 passed)
+**Last updated:** 2026-06-14 (✅ PART 2 of 4 SHIPPED — CursorExecutor; 265 passed. Dispatch open item.)
+
+**✅ PART 2/4 COMPLETE — CursorExecutor (2026-06-14, 265 passed, 1 deselected).** Subagent-driven,
+all 8 tasks committed. Delivered:
+- `src/cld/executors/cursor.py` — `CursorExecutor` (argv `-p --output-format json --workspace
+  --model --force --trust`, effort→model-suffix), `_cursor_cmd` (CURSOR_AGENT_CMD → versioned
+  `.cmd` on Windows → fallback), `_default_runner` (utf-8/replace), `parse_cursor_usage`
+  (single-object JSON, camelCase→snake, total=in+out). Registered in `executors/__init__.py`
+  (`KNOWN_EXECUTORS` now includes "cursor").
+- `src/cld/models.py` — `list_cursor_models` + cursor effort-grouping in `build_model_index`
+  (138 raw → 33 base models), `resolve_composer_default` (tracks current Composer), Composer
+  catalog entry `cursor:composer-2.5`, `_spec_for` passes cursor `:` specs through.
+- `src/cld/usage.py` — `parse_cursor_about` + conditional `## Cursor account` block (tier +
+  default model, server-side-usage pointer; only when a `cursor:*` slice is in the ledger).
+  `run_delivery.py --usage` shells `cursor-agent about` (timeout-guarded) and passes it in.
+- SKILL.md: cursor in the `--executor`/picker mapping + usage view + headless-only note; global synced.
+
+**⚠️ OPEN ITEM — Cursor long-prompt dispatch (deferred, NOT a code bug).** Root-caused live as a
+**cursor-agent v2026.06.12 defect**: long multi-line `-p` prompts hang without a TTY (matches
+community "-p hangs indefinitely" reports). SHORT dispatches work (`--list-models`, `about`,
+feasibility). All Part-2 NON-dispatch machinery is built + tested; CursorExecutor cannot run a REAL
+(long-prompt) slice on this cursor version. The one Composer-via-CLI dogfood (T5
+`resolve_composer_default`) FELL BACK TO GEMINI per the plan's stated fallback — **Composer NOT yet
+proven headless** (no evidence-store verdict recorded). Revisit when cursor ships a fix / a
+`--prompt-file` input. Working short-prompt primitive: `node.exe index.js <argv>` +
+`CURSOR_INVOKED_AS` env + `stdin=DEVNULL`. Detail: `docs/notes/cursor-cli-notes.md`.
+
+**(prior) ✅ PART 1 of 4 SHIPPED — scalable picker + effort axis; 246 passed**
 
 **✅ PART 1/4 COMPLETE — Scalable Picker + Effort Axis (2026-06-14, commits 4e60cc2→ff5a240, 246
 passed).** Subagent-driven, all tasks green + 2-stage reviewed. Delivered in `src/cld/models.py`:
@@ -22,10 +49,13 @@ tuples) with evidence overlay; `browse_filter` (headless-only default) + `rank_p
 `effort` (opencode→`--variant`, gemini ignores). SKILL.md browse section rewritten to the drill-down
 + search + effort + headless-filter flow; global synced.
 
-**NEXT: Part 2 — CursorExecutor** (`docs/superpowers/plans/2026-06-14-part2-cursor-executor.md`,
-Task 1 = live JSON-shape capture). Build per the recorded prefs: subagent-driven, ONE part this
-next sitting, pause after. Cursor installed + logged in (Pro); the one Composer-via-CLI dogfood is
-Part-2 Task 5.
+**NEXT: Part 3 — opt-in per-slice review mode** (`docs/superpowers/plans/2026-06-14-part3-per-slice-review.md`,
+Task 1). Build per the recorded prefs: subagent-driven, ONE part this next sitting, pause after.
+**AWAIT a fresh go-ahead before starting** (one-part-per-sitting). Per-slice review is OFF by
+default — it must PRESERVE the S1b "pick once and stick" fix; only when explicitly enabled does it
+prompt executor/model/effort at each slice start.
+**Then Part 4 — sub-slices** (`part4-sub-slices.md`; CAVEAT: run its Task 2 (SliceTask fields)
+BEFORE Task 1 (the dogfooded parser)).
 
 ---
 
