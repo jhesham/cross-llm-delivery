@@ -230,8 +230,10 @@ def test_recommend_evidence_overlay():
 
 
 def test_catalog_has_kimi_and_sonnet_shortlist_entries():
-    # Picker main shortlist additions (ids verified against live `opencode models`:
-    # kimi-k2.6 and claude-sonnet-4-6 exist; kimi-k2.7 / claude-sonnet-2.6 do NOT).
+    # Picker main shortlist additions. kimi-k2.6 + claude-sonnet-4-6 verified live;
+    # kimi-k2.7 catalogued AHEAD of availability (not yet on this opencode plan) — it
+    # stays filtered out of the shortlist until `opencode models` lists it (see
+    # test_kimi_k27_hidden_until_available / test_recommend_surfaces_kimi_k27).
     kimi = MODEL_METADATA["opencode/kimi-k2.6"]
     assert kimi.capability_class == "heavy"
     assert kimi.cost_class == "cheap-metered"
@@ -243,6 +245,13 @@ def test_catalog_has_kimi_and_sonnet_shortlist_entries():
     assert sonnet.headless_status == "likely"
 
 
+def test_catalog_has_kimi_k27_entry_mirroring_k26():
+    k27 = MODEL_METADATA["opencode/kimi-k2.7"]
+    assert k27.capability_class == "heavy"
+    assert k27.cost_class == "cheap-metered"
+    assert k27.headless_status == "untested"   # validate-first until proven
+
+
 def test_recommend_surfaces_kimi_and_sonnet():
     recs = recommend(available_ids=[
         "opencode/kimi-k2.6", "opencode/claude-sonnet-4-6", "opencode/gemini-3.1-pro",
@@ -251,3 +260,27 @@ def test_recommend_surfaces_kimi_and_sonnet():
     assert "opencode/kimi-k2.6" in ids
     assert "opencode/claude-sonnet-4-6" in ids
     assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
+
+
+def test_recommend_surfaces_kimi_k27_when_available():
+    # When opencode reports k2.7 available, it appears in the shortlist (HEAVY bucket).
+    recs = recommend(available_ids=["opencode/kimi-k2.7", "opencode/kimi-k2.6"])
+    by_id = {r.id: r for r in recs}
+    assert "opencode/kimi-k2.7" in by_id
+    assert by_id["opencode/kimi-k2.7"].bucket == "heavy"
+
+
+def test_kimi_k27_hidden_until_available():
+    # Catalogued but NOT in available_ids -> must not surface (no phantom shortlist row).
+    recs = recommend(available_ids=["opencode/kimi-k2.6"])
+    assert "opencode/kimi-k2.7" not in [r.id for r in recs]
+
+
+def test_cursor_composer_never_in_first_shortlist():
+    # Cursor models never come through `opencode models`, so even though Composer is in
+    # the catalog it must never reach the first-selection shortlist (its long-prompt
+    # dispatch is a known cursor-agent defect; it lives only in the Browse drill-down).
+    recs = recommend(available_ids=[
+        "opencode/kimi-k2.6", "opencode/claude-opus-4-8", "cursor:composer-2.5",
+    ])
+    assert "cursor:composer-2.5" not in [r.id for r in recs]
