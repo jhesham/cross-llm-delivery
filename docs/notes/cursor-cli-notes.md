@@ -58,6 +58,20 @@ tried, each fails:
 3. **Prompt piped via stdin** (`-p` with no positional, prompt on stdin): **hangs** (120s) — with
    no positional prompt cursor waits for interactive stdin that never resolves.
 
+### ROOT CAUSE (isolated 2026-06-14, after docs research)
+
+Cursor's OWN docs pass multi-line prompts as a positional arg (verified — that's the sanctioned
+form, works on mac/linux). Bypassing the Windows shim by calling `node.exe index.js` directly
+(with `CURSOR_INVOKED_AS` env + `stdin=DEVNULL` to stop the interactive wait) made SHORT prompts
+work (rc=0, result json). But the SAME direct-node path with a LONG multi-line prompt **still
+hangs**. So the hang is NOT the `.cmd` shim, NOT stdin, NOT env — it's **cursor-agent itself
+hanging on a long/multi-line `-p` prompt without a TTY** (matches the community "-p hangs
+indefinitely" bug reports). This is a cursor-agent DEFECT on version 2026.06.12, not something the
+executor can cleanly route around. Verdict: cursor cannot reliably run real (long-prompt) slices
+headless on this version. Revisit when cursor ships a fix (or a `--prompt-file` input). The
+working invocation primitive for SHORT prompts: `node.exe index.js <argv>` + `CURSOR_INVOKED_AS`
+env + `stdin=DEVNULL`.
+
 NET: CursorExecutor as built (P2 T2) cannot run a REAL slice yet (real slices = long prompts).
 Short-prompt dispatch works, so `--list-models`/`about`/feasibility all fine. The fix is an open
 item — candidates not yet cracked: (a) replicate the `.ps1` env for the direct `node index.js`
