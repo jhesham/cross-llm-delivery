@@ -83,7 +83,7 @@ Drive the build ONE DAG layer at a time so your context stays small and you can 
 between phases. Per layer:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor <name>[:model]]
+python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor <name>[:model][@effort]] [--per-slice-pick]
 ```
 
 This runs only the next pending layer (independent slices fan out concurrently in isolated
@@ -145,6 +145,18 @@ There are two equivalent surfaces; use whichever fits:
    every other slice stays silent. This must NEVER become a per-slice picker (it would reintroduce
    the interruption the frequency rule removes). The orchestrator honors the tag automatically via
    `run_plan_parallel`'s `executor_factory`; an unknown spec fails only that slice, not the build.
+
+   **Per-slice review mode (opt-in, OFF by default).** Default behavior NEVER prompts per slice —
+   the build default chosen once sticks (the S1b frequency rule above). Turn review mode ON only when
+   the user explicitly asks ("review executor per slice", "let me pick per slice") or passes
+   `--per-slice-pick`. When ON, at the start of each UNTAGGED slice the picker is re-presented (the
+   current build default pre-selected; enter keeps it) so the user can revisit executor / provider /
+   model / effort for THAT slice only. A slice carrying an `executor:` / `@effort` TAG is still
+   honored SILENTLY even in review mode (the tag is the decision — never prompted). Non-interactive
+   runs and `--step` loops never prompt: the callback falls back to the build default, so automation
+   never blocks. The per-slice choice (model + effort) is recorded in the ledger and shows in
+   `--usage`. Do NOT enable this mode on your own initiative — it reintroduces the very interruption
+   the frequency rule removed; it exists purely for users who want deliberate per-slice control.
 
    **Gates on any per-slice metered/untested model** (tag or proposal): a metered model hits the
    cost-confirm before that slice dispatches; an untested one runs
