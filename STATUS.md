@@ -7,7 +7,24 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-13 (✅ Multi-LLM build controls SHIPPED + 2 opencode bugs fixed — 226 passed)
+**Last updated:** 2026-06-14 (📋 Scalable-picker + Cursor planned, 5 plans committed — AWAITING USER GO-AHEAD to build)
+
+**📋 NEXT FEATURE PLANNED, NOT STARTED (2026-06-14, commit 7b299f6) — DO NOT BUILD until the user
+says go.** Scalable picker + effort axis + Cursor executor + per-slice review + sub-slices.
+Spec: `docs/superpowers/specs/2026-06-14-scalable-picker-and-cursor-design.md` (4 parts).
+Master plan: `docs/superpowers/plans/2026-06-14-scalable-picker-cursor-MASTER.md`. Multi-sitting,
+build order **Part 1 → 2 → 3 → 4**, each its own sitting-sized plan:
+- **Next task when given go-ahead: Part 1, Task 1** (`2026-06-14-part1-scalable-picker.md` —
+  ModelChoice + expanded provider detection).
+- Cursor feasibility already PROVEN live + installed + logged in (jhesham, Pro); broken top-level
+  launcher shim replaced with a working one (`*.broken-bak` backups kept). kimi-k2.6 + deepseek-v4-pro
+  PROVEN in the evidence store. Composer-2.5 to be proven via the ONE Part-2 CLI dogfood.
+- Dogfood routing: ~90% gemini workhorse; one small Part-2 slice → cursor:composer-2.5 via CLI.
+- **Part 4 caveat:** run its Task 2 (SliceTask fields) BEFORE Task 1 (the dogfooded parser).
+
+---
+
+**(2026-06-13)** ✅ Multi-LLM build controls SHIPPED + 2 opencode bugs fixed — 226 passed
 
 **✅ MULTI-LLM BUILD CONTROLS — BOTH PLANS SHIPPED (2026-06-13).** Spec 4d60a2a→e79afc1,
 plans b377868. Executed subagent-driven (fresh subagent per task + 2-stage review).
