@@ -95,6 +95,25 @@ def _opencode_stats_text() -> str:
         return ""
 
 
+def _cursor_about_text() -> str:
+    """Shell `cursor-agent about` for the usage view's Cursor account block.
+
+    Cursor exposes no headless token/cost metric, so `about` (tier + default model)
+    is the only account signal. Timeout-guarded; returns "" on any failure so the
+    usage view degrades to no-cursor-block."""
+    try:
+        from cld.executors.cursor import _cursor_cmd
+        cmd = _cursor_cmd()
+    except Exception:
+        cmd = os.environ.get("CURSOR_AGENT_CMD") or "cursor-agent"
+    try:
+        proc = subprocess.run([cmd, "about"], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=30)
+        return proc.stdout or ""
+    except Exception:
+        return ""
+
+
 def _parse_name_model(spec: str) -> tuple[str, dict]:
     """Parse the name:model (or slash) portion of an executor spec.
 
@@ -194,10 +213,11 @@ def main(argv=None) -> int:
 
     if args.usage:
         from cld.ledger import Ledger
-        from cld.usage import parse_opencode_stats, render_usage_table
+        from cld.usage import parse_cursor_about, parse_opencode_stats, render_usage_table
         ledger = Ledger.load(args.ledger)
         oc_stats = parse_opencode_stats(_opencode_stats_text())
-        print(render_usage_table(ledger, oc_stats))
+        cursor_about = parse_cursor_about(_cursor_about_text())
+        print(render_usage_table(ledger, oc_stats, cursor_about=cursor_about))
         return 0
 
     plan_md = Path(args.plan).read_text(encoding="utf-8")
