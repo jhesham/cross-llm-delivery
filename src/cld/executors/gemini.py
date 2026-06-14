@@ -80,7 +80,9 @@ def parse_token_usage(raw_json: str) -> dict[str, int]:
 class GeminiExecutor:
     """Executor implementation backed by the Gemini CLI."""
 
-    def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL):
+    def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
+                 effort: str | None = None):
+        # effort: accepted for a uniform executor interface; gemini has no effort axis
         self._runner = runner
         self._model = model
 

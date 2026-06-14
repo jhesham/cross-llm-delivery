@@ -148,3 +148,11 @@ def test_oc_cmd_env_override_wins(monkeypatch):
     import cld.executors.opencode as mod
     monkeypatch.setenv("OPENCODE_CLI_CMD", "/custom/opencode")
     assert mod._oc_cmd() == "/custom/opencode"
+
+
+def test_opencode_effort_maps_to_variant():
+    runner = _ok_runner()
+    ex = OpenCodeExecutor(runner=runner, model="opencode/gpt-5", effort="high")
+    ex.run(SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py"), "/work")
+    argv = runner.calls[0][0]
+    assert "--variant" in argv and "high" in argv
