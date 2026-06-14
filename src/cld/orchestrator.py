@@ -18,6 +18,14 @@ def _count_diff_lines(diff: str | None) -> int:
     )
 
 
+def _effort_of(spec: str | None) -> str | None:
+    """The @<effort> suffix of a resolved executor spec, or None if absent."""
+    if spec and "@" in spec:
+        eff = spec.rsplit("@", 1)[1].strip()
+        return eff or None
+    return None
+
+
 def next_pending_layer(slices: list[SliceTask], ledger: Ledger) -> tuple[int, list[str], int] | None:
     deps = {s.id: list(s.deps) for s in slices}
     layers = parallel_batches(deps)
@@ -37,6 +45,7 @@ class DeliverResult:
     files_changed: list[str] = field(default_factory=list)
     diff_lines: int = 0
     model: str | None = None
+    effort: str | None = None
     token_usage: dict = field(default_factory=dict)
 
 def deliver_slice(
@@ -117,6 +126,7 @@ def deliver_slice(
                 files_changed=list(result.files_changed or []),
                 diff_lines=_count_diff_lines(result.diff),
                 model=model,
+                effort=_effort_of(model),
                 token_usage=getattr(result, "token_usage", {}) or {},
             )
 
@@ -142,6 +152,7 @@ def deliver_slice(
         files_changed=list(result.files_changed or []),
         diff_lines=_count_diff_lines(result.diff),
         model=model,
+        effort=_effort_of(model),
         token_usage=getattr(result, "token_usage", {}) or {},
     )
 
@@ -336,12 +347,14 @@ def run_plan_parallel(
         with ledger_lock:
             if deliver_res.accepted:
                 ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
-                           model=deliver_res.model, token_usage=deliver_res.token_usage)
+                           model=deliver_res.model, effort=deliver_res.effort,
+                           token_usage=deliver_res.token_usage)
                 result.completed.append(task.id)
                 status = "completed"
             else:
                 ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts,
-                           model=deliver_res.model, token_usage=deliver_res.token_usage)
+                           model=deliver_res.model, effort=deliver_res.effort,
+                           token_usage=deliver_res.token_usage)
                 result.failed.append(task.id)
                 status = "failed"
             result.details[task.id] = SliceDetail(

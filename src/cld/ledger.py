@@ -15,6 +15,7 @@ class LedgerEntry:
     commit: str | None = None
     attempts: int = 0
     model: str | None = None
+    effort: str | None = None
     token_usage: dict = field(default_factory=dict)
     cost: float | None = None
 
@@ -36,6 +37,7 @@ class Ledger:
                     commit=entry_data.get("commit", None),
                     attempts=entry_data.get("attempts", 0),
                     model=entry_data.get("model"),
+                    effort=entry_data.get("effort"),
                     token_usage=entry_data.get("token_usage", {}) or {},
                     cost=entry_data.get("cost"),
                 )
@@ -51,7 +53,7 @@ class Ledger:
         return self._entries.get(slice_id)
 
     def set(self, slice_id: str, *, status=None, commit=None, attempts=None,
-            model=None, token_usage=None, cost=None):
+            model=None, effort=None, token_usage=None, cost=None):
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
         entry = self._entries[slice_id]
@@ -63,6 +65,8 @@ class Ledger:
             entry.attempts = attempts
         if model is not None:
             entry.model = model
+        if effort is not None:
+            entry.effort = effort
         if token_usage is not None:
             entry.token_usage = token_usage
         if cost is not None:
@@ -97,6 +101,7 @@ class Ledger:
                 "commit": entry.commit,
                 "attempts": entry.attempts,
                 "model": entry.model,
+                "effort": entry.effort,
                 "token_usage": entry.token_usage,
                 "cost": entry.cost,
             }

@@ -137,3 +137,23 @@ def test_old_ledger_without_usage_loads_with_defaults(tmp_path):
     e = Ledger.load(p).get("T1")
     assert e.status == "done" and e.model is None
     assert e.token_usage == {} and e.cost is None
+
+
+def test_ledger_records_effort(tmp_path):
+    from cld.ledger import Ledger
+    p = str(tmp_path / "l.json")
+    led = Ledger(p)
+    led.set("T1", status="done", model="cursor:claude-opus-4-8@medium", effort="medium")
+    led.save()
+    e = Ledger.load(p).get("T1")
+    assert e.model == "cursor:claude-opus-4-8@medium"
+    assert e.effort == "medium"
+
+
+def test_old_ledger_loads_with_none_effort(tmp_path):
+    import json
+    from cld.ledger import Ledger
+    p = str(tmp_path / "o.json")
+    with open(p, "w") as f:
+        json.dump({"T1": {"status": "done", "attempts": 1}}, f)
+    assert Ledger.load(p).get("T1").effort is None
