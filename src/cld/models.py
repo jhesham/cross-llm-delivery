@@ -516,3 +516,11 @@ def render_effort_level(choice):
         lines.append(f"  {i}) {e}{mark}")
     return lines, list(choice.efforts)
 
+
+def spec_with_effort(choice, effort) -> str:
+    """The choice's base spec, plus @<effort> UNLESS effort is None or the CLI default
+    (default = bare spec, so the CLI's own default applies)."""
+    if not effort or effort == choice.default_effort:
+        return choice.spec
+    return f"{choice.spec}@{effort}"
+

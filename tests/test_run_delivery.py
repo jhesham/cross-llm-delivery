@@ -123,6 +123,16 @@ def test_build_executor_factory_resolves_specs():
     assert isinstance(factory("opencode/deepseek-v4-pro"), OpenCodeExecutor)
 
 
+def test_parse_executor_spec_splits_effort_marker():
+    assert parse_executor_spec("cursor:claude-opus-4-8@low") == (
+        "cursor", {"model": "claude-opus-4-8", "effort": "low"})
+    assert parse_executor_spec("opencode:opencode/gpt-5@high") == (
+        "opencode", {"model": "opencode/gpt-5", "effort": "high"})
+    # no @ -> unchanged behavior (back-compat)
+    assert parse_executor_spec("gemini:gemini-3.1-pro-preview") == (
+        "gemini", {"model": "gemini-3.1-pro-preview"})
+
+
 def test_usage_flag_renders_from_ledger_and_stats(monkeypatch, tmp_path, capsys):
     import json
     p = str(tmp_path / ".cld-ledger.json")
