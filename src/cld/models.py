@@ -346,3 +346,79 @@ def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str
     if rc != 0:
         return []
     return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelChoice]:
+    out = []
+
+    gemini_id = "gemini:gemini-3.1-pro-preview"
+    gem_info = MODEL_METADATA[gemini_id]
+    out.append(
+        ModelChoice(
+            spec=gemini_id,
+            executor="gemini",
+            provider="gemini",
+            model="gemini-3.1-pro-preview",
+            label=gem_info.note,
+            cost_class=gem_info.cost_class,
+            headless_status=evidence.get(gemini_id, gem_info.headless_status),
+            efforts=[],
+            default_effort=None,
+        )
+    )
+
+    for id in opencode_ids:
+        if id in MODEL_METADATA:
+            cost_class = MODEL_METADATA[id].cost_class
+            base_status = MODEL_METADATA[id].headless_status
+        else:
+            cost_class = "free" if id.endswith("-free") else "metered-unknown"
+            base_status = "untested"
+            
+        status = evidence.get(id, base_status)
+        if status == "known-bad":
+            continue
+            
+        out.append(
+            ModelChoice(
+                spec="opencode:" + id,
+                executor="opencode",
+                provider=_provider_of(id),
+                model=id.rsplit("/", 1)[-1],
+                label=id.rsplit("/", 1)[-1],
+                cost_class=cost_class,
+                headless_status=status,
+                efforts=[],
+                default_effort=None,
+            )
+        )
+
+    for cid, clabel in cursor_models:
+        key = "cursor:" + cid
+        if key in MODEL_METADATA:
+            cost_class = MODEL_METADATA[key].cost_class
+            base_status = MODEL_METADATA[key].headless_status
+        else:
+            cost_class = "metered-unknown"
+            base_status = "untested"
+            
+        status = evidence.get(key, base_status)
+        if status == "known-bad":
+            continue
+            
+        out.append(
+            ModelChoice(
+                spec=key,
+                executor="cursor",
+                provider=_provider_of(cid),
+                model=cid,
+                label=clabel,
+                cost_class=cost_class,
+                headless_status=status,
+                efforts=[],
+                default_effort=None,
+            )
+        )
+
+    return out
+
