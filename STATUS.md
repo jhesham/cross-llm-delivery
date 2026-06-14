@@ -16,6 +16,9 @@ Master plan: `docs/superpowers/plans/2026-06-14-scalable-picker-cursor-MASTER.md
 build order **Part 1 → 2 → 3 → 4**, each its own sitting-sized plan:
 - **Next task when given go-ahead: Part 1, Task 1** (`2026-06-14-part1-scalable-picker.md` —
   ModelChoice + expanded provider detection).
+- **Execution prefs (user-chosen 2026-06-14):** SUBAGENT-DRIVEN (fresh subagent per task +
+  two-stage review: spec-compliance then code-quality) and **ONE PART PER SITTING** — pause and
+  update STATUS between Parts; do NOT roll into the next Part without a fresh go-ahead.
 - Cursor feasibility already PROVEN live + installed + logged in (jhesham, Pro); broken top-level
   launcher shim replaced with a working one (`*.broken-bak` backups kept). kimi-k2.6 + deepseek-v4-pro
   PROVEN in the evidence store. Composer-2.5 to be proven via the ONE Part-2 CLI dogfood.
