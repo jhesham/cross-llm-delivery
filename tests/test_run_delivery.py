@@ -150,3 +150,46 @@ def test_usage_flag_renders_from_ledger_and_stats(monkeypatch, tmp_path, capsys)
     out = capsys.readouterr().out
     assert rc == 0
     assert "T1" in out and "5.64" in out
+
+
+def test_per_slice_pick_off_returns_none():
+    cb = run_delivery.make_slice_pick_fn(per_slice=False)
+    assert cb is None  # off -> no callback (pick-once-stick / S1b preserved)
+
+
+def test_per_slice_pick_on_returns_callable():
+    cb = run_delivery.make_slice_pick_fn(per_slice=True)
+    assert callable(cb)
+
+
+def test_per_slice_pick_non_interactive_falls_back_to_default(monkeypatch):
+    # When stdin is not a TTY, the callback must NOT prompt — return the default spec.
+    import sys
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+    cb = run_delivery.make_slice_pick_fn(per_slice=True)
+    class _T:  # minimal task stand-in (callback only needs .id)
+        id = "T9"
+    assert cb(_T(), "gemini") == "gemini"
+
+
+def test_per_slice_pick_interactive_uses_picker(monkeypatch):
+    # When interactive, the callback delegates to prompt_for_executor and returns its spec.
+    import sys
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(run_delivery, "prompt_for_executor",
+                        lambda: "opencode:opencode/deepseek-v4-pro")
+    cb = run_delivery.make_slice_pick_fn(per_slice=True)
+    class _T:
+        id = "T1"
+    assert cb(_T(), "gemini") == "opencode:opencode/deepseek-v4-pro"
+
+
+def test_per_slice_pick_interactive_empty_falls_back(monkeypatch):
+    # If the picker returns falsy, fall back to default (never return empty).
+    import sys
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(run_delivery, "prompt_for_executor", lambda: "")
+    cb = run_delivery.make_slice_pick_fn(per_slice=True)
+    class _T:
+        id = "T1"
+    assert cb(_T(), "gemini") == "gemini"
