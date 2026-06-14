@@ -136,3 +136,29 @@ def test_nav_render_cp1252_safe():
                      render_provider_level(_idx(), executor="opencode")[0],
                      render_model_level(_idx(), executor="opencode", provider="gpt")[0]):
         "\n".join(fn_lines).encode("cp1252")
+
+
+from cld.models import search_models
+
+
+def test_search_compo_matches_only_via_substring():
+    idx = build_model_index(opencode_ids=["opencode/deepseek-v4-pro"],
+                            cursor_models=[("composer-2.5", "Composer 2.5")], evidence={})
+    res = search_models(idx, "compo", headless_only=False)
+    assert any("composer" in c.model.lower() for c in res)
+    assert all("composer" in (c.model + c.label).lower() for c in res)
+
+
+def test_search_31_matches_multiple_routings_labeled():
+    idx = build_model_index(opencode_ids=["opencode/gemini-3.1-pro"], cursor_models=[], evidence={})
+    res = search_models(idx, "3.1", headless_only=False)
+    specs = {c.spec for c in res}
+    assert "gemini:gemini-3.1-pro-preview" in specs
+    assert "opencode:opencode/gemini-3.1-pro" in specs
+    assert {c.executor for c in res} >= {"gemini", "opencode"}
+
+
+def test_search_respects_headless_filter_and_empty():
+    idx = build_model_index(opencode_ids=["opencode/gpt-5"], cursor_models=[], evidence={})
+    assert search_models(idx, "gpt-5", headless_only=True) == []   # untested hidden
+    assert search_models(idx, "zzz-nomatch", headless_only=False) == []
