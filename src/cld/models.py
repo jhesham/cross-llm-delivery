@@ -440,6 +440,29 @@ def rank_provider_models(choices: List[ModelChoice], *, n: int = 12) -> List[Mod
     return sorted_choices[:n]
 
 
+def search_models(index, query, *, headless_only=True) -> list[ModelChoice]:
+    query = query.lower()
+    pool = browse_filter(index, headless_only=headless_only)
+    kept = []
+    for choice in pool:
+        if (query in choice.spec.lower() or
+            query in choice.provider.lower() or
+            query in choice.executor.lower() or
+            query in choice.model.lower() or
+            query in choice.label.lower()):
+            kept.append(choice)
+
+    def rank_key(choice):
+        c_model = choice.model.lower()
+        if c_model == query:
+            return 0
+        if c_model.startswith(query):
+            return 1
+        return 2
+
+    return sorted(kept, key=rank_key)
+
+
 def render_executor_level(index):
     execs = []
     for c in index:
