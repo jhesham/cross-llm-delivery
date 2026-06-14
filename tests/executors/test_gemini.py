@@ -188,3 +188,10 @@ def test_gemini_run_still_works_without_feedback_kwarg():
     res = ex.run(task, "/work")
     assert res.ok is True
     assert res.diff == "D"
+
+
+def test_gemini_accepts_and_ignores_effort():
+    from cld.executors.gemini import GeminiExecutor
+    # must NOT raise; effort has no effect on gemini
+    ex = GeminiExecutor(runner=lambda args, cwd: (0, "{}"), effort="high")
+    assert ex is not None
