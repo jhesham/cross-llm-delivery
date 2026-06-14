@@ -113,10 +113,11 @@ class OpenCodeExecutor:
     """Executor implementation backed by the OpenCode CLI."""
 
     def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
-                 variant: str | None = None):
+                 variant: str | None = None, effort: str | None = None):
         self._runner = runner
         self._model = model
         self._variant = variant
+        self._effort = effort
 
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
@@ -148,8 +149,9 @@ class OpenCodeExecutor:
             "--dir",
             cwd,
         ]
-        if self._variant:
-            dispatch += ["--variant", self._variant]
+        variant = self._variant or self._effort
+        if variant:
+            dispatch += ["--variant", variant]
         # The default `build` agent treats writes outside its allowlist as
         # external_directory -> "ask"; headless can't answer, silently blocking
         # writes. Safe to auto-approve: isolated worktree, diff judged before merge.
