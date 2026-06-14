@@ -370,6 +370,44 @@ def list_cursor_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> L
     return models
 
 
+def resolve_composer_default(runner) -> str:
+    fallback = "composer-2.5"
+    try:
+        models = list_cursor_models(runner)
+        composers = [(mid, label) for mid, label in models if mid.startswith("composer")]
+        if not composers:
+            return fallback
+
+        for mid, label in composers:
+            if "(current)" in label:
+                return mid
+
+        for mid, label in composers:
+            if "(default)" in label:
+                return mid
+
+        max_ver = -1.0
+        max_id = fallback
+        found_version = False
+        for mid, label in composers:
+            if mid.startswith("composer-"):
+                ver_str = mid[len("composer-"):].split("-")[0]
+                try:
+                    ver = float(ver_str)
+                    if ver > max_ver:
+                        max_ver = ver
+                        max_id = mid
+                        found_version = True
+                except ValueError:
+                    pass
+        
+        if found_version:
+            return max_id
+        return fallback
+    except Exception:
+        return fallback
+
+
 def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelChoice]:
     out = []
 

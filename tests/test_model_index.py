@@ -209,3 +209,16 @@ def test_index_groups_cursor_efforts_into_base():
     assert len(opus) == 1                       # ONE base entry, not 3
     assert set(opus[0].efforts) >= {"low", "medium", "high"}
     assert opus[0].default_effort == "high"     # the plain/unlabeled "Opus 4.8" is the default
+
+
+from cld.models import resolve_composer_default
+
+
+def test_resolve_composer_prefers_current():
+    raw = ("composer-2.5 - Composer 2.5 (current)\n"
+           "composer-2.5-fast - Composer 2.5 Fast (default)\n")
+    assert resolve_composer_default(runner=lambda a, c: (0, raw)) == "composer-2.5"
+
+
+def test_resolve_composer_falls_back_to_static_on_empty():
+    assert resolve_composer_default(runner=lambda a, c: (1, "")) == "composer-2.5"
