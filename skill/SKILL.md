@@ -77,6 +77,13 @@ deps: T1
 contract the executor is judged against. See `references/authoring-plans.md` for how
 to write good slices (vertical not horizontal, injectable boundaries, right-sizing).
 
+A `## SLICE:` may contain one level of `## SUBSLICE: <id>` blocks (same fields + optional
+`executor:`/`@effort`), each routed independently (tag / build default / per-slice review) and run
+as ordered children; the parent completes only when ALL its sub-slices are accepted, and children
+show nested under the parent in `--usage` (ledger key `parent/child`). ONE level only. Use them to
+split one logical slice across different models/efforts. Full syntax + semantics in
+`references/authoring-plans.md`.
+
 ### 2. Run the plan — batch-step (context-lean, interactive)
 
 Drive the build ONE DAG layer at a time so your context stays small and you can steer

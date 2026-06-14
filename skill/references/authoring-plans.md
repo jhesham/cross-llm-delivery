@@ -44,6 +44,45 @@ List each slice's `deps`. Independent slices (no shared deps) run in parallel; d
 wait for their layer. Avoid cycles (the DAG scheduler raises on them). Prefer a wide, shallow
 DAG (more parallelism) over a long chain where possible.
 
+## Sub-slices (one level)
+
+A `## SLICE:` may contain one level of `## SUBSLICE: <id>` blocks. Each sub-slice has the same
+fields as a slice (`brief`, `files`, `acceptance_test_path`, `deps`, and an optional
+`executor:`/`@effort` tag) and is written directly under its parent in the plan markdown:
+
+```
+## SLICE: P1
+brief: build the widget end-to-end
+files: src/widget.py
+acceptance_test_path: tests/test_widget.py
+deps:
+
+## SUBSLICE: P1a
+brief: the parsing half
+files: src/widget_parse.py
+acceptance_test_path: tests/test_widget.py::test_parse
+executor: cursor:claude-opus-4-8@medium
+
+## SUBSLICE: P1b
+brief: the rendering half
+files: src/widget_render.py
+acceptance_test_path: tests/test_widget.py::test_render
+```
+
+Semantics:
+- Sub-slices run as **ordered children** under the parent (sequentially, in document order) — not
+  fanned out. Ordering is positional, so sub-slices do not use `deps` among themselves.
+- Each sub-slice is **independently routed**: its own `executor:`/`@effort` tag wins, else the build
+  default, else the per-slice review prompt when that mode is on (`--per-slice-pick`).
+- The **parent completes only when ALL its sub-slices are accepted**; a failed sub-slice fails only
+  itself and leaves the parent incomplete (the failed child ids surface in the parent's failure detail).
+- Each sub-slice is recorded in the ledger keyed `parent/child` (with its model + effort + tokens)
+  and shows **nested under the parent** in `--usage`.
+- **ONE level only** — no sub-sub-slices.
+
+Use sub-slices to split one logical slice across different models/efforts (e.g. the cheap workhorse
+for the mechanical half, a heavier model for the subtle half) while keeping it one unit in the DAG.
+
 ## Slice brief checklist
 
 A good `brief` states: what to implement, the exact public names/contract, the allowed files,
