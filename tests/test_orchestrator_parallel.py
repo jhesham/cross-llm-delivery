@@ -328,3 +328,29 @@ def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
     )
     assert ledger.get("T1").model == "opencode:opencode/deepseek-v4-pro"  # pick_fn spec recorded
     assert ledger.get("T2").model == "cursor:composer-2.5"               # tag spec recorded
+
+
+def test_effort_recorded_from_spec_suffix(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    class _Rec:
+        def __init__(self, spec): self.spec = spec
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+    slices = [
+        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py",
+                  executor="cursor:claude-opus-4-8@medium"),   # tagged w/ effort
+        SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
+                  executor="gemini"),                          # no effort
+    ]
+    ledger = Ledger(str(tmp_path / "l.json"))
+    run_plan_parallel(
+        slices, ledger,
+        executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    assert ledger.get("T1").effort == "medium"
+    assert ledger.get("T2").effort is None
+    assert ledger.get("T1").model == "cursor:claude-opus-4-8@medium"  # model unchanged (full spec)
