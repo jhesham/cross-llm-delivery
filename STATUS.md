@@ -7,7 +7,32 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-15 (✅ PART 3 of 4 SHIPPED — opt-in per-slice review mode; 281 passed)
+**Last updated:** 2026-06-15 (✅✅ ALL 4 PARTS SHIPPED — scalable-picker-and-cursor feature COMPLETE; 293 passed)
+
+**✅ PART 4/4 COMPLETE — Sub-slices (one level) (2026-06-15, commits 0bc0f2c→a47ab66, 293 passed).**
+Subagent-driven (+ one Gemini dogfood), all 5 tasks 2-stage reviewed + a final SHIP integration
+review. Delivered:
+- `src/cld/executors/base.py` — `SliceTask.parent_id` + `subslices` fields (additive, backward-compatible).
+- `src/cld/plan/slice.py` — `load_slices` parses `## SUBSLICE:` under the current `## SLICE:`
+  (subslices NOT top-level; parent_id set); `slices_to_markdown` round-trips them. **DOGFOOD: built by
+  Gemini, Claude-judged green** (the 90%-to-Gemini-workhorse touchpoint for this part).
+- `src/cld/orchestrator.py` — `_run_subslices` runs a parent's children IN ORDER, each via
+  `_executor_for` (tag/default/per-slice-review per child); ledger keyed `parent/child` with
+  model+effort+tokens; parent done **iff all children accepted**; a failed child fails only itself
+  (its id surfaces in the parent's failure detail); worktree-per-child when repo_dir+git_runner set.
+  Leaf-slice path byte-for-byte unchanged.
+- `src/cld/usage.py` — `render_usage_table` nests child rows (`parent/child` keys) under their parent
+  regardless of ledger insertion order; orphan children still render; build total counts all; ASCII-safe.
+- SKILL.md + references/authoring-plans.md — `## SUBSLICE:` syntax + semantics (one level only;
+  ordered children; parent-iff-all; nested `--usage`); global synced.
+
+**🎉 WHOLE FEATURE DONE — "scalable picker + cursor" (4 parts, spec
+`docs/superpowers/specs/2026-06-14-scalable-picker-and-cursor-design.md`).** Part 1 (scalable picker
++ effort axis) · Part 2 (CursorExecutor) · Part 3 (opt-in per-slice review) · Part 4 (sub-slices).
+All shipped subagent-driven, one part per sitting. ONE open item remains: cursor long-prompt
+dispatch (cursor-agent v2026.06.12 defect — see the OPEN ITEM block below + [[project_cursor_dispatch_open_item]]).
+
+**(prior) ✅ PART 3 of 4 SHIPPED — opt-in per-slice review mode; 281 passed**
 
 **✅ PART 3/4 COMPLETE — Opt-in Per-Slice Review Mode (2026-06-15, commits 6f43a26→67d904f, 281
 passed).** Subagent-driven, all 4 tasks 2-stage reviewed + a final SHIP integration review. Default
@@ -71,11 +96,11 @@ tuples) with evidence overlay; `browse_filter` (headless-only default) + `rank_p
 `effort` (opencode→`--variant`, gemini ignores). SKILL.md browse section rewritten to the drill-down
 + search + effort + headless-filter flow; global synced.
 
-**NEXT: Part 4 — sub-slices** (`docs/superpowers/plans/2026-06-14-part4-sub-slices.md`). Build per
-the recorded prefs: subagent-driven, ONE part this next sitting, pause after. **AWAIT a fresh
-go-ahead before starting** (one-part-per-sitting). **CAVEAT: run its Task 2 (SliceTask fields)
-BEFORE Task 1 (the dogfooded `## SUBSLICE:` parser)** — fields must exist before the parser
-populates them. Part 4 is the LAST of the 4-part scalable-picker-and-cursor feature.
+**NEXT: nothing in flight — the 4-part scalable-picker-and-cursor feature is COMPLETE.** Candidate
+follow-ups (user's choice, none started): (1) revisit the cursor long-prompt dispatch open item when
+cursor-agent ships a fix / a `--prompt-file` input (then prove Composer headless via the deferred
+dogfood); (2) a live end-to-end build exercising the new picker + per-slice review + sub-slices on a
+real plan; (3) add kimi-k2.7 to the live shortlist once it appears in `opencode models`.
 
 ---
 
