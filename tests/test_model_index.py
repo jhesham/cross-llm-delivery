@@ -44,3 +44,39 @@ def test_build_index_no_cursor_has_empty_efforts():
     idx = build_model_index(opencode_ids=["opencode/gpt-5"], cursor_models=[], evidence={})
     gpt = next(c for c in idx if c.spec == "opencode:opencode/gpt-5")
     assert gpt.efforts == [] and gpt.default_effort is None
+
+
+from cld.models import browse_filter, rank_provider_models
+
+
+def _mc(spec, status):
+    return ModelChoice(spec=spec, executor="opencode", provider="gpt", model="m",
+                       label="m", cost_class="metered-unknown", headless_status=status)
+
+
+def test_browse_filter_default_hides_untested_and_known_bad():
+    cs = [_mc("a", "proven"), _mc("b", "likely"), _mc("c", "untested"), _mc("d", "known-bad")]
+    assert [c.spec for c in browse_filter(cs)] == ["a", "b"]
+
+
+def test_browse_filter_show_all_keeps_untested_but_not_known_bad():
+    cs = [_mc("a", "proven"), _mc("c", "untested"), _mc("d", "known-bad")]
+    assert [c.spec for c in browse_filter(cs, headless_only=False)] == ["a", "c"]
+
+
+def test_rank_orders_proven_first_and_caps():
+    cs = [_mc(f"m{i}", "untested") for i in range(15)]
+    cs.insert(7, _mc("PROVEN", "proven"))
+    cs.insert(3, _mc("LIKELY", "likely"))
+    ranked = rank_provider_models(cs, n=5)
+    assert ranked[0].spec == "PROVEN"
+    assert ranked[1].spec == "LIKELY"
+    assert len(ranked) == 5
+
+
+def test_rank_is_base_models_only_no_effort_rows():
+    base = ModelChoice(spec="cursor:claude-opus-4-8", executor="cursor", provider="claude",
+                       model="claude-opus-4-8", label="Opus 4.8", cost_class="metered-unknown",
+                       headless_status="likely", efforts=["low", "medium", "high"], default_effort="high")
+    ranked = rank_provider_models([base], n=12)
+    assert len(ranked) == 1 and ranked[0].efforts == ["low", "medium", "high"]
