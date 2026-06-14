@@ -441,3 +441,43 @@ def test_leaf_slice_unchanged_no_subslice_ledger_keys(tmp_path):
         test_runner=lambda *a, **k: "1 passed")
     keys = list(Ledger.load(p).entries.keys())
     assert keys == ["L"]   # no child keys
+
+
+def test_empty_subslices_list_runs_as_leaf(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    class _Ok:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+    p = str(tmp_path / "l.json")
+    ledger = Ledger(p)
+    run_plan_parallel(
+        [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py", subslices=[])],
+        ledger, executor=_Ok(),
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed")
+    keys = list(Ledger.load(p).entries.keys())
+    assert keys == ["S"]   # empty subslices -> leaf path, no child keys
+
+
+def test_failed_child_id_in_parent_detail(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    class _Ok:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+    def tr(workdir, path=None):
+        return "1 failed" if str(workdir).endswith("Pb") else "1 passed"
+    def judge(**kw):
+        return type("J", (), {"passed": kw["run_tests"]() == "1 passed", "failing_tests": []})()
+    parent = SliceTask(id="P", brief="b", files=["p"], acceptance_test_path="t.py", subslices=[
+        SliceTask(id="Pa", brief="b", files=["a"], acceptance_test_path="t.py", parent_id="P"),
+        SliceTask(id="Pb", brief="b", files=["b"], acceptance_test_path="t.py", parent_id="P"),
+    ])
+    res = run_plan_parallel([parent], Ledger(str(tmp_path / "l.json")),
+        executor=_Ok(), judge_fn=judge, test_runner=tr)
+    assert "P" in res.failed
+    detail = res.details["P"]
+    assert any("Pb" in ft for ft in detail.failing_tests)
