@@ -295,8 +295,12 @@ def run_plan_parallel(
         accepted iff EVERY child is accepted; a failed child fails only itself.
         """
         all_ok = True
+        failed_children = []
         for child in parent.subslices:
             child_executor, child_spec = _executor_for(child)
+            # NOTE: this worktree + collect (git add -A/commit) block mirrors the leaf
+            # path in _run_one; if you change one, change the other (kept inline rather
+            # than factored to keep each path readable).
             if repo_dir is not None and git_runner is not None:
                 with worktree(repo_dir, f"slice-{parent.id}-{child.id}", runner=git_runner) as wt_path:
                     child_res = deliver_slice(
@@ -325,8 +329,15 @@ def run_plan_parallel(
                 ledger.save()
 
             all_ok = all_ok and child_res.accepted
+            if not child_res.accepted:
+                failed_children.append(child.id)
 
-        return DeliverResult(accepted=all_ok, attempts=1, final=None, history=[],
+        final = None
+        if not all_ok:
+            final = type("SubsliceResult", (), {
+                "failing_tests": [f"subslice {fid}" for fid in failed_children],
+            })()
+        return DeliverResult(accepted=all_ok, attempts=1, final=final, history=[],
                              files_changed=[], diff_lines=0, model=None,
                              token_usage={}, effort=None)
 
