@@ -162,3 +162,17 @@ def test_search_respects_headless_filter_and_empty():
     idx = build_model_index(opencode_ids=["opencode/gpt-5"], cursor_models=[], evidence={})
     assert search_models(idx, "gpt-5", headless_only=True) == []   # untested hidden
     assert search_models(idx, "zzz-nomatch", headless_only=False) == []
+
+
+from cld.models import spec_with_effort, ModelChoice
+
+
+def test_spec_with_effort_appends_at_marker():
+    base = ModelChoice(spec="cursor:claude-opus-4-8", executor="cursor", provider="claude",
+                       model="claude-opus-4-8", label="Opus", cost_class="metered-unknown",
+                       headless_status="likely", efforts=["low", "medium"], default_effort="medium")
+    assert spec_with_effort(base, "low") == "cursor:claude-opus-4-8@low"
+    # choosing the default effort omits the @marker (= CLI default)
+    assert spec_with_effort(base, "medium") == "cursor:claude-opus-4-8"
+    # no effort / None -> bare spec
+    assert spec_with_effort(base, None) == "cursor:claude-opus-4-8"
