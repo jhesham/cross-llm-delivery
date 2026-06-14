@@ -7,7 +7,29 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-14 (📋 Scalable-picker + Cursor planned, 5 plans committed — AWAITING USER GO-AHEAD to build)
+**Last updated:** 2026-06-14 (✅ PART 1 of 4 SHIPPED — scalable picker + effort axis; 246 passed)
+
+**✅ PART 1/4 COMPLETE — Scalable Picker + Effort Axis (2026-06-14, commits 4e60cc2→ff5a240, 246
+passed).** Subagent-driven, all tasks green + 2-stage reviewed. Delivered in `src/cld/models.py`:
+`ModelChoice` index record + expanded `KNOWN_PROVIDERS` (grok/kimi/qwen/glm/minimax, `_provider_of`
+now strips version digits); `build_model_index` (Gemini dogfood) unifying gemini+opencode(+cursor
+tuples) with evidence overlay; `browse_filter` (headless-only default) + `rank_provider_models`
+(proven-first top-N) (Gemini dogfood); `render_executor_level`/`render_provider_level`/
+`render_model_level`/`render_effort_level` drill-down (Claude, verbatim-guard surface);
+`search_models` (Gemini dogfood — "compo"→Composer, "3.1"→all gemini-3.1 routings labeled);
+`spec_with_effort` + `parse_executor_spec` `@effort` split (Claude). **Review caught a latent bug:**
+`@effort` specs crashed opencode/gemini (unexpected kwarg) — fixed (6f81bd5): both now accept
+`effort` (opencode→`--variant`, gemini ignores). SKILL.md browse section rewritten to the drill-down
++ search + effort + headless-filter flow; global synced.
+
+**NEXT: Part 2 — CursorExecutor** (`docs/superpowers/plans/2026-06-14-part2-cursor-executor.md`,
+Task 1 = live JSON-shape capture). Build per the recorded prefs: subagent-driven, ONE part this
+next sitting, pause after. Cursor installed + logged in (Pro); the one Composer-via-CLI dogfood is
+Part-2 Task 5.
+
+---
+
+**(superseded)** 📋 Scalable-picker + Cursor planned, 5 plans committed — Part 1 now shipped.
 
 **📋 NEXT FEATURE PLANNED, NOT STARTED (2026-06-14, commit 7b299f6) — DO NOT BUILD until the user
 says go.** Scalable picker + effort axis + Cursor executor + per-slice review + sub-slices.
