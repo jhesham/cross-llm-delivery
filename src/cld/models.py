@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple, Dict
 
 @dataclass(frozen=True)
@@ -98,7 +98,20 @@ class Recommendation:
 # found in a live skill test: shortlist came back with no default/workhorse.)
 DEFAULT_WORKHORSE_ID = "gemini:gemini-3.1-pro-preview"
 
-KNOWN_PROVIDERS = ("claude", "gpt", "gemini", "deepseek")
+KNOWN_PROVIDERS = ("claude", "gpt", "gemini", "deepseek", "grok", "kimi", "qwen", "glm", "minimax")
+
+@dataclass
+class ModelChoice:
+    spec: str
+    executor: str
+    provider: str
+    model: str
+    label: str
+    cost_class: str
+    headless_status: str
+    efforts: list = field(default_factory=list)
+    default_effort: str | None = None
+
 
 @dataclass
 class BrowseItem:
@@ -115,6 +128,7 @@ def _provider_of(model_id: str) -> str:
     elif ":" in name:
         name = name.split(":", 1)[1]
     token = name.replace(".", "-").split("-", 1)[0].lower()
+    token = token.rstrip("0123456789")
     return token if token in KNOWN_PROVIDERS else "other"
 
 def browse_models(available_ids, *, session_known_bad=frozenset(),
