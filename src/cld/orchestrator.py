@@ -173,7 +173,11 @@ def run_plan(
     judge_fn: Callable,
     max_retries: int = 2,
     test_runner: Callable[[str], str] | None = None,
+    slice_pick_fn: Callable | None = None,
 ) -> PlanResult:
+    # `slice_pick_fn` is accepted for API symmetry with run_plan_parallel and
+    # forward-compatibility; run_plan is the legacy single-executor path and does
+    # not resolve per-slice specs, so the param has no effect here.
     result = PlanResult()
     for task in slices:
         if ledger.is_done(task.id):
@@ -220,6 +224,7 @@ def run_plan_parallel(
     repo_dir: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
+    slice_pick_fn: Callable | None = None,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -242,12 +247,23 @@ def run_plan_parallel(
     """
     result = PlanResult()
 
+    def _resolve_spec(task):
+        # Resolution order: explicit tag wins, then slice_pick_fn (review mode),
+        # then the build default (pick-once-stick, the S1b interruption fix).
+        if task.executor:                         # explicit tag wins, no prompt
+            return task.executor
+        if slice_pick_fn is not None:             # review mode: ask per untagged slice
+            return slice_pick_fn(task, default_spec) or default_spec
+        return default_spec                       # pick-once-stick (S1b fix)
+
     def _executor_for(task):
-        # Per-slice executor: build from the slice's tag (or the build default) when a
-        # factory is provided; else fall back to the single legacy executor.
+        # Per-slice executor: build from the resolved spec when a factory is
+        # provided; else fall back to the single legacy executor. Returns the
+        # resolved spec too so callers can record per-slice model in the ledger.
+        spec = _resolve_spec(task)
         if executor_factory is not None:
-            return executor_factory(task.executor or default_spec)
-        return executor
+            return executor_factory(spec), spec
+        return executor, spec
 
     by_id = {s.id: s for s in slices}
     deps = {s.id: list(s.deps) for s in slices}
@@ -262,13 +278,13 @@ def run_plan_parallel(
         original "code lost" bug). The commit lands on branch `slice-<id>`, which the
         caller can later merge.
         """
-        slice_executor = _executor_for(task)
+        slice_executor, resolved_spec = _executor_for(task)
         if repo_dir is not None and git_runner is not None:
             with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
                 res = deliver_slice(
                     task, executor=slice_executor, judge_fn=judge_fn,
                     max_retries=max_retries, workdir=wt_path,
-                    test_runner=test_runner,
+                    test_runner=test_runner, model=resolved_spec,
                 )
                 if res.accepted:
                     git_runner(["git", "add", "-A"], wt_path)
@@ -279,7 +295,7 @@ def run_plan_parallel(
                 return res
         return deliver_slice(
             task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
-            test_runner=test_runner,
+            test_runner=test_runner, model=resolved_spec,
         )
 
     def _process(task: SliceTask) -> None:
