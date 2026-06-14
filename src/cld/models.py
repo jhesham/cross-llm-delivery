@@ -422,3 +422,20 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
 
     return out
 
+
+def browse_filter(choices: List[ModelChoice], *, headless_only: bool = True) -> List[ModelChoice]:
+    filtered = []
+    for choice in choices:
+        if choice.headless_status == "known-bad":
+            continue
+        if headless_only and choice.headless_status not in ("proven", "likely"):
+            continue
+        filtered.append(choice)
+    return filtered
+
+
+def rank_provider_models(choices: List[ModelChoice], *, n: int = 12) -> List[ModelChoice]:
+    ranks = {"proven": 0, "likely": 1, "untested": 2}
+    sorted_choices = sorted(choices, key=lambda c: ranks.get(c.headless_status, 3))
+    return sorted_choices[:n]
+
