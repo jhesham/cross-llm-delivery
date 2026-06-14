@@ -7,7 +7,29 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-14 (✅ PART 2 of 4 SHIPPED — CursorExecutor; 265 passed. Dispatch open item.)
+**Last updated:** 2026-06-15 (✅ PART 3 of 4 SHIPPED — opt-in per-slice review mode; 281 passed)
+
+**✅ PART 3/4 COMPLETE — Opt-in Per-Slice Review Mode (2026-06-15, commits 6f43a26→67d904f, 281
+passed).** Subagent-driven, all 4 tasks 2-stage reviewed + a final SHIP integration review. Default
+behavior is UNCHANGED (pick-once-and-stick / the S1b fix). Delivered:
+- `src/cld/orchestrator.py` — `slice_pick_fn(task, default_spec) -> spec` callback on
+  `run_plan_parallel` (and accepted as a no-op on legacy `run_plan`). Resolution order in
+  `_resolve_spec`: **tag > pick_fn > default**; `slice_pick_fn=None` = current behavior. The
+  resolved spec is threaded as `model=` into `deliver_slice`, so the LEDGER now records the actual
+  per-slice spec (was hardcoded default). `_effort_of(spec)` parses the `@effort` suffix. NOTE
+  comment warns the callback runs in ThreadPoolExecutor worker threads.
+- `src/cld/ledger.py` — `LedgerEntry.effort` field (mirrors `model`: field+load+set+save);
+  backward-compatible (old ledgers load with effort=None). `model` keeps the FULL spec (incl
+  `@effort`); `effort` is the parsed suffix — the two agree (one source).
+- `skill/scripts/run_delivery.py` — `--per-slice-pick` flag (default OFF) + `make_slice_pick_fn`:
+  off→None (S1b); on→a callback that falls back to default when non-interactive (so `--step`/
+  automation never blocks) and SERIALIZES the interactive prompt under a `threading.Lock` (safe
+  under the worker-thread call site). Wired into BOTH `run_plan_parallel` call sites.
+- SKILL.md: per-slice review mode rules (OFF by default; "do NOT enable on your own initiative";
+  tagged slices honored silently even when ON; choice recorded in ledger/`--usage`); flag added to
+  the command example; global synced (byte-identical).
+
+**(prior) ✅ PART 2 of 4 SHIPPED — CursorExecutor; 265 passed. Dispatch open item.**
 
 **✅ PART 2/4 COMPLETE — CursorExecutor (2026-06-14, 265 passed, 1 deselected).** Subagent-driven,
 all 8 tasks committed. Delivered:
@@ -49,13 +71,11 @@ tuples) with evidence overlay; `browse_filter` (headless-only default) + `rank_p
 `effort` (opencode→`--variant`, gemini ignores). SKILL.md browse section rewritten to the drill-down
 + search + effort + headless-filter flow; global synced.
 
-**NEXT: Part 3 — opt-in per-slice review mode** (`docs/superpowers/plans/2026-06-14-part3-per-slice-review.md`,
-Task 1). Build per the recorded prefs: subagent-driven, ONE part this next sitting, pause after.
-**AWAIT a fresh go-ahead before starting** (one-part-per-sitting). Per-slice review is OFF by
-default — it must PRESERVE the S1b "pick once and stick" fix; only when explicitly enabled does it
-prompt executor/model/effort at each slice start.
-**Then Part 4 — sub-slices** (`part4-sub-slices.md`; CAVEAT: run its Task 2 (SliceTask fields)
-BEFORE Task 1 (the dogfooded parser)).
+**NEXT: Part 4 — sub-slices** (`docs/superpowers/plans/2026-06-14-part4-sub-slices.md`). Build per
+the recorded prefs: subagent-driven, ONE part this next sitting, pause after. **AWAIT a fresh
+go-ahead before starting** (one-part-per-sitting). **CAVEAT: run its Task 2 (SliceTask fields)
+BEFORE Task 1 (the dogfooded `## SUBSLICE:` parser)** — fields must exist before the parser
+populates them. Part 4 is the LAST of the 4-part scalable-picker-and-cursor feature.
 
 ---
 
