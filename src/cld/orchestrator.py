@@ -247,6 +247,11 @@ def run_plan_parallel(
     """
     result = PlanResult()
 
+    # NOTE: _resolve_spec runs inside the ThreadPoolExecutor worker threads (via
+    # _run_one). A pure/non-interactive slice_pick_fn is fine here. An INTERACTIVE
+    # pick_fn (Task 3) MUST NOT prompt from these worker threads — concurrent prompts
+    # would interleave on stdin. Task 3 should pre-resolve per-slice picks on the main
+    # thread before fan-out (or serialize the prompt), not rely on this call site.
     def _resolve_spec(task):
         # Resolution order: explicit tag wins, then slice_pick_fn (review mode),
         # then the build default (pick-once-stick, the S1b interruption fix).

@@ -301,3 +301,30 @@ def test_slice_pick_fn_none_return_falls_back_to_default(tmp_path):
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed")
     assert seen == ["gemini"]   # None -> default
+
+
+def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Rec:
+        def __init__(self, spec): self.spec = spec
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    slices = [
+        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),  # untagged -> pick_fn
+        SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
+                  executor="cursor:composer-2.5"),                                 # tagged
+    ]
+    ledger = Ledger(str(tmp_path / "l.json"))
+    run_plan_parallel(
+        slices, ledger,
+        executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
+        slice_pick_fn=lambda task, default_spec: "opencode:opencode/deepseek-v4-pro",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed",
+    )
+    assert ledger.get("T1").model == "opencode:opencode/deepseek-v4-pro"  # pick_fn spec recorded
+    assert ledger.get("T2").model == "cursor:composer-2.5"               # tag spec recorded
