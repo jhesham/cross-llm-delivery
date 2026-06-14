@@ -10,6 +10,8 @@ class SliceTask:
     acceptance_test_path: str
     deps: list[str] = field(default_factory=list)
     executor: str | None = None  # optional per-slice executor spec; None -> build default
+    parent_id: str | None = None  # set on a sub-slice; None for a top-level slice
+    subslices: list = field(default_factory=list)  # one level of ordered child SliceTasks
 
 @dataclass
 class ExecutorResult:
