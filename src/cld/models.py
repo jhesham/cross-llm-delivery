@@ -348,6 +348,28 @@ def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
+def list_cursor_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[Tuple[str, str]]:
+    try:
+        rc, out = runner(["cursor-agent", "--list-models"], ".")
+    except OSError:
+        return []
+    if rc != 0:
+        return []
+    
+    models = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or " - " not in line:
+            continue
+        id_part, label_part = line.split(" - ", 1)
+        id_part = id_part.strip()
+        label_part = label_part.strip()
+        if id_part == "auto":
+            continue
+        models.append((id_part, label_part))
+    return models
+
+
 def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelChoice]:
     out = []
 
@@ -393,8 +415,28 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
             )
         )
 
+    cursor_groups = {}
     for cid, clabel in cursor_models:
-        key = "cursor:" + cid
+        working_id = cid
+        if working_id.endswith("-fast"):
+            working_id = working_id[:-5]
+        if working_id.endswith("-thinking"):
+            working_id = working_id[:-9]
+        
+        parts = working_id.rsplit("-", 1)
+        if len(parts) == 2 and parts[1] in {"low", "medium", "high", "xhigh", "max"}:
+            effort = parts[1]
+            base_id = parts[0]
+        else:
+            effort = None
+            base_id = working_id
+            
+        if base_id not in cursor_groups:
+            cursor_groups[base_id] = []
+        cursor_groups[base_id].append((cid, clabel, effort))
+        
+    for base_id, items in cursor_groups.items():
+        key = "cursor:" + base_id
         if key in MODEL_METADATA:
             cost_class = MODEL_METADATA[key].cost_class
             base_status = MODEL_METADATA[key].headless_status
@@ -405,18 +447,41 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
         status = evidence.get(key, base_status)
         if status == "known-bad":
             continue
-            
+
+        no_effort_item = next((item for item in items if item[2] is None), None)
+        raw_label = no_effort_item[1] if no_effort_item else items[0][1]
+        
+        if raw_label.endswith(" (current)"):
+            clean_label = raw_label[:-10].strip()
+        elif raw_label.endswith(" (default)"):
+            clean_label = raw_label[:-10].strip()
+        else:
+            clean_label = raw_label
+
+        efforts_set = {item[2] for item in items if item[2] is not None}
+        efforts = sorted(list(efforts_set))
+        
+        marked_item = next((item for item in items if "(default)" in item[1] or "(current)" in item[1]), None)
+        if marked_item:
+            default_effort = marked_item[2]
+        elif "high" in efforts:
+            default_effort = "high"
+        elif not efforts:
+            default_effort = None
+        else:
+            default_effort = efforts[0]
+
         out.append(
             ModelChoice(
                 spec=key,
                 executor="cursor",
-                provider=_provider_of(cid),
-                model=cid,
-                label=clabel,
+                provider=_provider_of(base_id),
+                model=base_id,
+                label=clean_label,
                 cost_class=cost_class,
                 headless_status=status,
-                efforts=[],
-                default_effort=None,
+                efforts=efforts,
+                default_effort=default_effort,
             )
         )
 

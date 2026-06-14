@@ -176,3 +176,36 @@ def test_spec_with_effort_appends_at_marker():
     assert spec_with_effort(base, "medium") == "cursor:claude-opus-4-8"
     # no effort / None -> bare spec
     assert spec_with_effort(base, None) == "cursor:claude-opus-4-8"
+
+
+from cld.models import list_cursor_models
+
+_CUR_RAW = """auto - Auto
+claude-opus-4-8-low - Opus 4.8 Low
+claude-opus-4-8-medium - Opus 4.8 Medium
+claude-opus-4-8-high - Opus 4.8
+composer-2.5 - Composer 2.5 (current)
+composer-2.5-fast - Composer 2.5 Fast (default)
+"""
+
+
+def test_list_cursor_models_parses_id_label():
+    models = list_cursor_models(runner=lambda a, c: (0, _CUR_RAW))
+    ids = [m[0] for m in models]
+    assert "claude-opus-4-8-high" in ids and "composer-2.5" in ids
+    assert "auto" not in ids  # auto is skipped
+    # returns (id, label) tuples
+    assert any(i == "composer-2.5" and "Composer 2.5" in lbl for i, lbl in models)
+
+
+def test_list_cursor_models_empty_on_failure():
+    assert list_cursor_models(runner=lambda a, c: (1, "")) == []
+
+
+def test_index_groups_cursor_efforts_into_base():
+    models = list_cursor_models(runner=lambda a, c: (0, _CUR_RAW))
+    idx = build_model_index(opencode_ids=[], cursor_models=models, evidence={})
+    opus = [c for c in idx if c.executor == "cursor" and c.model == "claude-opus-4-8"]
+    assert len(opus) == 1                       # ONE base entry, not 3
+    assert set(opus[0].efforts) >= {"low", "medium", "high"}
+    assert opus[0].default_effort == "high"     # the plain/unlabeled "Opus 4.8" is the default
