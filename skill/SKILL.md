@@ -158,14 +158,34 @@ There are two equivalent surfaces; use whichever fits:
    sanctioned source.) If you present via a UI dialog, copy each option's id/label straight from
    `render_shortlist` output — same ids, same order, same count.
 
-   **The SECONDARY picker (what `Browse all models…` opens).** When the user picks
-   `Browse all models…`, present the full list: `cld.models.browse_models(available_ids)`
-   → `cld.models.render_browse_list(grouped)` (rendered VERBATIM — same no-improvising guard).
-   Show provider groups (claude / gpt / gemini / deepseek / other); the user picks a group,
-   then a model within it. UI dialogs cap at 4 options — page with a "More…" entry when a
-   group (or the group list) exceeds 4. The full list includes EVERY available model, not just
-   the curated shortlist. Free-text "Other" remains the final escape hatch; a free-typed id is
-   treated as untested.
+   **The SECONDARY picker (what `Browse all models…` opens) — scalable drill-down.** With 100+
+   models across executors, the full list is navigated by DRILL-DOWN, not one flat list. Build a
+   unified index once: `cld.models.build_model_index(opencode_ids=..., cursor_models=...,
+   evidence=EvidenceStore().statuses())`. Then walk the levels, rendering each VERBATIM (the
+   no-improvising guard applies to ALL of these — copy the lines exactly, never hand-type):
+   - **Executor:** `render_executor_level(index)` → pick gemini / opencode / cursor.
+   - **Provider:** `render_provider_level(index, executor=...)` → pick claude / gpt / gemini /
+     deepseek / grok / kimi / … (each shows a count).
+   - **Model:** `render_model_level(index, executor=, provider=)` → the top ~12 base models
+     (proven first), plus a `More…` entry (remaining) and a `Search…` entry.
+   - **Effort:** `render_effort_level(choice)` → ONLY if the chosen model has efforts; pick one
+     (the CLI default is marked `(default)` — enter keeps it). Map the pick to a spec with
+     `cld.models.spec_with_effort(choice, effort)` (yields `executor:model@effort`, or the bare
+     spec when the default effort is chosen).
+
+   **Headless-only filter (default ON).** `render_model_level` filters to proven/likely by
+   default (via `browse_filter`); offer a "show all (incl. untested)" toggle that passes
+   `headless_only=False`. Untested picks still go through validate-on-demand before the build.
+
+   **Search (at every level).** A `Search…` entry → ask for free text → call
+   `cld.models.search_models(index, query, headless_only=...)` and present the results VERBATIM,
+   each labeled `<label> (<model>) — <provider> via <executor>`. Fuzzy substring over
+   id/provider/executor/label, ranked exact→prefix→substring. E.g. `"compo"` → Composer (cursor);
+   `"3.1"` → gemini-3.1 (gemini), gemini-3.1-pro (opencode), and any cursor routing — each a
+   distinct labeled row so the user disambiguates by source. (CLI surface can live-filter; the
+   chat dialog uses the Search… → free-text → results-picker form.)
+
+   Free-text "Other" remains the final escape hatch; a free-typed id is treated as untested.
 
    **Validate-on-demand (the headless guarantee).** Before dispatching a build on ANY pick
    whose `headless_status` is not proven/likely — browsed, free-typed, or uncatalogued — run
@@ -198,7 +218,9 @@ Rules (enforced by `pick_executor`, and required of the agent surface too):
 - **Headless warning:** an `untested` model carries a warning. Offer `cld.validate.validate_model`
   (one trivial slice, real test as judge) to promote it to `proven`/`known-bad` before trusting it.
 - The choice maps to `--executor <name>:<provider/model>` — `gemini`, `gemini:<model-id>`, or
-  `opencode:opencode/<model>`. A per-slice `executor:` field supports "heavy model on this one slice."
+  `opencode:opencode/<model>`, optionally with an `@<effort>` suffix
+  (`opencode:opencode/gpt-5@high`; effort = reasoning level, default omits the suffix). A
+  per-slice `executor:` field supports "heavy model on this one slice."
 
 Live example (ASCII, Windows-console-safe):
 ```
