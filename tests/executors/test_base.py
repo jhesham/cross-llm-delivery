@@ -85,3 +85,20 @@ def test_slicetask_has_optional_executor_field():
     t2 = SliceTask(id="T2", brief="b", files=["x"], acceptance_test_path="t.py",
                    executor="opencode:opencode/claude-sonnet-4-6")
     assert t2.executor == "opencode:opencode/claude-sonnet-4-6"
+
+
+def test_slicetask_subslices_and_parent_id_default_empty():
+    t = SliceTask(id="P", brief="b", files=["x"], acceptance_test_path="t.py")
+    assert t.subslices == [] and t.parent_id is None
+    child = SliceTask(id="Pa", brief="b", files=["y"], acceptance_test_path="t.py", parent_id="P")
+    assert child.parent_id == "P"
+    parent = SliceTask(id="P2", brief="b", files=["x"], acceptance_test_path="t.py",
+                       subslices=[child])
+    assert parent.subslices[0].id == "Pa"
+
+
+def test_slicetask_subslices_default_not_shared():
+    a = SliceTask(id="a", brief="", files=[], acceptance_test_path="x")
+    b = SliceTask(id="b", brief="", files=[], acceptance_test_path="x")
+    a.subslices.append(SliceTask(id="c", brief="", files=[], acceptance_test_path="x"))
+    assert b.subslices == []
