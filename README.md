@@ -33,8 +33,10 @@ plan (slices + contracts + acceptance tests + dependency DAG)
   (Claude-as-judge G-Eval, for quality that `==` can't capture).
 - **Resumable:** progress is persisted to a JSON ledger, so a stopped build resumes where it left off.
 - **Observable:** each dispatch emits a Langfuse span (best-effort; no-op without keys).
-- **Pluggable executor:** Gemini today; the registry takes drop-in adapters (a Composer stub ships
-  as the worked example).
+- **Pluggable executor + model picker:** the proven Gemini workhorse is the default; an **OpenCode**
+  adapter exposes a catalog of additional models (deepseek, kimi, claude, gpt, …). An interactive
+  picker (or the `--executor name:model` flag) chooses per build, with cost-confirmation on metered
+  models and a validate-before-trust step for untested ones.
 
 ---
 
@@ -94,13 +96,29 @@ python -m pytest                     # should pass
    python skill/scripts/run_delivery.py path/to/plan.md --dry-run
    ```
 
-3. **Run it:**
+3. **Run it — one DAG layer at a time (recommended):**
 
    ```bash
-   python skill/scripts/run_delivery.py path/to/plan.md --repo . --workers 4
+   python skill/scripts/run_delivery.py path/to/plan.md --repo . --step
    ```
 
-   Re-run to resume — already-done slices are skipped via the ledger.
+   `--step` runs only the next pending layer (independent slices fan out concurrently in
+   isolated worktrees), then exits with a gate code: **0** = layer all-passed (re-invoke for
+   the next), **2** = some slices failed/deferred (inspect / retry / edit / skip), **3** =
+   build complete. Re-invoking advances automatically — the ledger is the state — so this is
+   resumable and keeps the orchestrator's context small between layers.
+
+   To run the whole plan in one shot instead, drop `--step` and pass `--workers N`.
+
+   Re-run either form to resume — already-done slices are skipped via the ledger.
+
+   **Choosing the executor/model.** Omit `--executor` and (on a TTY) you get an interactive
+   picker — the proven Gemini workhorse is the default; `Browse all models…` opens the full
+   OpenCode catalog. Or pass it explicitly: `--executor gemini`, `--executor gemini:<model-id>`,
+   or `--executor opencode:<provider/model>`. A per-slice `executor:` tag in the plan overrides
+   the build default for that one slice. `--per-slice-pick` re-prompts at each slice (default is
+   pick-once-and-stick). `--usage` prints a combined usage table (this build's ledger + OpenCode
+   account stats) and exits.
 
 ### As a Claude Code skill
 
@@ -114,11 +132,15 @@ the skill drives the executor.
 
 | Knob | Where | Default |
 |---|---|---|
-| Executor | `get_executor("gemini" \| "composer")` | `gemini` |
+| Executor / model | `--executor` (`gemini`, `gemini:<model>`, `opencode:<provider/model>`); interactive picker if omitted on a TTY | proven Gemini workhorse |
+| Per-slice executor | `executor:` tag on a `## SLICE:` block (overrides the build default for that slice) | inherits build default |
+| Re-pick each slice | `--per-slice-pick` | off (pick once, stick) |
+| Workflow | `--step` (one DAG layer at a time) vs. whole-plan (`--workers N`) | — |
 | Judge model (behavioral) | `cld.behavioral.make_compliance_metric(judge_model=...)` | `claude-sonnet-4-6` |
 | Parallelism | `--workers` on `run_delivery.py` | 4 |
 | Quota throttle | `run_plan_parallel(quota_check=, quota_threshold=)` | off / 95 |
 | Ledger path | `--ledger` | `.cld-ledger.json` |
+| Usage report | `--usage` (ledger + OpenCode account stats; no dispatch) | — |
 
 ---
 
@@ -144,8 +166,10 @@ docs/superpowers/   design doc + master build plan
 ## Status
 
 The engine and skill are complete and tested. The behavioral-eval judge uses Claude (no OpenAI
-dependency). Executor adapters beyond Gemini are a documented extension point (see the Composer
-stub and `docs/notes/opencode-executor-option.md`).
+dependency). Two executors ship today: the **Gemini** workhorse (default) and an **OpenCode**
+adapter (catalog + picker for deepseek/kimi/claude/gpt/… via `opencode:<provider/model>`). The
+executor registry takes further drop-in adapters; a Composer/cursor stub remains as a worked
+example (see `docs/notes/opencode-executor-option.md`).
 
 ## License
 
