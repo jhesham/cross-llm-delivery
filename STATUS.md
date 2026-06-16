@@ -71,7 +71,10 @@ all 8 tasks committed. Delivered:
   `run_delivery.py --usage` shells `cursor-agent about` (timeout-guarded) and passes it in.
 - SKILL.md: cursor in the `--executor`/picker mapping + usage view + headless-only note; global synced.
 
-**⚠️ OPEN ITEM — Cursor long-prompt dispatch (deferred, NOT a code bug).** Root-caused live as a
+**⚠️ OPEN ITEM — Cursor long-prompt dispatch (deferred, NOT a code bug). RE-VERIFIED STILL BROKEN
+2026-06-15** (version unchanged at 2026.06.12-...-f6aba9a; short prompt rc=0 in ~7s, long prompt via
+`.cmd` fails fast on "Workspace Trust Required" (flags mangled), long prompt via direct-node hangs to
+150s timeout = the core defect. Detail in `docs/notes/cursor-cli-notes.md`.) Root-caused live as a
 **cursor-agent v2026.06.12 defect**: long multi-line `-p` prompts hang without a TTY (matches
 community "-p hangs indefinitely" reports). SHORT dispatches work (`--list-models`, `about`,
 feasibility). All Part-2 NON-dispatch machinery is built + tested; CursorExecutor cannot run a REAL

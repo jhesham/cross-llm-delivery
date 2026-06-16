@@ -80,6 +80,23 @@ positional. The Composer-via-CLI dogfood was deferred because of this (resolve_c
 was built by Gemini per the plan's fallback). **All Part-2 NON-dispatch code (catalog, registry,
 list_cursor_models, parse_cursor_usage, usage block) is done + tested.**
 
+### RE-VERIFIED STILL BROKEN — 2026-06-15
+Re-checked on demand. Installed version UNCHANGED: `2026.06.12-19-59-36-f6aba9a` (no cursor update
+landed). Three live probes against a fresh temp git repo:
+- SHORT prompt via `.cmd` (`-p "Reply with the single word: ok" --output-format json --force --trust
+  --workspace <dir>`): **rc=0 in ~7s**, valid result JSON (usage.inputTokens etc.). Short path fine.
+- LONG multi-line prompt via `.cmd`: failed FAST (rc=1, ~1.2s) with **"Workspace Trust Required"** —
+  the `--trust`/`--workspace` flags did NOT register (the `.cmd → .ps1 → node` shim mangles `%*`/
+  `$args` for the long/multi-line arg). (Different surface than the hang, same trigger = long prompt.)
+- LONG multi-line prompt via DIRECT node (`node.exe index.js <argv>` + `CURSOR_INVOKED_AS` env +
+  `stdin=/dev/null`, bypassing the shim): **HUNG to the 150s timeout (exit 124, 0 bytes)** — exactly
+  the original core defect.
+CONCLUSION: defect persists, unchanged. Long-prompt headless dispatch is still broken in cursor-agent
+core (not the shim — the direct-node bypass hangs too). CursorExecutor still cannot run REAL
+(long-prompt) slices; short dispatch (`--list-models`, `about`, feasibility) still works. Composer
+still NOT proven headless. Re-check again only after a cursor-agent version bump (or a `--prompt-file`
+input appears).
+
 ## Windows
 The versioned binary `<LOCALAPPDATA>/cursor-agent/versions/<latest>/cursor-agent.cmd` works; the
 top-level shim was broken (replaced with a working one, but the executor resolves the versioned
