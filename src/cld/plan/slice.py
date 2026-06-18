@@ -27,6 +27,8 @@ def load_slices(markdown: str) -> list[SliceTask]:
                 current_slice["brief"] = val
             elif key == "executor":
                 current_slice["executor"] = val
+            elif key == "complexity":
+                current_slice["complexity"] = val
             elif key == "acceptance_test_path":
                 current_slice["acceptance_test_path"] = val
             elif key in ("files", "deps"):
@@ -48,6 +50,7 @@ def _dict_to_slice(d: dict) -> SliceTask:
         acceptance_test_path=d.get("acceptance_test_path", ""),
         deps=d.get("deps", []),
         executor=d.get("executor"),
+        complexity=d.get("complexity", "standard"),
     )
 
 def slices_to_markdown(slices: list[SliceTask]) -> str:
@@ -66,3 +69,5 @@ def _append_slice_fields(lines: list[str], s: SliceTask):
     lines.append(f"acceptance_test_path: {s.acceptance_test_path}")
     if s.executor:
         lines.append(f"executor: {s.executor}")
+    if s.complexity != "standard":
+        lines.append(f"complexity: {s.complexity}")
