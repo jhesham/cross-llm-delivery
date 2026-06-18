@@ -335,7 +335,7 @@ def render_chat_picker(recs: List["Recommendation"]) -> str:
 def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
     """Interactive picker: show the shortlist, read a choice, return an executor spec.
 
-    - Pressing enter selects the default (proven workhorse).
+    - Pressing enter selects the default (verified workhorse).
     - A number selects that line; a premium-metered pick (confirm_cost) requires a
       y/N confirmation — declining falls back to the default.
     - input_fn/output_fn are injected for testing (default to builtin input/print).
