@@ -7,7 +7,37 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-15 (✅✅ ALL 4 PARTS SHIPPED — scalable-picker-and-cursor feature COMPLETE; 293 passed)
+**Last updated:** 2026-06-19 (✅ Routing-framework SPEC #1 — Sub-plan 1 of 3 SHIPPED; 288 passed)
+
+**🚧 IN FLIGHT — Complexity-Based Model Routing + Slice Simplification (spec #1 of 2).**
+Spec: `docs/superpowers/specs/2026-06-19-complexity-routing-and-slice-simplification-design.md`.
+Master plan: `docs/superpowers/plans/2026-06-19-complexity-routing-MASTER.md` (3 sub-plans).
+Execution: subagent-driven, ONE sub-plan per sitting, pause between (recorded preference).
+
+**✅ SUB-PLAN 1/3 COMPLETE — Foundation (2026-06-19, commits 1e63d1d→8110245, 288 passed).**
+Subagent-driven; every task 2-stage reviewed; final whole-branch review = READY-TO-MERGE.
+- **Status vocab renamed** to `verified`/`likely`/`untested`/`revalidate` across catalog +
+  recommend/browse + evidence + validate; **legacy evidence files auto-migrate losslessly on load**
+  (`proven`→`verified`, `known-bad`→`revalidate`). No old vocab in `src/` (bar the migration map).
+- **Sub-slices removed** (fields, `## SUBSLICE:` parse, orchestrator child path, usage nesting) +
+  their tests + their skill docs. Leaf behaviour unchanged.
+- **Old forced per-slice picker removed** (`slice_pick_fn`, `make_slice_pick_fn`, `--per-slice-pick`)
+  + its tests + its skill docs; resolution is now tag > build-default.
+- **`SliceTask.complexity`** added (`easy`/`standard`/`complex`, default `standard`) + parse +
+  round-trip. **Data only — nothing routes on it yet** (that's sub-plan 2).
+- Global skill copies synced. Carried Minors (cosmetic, for later): a few stale "proven" comments in
+  tests; `_MIGRATE` could be module-level.
+
+**NEXT: Sub-plan 2 — Routing + escalation ladder** (`2026-06-19-part2-routing-ladder.md` — to be
+written in full bite-sized detail just-in-time, against the now-simplified engine). Catalog tier
+tags (`quick`/`workhorse`) + trust-filtered `resolve_tier_model` + complexity→entry-rung +
+the quick→workhorse→orchestrator-handoff ladder + new `needs_repair` status & gate code 4 + ledger
+recording. **AWAIT a fresh go-ahead before starting** (one-sitting-per-sub-plan). Then sub-plan 3
+(control surface + per-provider usage). Spec #2 (the C1 per-provider split) is after all of spec #1.
+
+---
+
+**(prior) ✅✅ ALL 4 PARTS SHIPPED — scalable-picker-and-cursor feature COMPLETE; 293 passed**
 
 **✅ PART 4/4 COMPLETE — Sub-slices (one level) (2026-06-15, commits 0bc0f2c→a47ab66, 293 passed).**
 Subagent-driven (+ one Gemini dogfood), all 5 tasks 2-stage reviewed + a final SHIP integration
