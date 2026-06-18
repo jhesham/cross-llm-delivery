@@ -53,7 +53,7 @@ def test_workhorse_always_self_included():
     assert list(g.keys()) == ["gemini"]
     assert _ids(g["gemini"]) == [DEFAULT_WORKHORSE_ID]
     wh = g["gemini"][0]
-    assert wh.in_catalog is True and wh.headless_status == "proven"
+    assert wh.in_catalog is True and wh.headless_status == "verified"
 
 
 def test_group_order_catalogued_first_then_alpha():
@@ -99,9 +99,9 @@ def test_render_is_cp1252_safe():
 
 def test_browse_evidence_overlay_promotes_and_excludes():
     # evidence (durable verdicts) overrides catalog/default status in the browse view
-    g = browse_models(IDS, evidence={"opencode/gpt-5.2": "proven"})
+    g = browse_models(IDS, evidence={"opencode/gpt-5.2": "verified"})
     gpt = next(i for i in g["gpt"] if i.id == "opencode/gpt-5.2")
-    assert gpt.headless_status == "proven"  # promoted from default untested
-    # a known-bad verdict hides the model (same treatment as catalog known-bad)
-    g2 = browse_models(IDS, evidence={"opencode/gpt-5.2": "known-bad"})
+    assert gpt.headless_status == "verified"  # promoted from default untested
+    # a revalidate verdict hides the model (same treatment as catalog revalidate)
+    g2 = browse_models(IDS, evidence={"opencode/gpt-5.2": "revalidate"})
     assert "gpt" not in g2 or "opencode/gpt-5.2" not in [i.id for i in g2["gpt"]]

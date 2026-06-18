@@ -19,11 +19,11 @@ def test_metadata_has_opencode_gemini_workhorse():
 
 
 def test_metadata_has_seed_workhorse():
-    # the proven flat-rate workhorse must be present and tagged correctly
+    # the verified flat-rate workhorse must be present and tagged correctly
     g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
     assert g.cost_class == "flat"
     assert g.capability_class == "workhorse"
-    assert g.headless_status == "proven"
+    assert g.headless_status == "verified"
 
 
 def test_metadata_entries_are_modelinfo():
@@ -32,7 +32,7 @@ def test_metadata_entries_are_modelinfo():
     for info in MODEL_METADATA.values():
         assert info.cost_class in ("free", "flat", "cheap-metered", "premium-metered")
         assert info.capability_class in ("workhorse", "heavy", "quick")
-        assert info.headless_status in ("proven", "likely", "untested", "known-bad")
+        assert info.headless_status in ("verified", "likely", "untested", "revalidate")
 
 
 def test_list_models_parses_opencode_output():
@@ -189,32 +189,32 @@ def test_recommend_filters_to_available_and_catalogued():
     # only models that are BOTH in available AND in our curated catalog appear
     assert "opencode/some-unknown-model" not in ids
     for r in recs:
-        assert r.headless_status in ("proven", "likely", "untested")  # never known-bad
+        assert r.headless_status in ("verified", "likely", "untested")  # never revalidate
         if r.headless_status == "untested":
             assert r.warning  # untested carries a warning
         assert r.cost_class   # cost always annotated
         assert r.why          # one-line rationale present
 
 
-def test_recommend_always_includes_proven_default_even_if_unavailable():
+def test_recommend_always_includes_verified_default_even_if_unavailable():
     # BUG (found in live skill test): passing only `opencode models` ids excludes
     # gemini:gemini-3.1-pro-preview, so the shortlist had NO default/workhorse.
-    # recommend() must always surface the proven default workhorse.
+    # recommend() must always surface the verified default workhorse.
     recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"])  # no gemini
     ids = [r.id for r in recs]
     assert "gemini:gemini-3.1-pro-preview" in ids
     default = next(r for r in recs if r.is_default)
     assert default.id == "gemini:gemini-3.1-pro-preview"
-    assert default.headless_status == "proven"
+    assert default.headless_status == "verified"
 
 
-def test_recommend_default_is_proven_workhorse():
+def test_recommend_default_is_verified_workhorse():
     recs = recommend(available_ids=["gemini:gemini-3.1-pro-preview",
                                     "opencode/deepseek-v4-flash-free"])
     defaults = [r for r in recs if r.is_default]
     assert len(defaults) == 1
     assert defaults[0].capability_class == "workhorse"
-    assert defaults[0].headless_status == "proven"
+    assert defaults[0].headless_status == "verified"
 
 
 def test_recommend_buckets_and_cost_flags():
@@ -248,15 +248,15 @@ def test_recommend_hides_session_known_bad():
 
 
 def test_recommend_evidence_overlay():
-    # a durable proven verdict upgrades a catalogued-untested model (warning cleared)
+    # a durable verified verdict upgrades a catalogued-untested model (warning cleared)
     recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"],
-                     evidence={"opencode/deepseek-v4-flash-free": "proven"})
+                     evidence={"opencode/deepseek-v4-flash-free": "verified"})
     ds = next(r for r in recs if "flash-free" in r.id)
-    assert ds.headless_status == "proven"
+    assert ds.headless_status == "verified"
     assert ds.warning == ""
-    # a durable known-bad verdict excludes the model from the shortlist
+    # a durable revalidate verdict excludes the model from the shortlist
     recs2 = recommend(available_ids=["opencode/deepseek-v4-flash-free"],
-                      evidence={"opencode/deepseek-v4-flash-free": "known-bad"})
+                      evidence={"opencode/deepseek-v4-flash-free": "revalidate"})
     assert all("flash-free" not in r.id for r in recs2)
 
 
@@ -315,3 +315,27 @@ def test_cursor_composer_never_in_first_shortlist():
         "opencode/kimi-k2.6", "opencode/claude-opus-4-8", "cursor:composer-2.5",
     ])
     assert "cursor:composer-2.5" not in [r.id for r in recs]
+
+
+def test_catalog_uses_verified_not_proven():
+    from cld.models import MODEL_METADATA
+    g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
+    assert g.headless_status == "verified"
+    # no entry may carry the old vocabulary
+    assert all(m.headless_status != "proven" for m in MODEL_METADATA.values())
+    assert all(m.headless_status != "known-bad" for m in MODEL_METADATA.values())
+
+
+def test_recommend_hides_revalidate_via_evidence():
+    from cld.models import recommend
+    recs = recommend(
+        available_ids=["opencode/deepseek-v4-flash-free"],
+        evidence={"opencode/deepseek-v4-flash-free": "revalidate"},
+    )
+    assert "opencode/deepseek-v4-flash-free" not in [r.id for r in recs]
+
+
+def test_recommend_default_workhorse_still_resolves():
+    from cld.models import recommend
+    recs = recommend(available_ids=["gemini:gemini-3.1-pro-preview"])
+    assert any(r.is_default and r.headless_status == "verified" for r in recs)

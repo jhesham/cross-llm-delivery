@@ -19,7 +19,7 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         provider="gemini",
         cost_class="flat",
         capability_class="workhorse",
-        headless_status="proven",
+        headless_status="verified",
         rework_risk="low",
         note="our 14/14 grade-A workhorse; $0 flat-rate"
     ),
@@ -112,7 +112,7 @@ class Recommendation:
     confirm_cost: bool = False
 
 
-# The proven flat-rate workhorse always surfaces in the shortlist, even when it is
+# The verified flat-rate workhorse always surfaces in the shortlist, even when it is
 # absent from `available_ids` — it runs via the Gemini CLI, not the OpenCode model
 # list, so filtering the picker to `opencode models` ids must never hide it. (Bug
 # found in a live skill test: shortlist came back with no default/workhorse.)
@@ -164,12 +164,12 @@ def browse_models(available_ids, *, session_known_bad=frozenset(),
             info = MODEL_METADATA[id]
             # durable validation evidence overrides the static catalog status
             status = evidence.get(id, info.headless_status)
-            if status == "known-bad":
+            if status == "revalidate":
                 continue
             item = BrowseItem(id, provider=_provider_of(id), cost_class=info.cost_class, headless_status=status, in_catalog=True)
         else:
             status = evidence.get(id, "untested")
-            if status == "known-bad":
+            if status == "revalidate":
                 continue
             cost_class = "free" if id.endswith("-free") else "metered-unknown"
             item = BrowseItem(id, provider=_provider_of(id), cost_class=cost_class, headless_status=status, in_catalog=False)
@@ -208,7 +208,7 @@ def render_browse_list(grouped) -> tuple:
 
 def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
               evidence=None) -> list[Recommendation]:
-    # Always consider the proven default available (it's not an OpenCode model).
+    # Always consider the verified default available (it's not an OpenCode model).
     evidence = evidence or {}
     effective_ids = (set(available_ids) | {DEFAULT_WORKHORSE_ID}) - set(session_known_bad)
     recs: list[Recommendation] = []
@@ -223,7 +223,7 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
             continue
         # durable validation evidence overrides the static catalog status
         status = evidence.get(id, info.headless_status)
-        if status == "known-bad":
+        if status == "revalidate":
             continue
         warning = ""
         if status == "untested":
@@ -248,12 +248,12 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
             break
     if default_candidate is None:
         for rec in recs:
-            if rec.headless_status == "proven" and rec.bucket == "workhorse":
+            if rec.headless_status == "verified" and rec.bucket == "workhorse":
                 default_candidate = rec
                 break
     if default_candidate is None:
         for rec in recs:
-            if rec.headless_status == "proven":
+            if rec.headless_status == "verified":
                 default_candidate = rec
                 break
     if default_candidate is not None:
@@ -481,9 +481,9 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
         else:
             cost_class = "free" if id.endswith("-free") else "metered-unknown"
             base_status = "untested"
-            
+
         status = evidence.get(id, base_status)
-        if status == "known-bad":
+        if status == "revalidate":
             continue
             
         out.append(
@@ -528,9 +528,9 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
         else:
             cost_class = "metered-unknown"
             base_status = "untested"
-            
+
         status = evidence.get(key, base_status)
-        if status == "known-bad":
+        if status == "revalidate":
             continue
 
         no_effort_item = next((item for item in items if item[2] is None), None)
@@ -576,16 +576,16 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
 def browse_filter(choices: List[ModelChoice], *, headless_only: bool = True) -> List[ModelChoice]:
     filtered = []
     for choice in choices:
-        if choice.headless_status == "known-bad":
+        if choice.headless_status == "revalidate":
             continue
-        if headless_only and choice.headless_status not in ("proven", "likely"):
+        if headless_only and choice.headless_status not in ("verified", "likely"):
             continue
         filtered.append(choice)
     return filtered
 
 
 def rank_provider_models(choices: List[ModelChoice], *, n: int = 12) -> List[ModelChoice]:
-    ranks = {"proven": 0, "likely": 1, "untested": 2}
+    ranks = {"verified": 0, "likely": 1, "untested": 2}
     sorted_choices = sorted(choices, key=lambda c: ranks.get(c.headless_status, 3))
     return sorted_choices[:n]
 
