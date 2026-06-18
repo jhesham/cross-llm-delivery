@@ -5,61 +5,42 @@ from cld.executors.base import SliceTask
 def load_slices(markdown: str) -> list[SliceTask]:
     slices = []
     current_slice = None
-    current_subslice = None
-    
+
     lines = markdown.splitlines()
     for line in lines:
         if line.startswith("## SLICE:"):
             if current_slice:
-                if current_subslice:
-                    current_slice["subslices"].append(current_subslice)
-                    current_subslice = None
                 slices.append(_dict_to_slice(current_slice))
-            
+
             current_slice = {
                 "id": line.replace("## SLICE:", "").strip(),
-                "subslices": []
-            }
-            current_subslice = None
-        elif line.startswith("## SUBSLICE:"):
-            if current_subslice:
-                current_slice["subslices"].append(current_subslice)
-            
-            current_subslice = {
-                "id": line.replace("## SUBSLICE:", "").strip(),
-                "parent_id": current_slice["id"] if current_slice else None,
-                "subslices": []
             }
         elif ":" in line:
+            if not current_slice:
+                continue
+
             key, val = line.split(":", 1)
             key = key.strip()
             val = val.strip()
-            
-            target = current_subslice if current_subslice else current_slice
-            if not target:
-                continue
 
             if key == "brief":
-                target["brief"] = val
+                current_slice["brief"] = val
             elif key == "executor":
-                target["executor"] = val
+                current_slice["executor"] = val
             elif key == "acceptance_test_path":
-                target["acceptance_test_path"] = val
+                current_slice["acceptance_test_path"] = val
             elif key in ("files", "deps"):
                 if val:
-                    target[key] = [v.strip() for v in val.split(",") if v.strip()]
+                    current_slice[key] = [v.strip() for v in val.split(",") if v.strip()]
                 else:
-                    target[key] = []
-                    
+                    current_slice[key] = []
+
     if current_slice:
-        if current_subslice:
-            current_slice["subslices"].append(current_subslice)
         slices.append(_dict_to_slice(current_slice))
-        
+
     return slices
 
 def _dict_to_slice(d: dict) -> SliceTask:
-    subslices = [_dict_to_slice(sub) for sub in d.get("subslices", [])]
     return SliceTask(
         id=d.get("id", ""),
         brief=d.get("brief", ""),
@@ -67,8 +48,6 @@ def _dict_to_slice(d: dict) -> SliceTask:
         acceptance_test_path=d.get("acceptance_test_path", ""),
         deps=d.get("deps", []),
         executor=d.get("executor"),
-        parent_id=d.get("parent_id"),
-        subslices=subslices
     )
 
 def slices_to_markdown(slices: list[SliceTask]) -> str:
@@ -78,12 +57,7 @@ def slices_to_markdown(slices: list[SliceTask]) -> str:
         _append_slice_fields(lines, s)
         lines.append(f"deps: {', '.join(s.deps)}")
         lines.append("")
-        
-        for sub in s.subslices:
-            lines.append(f"## SUBSLICE: {sub.id}")
-            _append_slice_fields(lines, sub)
-            lines.append("")
-            
+
     return "\n".join(lines).strip() + "\n"
 
 def _append_slice_fields(lines: list[str], s: SliceTask):
