@@ -38,3 +38,19 @@ def test_subslice_marker_is_not_special_anymore():
     slices = load_slices(md)
     assert [s.id for s in slices] == ["P1"]          # P1a is NOT parsed as anything
     assert not hasattr(slices[0], "subslices")        # field removed
+
+
+def test_complexity_parsed_and_defaulted():
+    from cld.plan.slice import load_slices
+    md = ("## SLICE: A\nbrief: a\nfiles: a.py\nacceptance_test_path: t.py\ncomplexity: easy\ndeps:\n\n"
+          "## SLICE: B\nbrief: b\nfiles: b.py\nacceptance_test_path: t.py\ndeps: A\n")
+    s = {x.id: x for x in load_slices(md)}
+    assert s["A"].complexity == "easy"
+    assert s["B"].complexity == "standard"   # omitted -> default
+
+
+def test_complexity_round_trips():
+    from cld.plan.slice import load_slices, slices_to_markdown
+    md = "## SLICE: A\nbrief: a\nfiles: a.py\nacceptance_test_path: t.py\ncomplexity: complex\ndeps:\n"
+    s = {x.id: x for x in load_slices(slices_to_markdown(load_slices(md)))}
+    assert s["A"].complexity == "complex"

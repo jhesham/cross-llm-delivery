@@ -87,3 +87,10 @@ def test_slicetask_has_optional_executor_field():
     assert t2.executor == "opencode:opencode/claude-sonnet-4-6"
 
 
+def test_slicetask_complexity_defaults_standard():
+    t = SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py")
+    assert t.complexity == "standard"
+    t2 = SliceTask(id="T2", brief="b", files=["x"], acceptance_test_path="t.py", complexity="complex")
+    assert t2.complexity == "complex"
+
+
