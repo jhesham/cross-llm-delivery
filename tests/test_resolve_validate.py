@@ -25,8 +25,8 @@ def _gate(spec="opencode:opencode/gpt-5.2", *, status="untested", cost="free",
     return res, out, confirms
 
 
-def test_proven_and_likely_pass_through_without_validation():
-    for st in ("proven", "likely"):
+def test_verified_and_likely_pass_through_without_validation():
+    for st in ("verified", "likely"):
         res, out, confirms = _gate(status=st)
         assert res.proceeded is True and res.validated is False
         assert out == [] and confirms == []
@@ -34,12 +34,12 @@ def test_proven_and_likely_pass_through_without_validation():
 
 def test_untested_free_validates_with_progress_message_then_proceeds():
     res, out, confirms = _gate(
-        verdict=ValidationResult("m", True, "proven", 1))
-    assert res.proceeded is True and res.validated is True and res.status == "proven"
+        verdict=ValidationResult("m", True, "verified", 1))
+    assert res.proceeded is True and res.validated is True and res.status == "verified"
     assert confirms == []  # free -> no cost confirm
     # progress message emitted BEFORE the verdict line
     assert "please wait" in out[0].lower() and "validating headless" in out[0].lower()
-    assert "proven" in out[1].lower()
+    assert "verified" in out[1].lower()
 
 
 def test_untested_metered_requires_confirm_and_decline_stops():
@@ -51,18 +51,18 @@ def test_untested_metered_requires_confirm_and_decline_stops():
 
 def test_untested_metered_confirmed_validates():
     res, _, confirms = _gate(cost="cheap-metered", confirm=True,
-                             verdict=ValidationResult("m", True, "proven", 1))
+                             verdict=ValidationResult("m", True, "verified", 1))
     assert len(confirms) == 1
-    assert res.proceeded is True and res.status == "proven"
+    assert res.proceeded is True and res.status == "verified"
 
 
-def test_known_bad_verdict_declines_and_marks_session():
+def test_revalidate_verdict_declines_and_marks_session():
     session = set()
-    res, out, _ = _gate(verdict=ValidationResult("m", False, "known-bad", 1, "bad code"),
+    res, out, _ = _gate(verdict=ValidationResult("m", False, "revalidate", 1, "bad code"),
                         session=session)
-    assert res.proceeded is False and res.validated is True and res.status == "known-bad"
+    assert res.proceeded is False and res.validated is True and res.status == "revalidate"
     assert "opencode:opencode/gpt-5.2" in session  # marked for THIS session only
-    assert any("not headless" in ln.lower() for ln in out)
+    assert any("did not complete" in ln.lower() or "re-validate" in ln.lower() for ln in out)
 
 
 def test_session_marked_spec_is_rejected_immediately():
@@ -79,7 +79,7 @@ def test_executor_error_is_untested_not_a_verdict():
     assert any("couldn't validate" in ln.lower() for ln in out)
 
 
-# ---- durable evidence store integration (supersedes session-only known-bad) ----
+# ---- durable evidence store integration (supersedes session-only revalidate) ----
 
 from cld.evidence import EvidenceStore
 
@@ -100,9 +100,9 @@ def _gate_with_store(spec, store, *, status="untested", cost="free", verdict=Non
     return res, out
 
 
-def test_evidence_known_bad_short_circuits_no_respend(tmp_path):
+def test_evidence_revalidate_short_circuits_no_respend(tmp_path):
     store = EvidenceStore(path=tmp_path / "ev.json")
-    store.record("opencode/gpt-5.2", "known-bad", note="never wrote file")
+    store.record("opencode/gpt-5.2", "revalidate", note="never wrote file")
     calls = []
     res = resolve_and_validate(
         "opencode:opencode/gpt-5.2",  # spec form; store key is the model id
@@ -113,31 +113,31 @@ def test_evidence_known_bad_short_circuits_no_respend(tmp_path):
         output_fn=lambda m: None,
         evidence_store=store,
     )
-    assert res.proceeded is False and res.status == "known-bad"
+    assert res.proceeded is False and res.status == "revalidate"
     assert calls == []  # no validation dispatch, no re-spend
     assert "re-validate" in res.note  # tells the user how to refresh
 
 
-def test_evidence_proven_short_circuits(tmp_path):
+def test_evidence_verified_short_circuits(tmp_path):
     store = EvidenceStore(path=tmp_path / "ev.json")
-    store.record("m1", "proven")
+    store.record("m1", "verified")
     res, _ = _gate_with_store("m1", store)
-    assert res.proceeded is True and res.status == "proven"
+    assert res.proceeded is True and res.status == "verified"
     assert res.validated is False  # no new dispatch needed
 
 
 def test_force_revalidate_bypasses_evidence_and_refreshes(tmp_path):
     store = EvidenceStore(path=tmp_path / "ev.json")
-    store.record("m2", "known-bad", note="old transient failure")
+    store.record("m2", "revalidate", note="old transient failure")
     res, _ = _gate_with_store("m2", store, force=True,
-                              verdict=ValidationResult("m2", True, "proven", 1))
-    assert res.proceeded is True and res.status == "proven"
-    assert store.get("m2")["status"] == "proven"  # refreshed on disk
+                              verdict=ValidationResult("m2", True, "verified", 1))
+    assert res.proceeded is True and res.status == "verified"
+    assert store.get("m2")["status"] == "verified"  # refreshed on disk
 
 
 def test_new_verdicts_recorded_durably(tmp_path):
     store = EvidenceStore(path=tmp_path / "ev.json")
     res, _ = _gate_with_store("opencode:opencode/m3", store,
-                              verdict=ValidationResult("m3", False, "known-bad", 1, "bad"))
+                              verdict=ValidationResult("m3", False, "revalidate", 1, "bad"))
     assert res.proceeded is False
-    assert store.get("opencode/m3")["status"] == "known-bad"  # opencode: prefix stripped
+    assert store.get("opencode/m3")["status"] == "revalidate"  # opencode: prefix stripped

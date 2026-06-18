@@ -1,8 +1,8 @@
-"""Durable validation-evidence store (supersedes session-only known-bad marks,
+"""Durable validation-evidence store (supersedes session-only revalidate marks,
 user-directed 2026-06-13).
 
 Validation verdicts cost real time/tokens — they are evidence worth keeping. This
-store persists CONCLUDED verdicts (proven / known-bad) per model id in a small JSON
+store persists CONCLUDED verdicts (verified / revalidate) per model id in a small JSON
 file, with timestamps, so a verdict survives across sessions. The blacklist risk
 that motivated session-only is handled differently: records carry their date, and
 `resolve_and_validate(force_revalidate=True)` re-runs validation and overwrites the
@@ -29,7 +29,13 @@ class EvidenceStore:
     def _load(self) -> dict:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {}
+            if not isinstance(data, dict):
+                return {}
+            _MIGRATE = {"proven": "verified", "known-bad": "revalidate"}
+            for rec in data.values():
+                if isinstance(rec, dict) and rec.get("status") in _MIGRATE:
+                    rec["status"] = _MIGRATE[rec["status"]]
+            return data
         except Exception:
             return {}
 
