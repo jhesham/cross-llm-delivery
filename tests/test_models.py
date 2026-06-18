@@ -11,7 +11,7 @@ from cld.models import MODEL_METADATA, ModelInfo, list_models
 def test_metadata_has_opencode_gemini_workhorse():
     # OpenCode also fronts gemini-3.1-pro (via OpenCode's account, NOT the flat-rate
     # Google AI Pro sub) -> a workhorse option, but metered, not flat, and not yet
-    # proven through OpenCode's harness.
+    # verified through OpenCode's harness.
     g = MODEL_METADATA["opencode/gemini-3.1-pro"]
     assert g.capability_class == "workhorse"
     assert g.cost_class != "flat"        # not the flat-rate sub
@@ -85,14 +85,14 @@ from cld.models import pick_executor
 
 def _recs_for_picker():
     return recommend(available_ids=[
-        "gemini:gemini-3.1-pro-preview",      # proven workhorse (default)
+        "gemini:gemini-3.1-pro-preview",      # verified workhorse (default)
         "opencode/claude-opus-4-8",           # premium -> confirm_cost
         "opencode/deepseek-v4-flash-free",    # free / untested
     ])
 
 
 def test_pick_executor_default_on_empty_input():
-    # pressing enter selects the default (proven workhorse) -> gemini spec
+    # pressing enter selects the default (verified workhorse) -> gemini spec
     out = []
     spec = pick_executor(_recs_for_picker(), input_fn=lambda _: "", output_fn=out.append)
     assert spec == "gemini:gemini-3.1-pro-preview"
@@ -243,7 +243,7 @@ def test_recommend_hides_session_known_bad():
     ids = [r.id for r in recs]
     assert "opencode/deepseek-v4-flash-free" not in ids
     assert "opencode/claude-opus-4-8" in ids
-    # the proven default is still there and still default
+    # the verified default is still there and still default
     assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
 
 
