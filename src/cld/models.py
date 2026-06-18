@@ -311,6 +311,27 @@ def render_shortlist(recs: List["Recommendation"]) -> List[str]:
     return lines, ordered
 
 
+def render_chat_picker(recs: List["Recommendation"]) -> str:
+    """The COMPLETE agent-surface picker dialog, as one verbatim string.
+
+    Use this — not a hand-assembled list — whenever you (the lead agent) present the
+    executor picker in chat. It guarantees the required dialog shape every time:
+      1. the curated shortlist (from `render_shortlist`, verbatim);
+      2. a numbered ``Browse all models…`` entry → opens the secondary drill-down
+         (executor → provider → model → effort) over the full unified index;
+      3. a numbered ``Other`` free-text escape hatch.
+    Paste the returned text directly. The failure this prevents: building the dialog by
+    hand and dropping the ``Browse all models…`` option (so the user can't reach the
+    full model list). Output is cp1252-safe.
+    """
+    lines, ordered = render_shortlist(recs)
+    n = len(ordered)
+    lines.append(f"    {n + 1}) Browse all models...   (full list: executor -> provider -> model -> effort, with search)")
+    lines.append(f"    {n + 2}) Other (type a model id, e.g. opencode:opencode/<model>)")
+    lines.append("Pick one [default: workhorse]:")
+    return "\n".join(lines)
+
+
 def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
     """Interactive picker: show the shortlist, read a choice, return an executor spec.
 
