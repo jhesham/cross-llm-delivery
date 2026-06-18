@@ -122,6 +122,37 @@ def test_pick_executor_premium_requires_confirmation():
     assert any("bill" in line.lower() or "$" in line for line in out)  # warned about cost
 
 
+def test_render_chat_picker_is_complete_dialog():
+    # The agent-surface picker MUST be a single helper that emits the WHOLE dialog so
+    # the agent can't hand-assemble it wrong (the RAC-thread failure: shortlist + Other
+    # but no 'Browse all models...'). render_chat_picker returns the verbatim shortlist
+    # PLUS a numbered 'Browse all models...' PLUS a numbered 'Other' escape hatch.
+    from cld.models import render_chat_picker, render_shortlist
+    recs = _recs_for_picker()
+    text = render_chat_picker(recs)
+    # 1) contains the shortlist verbatim
+    short_lines, ordered = render_shortlist(recs)
+    for line in short_lines:
+        assert line in text
+    # 2) contains the literal Browse-all entry (the thing the agent dropped)
+    assert "Browse all models" in text
+    # 3) contains an Other / free-text escape hatch
+    assert "Other" in text
+    # 4) Browse-all and Other are numbered AFTER the shortlist options (continuing the count)
+    n_short = len(ordered)
+    assert f"{n_short + 1})" in text   # Browse all = next number
+    assert f"{n_short + 2})" in text   # Other = number after that
+    # 5) Browse comes before Other in the dialog
+    assert text.index("Browse all models") < text.index("Other")
+    # 6) cp1252-safe (Windows console / chat)
+    text.encode("cp1252")
+
+
+def test_render_chat_picker_returns_str():
+    from cld.models import render_chat_picker
+    assert isinstance(render_chat_picker(_recs_for_picker()), str)
+
+
 def test_picker_output_is_windows_console_safe():
     # The picker must not emit non-cp1252 chars (e.g. the warning glyph) or it
     # crashes on the default Windows console. All output must encode to cp1252.

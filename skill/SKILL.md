@@ -125,18 +125,28 @@ There are two equivalent surfaces; use whichever fits:
 1. **CLI picker (preferred when you're about to run the script).** Run `run_delivery.py` WITHOUT
    `--executor`; if stdin is a TTY it prints the shortlist and prompts. (Non-interactive runs and
    `--step` loops fall back to gemini, so they never block.) This is `cld.models.pick_executor`.
-2. **Agent-presented (in chat).** Build it yourself and ask: `cld.models.list_models(runner=...)`
-   → `cld.models.recommend(available_ids=...)` → show the buckets, take the user's pick, pass it
-   as `--executor`.
+2. **Agent-presented (in chat).** Do NOT hand-assemble the dialog — that is how it gets built
+   wrong (the live failure: shortlist + "Other" but the `Browse all models…` entry dropped, so the
+   user can't reach the full list). Use the ONE helper that emits the complete, correct dialog:
+   ```python
+   from cld.models import list_models, recommend, render_chat_picker
+   from cld.executors.opencode import _default_runner
+   recs = recommend(available_ids=list_models(runner=_default_runner))
+   print(render_chat_picker(recs))   # paste this VERBATIM into chat as the picker
+   ```
+   `render_chat_picker(recs)` returns the whole dialog as one string: the curated shortlist
+   (verbatim) + a numbered `Browse all models…` + a numbered `Other` free-text entry, ending in
+   the "Pick one" prompt. Show it exactly, take the user's pick, pass it as `--executor`.
 
-   **REQUIRED DIALOG SHAPE — every chat picker MUST contain, in this order:**
+   **REQUIRED DIALOG SHAPE (what `render_chat_picker` guarantees — do not produce a picker missing
+   any of these):**
    1. the curated shortlist options (from `render_shortlist`, verbatim);
    2. **a literal `Browse all models…` option** — selecting it opens the SECONDARY picker
-      (the full grouped list below). This is NOT optional and NOT the same as "Other";
+      (the full unified drill-down below). This is NOT optional and NOT the same as "Other";
    3. `Other` (free-text id) as the final escape hatch.
-   If you ever build a picker with only the shortlist + "Other" and no "Browse all models…"
-   entry, you have built it WRONG — the user cannot reach the full model list. The screenshot
-   failure mode: 4 curated models + "Other", no "Browse all" → fix by adding option 2.
+   If a picker ever has only the shortlist + "Other" and no "Browse all models…" entry, it is
+   WRONG — the user cannot reach the full model list. The fix is always: call `render_chat_picker`
+   instead of typing the options by hand.
 
    **Picker frequency — choose ONCE per build, then STICK.** Present the executor picker ONCE,
    before the first dispatch of a build. That choice is the build default and persists for ALL
