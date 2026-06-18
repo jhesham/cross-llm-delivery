@@ -5,7 +5,7 @@ instead of writing files, stall, or be throttled). The only honest signal is OBS
 model complete a real slice. This harness spins a throwaway real-git repo with a trivial
 known-answer slice (`add(a, b)`), dispatches it to the model via the given executor, runs
 the REAL acceptance test (scoped — the Bug B discipline) as the judge, and reports a
-promotion: pass -> proven, fail -> known-bad, executor error -> untested.
+promotion: pass -> verified, fail -> revalidate, executor error -> untested.
 """
 
 import shlex
@@ -27,7 +27,7 @@ _TEST_SRC = (
 class ValidationResult:
     model: str
     passed: bool
-    status: str          # "proven" | "known-bad" | "untested"
+    status: str          # "verified" | "revalidate" | "untested"
     attempts: int
     note: str = ""
 
@@ -91,9 +91,9 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         run_tests=lambda: _pytest(repo, task.acceptance_test_path),
     )
     if jr.passed:
-        return ValidationResult(model, True, "proven", 1)
+        return ValidationResult(model, True, "verified", 1)
     return ValidationResult(
-        model, False, "known-bad", 1,
+        model, False, "revalidate", 1,
         note="; ".join(jr.failing_tests) or "acceptance test failed",
     )
 
@@ -119,34 +119,34 @@ def _evidence_key(spec: str) -> str:
 def resolve_and_validate(spec: str, *, headless_status_of, cost_class_of, validate_fn,
                          confirm_fn, output_fn, session_known_bad=None,
                          evidence_store=None, force_revalidate=False) -> ResolveResult:
-    """Validate-on-demand gate: only proven/likely models pass straight through; an
+    """Validate-on-demand gate: only verified/likely models pass straight through; an
     untested pick is validated against a real trivial slice first (metered models
-    confirm the validation spend), and a known-bad verdict declines the pick.
+    confirm the validation spend), and a revalidate verdict declines the pick.
     Verdicts persist in the durable evidence_store (keyed by model id) and are
     consulted before spending again; force_revalidate re-runs and refreshes."""
     skb = session_known_bad if session_known_bad is not None else set()
     if spec in skb:
-        return ResolveResult(spec, "known-bad", False, False,
-                             "marked known-bad this session — pick another model")
+        return ResolveResult(spec, "revalidate", False, False,
+                             "marked revalidate this session — pick another model")
 
     key = _evidence_key(spec)
     if evidence_store is not None and not force_revalidate:
         rec = evidence_store.get(key)
-        if rec and rec.get("status") == "proven":
-            return ResolveResult(spec, "proven", False, True,
-                                 f"proven on record ({rec.get('validated_at', '?')})")
-        if rec and rec.get("status") == "known-bad":
+        if rec and rec.get("status") == "verified":
+            return ResolveResult(spec, "verified", False, True,
+                                 f"verified on record ({rec.get('validated_at', '?')})")
+        if rec and rec.get("status") == "revalidate":
             return ResolveResult(
-                spec, "known-bad", False, False,
-                f"known-bad on record ({rec.get('validated_at', '?')}) — "
+                spec, "revalidate", False, False,
+                f"marked revalidate in catalog ({rec.get('validated_at', '?')}) — "
                 f"re-validate to refresh")
 
     status = headless_status_of(spec)
-    if status in ("proven", "likely"):
+    if status in ("verified", "likely"):
         return ResolveResult(spec, status, False, True)
-    if status == "known-bad":
+    if status == "revalidate":
         skb.add(spec)
-        return ResolveResult(spec, "known-bad", False, False, "known-bad in catalog")
+        return ResolveResult(spec, "revalidate", False, False, "marked revalidate in catalog")
 
     # untested -> validate before allowing the build
     if cost_class_of(spec) in _METERED:
@@ -158,18 +158,18 @@ def resolve_and_validate(spec: str, *, headless_status_of, cost_class_of, valida
     output_fn(f"Validating headless capability for {spec} — this runs one trivial "
               f"slice (~30s), please wait...")
     vr = validate_fn(spec)
-    if vr.status == "proven":
-        output_fn(f"{spec}: proven headless-capable.")
+    if vr.status == "verified":
+        output_fn(f"{spec}: verified headless-capable.")
         if evidence_store is not None:
-            evidence_store.record(key, "proven", note=vr.note or "")
-        return ResolveResult(spec, "proven", True, True)
-    if vr.status == "known-bad":
-        output_fn(f"{spec}: NOT headless-capable (built failing or no code). "
-                  f"Pick another model.")
+            evidence_store.record(key, "verified", note=vr.note or "")
+        return ResolveResult(spec, "verified", True, True)
+    if vr.status == "revalidate":
+        output_fn(f"{spec}: did not complete our validation slice — "
+                  f"re-validate or pick another model.")
         skb.add(spec)
         if evidence_store is not None:
-            evidence_store.record(key, "known-bad", note=vr.note or "failed validation")
-        return ResolveResult(spec, "known-bad", True, False,
+            evidence_store.record(key, "revalidate", note=vr.note or "failed validation")
+        return ResolveResult(spec, "revalidate", True, False,
                              vr.note or "failed validation")
     output_fn(f"{spec}: couldn't validate ({vr.note}). Not a model verdict — "
               f"you may retry or pick another model.")

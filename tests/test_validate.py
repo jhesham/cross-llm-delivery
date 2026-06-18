@@ -2,7 +2,7 @@
 
 Spins a throwaway real-git repo with a trivial known-answer slice (add(a,b)), dispatches
 it to the model via the given executor, runs the REAL acceptance test as judge, and
-promotes headless_status: pass->proven, fail->known-bad, executor-error->untested.
+promotes headless_status: pass->verified, fail->revalidate, executor-error->untested.
 
 Uses the real-git integration harness (no live LLM — fake pass/fail executors).
 """
@@ -45,19 +45,19 @@ class _BoomExec:
         raise RuntimeError("CLI not installed")
 
 
-def test_validate_promotes_to_proven_on_pass(tmp_path):
+def test_validate_promotes_to_verified_on_pass(tmp_path):
     res = validate_model("opencode/x", executor=_PassExec(),
                          git_runner=real_git_runner, base_dir=str(tmp_path))
     assert isinstance(res, ValidationResult)
     assert res.passed is True
-    assert res.status == "proven"
+    assert res.status == "verified"
 
 
-def test_validate_marks_known_bad_on_fail(tmp_path):
+def test_validate_marks_revalidate_on_fail(tmp_path):
     res = validate_model("opencode/x", executor=_FailExec(),
                          git_runner=real_git_runner, base_dir=str(tmp_path))
     assert res.passed is False
-    assert res.status == "known-bad"
+    assert res.status == "revalidate"
 
 
 def test_validate_executor_error_is_untested(tmp_path):
@@ -82,3 +82,22 @@ def test_validate_failed_dispatch_is_untested_not_known_bad(tmp_path):
     assert res.passed is False
     assert res.status == "untested"
     assert "dispatch" in res.note.lower()
+
+
+def test_validate_model_uses_new_vocab(tmp_path):
+    # a fake executor that produces NO passing code -> revalidate (not "known-bad")
+    from cld.validate import validate_model
+    from cld.executors.base import ExecutorResult
+
+    class _Noop:
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+
+    def git(args, cwd):
+        import subprocess
+        p = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        return (p.returncode, (p.stdout or "") + (p.stderr or ""))
+
+    res = validate_model("fake", executor=_Noop(), git_runner=git, base_dir=str(tmp_path))
+    assert res.status == "revalidate"   # was "known-bad"
