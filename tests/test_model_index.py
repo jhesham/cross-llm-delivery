@@ -26,14 +26,14 @@ def test_build_index_merges_opencode_and_gemini_with_evidence():
     idx = build_model_index(
         opencode_ids=["opencode/deepseek-v4-pro", "opencode/gpt-5"],
         cursor_models=[],  # part 2 supplies these
-        evidence={"opencode/deepseek-v4-pro": "proven"})
+        evidence={"opencode/deepseek-v4-pro": "verified"})
     by_spec = {c.spec: c for c in idx}
     # gemini workhorse always present (catalog)
     assert "gemini:gemini-3.1-pro-preview" in by_spec
     # opencode ids present, evidence overlay applied
     ds = by_spec["opencode:opencode/deepseek-v4-pro"]
     assert ds.executor == "opencode" and ds.provider == "deepseek"
-    assert ds.headless_status == "proven"  # from evidence overlay
+    assert ds.headless_status == "verified"  # from evidence overlay
     # an uncatalogued opencode id -> untested/metered-unknown, provider classified
     gpt = by_spec["opencode:opencode/gpt-5"]
     assert gpt.provider == "gpt" and gpt.headless_status == "untested"
@@ -54,22 +54,22 @@ def _mc(spec, status):
                        label="m", cost_class="metered-unknown", headless_status=status)
 
 
-def test_browse_filter_default_hides_untested_and_known_bad():
-    cs = [_mc("a", "proven"), _mc("b", "likely"), _mc("c", "untested"), _mc("d", "known-bad")]
+def test_browse_filter_default_hides_untested_and_revalidate():
+    cs = [_mc("a", "verified"), _mc("b", "likely"), _mc("c", "untested"), _mc("d", "revalidate")]
     assert [c.spec for c in browse_filter(cs)] == ["a", "b"]
 
 
-def test_browse_filter_show_all_keeps_untested_but_not_known_bad():
-    cs = [_mc("a", "proven"), _mc("c", "untested"), _mc("d", "known-bad")]
+def test_browse_filter_show_all_keeps_untested_but_not_revalidate():
+    cs = [_mc("a", "verified"), _mc("c", "untested"), _mc("d", "revalidate")]
     assert [c.spec for c in browse_filter(cs, headless_only=False)] == ["a", "c"]
 
 
-def test_rank_orders_proven_first_and_caps():
+def test_rank_orders_verified_first_and_caps():
     cs = [_mc(f"m{i}", "untested") for i in range(15)]
-    cs.insert(7, _mc("PROVEN", "proven"))
+    cs.insert(7, _mc("VERIFIED", "verified"))
     cs.insert(3, _mc("LIKELY", "likely"))
     ranked = rank_provider_models(cs, n=5)
-    assert ranked[0].spec == "PROVEN"
+    assert ranked[0].spec == "VERIFIED"
     assert ranked[1].spec == "LIKELY"
     assert len(ranked) == 5
 
@@ -89,7 +89,7 @@ from cld.models import (render_executor_level, render_provider_level,
 def _idx():
     return build_model_index(
         opencode_ids=["opencode/deepseek-v4-pro", "opencode/gpt-5"], cursor_models=[],
-        evidence={"opencode/deepseek-v4-pro": "proven"})
+        evidence={"opencode/deepseek-v4-pro": "verified"})
 
 
 def test_executor_level_lists_executors_and_search():
