@@ -258,11 +258,6 @@ def run_plan_parallel(
     """
     result = PlanResult()
 
-    # NOTE: _resolve_spec runs inside the ThreadPoolExecutor worker threads (via
-    # _run_one). A pure/non-interactive slice_pick_fn is fine here. An INTERACTIVE
-    # pick_fn (Task 3) MUST NOT prompt from these worker threads — concurrent prompts
-    # would interleave on stdin. Task 3 should pre-resolve per-slice picks on the main
-    # thread before fan-out (or serialize the prompt), not rely on this call site.
     def _resolve_spec(task):
         # Resolution order: explicit tag wins, then slice_pick_fn (review mode),
         # then the build default (pick-once-stick, the S1b interruption fix).
@@ -285,62 +280,6 @@ def run_plan_parallel(
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
 
-    def _run_subslices(parent: SliceTask):
-        """Run a parent's sub-slices as ORDERED children (sequential, not fanned out).
-
-        Each child is routed through the SAME `_executor_for` path (so tag /
-        build-default / Part-3 review all apply per child), delivered in its own
-        worktree when repo_dir+git_runner are set (mirroring the leaf collect step),
-        and recorded in the ledger keyed `f"{parent.id}/{child.id}"`. The parent is
-        accepted iff EVERY child is accepted; a failed child fails only itself.
-        """
-        all_ok = True
-        failed_children = []
-        for child in parent.subslices:
-            child_executor, child_spec = _executor_for(child)
-            # NOTE: this worktree + collect (git add -A/commit) block mirrors the leaf
-            # path in _run_one; if you change one, change the other (kept inline rather
-            # than factored to keep each path readable).
-            if repo_dir is not None and git_runner is not None:
-                with worktree(repo_dir, f"slice-{parent.id}-{child.id}", runner=git_runner) as wt_path:
-                    child_res = deliver_slice(
-                        child, executor=child_executor, judge_fn=judge_fn,
-                        max_retries=max_retries, workdir=wt_path,
-                        test_runner=test_runner, model=child_spec,
-                    )
-                    if child_res.accepted:
-                        git_runner(["git", "add", "-A"], wt_path)
-                        git_runner(
-                            ["git", "commit", "-m", f"slice {parent.id}/{child.id}: accepted by cld"],
-                            wt_path,
-                        )
-            else:
-                child_res = deliver_slice(
-                    child, executor=child_executor, judge_fn=judge_fn,
-                    max_retries=max_retries, workdir=f"{parent.id}/{child.id}",
-                    test_runner=test_runner, model=child_spec,
-                )
-
-            with ledger_lock:
-                ledger.set(f"{parent.id}/{child.id}",
-                           status=DONE if child_res.accepted else FAILED,
-                           attempts=child_res.attempts, model=child_res.model,
-                           effort=child_res.effort, token_usage=child_res.token_usage)
-                ledger.save()
-
-            all_ok = all_ok and child_res.accepted
-            if not child_res.accepted:
-                failed_children.append(child.id)
-
-        final = None
-        if not all_ok:
-            final = type("SubsliceResult", (), {
-                "failing_tests": [f"subslice {fid}" for fid in failed_children],
-            })()
-        return DeliverResult(accepted=all_ok, attempts=1, final=final, history=[],
-                             files_changed=[], diff_lines=0, model=None,
-                             token_usage={}, effort=None)
-
     def _run_one(task: SliceTask):
         """Deliver a slice, isolated in its own worktree when repo_dir is set.
 
@@ -350,8 +289,6 @@ def run_plan_parallel(
         original "code lost" bug). The commit lands on branch `slice-<id>`, which the
         caller can later merge.
         """
-        if task.subslices:
-            return _run_subslices(task)
         slice_executor, resolved_spec = _executor_for(task)
         if repo_dir is not None and git_runner is not None:
             with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:

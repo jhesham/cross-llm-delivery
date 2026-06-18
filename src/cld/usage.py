@@ -34,40 +34,11 @@ def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
     total_tokens = 0
     has_cursor_slice = False
 
-    # Order rows so each parent is followed by its sub-slice children. A child's
-    # ledger key is "parent/child"; a top-level slice has no "/". We preserve the
-    # ledger's insertion order for top-level slices, then attach each child right
-    # after its parent (children in insertion order). An orphan child (parent not
-    # in the ledger) is still rendered, in its own insertion position.
-    entries = list(ledger.entries.values())
-    children_by_parent: dict[str, list] = {}
-    for entry in entries:
-        if "/" in entry.slice_id:
-            parent_id = entry.slice_id.split("/", 1)[0]
-            children_by_parent.setdefault(parent_id, []).append(entry)
-
-    ordered = []
-    seen_children = set()
-    for entry in entries:
-        if "/" in entry.slice_id:
-            # Render here only if it's an orphan (its parent isn't a ledger entry);
-            # otherwise it's emitted right after its parent below.
-            parent_id = entry.slice_id.split("/", 1)[0]
-            if parent_id in ledger.entries:
-                continue
-            ordered.append((entry, False))
-        else:
-            ordered.append((entry, False))
-            for child in children_by_parent.get(entry.slice_id, []):
-                ordered.append((child, True))
-                seen_children.add(child.slice_id)
-
-    for entry, is_child in ordered:
+    for entry in ledger.entries.values():
         tokens = entry.token_usage.get("total", 0)
         total_tokens += tokens
         cost_str = "" if entry.cost is None else str(entry.cost)
-        label = f"&nbsp;&nbsp;{entry.slice_id}" if is_child else entry.slice_id
-        lines.append(f"| {label} | {entry.model} | {tokens} | {cost_str} |")
+        lines.append(f"| {entry.slice_id} | {entry.model} | {tokens} | {cost_str} |")
         if entry.model.startswith("cursor:"):
             has_cursor_slice = True
     lines.append("")
