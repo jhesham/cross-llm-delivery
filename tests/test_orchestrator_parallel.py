@@ -232,39 +232,6 @@ def test_usage_written_to_ledger_on_completion(tmp_path):
     assert e.model  # a model string was recorded (non-empty)
 
 
-def test_slice_pick_fn_used_for_untagged_only(tmp_path):
-    from cld.orchestrator import run_plan_parallel
-    from cld.ledger import Ledger
-    from cld.executors.base import SliceTask, ExecutorResult
-
-    picked = []
-    class _Rec:
-        def __init__(self, spec): self.spec = spec
-        def run(self, task, workdir, feedback=None):
-            picked.append((task.id, self.spec))
-            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
-
-    def slice_pick(task, default_spec):
-        return "opencode:opencode/deepseek-v4-pro"
-
-    slices = [
-        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),
-        SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
-                  executor="cursor:composer-2.5"),
-    ]
-    ledger = Ledger(str(tmp_path / "l.json"))
-    run_plan_parallel(
-        slices, ledger,
-        executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
-        slice_pick_fn=slice_pick,
-        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "1 passed",
-    )
-    d = dict(picked)
-    assert d["T1"] == "opencode:opencode/deepseek-v4-pro"   # untagged -> pick_fn chose
-    assert d["T2"] == "cursor:composer-2.5"                 # tagged -> tag wins, no prompt
-
-
 def test_no_slice_pick_fn_is_current_behavior(tmp_path):
     from cld.orchestrator import run_plan_parallel
     from cld.ledger import Ledger
@@ -283,26 +250,6 @@ def test_no_slice_pick_fn_is_current_behavior(tmp_path):
     assert seen == ["gemini"]   # no pick_fn -> build default (S1b preserved)
 
 
-def test_slice_pick_fn_none_return_falls_back_to_default(tmp_path):
-    # pick_fn returning None/empty must fall back to default_spec, never crash.
-    from cld.orchestrator import run_plan_parallel
-    from cld.ledger import Ledger
-    from cld.executors.base import SliceTask, ExecutorResult
-    seen = []
-    class _Rec:
-        def __init__(self, spec): self.spec = spec
-        def run(self, t, w, feedback=None):
-            seen.append(self.spec); return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
-    run_plan_parallel(
-        [SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py")],
-        Ledger(str(tmp_path / "l.json")),
-        executor_factory=lambda s: _Rec(s), default_spec="gemini",
-        slice_pick_fn=lambda task, default_spec: None,
-        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "1 passed")
-    assert seen == ["gemini"]   # None -> default
-
-
 def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
     from cld.orchestrator import run_plan_parallel
     from cld.ledger import Ledger
@@ -314,7 +261,7 @@ def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
             return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
 
     slices = [
-        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),  # untagged -> pick_fn
+        SliceTask(id="T1", brief="b", files=["x"], acceptance_test_path="t.py"),  # untagged -> default
         SliceTask(id="T2", brief="b", files=["y"], acceptance_test_path="t.py",
                   executor="cursor:composer-2.5"),                                 # tagged
     ]
@@ -322,12 +269,11 @@ def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
     run_plan_parallel(
         slices, ledger,
         executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
-        slice_pick_fn=lambda task, default_spec: "opencode:opencode/deepseek-v4-pro",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
     )
-    assert ledger.get("T1").model == "opencode:opencode/deepseek-v4-pro"  # pick_fn spec recorded
-    assert ledger.get("T2").model == "cursor:composer-2.5"               # tag spec recorded
+    assert ledger.get("T1").model == "gemini"              # untagged -> default spec recorded
+    assert ledger.get("T2").model == "cursor:composer-2.5"  # tag spec recorded
 
 
 def test_effort_recorded_from_spec_suffix(tmp_path):

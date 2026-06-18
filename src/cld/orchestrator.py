@@ -184,11 +184,7 @@ def run_plan(
     judge_fn: Callable,
     max_retries: int = 2,
     test_runner: Callable[[str], str] | None = None,
-    slice_pick_fn: Callable | None = None,
 ) -> PlanResult:
-    # `slice_pick_fn` is accepted for API symmetry with run_plan_parallel and
-    # forward-compatibility; run_plan is the legacy single-executor path and does
-    # not resolve per-slice specs, so the param has no effect here.
     result = PlanResult()
     for task in slices:
         if ledger.is_done(task.id):
@@ -235,7 +231,6 @@ def run_plan_parallel(
     repo_dir: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
-    slice_pick_fn: Callable | None = None,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -259,12 +254,9 @@ def run_plan_parallel(
     result = PlanResult()
 
     def _resolve_spec(task):
-        # Resolution order: explicit tag wins, then slice_pick_fn (review mode),
-        # then the build default (pick-once-stick, the S1b interruption fix).
-        if task.executor:                         # explicit tag wins, no prompt
+        # Resolution order: explicit tag wins, then the build default (pick-once-stick).
+        if task.executor:                         # explicit tag wins
             return task.executor
-        if slice_pick_fn is not None:             # review mode: ask per untagged slice
-            return slice_pick_fn(task, default_spec) or default_spec
         return default_spec                       # pick-once-stick (S1b fix)
 
     def _executor_for(task):
