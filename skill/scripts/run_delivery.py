@@ -26,7 +26,6 @@ import os
 import shlex
 import subprocess
 import sys
-import threading
 from pathlib import Path
 
 from cld.executors import KNOWN_EXECUTORS, get_executor
@@ -190,29 +189,6 @@ def prompt_for_executor() -> str:
     return pick_executor(recs)
 
 
-def make_slice_pick_fn(per_slice: bool):
-    """Build the per-slice review callback for run_plan_parallel.
-
-    OFF (default) -> None: the orchestrator uses pick-once-and-stick (the S1b fix).
-    ON -> a callback that, at each UNTAGGED slice, lets the user revisit the
-    executor/model/effort for THAT slice only (enter keeps the build default).
-
-    The orchestrator calls this from worker threads, so the prompt is serialized
-    under a lock; non-interactive runs (no TTY) never prompt and keep the default.
-    """
-    if not per_slice:
-        return None
-    lock = threading.Lock()
-
-    def pick(task, default_spec):
-        if not sys.stdin.isatty():
-            return default_spec
-        with lock:
-            print(f"\n[per-slice] slice {getattr(task, 'id', '?')}: choose executor/"
-                  f"model/effort (enter = keep {default_spec})")
-            return prompt_for_executor() or default_spec
-    return pick
-
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
@@ -231,10 +207,6 @@ def main(argv=None) -> int:
                    help="Run ONLY the next pending DAG layer, then exit (context-lean "
                         "orchestration). Re-invoke to advance. Exit codes: 0 layer all-passed, "
                         "2 some failed/deferred, 3 build complete.")
-    p.add_argument("--per-slice-pick", action="store_true",
-                   help="Review executor/model/effort at EACH slice start "
-                        "(default off = pick once and stick). Untagged slices only; "
-                        "tagged slices run on their tag silently.")
     p.add_argument("--usage", action="store_true",
                    help="Print a combined LLM-usage table (this build's ledger + opencode "
                         "account stats) and exit. No dispatch.")
@@ -290,7 +262,6 @@ def main(argv=None) -> int:
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner,
             test_runner=pytest_test_runner,
-            slice_pick_fn=make_slice_pick_fn(args.per_slice_pick),
         )
         write_artifacts(result, repo_dir=args.repo)
         nxt = next_pending_layer(slices, ledger)
@@ -310,7 +281,6 @@ def main(argv=None) -> int:
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner,
         test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
-        slice_pick_fn=make_slice_pick_fn(args.per_slice_pick),
     )
 
     print(f"completed: {result.completed}")
