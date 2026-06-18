@@ -10,6 +10,7 @@ class SliceTask:
     acceptance_test_path: str
     deps: list[str] = field(default_factory=list)
     executor: str | None = None  # optional per-slice executor spec; None -> build default
+    complexity: str = "standard"  # easy / standard / complex; default standard
 
 @dataclass
 class ExecutorResult:
