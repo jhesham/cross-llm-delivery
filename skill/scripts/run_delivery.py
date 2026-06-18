@@ -241,7 +241,6 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
 
     if args.usage:
-        from cld.ledger import Ledger
         from cld.usage import parse_cursor_about, parse_opencode_stats, render_usage_table
         ledger = Ledger.load(args.ledger)
         oc_stats = parse_opencode_stats(_opencode_stats_text())
