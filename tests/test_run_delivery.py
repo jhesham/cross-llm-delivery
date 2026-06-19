@@ -194,3 +194,14 @@ def test_build_rung_planner_tagged_pins():
     rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
                               executor="opencode:opencode/claude-opus-4-8"))
     assert rungs == [("workhorse", "opencode:opencode/claude-opus-4-8", 2)]
+
+
+def test_mark_repaired_marks_slice_done(tmp_path):
+    import skill.scripts.run_delivery as rd
+    from cld.ledger import Ledger
+    p = str(tmp_path / "l.json")
+    led = Ledger(p); led.set("T1", status="needs_repair", complexity="complex"); led.save()
+    rc = rd.main(["dummy-plan.md", "--ledger", p, "--mark-repaired", "T1"])
+    assert rc == 0
+    e = Ledger.load(p).get("T1")
+    assert e.status == "done" and e.intervened is True and e.final_rung == "orchestrator"
