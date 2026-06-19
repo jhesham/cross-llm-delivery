@@ -44,6 +44,33 @@ List each slice's `deps`. Independent slices (no shared deps) run in parallel; d
 wait for their layer. Avoid cycles (the DAG scheduler raises on them). Prefer a wide, shallow
 DAG (more parallelism) over a long chain where possible.
 
+## Complexity (routing hint)
+
+Each slice carries an optional `complexity:` field that tells the router which rung of the
+executor ladder to start on. Set it honestly — cheap escalation between rungs is automatic
+and free, but a wrong-low guess adds a re-run cycle.
+
+| Value | When to use it |
+|----------|----------------|
+| `easy` | Pure boilerplate or one well-specified function; a known pattern with no tricky logic or I/O; the executor could write it from the contract alone with no risk of subtle error. |
+| `standard` | A typical module with real logic and a few integrated pieces. **Use this when you are unsure** — it is the default. |
+| `complex` | Subtle algorithm, concurrency, gnarly edge cases, ambiguous spec, or high rework risk; even a good cheap model would likely struggle. Flagged `!` in the routing plan and routed to the workhorse; a failure escalates to orchestrator repair. |
+
+**Rule: never downgrade to `easy` or `standard` to save money when unsure — default to
+`standard`.** A wrong-low complexity guess only causes cheap-to-free escalations; the router
+handles them automatically. The cost of underestimating is a re-run cycle, not a surprise bill.
+
+```
+## SLICE: T3
+brief: Implement the retry backoff with jitter so tests/test_retry.py passes.
+files: src/retry.py
+acceptance_test_path: tests/test_retry.py
+complexity: complex
+deps: T1
+```
+
+If omitted, the router treats the slice as `standard`.
+
 ## Slice brief checklist
 
 A good `brief` states: what to implement, the exact public names/contract, the allowed files,
