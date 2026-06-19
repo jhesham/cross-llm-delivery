@@ -686,6 +686,62 @@ def spec_with_effort(choice, effort) -> str:
     return f"{choice.spec}@{effort}"
 
 
+# ---- Complexity routing table ----
+
+COMPLEXITY_ROUTING: dict[str, tuple[str, int]] = {
+    "easy": ("quick", 1),
+    "standard": ("workhorse", 2),
+    "complex": ("workhorse", 1),
+}
+
+# Climb chains: for each entry tier, which tiers to try in order
+_CLIMB_CHAINS: dict[str, list[str]] = {
+    "quick": ["quick", "workhorse"],
+    "workhorse": ["workhorse"],
+}
+
+
+def plan_rungs(
+    task,
+    *,
+    provider: str,
+    evidence: dict,
+    available_ids: list[str],
+    max_retries: int = 2,
+) -> list[tuple[str, str, int]]:
+    """Return the ordered list of cheap executor rungs for a slice to climb.
+
+    Each element is (rung_name, spec, budget).
+    - Tagged slice (task.executor set): single pinned rung ("workhorse", spec, max_retries).
+    - Untagged: build the chain from COMPLEXITY_ROUTING[task.complexity], de-dupe specs.
+    - Fallback: if nothing resolves, return [("workhorse", DEFAULT_WORKHORSE_ID, max_retries)].
+    """
+    # Tagged: pinned to the nominated executor, no auto-routing
+    if task.executor:
+        return [("workhorse", task.executor, max_retries)]
+
+    complexity = getattr(task, "complexity", "standard")
+    entry_tier, entry_budget = COMPLEXITY_ROUTING[complexity]
+    chain = _CLIMB_CHAINS[entry_tier]
+
+    rungs: list[tuple[str, str, int]] = []
+    seen_specs: set[str] = set()
+
+    for i, tier in enumerate(chain):
+        spec = resolve_tier_model(provider, tier, evidence=evidence, available_ids=available_ids)
+        if spec is None or spec in seen_specs:
+            continue
+        seen_specs.add(spec)
+        # Entry tier uses the complexity's budget; higher fallback tiers use standard budget (2)
+        budget = entry_budget if i == 0 else 2
+        rungs.append((tier, spec, budget))
+
+    if not rungs:
+        return [("workhorse", DEFAULT_WORKHORSE_ID, max_retries)]
+
+    return rungs
+
+
 # ---- resolve_tier_model: cheapest viable model in a (provider, tier) ----
 
 _COST_RANK = {"free": 0, "flat": 0, "cheap-metered": 1, "metered-unknown": 2, "premium-metered": 3}
