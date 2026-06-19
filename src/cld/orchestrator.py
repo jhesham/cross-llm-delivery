@@ -372,14 +372,16 @@ def run_plan_parallel(
                 ledger.set(task.id, status="needs_repair", attempts=deliver_res.attempts,
                            model=deliver_res.model, effort=deliver_res.effort,
                            token_usage=deliver_res.token_usage,
-                           complexity=task.complexity, final_rung="orchestrator")
+                           complexity=task.complexity, final_rung="orchestrator",
+                           chosen_by=("you" if task.executor else "rec"))
                 result.needs_repair.append(task.id)
                 status = "needs_repair"
             elif deliver_res.accepted:
                 ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
                            model=deliver_res.model, effort=deliver_res.effort,
                            token_usage=deliver_res.token_usage,
-                           complexity=task.complexity, final_rung=deliver_res.final_rung)
+                           complexity=task.complexity, final_rung=deliver_res.final_rung,
+                           chosen_by=("you" if task.executor else "rec"))
                 result.completed.append(task.id)
                 status = "completed"
             else:
