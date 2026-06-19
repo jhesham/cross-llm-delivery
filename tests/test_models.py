@@ -443,3 +443,35 @@ def test_plan_rungs_tagged_slice_pins_single_rung():
     rungs = plan_rungs(_task(executor="opencode:opencode/claude-opus-4-8"),
                        provider="opencode", evidence={}, available_ids=[], max_retries=2)
     assert rungs == [("workhorse", "opencode:opencode/claude-opus-4-8", 2)]
+
+
+# ---- T1: render_routing_plan — one-screen per-slice plan table ----
+
+def test_render_routing_plan_basics():
+    from cld.models import render_routing_plan
+    from cld.executors.base import SliceTask
+    slices = [
+        SliceTask(id="S1", brief="b", files=["a"], acceptance_test_path="t.py", complexity="easy"),
+        SliceTask(id="S2", brief="b", files=["b"], acceptance_test_path="t.py", complexity="complex"),
+        SliceTask(id="S3", brief="b", files=["c"], acceptance_test_path="t.py",
+                  executor="opencode:opencode/claude-opus-4-8"),   # pinned
+    ]
+    out = render_routing_plan(slices, provider="gemini", evidence={}, available_ids=[])
+    assert "S1" in out and "S2" in out and "S3" in out
+    # easy/standard slices recommend the workhorse for the build provider (gemini default)
+    assert "gemini:gemini-3.1-pro-preview" in out
+    # complex slice flagged
+    assert "!" in out
+    # pinned slice shows its tag + [you]; auto-routed show [rec]
+    assert "opencode:opencode/claude-opus-4-8" in out
+    assert "[you]" in out and "[rec]" in out
+    out.encode("cp1252")   # safe
+
+
+def test_render_routing_plan_shows_complexity():
+    from cld.models import render_routing_plan
+    from cld.executors.base import SliceTask
+    out = render_routing_plan(
+        [SliceTask(id="S1", brief="b", files=["a"], acceptance_test_path="t.py", complexity="easy")],
+        provider="gemini", evidence={}, available_ids=[])
+    assert "easy" in out
