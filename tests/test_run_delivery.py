@@ -168,3 +168,29 @@ def test_step_help_documents_gate_4(capsys):
         run_delivery.main(["--help"])
     out = capsys.readouterr().out
     assert "4" in out
+
+
+def test_provider_of_spec():
+    import skill.scripts.run_delivery as rd
+    assert rd._provider_of_spec("gemini") == "gemini"
+    assert rd._provider_of_spec("gemini:gemini-3.1-pro-preview") == "gemini"
+    assert rd._provider_of_spec("opencode:opencode/deepseek-v4-pro") == "opencode"
+    assert rd._provider_of_spec("cursor:composer-2.5") == "cursor"
+
+
+def test_build_rung_planner_untagged_uses_provider_workhorse():
+    import skill.scripts.run_delivery as rd
+    from cld.executors.base import SliceTask
+    planner = rd.build_rung_planner("gemini", evidence={})
+    rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
+                              complexity="standard"))
+    assert rungs == [("workhorse", "gemini:gemini-3.1-pro-preview", 2)]
+
+
+def test_build_rung_planner_tagged_pins():
+    import skill.scripts.run_delivery as rd
+    from cld.executors.base import SliceTask
+    planner = rd.build_rung_planner("gemini", evidence={})
+    rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
+                              executor="opencode:opencode/claude-opus-4-8"))
+    assert rungs == [("workhorse", "opencode:opencode/claude-opus-4-8", 2)]

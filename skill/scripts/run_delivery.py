@@ -172,6 +172,78 @@ def build_executor_factory():
     return factory
 
 
+def _provider_of_spec(spec: str) -> str:
+    """Extract the executor provider name from an --executor spec.
+
+    Strips a trailing @effort if present, then takes the part before the first ':'.
+    Lowercases and returns it if it's in KNOWN_EXECUTORS; falls back to 'gemini'.
+
+    Examples:
+        "gemini"                           -> "gemini"
+        "gemini:gemini-3.1-pro-preview"   -> "gemini"
+        "opencode:opencode/deepseek-v4"   -> "opencode"
+        "cursor:composer-2.5"             -> "cursor"
+        "unknown:whatever"                -> "gemini"
+    """
+    s = (spec or "gemini").strip()
+    # strip @effort suffix
+    if "@" in s:
+        s = s.rsplit("@", 1)[0].strip()
+    # take the part before the first ':'
+    if ":" in s:
+        name = s.split(":", 1)[0].strip().lower()
+    else:
+        name = s.lower()
+    return name if name in KNOWN_EXECUTORS else "gemini"
+
+
+def _available_ids_for(provider: str) -> list:
+    """Return available model ids for the given provider executor name.
+
+    opencode -> calls list_models via the opencode default runner.
+    cursor   -> calls list_cursor_models via the cursor default runner, returns ids.
+    else     -> [].
+
+    All exceptions are caught and [] is returned so failures degrade gracefully.
+    """
+    try:
+        if provider == "opencode":
+            from cld.executors.opencode import _default_runner
+            from cld.models import list_models
+            return list_models(runner=_default_runner)
+        if provider == "cursor":
+            from cld.executors.cursor import _default_runner as _cursor_default_runner
+            from cld.models import list_cursor_models
+            return [i for i, _ in list_cursor_models(runner=_cursor_default_runner)]
+    except Exception:
+        return []
+    return []
+
+
+def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2):
+    """Build a rung_planner callable from the build's provider, evidence, and available ids.
+
+    The returned planner(task) calls cld.models.plan_rungs with the resolved provider,
+    evidence dict, and available model ids, returning the escalation ladder for that slice.
+
+    evidence=None resolves via EvidenceStore().statuses() at call time (i.e. when
+    build_rung_planner is called, not when each slice is planned). Pass evidence={}
+    to skip the store lookup (e.g. in tests).
+    """
+    provider = _provider_of_spec(default_spec)
+    if evidence is None:
+        from cld.evidence import EvidenceStore
+        evidence = EvidenceStore().statuses()
+    available = _available_ids_for(provider)
+
+    def planner(task):
+        from cld.models import plan_rungs
+        return plan_rungs(task, provider=provider, evidence=evidence,
+                          available_ids=available, max_retries=max_retries)
+
+    return planner
+
+
 def prompt_for_executor() -> str:
     """Interactive model picker (the CLI surface). Lists available OpenCode models,
     builds the recommended shortlist, and prompts the user to choose. The proven
@@ -259,6 +331,7 @@ def main(argv=None) -> int:
             layer_slices, ledger,
             executor_factory=build_executor_factory(),
             default_spec=args.executor or "gemini",
+            rung_planner=build_rung_planner(args.executor or "gemini"),
             judge_fn=judge_fn,
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner,
@@ -278,6 +351,7 @@ def main(argv=None) -> int:
         slices, ledger,
         executor_factory=build_executor_factory(),
         default_spec=args.executor or "gemini",
+        rung_planner=build_rung_planner(args.executor or "gemini"),
         judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner,
