@@ -390,3 +390,31 @@ def test_no_rung_planner_is_current_behavior(tmp_path):
     assert seen == ["gemini"] and "S" in res.completed   # unchanged single-dispatch path
 
 
+def test_chosen_by_recorded(tmp_path):
+    """Ledger records chosen_by: "you" for explicit executor tag, "rec" for auto-routed."""
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    class _Ok:
+        def __init__(self, spec): pass
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=["x"], raw_log="")
+
+    slices = [
+        SliceTask(id="A", brief="b", files=["x"], acceptance_test_path="t.py"),  # untagged -> rec
+        SliceTask(id="B", brief="b", files=["y"], acceptance_test_path="t.py",
+                  executor="opencode:opencode/deepseek-v4-pro"),  # tagged -> you
+    ]
+    p = str(tmp_path / "l.json")
+    ledger = Ledger(p)
+    run_plan_parallel(slices, ledger,
+        executor_factory=lambda s: _Ok(s), default_spec="gemini",
+        rung_planner=lambda task: [("workhorse", task.executor or "gemini", 2)],
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "ok")
+
+    assert ledger.get("A").chosen_by == "rec"
+    assert ledger.get("B").chosen_by == "you"
+
+
