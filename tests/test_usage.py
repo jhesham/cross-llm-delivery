@@ -101,3 +101,48 @@ def test_cursor_block_only_when_cursor_slice_present():
     assert "Cursor account" not in out2
 
 
+def test_usage_table_has_complexity_and_rung_columns():
+    from cld.usage import render_usage_table
+    class E:
+        def __init__(s, sid, model, tu, cost=None, complexity=None, final_rung=None):
+            s.slice_id, s.model, s.token_usage, s.cost = sid, model, tu, cost
+            s.complexity, s.final_rung = complexity, final_rung
+    class L:
+        def __init__(s, e): s._e = {x.slice_id: x for x in e}
+        @property
+        def entries(s): return s._e
+    out = render_usage_table(L([
+        E("S1", "gemini:gemini-3.1-pro-preview", {"total": 100}, 0.0, "standard", "workhorse"),
+        E("S2", "opencode:opencode/deepseek-v4-pro", {"total": 50}, 0.01, "complex", "orchestrator"),
+    ]), {})
+    assert "Complexity" in out and "Rung" in out
+    assert "standard" in out and "workhorse" in out
+    assert "complex" in out and "orchestrator" in out
+    assert "150" in out          # build total tokens
+    out.encode("cp1252")
+
+
+def test_usage_account_blocks_are_separate_helpers():
+    from cld.usage import opencode_account_block, cursor_account_block
+    oc = opencode_account_block({"total_cost": 5.64, "input": "1.3M"})
+    assert any("5.64" in ln for ln in oc)
+    cur = cursor_account_block({"tier": "Pro", "model": "Composer 2.5"})
+    assert any("Pro" in ln for ln in cur)
+
+
+def test_usage_handles_missing_routing_fields_gracefully():
+    # entries without complexity/final_rung (older builds) render with a placeholder, no crash
+    from cld.usage import render_usage_table
+    class E:
+        def __init__(s):
+            s.slice_id, s.model, s.token_usage, s.cost = "X", "gemini:gemini-3.1-pro-preview", {"total": 1}, None
+            s.complexity = None; s.final_rung = None
+    class L:
+        def __init__(s, e): s._e = {x.slice_id: x for x in e}
+        @property
+        def entries(s): return s._e
+    out = render_usage_table(L([E()]), {})
+    assert "X" in out
+    out.encode("cp1252")
+
+
