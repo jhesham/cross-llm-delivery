@@ -206,7 +206,8 @@ def main(argv=None) -> int:
     p.add_argument("--step", action="store_true",
                    help="Run ONLY the next pending DAG layer, then exit (context-lean "
                         "orchestration). Re-invoke to advance. Exit codes: 0 layer all-passed, "
-                        "2 some failed/deferred, 3 build complete.")
+                        "2 some failed/deferred, 3 build complete, "
+                        "4 a slice needs orchestrator repair (lead agent intervenes).")
     p.add_argument("--usage", action="store_true",
                    help="Print a combined LLM-usage table (this build's ledger + opencode "
                         "account stats) and exit. No dispatch.")

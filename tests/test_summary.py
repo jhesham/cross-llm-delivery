@@ -62,3 +62,22 @@ def test_gate_deferred_returns_2():
 def test_gate_complete_returns_3():
     r = PlanResult(completed=["T1"])
     assert classify_gate(r, more_layers=False) == 3
+
+
+def test_classify_gate_needs_repair_is_4():
+    from cld.summary import classify_gate
+    class _R:
+        completed=["A"]; failed=[]; deferred=[]; needs_repair=["B"]
+    assert classify_gate(_R(), more_layers=True) == 4
+    assert classify_gate(_R(), more_layers=False) == 4
+
+
+def test_classify_gate_unchanged_without_needs_repair():
+    from cld.summary import classify_gate
+    class _Ok:
+        completed=["A"]; failed=[]; deferred=[]; needs_repair=[]
+    class _Fail:
+        completed=[]; failed=["A"]; deferred=[]; needs_repair=[]
+    assert classify_gate(_Ok(), more_layers=True) == 0
+    assert classify_gate(_Ok(), more_layers=False) == 3
+    assert classify_gate(_Fail(), more_layers=True) == 2
