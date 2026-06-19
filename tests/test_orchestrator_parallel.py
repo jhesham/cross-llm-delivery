@@ -321,3 +321,72 @@ def test_leaf_slice_unchanged_no_subslice_ledger_keys(tmp_path):
     assert keys == ["L"]   # no child keys
 
 
+def test_ladder_climbs_quick_to_workhorse(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+
+    used = []
+    class _Rec:
+        def __init__(self, spec): self.spec = spec
+        def run(self, task, workdir, feedback=None):
+            used.append(self.spec)
+            ok = self.spec == "wh"           # quick fails, workhorse passes
+            return ExecutorResult(ok=ok, diff="", files_changed=["x"], raw_log="")
+
+    def judge(**kw):
+        passed = kw["run_tests"]() == "ok"
+        return type("J", (), {"passed": passed, "failing_tests": []})()
+    def tr(workdir, path=None):
+        return "ok" if used and used[-1] == "wh" else "no"
+
+    planner = lambda task: [("quick", "qk", 1), ("workhorse", "wh", 2)]
+    p = str(tmp_path / "l.json"); ledger = Ledger(p)
+    res = run_plan_parallel(
+        [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py", complexity="easy")],
+        ledger, executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
+        rung_planner=planner, judge_fn=judge, test_runner=tr)
+    assert used == ["qk", "wh"]                 # climbed
+    assert "S" in res.completed
+    assert ledger.get("S").final_rung == "workhorse"
+    assert ledger.get("S").complexity == "easy"
+
+
+def test_ladder_all_cheap_fail_yields_needs_repair(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    class _Fail:
+        def __init__(self, spec): pass
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=["x"], raw_log="")
+    judge = lambda **kw: type("J", (), {"passed": False, "failing_tests": ["t::x"]})()
+    planner = lambda task: [("workhorse", "wh", 1)]
+    p = str(tmp_path / "l.json"); ledger = Ledger(p)
+    res = run_plan_parallel(
+        [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py", complexity="complex")],
+        ledger, executor_factory=lambda s: _Fail(s), default_spec="gemini",
+        rung_planner=planner, judge_fn=judge, test_runner=lambda *a, **k: "no")
+    assert "S" in res.needs_repair and "S" not in res.failed and "S" not in res.completed
+    assert ledger.get("S").status == "needs_repair"
+    assert ledger.get("S").final_rung == "orchestrator"
+
+
+def test_no_rung_planner_is_current_behavior(tmp_path):
+    from cld.orchestrator import run_plan_parallel
+    from cld.ledger import Ledger
+    from cld.executors.base import SliceTask, ExecutorResult
+    seen = []
+    class _Ok:
+        def __init__(self, spec): seen.append(spec)
+        def run(self, task, workdir, feedback=None):
+            return ExecutorResult(ok=True, diff="", files_changed=[], raw_log="")
+    res = run_plan_parallel(
+        [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py")],
+        Ledger(str(tmp_path / "l.json")),
+        executor_factory=lambda s: _Ok(s), default_spec="gemini",
+        judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
+        test_runner=lambda *a, **k: "1 passed")
+    assert seen == ["gemini"] and "S" in res.completed   # unchanged single-dispatch path
+
+
