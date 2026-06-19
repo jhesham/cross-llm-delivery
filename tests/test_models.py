@@ -358,3 +358,44 @@ def test_catalog_tier_assignments():
     # premium models are NOT executor tiers (orchestrator domain)
     assert M["opencode/claude-opus-4-8"].tier is None
     assert M["opencode/claude-sonnet-4-6"].tier is None
+
+
+# ---- T2: resolve_tier_model — cheapest viable model in a provider tier ----
+
+def test_resolve_tier_model_picks_cheapest_viable():
+    from cld.models import resolve_tier_model
+    # opencode workhorse tier: deepseek-v4-pro + gemini-3.1-pro (both cheap-metered, likely),
+    # kimi-k2.6 revalidate (skip). Cheapest-then-id => deepseek-v4-pro.
+    spec = resolve_tier_model(
+        "opencode", "workhorse",
+        evidence={"opencode/kimi-k2.6": "revalidate"},
+        available_ids=["opencode/deepseek-v4-pro", "opencode/gemini-3.1-pro", "opencode/kimi-k2.6"],
+    )
+    assert spec == "opencode:opencode/deepseek-v4-pro"
+
+
+def test_resolve_tier_model_gemini_default_always_available():
+    from cld.models import resolve_tier_model
+    # provider gemini, workhorse: the flat workhorse resolves even with empty available_ids
+    spec = resolve_tier_model("gemini", "workhorse", evidence={}, available_ids=[])
+    assert spec == "gemini:gemini-3.1-pro-preview"
+
+
+def test_resolve_tier_model_skips_revalidate_returns_none():
+    from cld.models import resolve_tier_model
+    spec = resolve_tier_model(
+        "opencode", "quick",
+        evidence={"opencode/deepseek-v4-flash-free": "revalidate"},
+        available_ids=["opencode/deepseek-v4-flash-free"],
+    )
+    assert spec is None    # the only quick model is revalidate -> nothing viable
+
+
+def test_resolve_tier_model_untested_only_when_nothing_better():
+    from cld.models import resolve_tier_model
+    # kimi-k2.7 is untested workhorse; with no verified/likely available it's returned
+    spec = resolve_tier_model(
+        "opencode", "workhorse", evidence={},
+        available_ids=["opencode/kimi-k2.7"],
+    )
+    assert spec == "opencode:opencode/kimi-k2.7"
