@@ -47,6 +47,8 @@ class DeliverResult:
     model: str | None = None
     effort: str | None = None
     token_usage: dict = field(default_factory=dict)
+    final_rung: str | None = None
+    needs_repair: bool = False
 
 def deliver_slice(
     task: SliceTask,
@@ -173,6 +175,7 @@ class PlanResult:
     failed: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     deferred: list[str] = field(default_factory=list)
+    needs_repair: list[str] = field(default_factory=list)
     details: dict[str, "SliceDetail"] = field(default_factory=dict)
 
 
@@ -231,6 +234,7 @@ def run_plan_parallel(
     repo_dir: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
+    rung_planner: Callable | None = None,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -280,26 +284,56 @@ def run_plan_parallel(
         `git worktree remove --force` discards the executor's uncommitted files (the
         original "code lost" bug). The commit lands on branch `slice-<id>`, which the
         caller can later merge.
+
+        When rung_planner is provided, walk the rungs in order: first acceptance wins;
+        if all rungs fail, return with needs_repair=True and final_rung="orchestrator".
         """
-        slice_executor, resolved_spec = _executor_for(task)
-        if repo_dir is not None and git_runner is not None:
-            with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
-                res = deliver_slice(
-                    task, executor=slice_executor, judge_fn=judge_fn,
-                    max_retries=max_retries, workdir=wt_path,
-                    test_runner=test_runner, model=resolved_spec,
-                )
-                if res.accepted:
-                    git_runner(["git", "add", "-A"], wt_path)
-                    git_runner(
-                        ["git", "commit", "-m", f"slice {task.id}: accepted by cld"],
-                        wt_path,
+        if rung_planner is None:
+            # UNCHANGED existing body — single _executor_for dispatch with max_retries
+            slice_executor, resolved_spec = _executor_for(task)
+            if repo_dir is not None and git_runner is not None:
+                with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
+                    res = deliver_slice(
+                        task, executor=slice_executor, judge_fn=judge_fn,
+                        max_retries=max_retries, workdir=wt_path,
+                        test_runner=test_runner, model=resolved_spec,
                     )
+                    if res.accepted:
+                        git_runner(["git", "add", "-A"], wt_path)
+                        git_runner(
+                            ["git", "commit", "-m", f"slice {task.id}: accepted by cld"],
+                            wt_path,
+                        )
+                    return res
+            return deliver_slice(
+                task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
+                test_runner=test_runner, model=resolved_spec,
+            )
+
+        # Escalation ladder: walk each rung, first acceptance wins.
+        rungs = rung_planner(task) or [("workhorse", _resolve_spec(task), max_retries)]
+        last = None
+        for rung_name, spec, budget in rungs:
+            ex = executor_factory(spec) if executor_factory is not None else executor
+            if repo_dir is not None and git_runner is not None:
+                with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt:
+                    res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
+                                        max_retries=max(budget - 1, 0), workdir=wt,
+                                        test_runner=test_runner, model=spec)
+                    if res.accepted:
+                        git_runner(["git", "add", "-A"], wt)
+                        git_runner(["git", "commit", "-m", f"slice {task.id}: accepted by cld"], wt)
+            else:
+                res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
+                                    max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec)
+            last = res
+            if res.accepted:
+                res.final_rung = rung_name
                 return res
-        return deliver_slice(
-            task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
-            test_runner=test_runner, model=resolved_spec,
-        )
+        # All cheap rungs failed -> handoff for repair
+        last.final_rung = "orchestrator"
+        last.needs_repair = True
+        return last
 
     def _process(task: SliceTask) -> None:
         # Quota gate (checked per slice so a window can fill mid-run).
@@ -332,10 +366,20 @@ def run_plan_parallel(
             return
 
         with ledger_lock:
-            if deliver_res.accepted:
+            failing = list(getattr(deliver_res.final, "failing_tests", []) or []) \
+                if deliver_res.final is not None else []
+            if deliver_res.needs_repair:
+                ledger.set(task.id, status="needs_repair", attempts=deliver_res.attempts,
+                           model=deliver_res.model, effort=deliver_res.effort,
+                           token_usage=deliver_res.token_usage,
+                           complexity=task.complexity, final_rung="orchestrator")
+                result.needs_repair.append(task.id)
+                status = "needs_repair"
+            elif deliver_res.accepted:
                 ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
                            model=deliver_res.model, effort=deliver_res.effort,
-                           token_usage=deliver_res.token_usage)
+                           token_usage=deliver_res.token_usage,
+                           complexity=task.complexity, final_rung=deliver_res.final_rung)
                 result.completed.append(task.id)
                 status = "completed"
             else:
@@ -349,8 +393,7 @@ def run_plan_parallel(
                 files_changed=list(deliver_res.files_changed or []),
                 attempts=deliver_res.attempts,
                 diff_lines=deliver_res.diff_lines,
-                failing_tests=list(getattr(deliver_res.final, "failing_tests", []) or [])
-                    if deliver_res.final is not None else [],
+                failing_tests=failing,
             )
             ledger.save()
 
