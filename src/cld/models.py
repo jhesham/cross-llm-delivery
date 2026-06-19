@@ -12,6 +12,7 @@ class ModelInfo:
     rework_risk: str
     note: str
     last_validated: Optional[str] = None
+    tier: str | None = None
 
 MODEL_METADATA: Dict[str, ModelInfo] = {
     "gemini:gemini-3.1-pro-preview": ModelInfo(
@@ -21,7 +22,8 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         capability_class="workhorse",
         headless_status="verified",
         rework_risk="low",
-        note="our 14/14 grade-A workhorse; $0 flat-rate"
+        note="our 14/14 grade-A workhorse; $0 flat-rate",
+        tier="workhorse"
     ),
     "opencode/claude-opus-4-8": ModelInfo(
         id="opencode/claude-opus-4-8",
@@ -30,7 +32,8 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         capability_class="heavy",
         headless_status="likely",
         rework_risk="medium",
-        note="top capability, bills real money"
+        note="top capability, bills real money",
+        tier=None
     ),
     "opencode/deepseek-v4-flash-free": ModelInfo(
         id="opencode/deepseek-v4-flash-free",
@@ -39,7 +42,8 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         capability_class="quick",
         headless_status="untested",
         rework_risk="medium",
-        note="cheap, validate before trusting"
+        note="cheap, validate before trusting",
+        tier="quick"
     ),
     "opencode/deepseek-v4-pro": ModelInfo(
         id="opencode/deepseek-v4-pro",
@@ -48,7 +52,8 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         capability_class="workhorse",
         headless_status="likely",
         rework_risk="low",
-        note="solid choice"
+        note="solid choice",
+        tier="workhorse"
     ),
     "opencode/gemini-3.1-pro": ModelInfo(
         id="opencode/gemini-3.1-pro",
@@ -57,7 +62,8 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         capability_class="workhorse",
         headless_status="likely",
         rework_risk="low",
-        note="same model as the flat-rate workhorse, routed through OpenCode (metered)"
+        note="same model as the flat-rate workhorse, routed through OpenCode (metered)",
+        tier="workhorse"
     ),
     "opencode/kimi-k2.6": ModelInfo(
         id="opencode/kimi-k2.6",
@@ -67,6 +73,7 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         headless_status="untested",
         rework_risk="medium",
         note="strong model; never cleanly validated headless - validate before trusting",
+        tier="workhorse"
     ),
     "opencode/kimi-k2.7": ModelInfo(
         id="opencode/kimi-k2.7",
@@ -78,6 +85,7 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         # Catalogued ahead of availability: stays filtered out of the shortlist until
         # `opencode models` lists it (gated by available_ids), then auto-appears.
         note="newer Kimi via OpenCode; validate before trusting headless",
+        tier="workhorse"
     ),
     "opencode/claude-sonnet-4-6": ModelInfo(
         id="opencode/claude-sonnet-4-6",
@@ -87,6 +95,7 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         headless_status="likely",
         rework_risk="low",
         note="capable Anthropic Sonnet via OpenCode; bills real money",
+        tier=None
     ),
     "cursor:composer-2.5": ModelInfo(
         id="cursor:composer-2.5",
@@ -96,6 +105,7 @@ MODEL_METADATA: Dict[str, ModelInfo] = {
         headless_status="untested",
         rework_risk="low",
         note="Cursor's cost-optimized Composer; resolve_composer_default tracks the current version",
+        tier="workhorse"
     ),
 }
 
@@ -119,6 +129,7 @@ class Recommendation:
 DEFAULT_WORKHORSE_ID = "gemini:gemini-3.1-pro-preview"
 
 KNOWN_PROVIDERS = ("claude", "gpt", "gemini", "deepseek", "grok", "kimi", "qwen", "glm", "minimax")
+TIERS = ("quick", "workhorse")
 
 @dataclass
 class ModelChoice:
