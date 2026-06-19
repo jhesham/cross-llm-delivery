@@ -259,6 +259,88 @@ Pick one [default: workhorse]:
 
 Use `--dry-run` first to print the layers without dispatching.
 
+#### Routing control flow
+
+##### The one-screen routing plan
+
+After slicing and assessing complexity, present the routing plan ONCE — before the first
+dispatch of a build, as a companion to the executor picker. Use the ONE helper that emits
+the complete, correct plan (do not hand-assemble it):
+
+```python
+from cld.models import render_routing_plan
+from cld.evidence import EvidenceStore
+plan_text = render_routing_plan(
+    slices,
+    provider=chosen_provider,
+    evidence=EvidenceStore().statuses(),
+    available_ids=available_ids,
+)
+print(plan_text)   # paste VERBATIM into chat
+```
+
+Each row shows: slice id, complexity (`easy` / `standard` / `complex`), recommended model,
+whether the plan uses the agent recommendation `[rec]` or a pinned executor tag `[you]`,
+and `!` for complex slices that expect orchestrator repair on failure. Example output:
+
+```
+Routing plan (14 slices):
+  T1   easy      gemini:gemini-3.1-pro-preview   [rec]
+  T2   standard  gemini:gemini-3.1-pro-preview   [rec]
+  T3   complex   gemini:gemini-3.1-pro-preview   [rec]  !
+  T4   standard  opencode:opencode/claude-opus-4-8  [you]
+  ...
+! = complex, expects orchestrator repair on failure
+[rec] = auto-routed  [you] = pinned via executor: tag
+```
+
+Present this plan exactly as rendered — same order, same ids, no edits.
+
+##### Run-modes (how the user controls lead-agent behavior)
+
+The run-mode is the lead agent's behavior during gate-4 repair. It is carried in the
+conversation context — there is NO CLI flag for it.
+
+| Mode | How it is set | What happens at gate 4 |
+|------|---------------|------------------------|
+| **advise** (default) | No instruction given, or "ask me before fixing" | Lead agent summarizes failing slices, asks the user whether to repair, and waits. |
+| **autonomous** | User said "fix things yourself" / "don't interrupt me" | Lead agent repairs without asking — surgically fixes, commits, marks repaired, and continues. |
+| **review each slice** | User said "show me each slice" / "I want to review" | After every slice result (pass or fail), the lead agent pauses and asks the user before proceeding. |
+| **adjust first** | User says "pin T4 to opus" before the build starts | Edit the slice's `executor:` tag (`[you]`) in the plan file, then run. The tag is the decision — no further prompt. |
+
+Only one mode is active at a time; the user changes it by saying so in chat.
+
+##### The gate-4 repair loop
+
+When `--step` exits with code **4**, the summary lists one or more `! NEEDS REPAIR` slices
+(workhorse failed after exhausting its retries). This is NOT a terminal state — the ledger
+marks the slice `needs_repair`, not `failed`; without an explicit repair action it will be
+re-dispatched unchanged on the next `--step`, which would fail again.
+
+The lead agent's repair procedure:
+
+1. **Advise mode:** summarize the failing slices and ask the user before touching anything.
+   Autonomous mode: proceed directly to step 2.
+2. **Diagnose:** read the failing test output from `.cld/<slice-id>/detail.json` (only on
+   explicit request or as part of repair; do not pull raw output into context otherwise).
+3. **Surgically fix** the failing source files in the repo (not in the worktree — that is
+   gone). Commit the fix to the current branch.
+4. **Mark repaired** — run this for each repaired slice:
+   ```bash
+   python skill/scripts/run_delivery.py <plan.md> --mark-repaired <slice_id> --ledger <path>
+   ```
+   This closes out the `needs_repair` entry so the next `--step` does not re-dispatch it
+   from scratch. Without this step, the ledger would re-queue the slice and overwrite the fix.
+5. **Continue:** re-invoke `--step` as normal. The repaired slice is now `done`; the DAG
+   advances to the next pending layer.
+
+Cheap escalation (quick-model to workhorse) is fully automatic and never reaches gate 4.
+Gate 4 is triggered only when the workhorse itself exhausts retries — a genuine hard case.
+The ONLY gated spend at gate 4 is the orchestrator's repair effort (Claude's tokens); the
+executor itself is not re-invoked until after the fix is committed and `--mark-repaired` has
+run. Cheap routing and cheap escalation are automatic and free; orchestrator repair is the
+only decision point.
+
 **Inspecting on request:** raw diffs/logs/JSON are NOT on stdout — per-slice detail is written
 to `<dir>/.cld/<slice-id>/detail.json`. Only when the user asks "show me T3", read that one
 file. Do not pull raw output into context otherwise.
