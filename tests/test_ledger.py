@@ -157,3 +157,28 @@ def test_old_ledger_loads_with_none_effort(tmp_path):
     with open(p, "w") as f:
         json.dump({"T1": {"status": "done", "attempts": 1}}, f)
     assert Ledger.load(p).get("T1").effort is None
+
+
+def test_ledger_records_routing_fields(tmp_path):
+    from cld.ledger import Ledger
+    p = str(tmp_path / "l.json")
+    led = Ledger(p)
+    led.set("T1", status="done", model="opencode:opencode/deepseek-v4-pro",
+            complexity="standard", chosen_by="rec", final_rung="workhorse", intervened=False)
+    led.set("T2", status="done", final_rung="orchestrator", intervened=True)
+    led.save()
+    r = Ledger.load(p)
+    a = r.get("T1"); b = r.get("T2")
+    assert a.complexity == "standard" and a.chosen_by == "rec" and a.final_rung == "workhorse"
+    assert a.intervened is False
+    assert b.final_rung == "orchestrator" and b.intervened is True
+
+
+def test_old_ledger_loads_with_routing_defaults(tmp_path):
+    import json
+    from cld.ledger import Ledger
+    p = str(tmp_path / "o.json")
+    with open(p, "w") as f:
+        json.dump({"T1": {"status": "done", "attempts": 1}}, f)
+    e = Ledger.load(p).get("T1")
+    assert e.complexity is None and e.chosen_by is None and e.final_rung is None and e.intervened is False

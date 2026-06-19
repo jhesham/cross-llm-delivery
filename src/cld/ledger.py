@@ -18,6 +18,10 @@ class LedgerEntry:
     effort: str | None = None
     token_usage: dict = field(default_factory=dict)
     cost: float | None = None
+    complexity: str | None = None
+    chosen_by: str | None = None
+    final_rung: str | None = None
+    intervened: bool = False
 
 class Ledger:
     def __init__(self, path: str):
@@ -40,6 +44,10 @@ class Ledger:
                     effort=entry_data.get("effort"),
                     token_usage=entry_data.get("token_usage", {}) or {},
                     cost=entry_data.get("cost"),
+                    complexity=entry_data.get("complexity"),
+                    chosen_by=entry_data.get("chosen_by"),
+                    final_rung=entry_data.get("final_rung"),
+                    intervened=entry_data.get("intervened", False),
                 )
         except Exception:
             pass
@@ -53,7 +61,8 @@ class Ledger:
         return self._entries.get(slice_id)
 
     def set(self, slice_id: str, *, status=None, commit=None, attempts=None,
-            model=None, effort=None, token_usage=None, cost=None):
+            model=None, effort=None, token_usage=None, cost=None,
+            complexity=None, chosen_by=None, final_rung=None, intervened=None):
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
         entry = self._entries[slice_id]
@@ -71,6 +80,14 @@ class Ledger:
             entry.token_usage = token_usage
         if cost is not None:
             entry.cost = cost
+        if complexity is not None:
+            entry.complexity = complexity
+        if chosen_by is not None:
+            entry.chosen_by = chosen_by
+        if final_rung is not None:
+            entry.final_rung = final_rung
+        if intervened is not None:
+            entry.intervened = intervened
 
     def mark_attempt(self, slice_id: str):
         if slice_id not in self._entries:
@@ -94,7 +111,7 @@ class Ledger:
         directory = os.path.dirname(self.path)
         if not directory:
             directory = "."
-        
+
         data = {
             slice_id: {
                 "status": entry.status,
@@ -104,14 +121,18 @@ class Ledger:
                 "effort": entry.effort,
                 "token_usage": entry.token_usage,
                 "cost": entry.cost,
+                "complexity": entry.complexity,
+                "chosen_by": entry.chosen_by,
+                "final_rung": entry.final_rung,
+                "intervened": entry.intervened,
             }
             for slice_id, entry in self._entries.items()
         }
-        
+
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=directory, delete=False) as f:
             json.dump(data, f)
             temp_path = f.name
-            
+
         try:
             os.replace(temp_path, self.path)
         except Exception:
