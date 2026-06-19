@@ -685,3 +685,72 @@ def spec_with_effort(choice, effort) -> str:
         return choice.spec
     return f"{choice.spec}@{effort}"
 
+
+# ---- resolve_tier_model: cheapest viable model in a (provider, tier) ----
+
+_COST_RANK = {"free": 0, "flat": 0, "cheap-metered": 1, "metered-unknown": 2, "premium-metered": 3}
+
+
+def _spec_of_catalog_id(cid: str) -> str:
+    """Map a catalog id to an --executor spec string.
+
+    opencode/<...> ids need the opencode: executor prefix.
+    ids that already contain ':' (e.g. gemini:<model>) are returned as-is.
+    """
+    return f"opencode:{cid}" if cid.startswith("opencode/") else cid
+
+
+def _executor_of(cid: str) -> str:
+    """Return the executor name for a catalog id.
+
+    - opencode/<...>  -> "opencode"
+    - gemini:<...>    -> "gemini"
+    - cursor:<...>    -> "cursor"
+    - anything else   -> "other"
+    """
+    if cid.startswith("opencode/"):
+        return "opencode"
+    if ":" in cid:
+        return cid.split(":", 1)[0]
+    return "other"
+
+
+def resolve_tier_model(
+    provider: str,
+    tier: str,
+    *,
+    evidence: dict,
+    available_ids: list[str],
+) -> str | None:
+    """Return the cheapest viable catalog model spec for (provider, tier).
+
+    Here `provider` is the executor name ("opencode", "gemini", "cursor").
+
+    Viability rules:
+    - Effective status = evidence.get(id, info.headless_status).
+    - Skip 'revalidate' entirely.
+    - Prefer verified/likely; include untested ONLY if no verified/likely exists.
+    - The DEFAULT_WORKHORSE_ID (Gemini flat workhorse) is always considered available.
+    - Sort viable candidates by (cost_rank, id); return the spec of the first.
+    - Returns None when nothing viable.
+    """
+    avail = set(available_ids) | {DEFAULT_WORKHORSE_ID}
+    cands = []
+    for cid, info in MODEL_METADATA.items():
+        if info.tier != tier or _executor_of(cid) != provider:
+            continue
+        if cid not in avail:
+            continue
+        status = (evidence or {}).get(cid, info.headless_status)
+        if status == "revalidate":
+            continue
+        cands.append((cid, info, status))
+
+    if not cands:
+        return None
+
+    trusted = [c for c in cands if c[2] in ("verified", "likely")]
+    pool = trusted if trusted else cands  # untested only if no trusted
+    pool.sort(key=lambda c: (_COST_RANK.get(c[1].cost_class, 9), c[0]))
+    return _spec_of_catalog_id(pool[0][0])
+
