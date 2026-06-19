@@ -700,21 +700,6 @@ def _spec_of_catalog_id(cid: str) -> str:
     return f"opencode:{cid}" if cid.startswith("opencode/") else cid
 
 
-def _executor_of(cid: str) -> str:
-    """Return the executor name for a catalog id.
-
-    - opencode/<...>  -> "opencode"
-    - gemini:<...>    -> "gemini"
-    - cursor:<...>    -> "cursor"
-    - anything else   -> "other"
-    """
-    if cid.startswith("opencode/"):
-        return "opencode"
-    if ":" in cid:
-        return cid.split(":", 1)[0]
-    return "other"
-
-
 def resolve_tier_model(
     provider: str,
     tier: str,
@@ -737,7 +722,7 @@ def resolve_tier_model(
     avail = set(available_ids) | {DEFAULT_WORKHORSE_ID}
     cands = []
     for cid, info in MODEL_METADATA.items():
-        if info.tier != tier or _executor_of(cid) != provider:
+        if info.tier != tier or info.provider != provider:
             continue
         if cid not in avail:
             continue
