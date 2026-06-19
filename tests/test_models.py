@@ -339,3 +339,22 @@ def test_recommend_default_workhorse_still_resolves():
     from cld.models import recommend
     recs = recommend(available_ids=["gemini:gemini-3.1-pro-preview"])
     assert any(r.is_default and r.headless_status == "verified" for r in recs)
+
+
+def test_modelinfo_has_tier_and_values_are_valid():
+    from cld.models import MODEL_METADATA, TIERS
+    assert TIERS == ("quick", "workhorse")
+    for info in MODEL_METADATA.values():
+        assert info.tier in ("quick", "workhorse", None)
+
+
+def test_catalog_tier_assignments():
+    from cld.models import MODEL_METADATA as M
+    assert M["gemini:gemini-3.1-pro-preview"].tier == "workhorse"
+    assert M["opencode/deepseek-v4-flash-free"].tier == "quick"
+    assert M["opencode/deepseek-v4-pro"].tier == "workhorse"
+    assert M["opencode/gemini-3.1-pro"].tier == "workhorse"
+    assert M["cursor:composer-2.5"].tier == "workhorse"      # heavy capability, workhorse ROLE
+    # premium models are NOT executor tiers (orchestrator domain)
+    assert M["opencode/claude-opus-4-8"].tier is None
+    assert M["opencode/claude-sonnet-4-6"].tier is None
