@@ -686,6 +686,24 @@ def spec_with_effort(choice, effort) -> str:
     return f"{choice.spec}@{effort}"
 
 
+def render_routing_plan(slices, *, provider: str, evidence: dict, available_ids: list) -> str:
+    """Render a one-screen routing plan table for all slices.
+
+    For each slice: calls plan_rungs to determine the recommended model (first rung's
+    spec). Marks pinned slices with [you] and auto-routed with [rec]. Flags complex
+    slices with !. Returns ASCII/cp1252-safe string.
+    """
+    header = f"  {'SLICE':6} {'COMPLEXITY':9} -> {'RECOMMENDED MODEL':42} {'MARK':6}"
+    lines: List[str] = [header]
+    for s in slices:
+        rungs = plan_rungs(s, provider=provider, evidence=evidence, available_ids=available_ids)
+        rec = rungs[0][1]
+        mark = "[you]" if s.executor else "[rec]"
+        flag = " !" if s.complexity == "complex" else ""
+        lines.append(f"  {s.id:6} {s.complexity:9} -> {rec:42} {mark}{flag}")
+    return "\n".join(lines)
+
+
 # ---- Complexity routing table ----
 
 COMPLEXITY_ROUTING: dict[str, tuple[str, int]] = {
