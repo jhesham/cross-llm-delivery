@@ -159,3 +159,12 @@ def test_per_slice_pick_removed():
     import pytest
     with pytest.raises(SystemExit):
         rd.main(["plan.md", "--per-slice-pick"])
+
+
+def test_step_help_documents_gate_4(capsys):
+    """--step help text must mention exit code 4 (needs orchestrator repair)."""
+    import pytest
+    with pytest.raises(SystemExit):
+        run_delivery.main(["--help"])
+    out = capsys.readouterr().out
+    assert "4" in out
