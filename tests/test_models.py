@@ -399,3 +399,47 @@ def test_resolve_tier_model_untested_only_when_nothing_better():
         available_ids=["opencode/kimi-k2.7"],
     )
     assert spec == "opencode:opencode/kimi-k2.7"
+
+
+# ---- T3: COMPLEXITY_ROUTING + plan_rungs ----
+
+def test_complexity_routing_table():
+    from cld.models import COMPLEXITY_ROUTING
+    assert COMPLEXITY_ROUTING["easy"] == ("quick", 1)
+    assert COMPLEXITY_ROUTING["standard"] == ("workhorse", 2)
+    assert COMPLEXITY_ROUTING["complex"] == ("workhorse", 1)
+
+
+def _task(cid="S", complexity="standard", executor=None):
+    from cld.executors.base import SliceTask
+    return SliceTask(id=cid, brief="b", files=["x"], acceptance_test_path="t.py",
+                     complexity=complexity, executor=executor)
+
+
+def test_plan_rungs_easy_climbs_quick_then_workhorse():
+    from cld.models import plan_rungs
+    rungs = plan_rungs(_task(complexity="easy"), provider="opencode", evidence={},
+                       available_ids=["opencode/deepseek-v4-flash-free", "opencode/deepseek-v4-pro"])
+    assert [r[0] for r in rungs] == ["quick", "workhorse"]
+    assert rungs[0][1] == "opencode:opencode/deepseek-v4-flash-free" and rungs[0][2] == 1
+    assert rungs[1][1] == "opencode:opencode/deepseek-v4-pro" and rungs[1][2] == 2
+
+
+def test_plan_rungs_standard_workhorse_only():
+    from cld.models import plan_rungs
+    rungs = plan_rungs(_task(complexity="standard"), provider="gemini", evidence={}, available_ids=[])
+    assert [r[0] for r in rungs] == ["workhorse"]
+    assert rungs[0][1] == "gemini:gemini-3.1-pro-preview" and rungs[0][2] == 2
+
+
+def test_plan_rungs_complex_workhorse_budget_1():
+    from cld.models import plan_rungs
+    rungs = plan_rungs(_task(complexity="complex"), provider="gemini", evidence={}, available_ids=[])
+    assert rungs == [("workhorse", "gemini:gemini-3.1-pro-preview", 1)]
+
+
+def test_plan_rungs_tagged_slice_pins_single_rung():
+    from cld.models import plan_rungs
+    rungs = plan_rungs(_task(executor="opencode:opencode/claude-opus-4-8"),
+                       provider="opencode", evidence={}, available_ids=[], max_retries=2)
+    assert rungs == [("workhorse", "opencode:opencode/claude-opus-4-8", 2)]
