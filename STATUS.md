@@ -7,12 +7,36 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-19 (✅ Routing-framework SPEC #1 — Sub-plan 3 of 3 SHIPPED; 316 passed; spec #1 COMPLETE)
+**Last updated:** 2026-06-19 (✅✅ SPEC #1 COMPLETE — Complexity routing + slice simplification; 317 passed; final review = FEATURE-COMPLETE)
 
-**✅ SUB-PLAN 3/3 COMPLETE — Control surface + docs (2026-06-19, commit 88d8379, 316 passed).**
-SKILL.md: routing control flow (one-screen plan, run-modes, gate-4 repair loop). authoring-plans.md:
-complexity rubric (easy/standard/complex). Both global copies synced. **Spec #1 is now COMPLETE.**
-Next: final whole-feature review, then spec #2 (C1 per-provider split).
+**✅✅ SPEC #1 COMPLETE — Complexity-Based Model Routing + Slice Simplification (2026-06-19, commits
+5f16641→2dfb326, 317 passed).** All 3 sub-plans shipped subagent-driven (every task 2-stage reviewed);
+final whole-feature review = **FEATURE-COMPLETE** (no Critical/Important; core invariant verified at
+runtime: a premium/`tier=None` model can never be selected as an executor; orchestrator stays
+catalog-agnostic). What the feature delivers:
+- **Flat slice model** (sub-slices + old forced per-slice picker removed) + neutral trust vocab
+  (`verified`/`likely`/`untested`/`revalidate`) with lossless legacy-evidence migration on load.
+- **`SliceTask.complexity`** (`easy`/`standard`/`complex`) drives an **escalation ladder**:
+  quick → workhorse → **orchestrator-handoff**. The expensive model is NEVER an executor — when all
+  cheap rungs fail, the slice becomes `needs_repair` (gate code **4**) and the lead agent repairs the
+  failing delta, then `run_delivery.py --mark-repaired <id>` + re-`--step`.
+- **Trust-aware routing:** `resolve_tier_model` picks the cheapest *viable* model per provider/tier
+  (skips `revalidate`; untested only as last resort; flat gemini workhorse always available).
+- **Driver wired** (`build_rung_planner` at both `run_plan_parallel` call sites) so the ladder runs
+  live; **`render_routing_plan`** one-screen plan; ledger records complexity/chosen_by/final_rung/
+  intervened; **per-provider usage** with complexity/rung columns; SKILL.md control-flow + rubric.
+- Run-modes (advise/autonomous/review/adjust) are **lead-agent chat behavior** documented in SKILL.md
+  — there is **no CLI `--autonomous` flag** (the engine can't do the repair, so a flag would be a no-op).
+
+**Residual MINORS (non-blocking, for whenever — none affect correctness):** pre-existing non-ASCII
+glyphs in `summary.py` (~76-77, predate this work); `plan_rungs` getattr/`[]` defensive-style nit
+(models.py); no dedicated de-dupe/missing-quick edge tests for `plan_rungs`; a few stale "proven"
+comments in tests.
+
+**NEXT: Spec #2 — the C1 per-provider skill split** (single-source engine + generator stamping
+self-contained `cross-llm-<provider>` skills; per-provider usage reporters move into provider dirs;
+distribution at root or per-provider level). Needs its OWN brainstorm → spec → plan. **AWAIT a fresh
+go-ahead.**
 
 **✅ SUB-PLAN 2/3 COMPLETE — Routing + escalation ladder (2026-06-19, commits 08adf80→198fcff, 307
 passed).** Subagent-driven; every task 2-stage reviewed; final whole-branch review = READY-TO-MERGE.
@@ -30,17 +54,9 @@ passed).** Subagent-driven; every task 2-stage reviewed; final whole-branch revi
 - **Ledger** records complexity/chosen_by/final_rung/intervened (back-compatible).
 - **`--step` gate code 4** = a slice needs orchestrator repair; summary surfaces it; 0/2/3 unchanged.
 
-**⚠️ CARRY INTO SUB-PLAN 3 (from SP2 reviews):**
-- **`needs_repair` is NOT terminal in `ledger.is_done()`** — SP3's repair loop MUST mark a repaired
-  slice `done` (or filter the `needs_repair` list) BEFORE re-running `--step`, or it gets re-dispatched.
-- SP3 wires the REAL `rung_planner` into `run_delivery` (from catalog+evidence+available_ids+provider),
-  builds the one-screen plan-approval + run-modes (1 advise / 2 autonomous / 3 review-each / 4 adjust)
-  + `--autonomous`, and the lead-agent repair-handoff loop in SKILL.md (react to gate 4).
-- Carried minors for the FINAL feature review (non-blocking): `plan_rungs` getattr/`[]` inconsistency
-  (models.py ~723); pre-existing non-ASCII glyphs in summary.py (~76-77); no de-dupe/missing-quick
-  edge tests for plan_rungs.
-
-**NEXT: Final whole-feature review of spec #1, then spec #2 (C1 per-provider split). AWAIT a fresh go-ahead.**
+  (All SP2 carry-forwards for SP3 are now RESOLVED: the gate-4 repair loop uses `--mark-repaired`
+  to mark a repaired slice `done` before re-`--step` so it isn't re-dispatched; the real `rung_planner`
+  is wired; the run-modes live in SKILL.md as chat behavior, NOT a `--autonomous` CLI flag.)
 
 **(prior) ✅ SUB-PLAN 1/3 COMPLETE — Foundation; 288 passed**
 
