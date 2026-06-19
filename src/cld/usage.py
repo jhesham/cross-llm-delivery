@@ -29,22 +29,9 @@ def parse_opencode_stats(text: str) -> dict:
     return result
 
 
-def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
-    lines = ["| Slice | Model | Tokens | Cost |", "|---|---|---|---|"]
-    total_tokens = 0
-    has_cursor_slice = False
-
-    for entry in ledger.entries.values():
-        tokens = entry.token_usage.get("total", 0)
-        total_tokens += tokens
-        cost_str = "" if entry.cost is None else str(entry.cost)
-        lines.append(f"| {entry.slice_id} | {entry.model} | {tokens} | {cost_str} |")
-        if entry.model.startswith("cursor:"):
-            has_cursor_slice = True
-    lines.append("")
-    lines.append(f"**Build total tokens:** {total_tokens}")
-    lines.append("")
-    lines.append("## OpenCode account")
+def opencode_account_block(oc_stats: dict) -> list:
+    """Return the OpenCode account block lines."""
+    lines = ["## OpenCode account"]
     if "total_cost" in oc_stats:
         lines.append(f"Total cost: ${oc_stats['total_cost']}")
         if "input" in oc_stats:
@@ -53,13 +40,45 @@ def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
             lines.append(f"Output: {oc_stats['output']}")
     else:
         lines.append("OpenCode stats unavailable")
-    if cursor_about and has_cursor_slice:
-        tier = cursor_about.get("tier", "?")
-        model = cursor_about.get("model", "?")
-        lines.append("")
-        lines.append("## Cursor account")
-        lines.append(f"Tier: {tier}   Default model: {model}")
+    return lines
+
+
+def cursor_account_block(cursor_about: dict) -> list:
+    """Return the Cursor account block lines."""
+    tier = cursor_about.get("tier", "?")
+    model = cursor_about.get("model", "?")
+    lines = [
+        "## Cursor account",
+        f"Tier: {tier}   Default model: {model}",
+        "Token/cost totals are server-side - run /usage in the Cursor TUI or see cursor.com.",
+    ]
+    return lines
+
+
+def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
+    lines = ["| Slice | Complexity | Model | Rung | Tokens | Cost |",
+             "|---|---|---|---|---|---|"]
+    total_tokens = 0
+    has_cursor_slice = False
+
+    for entry in ledger.entries.values():
+        tokens = entry.token_usage.get("total", 0)
+        total_tokens += tokens
+        cost_str = "" if entry.cost is None else str(entry.cost)
+        complexity = getattr(entry, "complexity", None) or "-"
+        rung = getattr(entry, "final_rung", None) or "-"
+        model = entry.model or "-"
         lines.append(
-            "Token/cost totals are server-side - run /usage in the Cursor TUI or see cursor.com."
+            f"| {entry.slice_id} | {complexity} | {model} | {rung} | {tokens} | {cost_str} |"
         )
+        if (entry.model or "").startswith("cursor:"):
+            has_cursor_slice = True
+
+    lines.append("")
+    lines.append(f"**Build total tokens:** {total_tokens}")
+    lines.append("")
+    lines.extend(opencode_account_block(oc_stats))
+    if cursor_about and has_cursor_slice:
+        lines.append("")
+        lines.extend(cursor_account_block(cursor_about))
     return "\n".join(lines)
