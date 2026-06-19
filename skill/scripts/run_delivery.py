@@ -30,7 +30,7 @@ from pathlib import Path
 
 from cld.executors import KNOWN_EXECUTORS, get_executor
 from cld.judge import judge
-from cld.ledger import Ledger
+from cld.ledger import Ledger, DONE
 from cld.orchestrator import run_plan_parallel
 from cld.plan.slice import load_slices
 
@@ -280,10 +280,20 @@ def main(argv=None) -> int:
                         "orchestration). Re-invoke to advance. Exit codes: 0 layer all-passed, "
                         "2 some failed/deferred, 3 build complete, "
                         "4 a slice needs orchestrator repair (lead agent intervenes).")
+    p.add_argument("--mark-repaired", default=None, metavar="SLICE_ID",
+                   help="Mark a needs_repair slice as repaired by the orchestrator (status=done, intervened) and exit. Use after fixing a gate-4 slice, before re-running --step.")
     p.add_argument("--usage", action="store_true",
                    help="Print a combined LLM-usage table (this build's ledger + opencode "
                         "account stats) and exit. No dispatch.")
     args = p.parse_args(argv)
+
+    # Handle --mark-repaired early, before reading the plan (it must not require the plan to exist)
+    if args.mark_repaired:
+        led = Ledger.load(args.ledger)
+        led.set(args.mark_repaired, status=DONE, intervened=True, final_rung="orchestrator")
+        led.save()
+        print(f"marked {args.mark_repaired} repaired (done).")
+        return 0
 
     if args.usage:
         from cld.usage import parse_cursor_about, parse_opencode_stats, render_usage_table
