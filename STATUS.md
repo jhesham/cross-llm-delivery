@@ -7,7 +7,12 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-19 (✅ Routing-framework SPEC #1 — Sub-plan 2 of 3 SHIPPED; 307 passed)
+**Last updated:** 2026-06-19 (✅ Routing-framework SPEC #1 — Sub-plan 3 of 3 SHIPPED; 316 passed; spec #1 COMPLETE)
+
+**✅ SUB-PLAN 3/3 COMPLETE — Control surface + docs (2026-06-19, commit 88d8379, 316 passed).**
+SKILL.md: routing control flow (one-screen plan, run-modes, gate-4 repair loop). authoring-plans.md:
+complexity rubric (easy/standard/complex). Both global copies synced. **Spec #1 is now COMPLETE.**
+Next: final whole-feature review, then spec #2 (C1 per-provider split).
 
 **✅ SUB-PLAN 2/3 COMPLETE — Routing + escalation ladder (2026-06-19, commits 08adf80→198fcff, 307
 passed).** Subagent-driven; every task 2-stage reviewed; final whole-branch review = READY-TO-MERGE.
@@ -35,9 +40,7 @@ passed).** Subagent-driven; every task 2-stage reviewed; final whole-branch revi
   (models.py ~723); pre-existing non-ASCII glyphs in summary.py (~76-77); no de-dupe/missing-quick
   edge tests for plan_rungs.
 
-**NEXT: Sub-plan 3 — Control surface + usage** (`2026-06-19-part3-control-and-usage.md` — to be
-written just-in-time against the current engine). **AWAIT a fresh go-ahead** (one-sitting-per-sub-plan).
-After SP3, the final whole-feature review, then spec #2 (the C1 per-provider split).
+**NEXT: Final whole-feature review of spec #1, then spec #2 (C1 per-provider split). AWAIT a fresh go-ahead.**
 
 **(prior) ✅ SUB-PLAN 1/3 COMPLETE — Foundation; 288 passed**
 
