@@ -240,6 +240,21 @@ def account_block(oc_stats: dict) -> list:
     return lines
 
 
+def account_section() -> list:
+    """Self-contained account section: shell stats + parse + render.
+
+    Called by render_usage_table via the registry so the engine stays provider-blind.
+    Returns [] on any error (degrades gracefully).
+    """
+    from cld.usage import parse_opencode_stats  # local import: avoids circular at module level
+    try:
+        raw = account_stats()
+        stats = parse_opencode_stats(raw)
+        return account_block(stats)
+    except Exception:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Catalog: the seven opencode/* ModelInfo entries
 # ---------------------------------------------------------------------------
@@ -334,6 +349,7 @@ PROVIDER = Provider(
     list_models=list_models,
     account_stats=account_stats,
     account_block=account_block,
+    account_section=account_section,
     skill_fragment=_SKILL_FRAGMENT,
     setup_notes=_SETUP_NOTES,
 )
