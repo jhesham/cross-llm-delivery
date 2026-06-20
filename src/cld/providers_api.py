@@ -102,7 +102,15 @@ def load_providers() -> None:
     If the namespace does not exist yet (no providers installed) the ImportError
     is silently swallowed — this is a clean no-op so the engine can call
     ``load_providers()`` unconditionally without crashing during development.
+
+    If a provider submodule has already been imported (e.g. in a prior test
+    run that cleared ``_REGISTRY``), the module is already in ``sys.modules``
+    so ``importlib.import_module`` returns the cached copy without re-running
+    the registration side-effect.  To handle that case we look for a
+    ``PROVIDER`` attribute on each submodule and re-register it explicitly.
     """
+    import sys
+
     try:
         import cld_providers  # type: ignore[import-not-found]
     except ImportError:
@@ -111,6 +119,17 @@ def load_providers() -> None:
     for finder, modname, _ in pkgutil.iter_modules(cld_providers.__path__,
                                                     cld_providers.__name__ + "."):
         try:
-            importlib.import_module(modname)
+            mod = importlib.import_module(modname)
         except ImportError:
-            pass
+            continue
+        # Re-register if the module exposes a PROVIDER object directly.
+        # This is necessary when _REGISTRY was cleared after the module was
+        # first imported (the module-level register_provider() won't re-run).
+        p = getattr(mod, "PROVIDER", None)
+        if p is None:
+            # Try the nested .provider sub-submodule (e.g. cld_providers.gemini.provider)
+            sub = sys.modules.get(modname + ".provider")
+            if sub is not None:
+                p = getattr(sub, "PROVIDER", None)
+        if isinstance(p, Provider):
+            register_provider(p)
