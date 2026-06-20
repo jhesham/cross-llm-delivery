@@ -152,18 +152,20 @@ all 8 tasks committed. Delivered:
   `run_delivery.py --usage` shells `cursor-agent about` (timeout-guarded) and passes it in.
 - SKILL.md: cursor in the `--executor`/picker mapping + usage view + headless-only note; global synced.
 
-**⚠️ OPEN ITEM — Cursor long-prompt dispatch (deferred, NOT a code bug). RE-VERIFIED STILL BROKEN
-2026-06-15** (version unchanged at 2026.06.12-...-f6aba9a; short prompt rc=0 in ~7s, long prompt via
-`.cmd` fails fast on "Workspace Trust Required" (flags mangled), long prompt via direct-node hangs to
-150s timeout = the core defect. Detail in `docs/notes/cursor-cli-notes.md`.) Root-caused live as a
-**cursor-agent v2026.06.12 defect**: long multi-line `-p` prompts hang without a TTY (matches
-community "-p hangs indefinitely" reports). SHORT dispatches work (`--list-models`, `about`,
-feasibility). All Part-2 NON-dispatch machinery is built + tested; CursorExecutor cannot run a REAL
-(long-prompt) slice on this cursor version. The one Composer-via-CLI dogfood (T5
-`resolve_composer_default`) FELL BACK TO GEMINI per the plan's stated fallback — **Composer NOT yet
-proven headless** (no evidence-store verdict recorded). Revisit when cursor ships a fix / a
-`--prompt-file` input. Working short-prompt primitive: `node.exe index.js <argv>` +
-`CURSOR_INVOKED_AS` env + `stdin=DEVNULL`. Detail: `docs/notes/cursor-cli-notes.md`.
+**✅ OPEN ITEM ROOT-CAUSE RESOLVED upstream — Cursor long-prompt CORE HANG FIXED on cursor-agent
+2026.06.15 (verified 2026-06-19). Code fix DEFERRED (user: standalone, much later, after the
+redesign).** History: the `2026.06.12` defect hung long multi-line `-p` prompts without a TTY (the
+core defect). On `2026.06.15-...-6f5a2cf` (now installed), a long multi-line prompt via **direct
+`node.exe index.js`** (+ `CURSOR_INVOKED_AS` env + `stdin=DEVNULL`) **WORKS** — exit 0, ~45s, wrote a
+correct `calc.py` (verified on disk). The ONLY remaining issue is the Windows **`.cmd` shim**
+mangling the long multi-line arg (drops `--trust`/`--workspace` → "Workspace Trust Required").
+**KNOWN FIX (not yet applied):** switch `CursorExecutor._cursor_cmd()` to invoke the versioned
+`node.exe index.js` directly (mirroring the OpenCode `.exe` fix) + set `CURSOR_INVOKED_AS` +
+`stdin=DEVNULL`. Then long-prompt slices dispatch headlessly and **Composer can be proven headless**
+(the still-deferred dogfood). `--prompt-file` still doesn't exist; `-p/--force/--trust` is the whole
+headless surface. **Sequencing (user-directed): land this as a SMALL STANDALONE bugfix MUCH LATER —
+after spec #2 (the per-provider split) and any further redesign are complete**, NOT now and NOT
+folded into spec #2. Detail: `docs/notes/cursor-cli-notes.md` (BREAKTHROUGH section).
 
 **(prior) ✅ PART 1 of 4 SHIPPED — scalable picker + effort axis; 246 passed**
 
