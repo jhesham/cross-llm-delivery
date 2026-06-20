@@ -1,20 +1,8 @@
-"""Composer executor stub.
+"""Compat shim; impl in cld_providers.composer.provider.
 
-This is a deliberate stub for the Composer/cursor-agent executor which is a future drop-in
-(see design doc).
+All composer executor logic lives in cld_providers.composer.provider as the single
+source of truth. This module re-exports every public name so existing callers
+(tests, skill scripts, executors.__init__) continue to work unchanged.
 """
-
-from pathlib import Path
-
-from cld.executors.base import ExecutorResult, SliceTask
-
-
-class ComposerExecutor:
-    """Stub for the Composer executor."""
-
-    def __init__(self, **kwargs):
-        pass
-
-    def run(self, task: SliceTask, workdir: Path) -> ExecutorResult:
-        """Run the task using Composer. Currently raises NotImplementedError."""
-        raise NotImplementedError("Composer executor is a stub and not implemented yet.")
+# noqa: F401
+from cld_providers.composer.provider import ComposerExecutor  # noqa: F401
