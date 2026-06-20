@@ -11,7 +11,7 @@ dependencies = ["langfuse>=2.0"]
 dev = ["pytest>=8", "deepeval>=1.0"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["engine"]
 # Default run is fast/offline/deterministic: deselect behavioral evals (which call
 # a live LLM). Run them explicitly with `pytest -m eval` (needs OPENAI_API_KEY).
 addopts = "-q -m 'not eval'"
