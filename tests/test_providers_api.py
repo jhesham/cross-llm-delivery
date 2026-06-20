@@ -48,3 +48,11 @@ def test_default_workhorse_single_and_multi():
     assert default_workhorse() == "opencode:opencode/x"        # single -> its own
     register_provider(_p("gemini", "gemini:gemini-3.1-pro-preview"))
     assert default_workhorse() == "gemini:gemini-3.1-pro-preview"  # many -> the gemini one
+
+
+def test_load_providers_noop_when_empty(monkeypatch):
+    # with no provider submodules, load_providers() must not raise
+    from cld.providers_api import load_providers, _REGISTRY
+    _REGISTRY.clear()
+    load_providers()        # empty cld_providers -> no providers registered, no error
+    assert all_providers() == []
