@@ -119,6 +119,26 @@ def _vendor_core(out: Path) -> None:
     )
 
 
+def _trim_executor_shims(provider: str, out: Path) -> None:
+    """Remove non-active executor shims from the vendored cld/executors dir.
+
+    In a trimmed bundle only one cld_providers/<provider> is present.  The
+    shims for the *other* executors do ``from cld_providers.<other>.provider
+    import ...`` at module top-level which raises ImportError when those
+    provider packages are absent.  Remove them so every module in the bundle
+    imports cleanly.
+
+    Kept always: base.py, __init__.py, _capture.py, <provider>.py.
+    Removed:     <other_provider>.py for every known provider != provider.
+    """
+    executors_dir = out / "scripts" / "cld" / "executors"
+    for name in _known_providers():
+        if name != provider:
+            shim = executors_dir / f"{name}.py"
+            if shim.exists():
+                shim.unlink()
+
+
 def _vendor_provider(provider: str, out: Path) -> None:
     """Copy ONLY the named provider into scripts/cld_providers/<provider>/."""
     dest_pkg = out / "scripts" / "cld_providers"
@@ -207,6 +227,7 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
         shutil.rmtree(out)
     out.mkdir(parents=True)
     _vendor_core(out)
+    _trim_executor_shims(provider, out)
     _vendor_provider(provider, out)
     _vendor_driver(out)
     _vendor_aux(out)
