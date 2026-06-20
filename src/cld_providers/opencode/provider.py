@@ -1,8 +1,9 @@
-"""OpenCode provider plugin -- registers the opencode executor with cld.providers_api.
+"""OpenCode provider plugin -- single source of truth for the OpenCode executor.
 
-OpenCodeExecutor is defined here (moved from cld.executors.opencode); the thin
-re-export shim in cld.executors.opencode keeps existing import paths working
-during migration (removed in Task 7 when the old paths are dropped).
+OpenCodeExecutor, parse_opencode_usage, _oc_cmd, _default_runner, and
+_has_step_finish are ALL defined here.  ``cld.executors.opencode`` is a thin
+re-export shim that imports every name from this module so existing callers
+continue to work unchanged.  Do not duplicate logic in the shim.
 """
 from __future__ import annotations
 
