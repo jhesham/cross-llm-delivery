@@ -7,7 +7,46 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-19 (✅✅ SPEC #1 COMPLETE — Complexity routing + slice simplification; 317 passed; final review = FEATURE-COMPLETE)
+**Last updated:** 2026-06-20 (✅ SPEC #2 (per-provider split) Sub-plan 1 of 4 SHIPPED — provider extraction; 331 passed; READY-TO-MERGE)
+
+**🚧 IN FLIGHT — SPEC #2: Per-Provider Skill Split (C1).** Spec:
+`docs/superpowers/specs/2026-06-19-per-provider-split-design.md`. Master:
+`docs/superpowers/plans/2026-06-19-per-provider-split-MASTER.md` (4 sub-plans). Execution:
+subagent-driven, ONE sub-plan per sitting, pause between. Build via Claude (refactor); dogfood the
+generator (sub-plan 2) — NOT the refactor.
+
+**✅ SUB-PLAN 1/4 COMPLETE — Provider extraction + provider-blind engine (2026-06-20, commits
+7721327→0a9ca59, 331 passed).** Subagent-driven; every task 2-stage reviewed; final whole-branch
+review = **READY-TO-MERGE**. Behaviour-preserving strangler-fig refactor:
+- **Plugin system:** `cld.providers_api` (`Provider` contract + registry: `register_provider`/
+  `get_provider`/`all_providers`/`load_providers`/`catalog`/`default_workhorse`). `cld_providers`
+  namespace; each provider registers on import.
+- **All 4 providers extracted** to `engine/cld_providers/{gemini,opencode,cursor,composer}/` (adapter
+  + catalog + list_models + account reporter + quirks + SKILL.fragment + setup), single-source
+  (one executor class each) with re-export shims in `cld/executors/<x>.py`.
+- **Engine is provider-blind:** `get_executor`/catalog(`MODEL_METADATA` via PEP-562 `__getattr__`)/
+  `default_workhorse`/`render_usage_table`(per-provider `account_section`)/driver listing all resolve
+  via the registry. Deleted: `KNOWN_EXECUTORS` literal, `get_executor` if/elif, `MODEL_METADATA`
+  literal. Circular import avoided via lazy `__getattr__`. Guard test enforces no provider names /
+  no specific `cld_providers.<x>` import in core.
+- **Layout:** `src/` → `engine/` (`engine/cld` + `engine/cld_providers`); `pyproject pythonpath=["engine"]`.
+- **TRIMMED-SKILL READINESS PROVEN** (the crux for SP2): core + cursor-only alone imports + functions
+  (registry, catalog, default fallback, executor, usage) — verified empirically + machine-enforced.
+
+**⚠️ CARRY INTO SUB-PLAN 2/final (Minor, non-blocking — full "engine names no provider" goal):**
+- `build_model_index` (engine/cld/models.py) still has provider-shaped picker branches (display
+  fields only; no dispatch; takes ids as params so trims fine). Move behind the registry eventually.
+- `parse_cursor_about`/`parse_opencode_stats` live in `engine/cld/usage.py`; providers import them
+  back (provider→core coupling). Minor single-source nit; doesn't break trim.
+- Cosmetics: `import sys` inside `load_providers`; `render_usage_table` first-section blank-line edge.
+
+**NEXT: Sub-plan 2 — the generator + outputs** (`...-part2-generator.md`, to be written just-in-time
+against the post-extraction structure). Build `generator/build_skill.py` (compose/trim/vendor/
+smoke-check) producing `dist/cross-llm-<provider>/`. **DOGFOOD the generator's pure-logic tasks
+(Gemini); Claude for the rest.** AWAIT a fresh go-ahead (one-sitting-per-sub-plan). Then SP3
+(self-containment tests), SP4 (publishing).
+
+**(prior) ✅✅ SPEC #1 COMPLETE — Complexity routing + slice simplification; 317 passed; final review = FEATURE-COMPLETE**
 
 **✅✅ SPEC #1 COMPLETE — Complexity-Based Model Routing + Slice Simplification (2026-06-19, commits
 5f16641→2dfb326, 317 passed).** All 3 sub-plans shipped subagent-driven (every task 2-stage reviewed);
