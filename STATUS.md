@@ -7,7 +7,53 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-20 (✅ SPEC #2 (per-provider split) Sub-plan 1 of 4 SHIPPED — provider extraction; 331 passed; READY-TO-MERGE)
+**Last updated:** 2026-06-21 (✅ SPEC #2 Sub-plan 2 of 4 SHIPPED — the generator; 343 passed; READY-TO-MERGE)
+
+**🚨 EXTERNAL BLOCKER — the Gemini CLI is DEPRECATED (discovered 2026-06-21).** A dogfood dispatch
+failed: *"IneligibleTierError: This client is no longer supported for Gemini Code Assist for
+individuals. Migrate to the Antigravity suite (antigravity.google)."* Google sunset the free
+individual tier for the `gemini` CLI. **Impact: the project's proven $0 flat-rate Gemini workhorse —
+the DEFAULT executor — and the dogfood path are currently non-functional on this box.** SP2's dogfood
+tasks (T2/T4) fell back to Claude (sanctioned fallback; build unaffected). **DECISION NEEDED (user):**
+update/migrate the gemini CLI (Antigravity), OR switch the default workhorse to another executor
+(opencode), OR accept Gemini being unavailable. This affects the engine's default + future dogfooding.
+See [[project_gemini_cli_deprecated]].
+
+**✅ SUB-PLAN 2/4 COMPLETE — The generator (2026-06-21, commits 1280865→2e2c7f5, 343 passed).**
+Subagent-driven; every task 2-stage reviewed; final whole-branch review = **READY-TO-MERGE** (all 4
+providers generate complete, trimmed, self-contained bundles that pass an isolated smoke-check).
+- `generator/build_skill.py`: `build_one(provider, *, out_root, smoke=True)` (+`--all`, `--no-smoke`)
+  → `dist/cross-llm-<provider>/`: wipe → vendor core (`engine/cld`→`scripts/cld`) → vendor ONLY that
+  provider (`scripts/cld_providers/<x>` + `__init__.py`) → vendor `run_delivery.py` (with a `sys.path`
+  shim, added to the source driver) → vendor references/examples → compose SKILL.md → scaffold → smoke.
+- `skill/SKILL.template.md`: provider-agnostic core with `{{PROVIDER_NAME}}`/`{{DEFAULT_WORKHORSE}}`/
+  `{{PROVIDER_FRAGMENT}}`/`{{SETUP}}`/`{{BANNER}}` (no provider names in core; completeness-checked).
+- Compose fills the template from each provider's fragment/setup + a GENERATED banner (git sha) +
+  `VERSION` (0.1.0) stamp. Scaffolding: README/LICENSE/.gitignore. cp1252-safe.
+- **Standalone smoke-check** proves zero-install self-containment: subprocess with PYTHONPATH = the
+  vendored `scripts/` ONLY → import cld, load_providers() == 1 provider, recommend() works. The
+  broken-bundle test (delete vendored providers_api → RuntimeError) proves no monorepo fallback.
+- **Dogfood note:** T2/T4 were tagged DOGFOOD-Gemini but ran on Claude (Gemini deprecated). Commit
+  `fcc9858` message says "Gemini-built" — inaccurate provenance (it was Claude); history-only.
+
+**⚠️ CARRY INTO SUB-PLAN 3 (self-containment tests) / SP4 (publishing):**
+- **(SP3, Important-but-not-blocking) Dead executor-shim imports in trimmed bundles:** `cld/executors/
+  {gemini,opencode,composer}.py` + the `__getattr__` re-exports in `cld/models.py`/`cld/usage.py` are
+  vendored into EVERY bundle; in a trimmed bundle they import absent `cld_providers.<other>` → broken
+  dead files. OFF the live path (registry routes around them; smoke passes) but a user `import
+  cld.executors.opencode` in a cursor bundle crashes. SP3: add a self-containment test (no dead
+  `cld_providers.*` imports in a trim) + trim/guard the stubs.
+- **(SP4) `__pycache__` pollution:** smoke/compose import the vendored engine → writes `.pyc` into the
+  bundle. `.gitignore` excludes it; clean (or `sys.dont_write_bytecode`) before publishing.
+- Cosmetics: `_scaffold` LICENSE not graceful-if-absent; `importlib` import inside a fn; the smoke
+  probe calls `recommend()` not `render_chat_picker()` (proxy for "picker renders").
+
+**NEXT: Sub-plan 3 — self-containment + generator tests** (`...-part3-tests.md`, written just-in-time).
+Generator unit tests + the end-to-end self-containment integration test + cross-provider regression +
+**the dead-shim self-containment test** above. AWAIT a fresh go-ahead (one-sitting-per-sub-plan).
+Then SP4 (publishing).
+
+**(prior) ✅ SUB-PLAN 1/4 COMPLETE — provider extraction; 331 passed; READY-TO-MERGE**
 
 **🚧 IN FLIGHT — SPEC #2: Per-Provider Skill Split (C1).** Spec:
 `docs/superpowers/specs/2026-06-19-per-provider-split-design.md`. Master:
