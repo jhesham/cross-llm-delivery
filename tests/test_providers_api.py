@@ -78,3 +78,21 @@ def test_catalog_matches_all_providers():
     assert "gemini:gemini-3.1-pro-preview" in catalog()
     assert "opencode/deepseek-v4-pro" in catalog()
     assert "cursor:composer-2.5" in catalog()
+
+
+def test_all_four_providers_register_in_monorepo():
+    from cld.providers_api import load_providers, all_providers, _REGISTRY
+    _REGISTRY.clear(); load_providers()
+    assert sorted(p.name for p in all_providers()) == ["composer", "cursor", "gemini", "opencode"]
+
+
+def test_assembled_catalog_has_expected_ids():
+    from cld.providers_api import load_providers, _REGISTRY, catalog
+    _REGISTRY.clear(); load_providers()
+    ids = set(catalog())
+    # the 9 catalogued models (gemini 1 + opencode 7 + cursor 1; composer 0)
+    assert "gemini:gemini-3.1-pro-preview" in ids
+    assert "cursor:composer-2.5" in ids
+    assert {"opencode/deepseek-v4-pro", "opencode/claude-opus-4-8",
+            "opencode/kimi-k2.7"} <= ids
+    assert len(ids) == 9
