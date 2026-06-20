@@ -97,6 +97,21 @@ core (not the shim — the direct-node bypass hangs too). CursorExecutor still c
 still NOT proven headless. Re-check again only after a cursor-agent version bump (or a `--prompt-file`
 input appears).
 
+### ✅ BREAKTHROUGH — core hang FIXED on cursor-agent 2026.06.15 (2026-06-19)
+A newer cursor-agent (`2026.06.15-...-6f5a2cf`) is installed. Re-tested the long multi-line prompt:
+- **`.cmd` shim + long multi-line prompt → still fails fast** with "Workspace Trust Required" (the
+  `.cmd→.ps1→node` shim mangles the long/multi-line arg so `--trust`/`--workspace` drop). This is the
+  Windows-shim class, NOT a core hang.
+- **direct `node.exe index.js -p "<long prompt>" --output-format json --force --trust --workspace
+  <dir>` + `CURSOR_INVOKED_AS=cursor-agent` env + `stdin=DEVNULL` → WORKS** (exit 0, ~45s, valid
+  result JSON, and it ACTUALLY wrote a correct `src/calc.py` — verified on disk, not self-report).
+The long-prompt CORE HANG that defined the `2026.06.12` defect is **GONE on 06.15**. The only
+remaining issue is the `.cmd` shim. **Fix:** make `CursorExecutor._cursor_cmd()` invoke the
+versioned `node.exe index.js` directly (mirroring the OpenCode `.exe` fix) instead of the `.cmd`,
+with `CURSOR_INVOKED_AS` env + `stdin=DEVNULL`. Then real long-prompt slices dispatch headlessly and
+Composer can finally be proven headless. `--prompt-file` still does not exist; `-p/--force/--trust`
+is the whole headless surface (confirmed via `--help`).
+
 ## Windows
 The versioned binary `<LOCALAPPDATA>/cursor-agent/versions/<latest>/cursor-agent.cmd` works; the
 top-level shim was broken (replaced with a working one, but the executor resolves the versioned
