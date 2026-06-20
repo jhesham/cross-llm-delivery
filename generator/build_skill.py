@@ -3,12 +3,101 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 ENGINE: Path = REPO_ROOT / "engine"
 PROVIDERS_DIR: Path = ENGINE / "cld_providers"
 SKILL_SRC: Path = REPO_ROOT / "skill"
+
+
+def _git_sha() -> str:
+    """Return the short git SHA of HEAD, or 'unknown' on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _version() -> str:
+    """Read the VERSION file from the repo root; default '0.0.0' if absent."""
+    version_file = REPO_ROOT / "VERSION"
+    try:
+        return version_file.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return "0.0.0"
+
+
+def _banner(provider: str) -> str:
+    """Return the GENERATED comment banner for the given provider."""
+    return (
+        f"<!-- GENERATED from cross-llm-delivery@{_git_sha()} "
+        f"(provider: {provider}, v{_version()}) - do not edit here; "
+        f"edit the monorepo source. -->"
+    )
+
+
+def _provider_default_workhorse(provider: str) -> str:
+    """Resolve the provider's default workhorse model id."""
+    engine_str = str(ENGINE)
+    if engine_str not in sys.path:
+        sys.path.insert(0, engine_str)
+    try:
+        # Import the provider module directly to read PROVIDER.default_workhorse
+        import importlib
+        mod = importlib.import_module(f"cld_providers.{provider}.provider")
+        return mod.PROVIDER.default_workhorse
+    except Exception:
+        return f"{provider}:unknown"
+
+
+def _compose_skill(provider: str, out: Path) -> None:
+    """Compose SKILL.md from the template + provider fragment/setup, write to out."""
+    template = (SKILL_SRC / "SKILL.template.md").read_text(encoding="utf-8")
+    fragment = (PROVIDERS_DIR / provider / "SKILL.fragment.md").read_text(encoding="utf-8")
+    setup = (PROVIDERS_DIR / provider / "setup.md").read_text(encoding="utf-8")
+    default_workhorse = _provider_default_workhorse(provider)
+    banner = _banner(provider)
+
+    skill = (
+        template
+        .replace("{{PROVIDER_NAME}}", provider)
+        .replace("{{DEFAULT_WORKHORSE}}", default_workhorse)
+        .replace("{{PROVIDER_FRAGMENT}}", fragment)
+        .replace("{{SETUP}}", setup)
+        .replace("{{BANNER}}", banner)
+    )
+    (out / "SKILL.md").write_text(skill, encoding="utf-8")
+
+
+def _scaffold(provider: str, out: Path) -> None:
+    """Write README.md, LICENSE, and .gitignore into out."""
+    banner = _banner(provider)
+    readme = (
+        f"{banner}\n\n"
+        f"# cross-llm-{provider}\n\n"
+        f"A self-contained cross-llm-delivery skill for {provider}.\n\n"
+        f"Drop this folder into `~/.claude/skills/` to install. No pip install required.\n"
+    )
+    (out / "README.md").write_text(readme, encoding="utf-8")
+
+    license_src = REPO_ROOT / "LICENSE"
+    shutil.copy2(license_src, out / "LICENSE")
+
+    gitignore = "__pycache__/\n*.pyc\n.cld-ledger.json\n"
+    (out / ".gitignore").write_text(gitignore, encoding="utf-8")
 
 
 def _known_providers() -> list[str]:
@@ -75,6 +164,8 @@ def build_one(provider: str, *, out_root: str | Path = "dist") -> Path:
     _vendor_provider(provider, out)
     _vendor_driver(out)
     _vendor_aux(out)
+    _compose_skill(provider, out)
+    _scaffold(provider, out)
     return out
 
 
