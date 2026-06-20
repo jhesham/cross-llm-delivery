@@ -49,3 +49,16 @@ def test_vendors_driver_with_syspath_shim(tmp_path):
 def test_vendors_references(tmp_path):
     out = _build(tmp_path, "cursor")
     assert (out / "references" / "authoring-plans.md").is_file()
+
+
+# ---- Task 3: core SKILL template ----
+
+def test_skill_template_exists_with_placeholders():
+    from pathlib import Path
+    t = Path("skill/SKILL.template.md").read_text(encoding="utf-8")
+    for ph in ("{{PROVIDER_NAME}}", "{{DEFAULT_WORKHORSE}}", "{{PROVIDER_FRAGMENT}}",
+               "{{SETUP}}", "{{BANNER}}"):
+        assert ph in t
+    # the core template must NOT hardcode a specific provider in its prose
+    low = t.lower()
+    assert "opencode" not in low and "composer" not in low
