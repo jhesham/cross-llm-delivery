@@ -20,6 +20,46 @@ def _known_providers() -> list[str]:
     )
 
 
+def _vendor_core(out: Path) -> None:
+    """Copy the engine cld package into the output scripts dir."""
+    shutil.copytree(
+        ENGINE / "cld",
+        out / "scripts" / "cld",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+
+
+def _vendor_provider(provider: str, out: Path) -> None:
+    """Copy ONLY the named provider into scripts/cld_providers/<provider>/."""
+    dest_pkg = out / "scripts" / "cld_providers"
+    dest_pkg.mkdir(parents=True, exist_ok=True)
+    # copy the package __init__.py
+    shutil.copy2(PROVIDERS_DIR / "__init__.py", dest_pkg / "__init__.py")
+    # copy only the single provider subdir
+    shutil.copytree(
+        PROVIDERS_DIR / provider,
+        dest_pkg / provider,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+
+
+def _vendor_driver(out: Path) -> None:
+    """Copy run_delivery.py (with sys.path shim) verbatim into scripts/."""
+    (out / "scripts").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(SKILL_SRC / "scripts" / "run_delivery.py", out / "scripts" / "run_delivery.py")
+
+
+def _vendor_aux(out: Path) -> None:
+    """Copy references/ and examples/ if they exist in the skill source."""
+    _ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    refs = SKILL_SRC / "references"
+    if refs.exists():
+        shutil.copytree(refs, out / "references", ignore=_ignore)
+    examples = SKILL_SRC / "examples"
+    if examples.exists():
+        shutil.copytree(examples, out / "examples", ignore=_ignore)
+
+
 def build_one(provider: str, *, out_root: str | Path = "dist") -> Path:
     """Create (or wipe+recreate) <out_root>/cross-llm-<provider>/ and return it."""
     known = _known_providers()
@@ -31,6 +71,10 @@ def build_one(provider: str, *, out_root: str | Path = "dist") -> Path:
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
+    _vendor_core(out)
+    _vendor_provider(provider, out)
+    _vendor_driver(out)
+    _vendor_aux(out)
     return out
 
 

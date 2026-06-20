@@ -21,3 +21,31 @@ def test_build_one_rejects_unknown_provider(tmp_path):
     import pytest
     with pytest.raises(ValueError):
         build_one("nope", out_root=tmp_path)
+
+
+# ---- Task 2: vendor + trim ----
+
+def _build(tmp_path, provider="cursor"):
+    return build_one(provider, out_root=tmp_path)
+
+
+def test_vendors_core_and_only_one_provider(tmp_path):
+    out = _build(tmp_path, "cursor")
+    assert (out / "scripts" / "cld" / "orchestrator.py").is_file()
+    assert (out / "scripts" / "cld" / "providers_api.py").is_file()
+    assert (out / "scripts" / "cld_providers" / "__init__.py").is_file()
+    assert (out / "scripts" / "cld_providers" / "cursor" / "provider.py").is_file()
+    # TRIMMED: other providers must NOT be vendored
+    assert not (out / "scripts" / "cld_providers" / "opencode").exists()
+    assert not (out / "scripts" / "cld_providers" / "gemini").exists()
+
+
+def test_vendors_driver_with_syspath_shim(tmp_path):
+    out = _build(tmp_path, "cursor")
+    drv = (out / "scripts" / "run_delivery.py").read_text(encoding="utf-8")
+    assert "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))" in drv
+
+
+def test_vendors_references(tmp_path):
+    out = _build(tmp_path, "cursor")
+    assert (out / "references" / "authoring-plans.md").is_file()
