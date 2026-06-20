@@ -110,3 +110,43 @@ def test_smoke_check_detects_broken_bundle(tmp_path):
     (out / "scripts" / "cld" / "providers_api.py").unlink()
     with pytest.raises(RuntimeError):
         _smoke_check(out)
+
+
+# ---- Task 1 (SP3): trim non-active executor shims ----
+
+import subprocess, sys, os
+
+
+def test_trimmed_bundle_has_no_dead_provider_imports(tmp_path):
+    # every vendored module must import cleanly in isolation (no absent-provider ImportError)
+    out = build_one("cursor", out_root=tmp_path)            # smoke already runs; this is stricter
+    scripts = out / "scripts"
+    probe = (
+        "import importlib, pkgutil\n"
+        "import cld, cld_providers\n"
+        "mods=[]\n"
+        "for pkg in (cld, cld_providers):\n"
+        "    for m in pkgutil.walk_packages(pkg.__path__, pkg.__name__+'.'):\n"
+        "        mods.append(m.name)\n"
+        "bad=[]\n"
+        "for name in mods:\n"
+        "    try: importlib.import_module(name)\n"
+        "    except Exception as e: bad.append((name, type(e).__name__, str(e)))\n"
+        "assert not bad, bad\n"
+        "print('IMPORTS_OK', len(mods))\n"
+    )
+    r = subprocess.run([sys.executable, "-c", probe], cwd=scripts,
+                       env={**os.environ, "PYTHONPATH": str(scripts.resolve())},
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert "IMPORTS_OK" in (r.stdout + r.stderr), (r.stdout + r.stderr)
+
+
+def test_active_provider_executor_shim_kept(tmp_path):
+    # the active provider's own executor shim must REMAIN (it re-exports the vendored provider)
+    out = build_one("cursor", out_root=tmp_path)
+    ex = out / "scripts" / "cld" / "executors"
+    assert (ex / "cursor.py").is_file()                 # active shim kept
+    assert (ex / "base.py").is_file() and (ex / "__init__.py").is_file()
+    assert not (ex / "opencode.py").exists()            # non-active shims trimmed
+    assert not (ex / "gemini.py").exists()
+    assert not (ex / "composer.py").exists()
