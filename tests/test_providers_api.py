@@ -51,8 +51,13 @@ def test_default_workhorse_single_and_multi():
 
 
 def test_load_providers_noop_when_empty(monkeypatch):
-    # with no provider submodules, load_providers() must not raise
+    # load_providers() must not raise; after T3 the gemini provider is always present.
+    # The original "assert all_providers() == []" was written before any provider
+    # submodules existed.  Now that cld_providers.gemini is installed, load_providers()
+    # legitimately registers it.  We just verify it does not raise.
     from cld.providers_api import load_providers, _REGISTRY
     _REGISTRY.clear()
-    load_providers()        # empty cld_providers -> no providers registered, no error
-    assert all_providers() == []
+    load_providers()        # cld_providers.gemini -> gemini registered, no error
+    # At minimum gemini should be registered; other providers may be present too.
+    names = [p.name for p in all_providers()]
+    assert "gemini" in names
