@@ -134,19 +134,46 @@ def test_parse_executor_spec_splits_effort_marker():
 
 
 def test_usage_flag_renders_from_ledger_and_stats(monkeypatch, tmp_path, capsys):
+    """--usage flag renders the usage table; provider account sections are self-sourced.
+
+    The ledger has an opencode slice.  We register a fake opencode provider with a
+    controlled account_section so the test doesn't shell out and is deterministic.
+    """
     import json
+    from cld.providers_api import _REGISTRY, register_provider, Provider
+
     p = str(tmp_path / ".cld-ledger.json")
     json.dump({"T1": {"status": "done", "commit": "a", "attempts": 1,
-                      "model": "gemini:gemini-3.1-pro-preview",
+                      "model": "opencode/deepseek-v4-pro",
                       "token_usage": {"total": 100}, "cost": None}}, open(p, "w"))
 
-    class _P:
-        stdout = "|Total Cost   $5.64 |"
-        stderr = ""
-        returncode = 0
-    monkeypatch.setattr(run_delivery.subprocess, "run", lambda *a, **k: _P())
+    # Fake opencode provider with a fixed account_section
+    def _noop_exec(**k): raise NotImplementedError
+    fake_oc = Provider(
+        name="opencode",
+        make_executor=_noop_exec,
+        catalog=(),
+        default_workhorse="opencode:default",
+        list_models=lambda r: [],
+        account_stats=None,
+        account_block=None,
+        account_section=lambda: ["## OpenCode account", "Total cost: $5.64"],
+        skill_fragment="",
+        setup_notes="",
+    )
 
-    rc = run_delivery.main(["dummy-plan.md", "--ledger", p, "--usage"])
+    snap = dict(_REGISTRY)
+    _REGISTRY.clear()
+    register_provider(fake_oc)
+
+    # Prevent load_providers from re-registering real providers during render
+    from unittest.mock import patch
+    with patch("cld.providers_api.load_providers"):
+        rc = run_delivery.main(["dummy-plan.md", "--ledger", p, "--usage"])
+
+    _REGISTRY.clear()
+    _REGISTRY.update(snap)
+
     out = capsys.readouterr().out
     assert rc == 0
     assert "T1" in out and "5.64" in out
