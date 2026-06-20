@@ -41,8 +41,9 @@ class Provider:
     list_models: Callable  # (runner) -> list[str]
     account_stats: Optional[Callable]
     account_block: Optional[Callable]
-    skill_fragment: str
-    setup_notes: str
+    account_section: Optional[Callable] = None  # () -> list[str]: shell+parse+render
+    skill_fragment: str = ""
+    setup_notes: str = ""
 
 
 # ---------------------------------------------------------------------------

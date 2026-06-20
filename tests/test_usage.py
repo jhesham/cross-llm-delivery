@@ -35,25 +35,94 @@ class _Ledger:
     def entries(self): return self._e
 
 
+# ---------------------------------------------------------------------------
+# Helpers for fake provider registration
+# ---------------------------------------------------------------------------
+
+def _make_fake_provider(name, account_section_fn=None, catalog=()):
+    """Build a minimal fake Provider for use in usage tests."""
+    from cld.providers_api import Provider
+
+    def _noop_make_executor(**k):
+        raise NotImplementedError
+
+    def _noop_list_models(runner):
+        return []
+
+    return Provider(
+        name=name,
+        make_executor=_noop_make_executor,
+        catalog=catalog,
+        default_workhorse=f"{name}:default",
+        list_models=_noop_list_models,
+        account_stats=None,
+        account_block=None,
+        account_section=account_section_fn,
+        skill_fragment="",
+        setup_notes="",
+    )
+
+
+def _setup_fake_registry(*providers):
+    """Clear registry and register *providers*; returns the old registry dict snapshot."""
+    from cld.providers_api import _REGISTRY, register_provider
+    snapshot = dict(_REGISTRY)
+    _REGISTRY.clear()
+    for p in providers:
+        register_provider(p)
+    return snapshot
+
+
+def _restore_registry(snapshot):
+    from cld.providers_api import _REGISTRY
+    _REGISTRY.clear()
+    _REGISTRY.update(snapshot)
+
+
+import contextlib
+from unittest.mock import patch
+
+
+@contextlib.contextmanager
+def _fake_providers(*providers):
+    """Context manager: seed the registry with fake providers and suppress load_providers()."""
+    snap = _setup_fake_registry(*providers)
+    with patch("cld.providers_api.load_providers"):  # prevent real providers from overwriting fakes
+        try:
+            yield
+        finally:
+            _restore_registry(snap)
+
+
+# ---------------------------------------------------------------------------
+# render_usage_table tests (provider-blind: register fake providers)
+# ---------------------------------------------------------------------------
+
 def test_renders_combined_markdown_table():
-    led = _Ledger([
-        _Entry("T1", "gemini:gemini-3.1-pro-preview", {"total": 100}, 0.0),
-        _Entry("T2", "opencode/claude-sonnet-4-6", {"total": 250}, 0.03),
-    ])
-    out = render_usage_table(led, {"total_cost": 5.64, "input": "1.3M"})
-    assert "T1" in out and "T2" in out
-    assert "gemini:gemini-3.1-pro-preview" in out and "opencode/claude-sonnet-4-6" in out
-    assert "350" in out          # build-total tokens (100 + 250)
-    assert "5.64" in out         # the opencode account aggregate
-    assert "|" in out            # markdown table
-    out.encode("cp1252")         # Windows-console-safe
+    # opencode account_section returns cost block for this build
+    oc_section = lambda: ["## OpenCode account", "Total cost: $5.64", "Input: 1.3M"]
+    with _fake_providers(_make_fake_provider("opencode", account_section_fn=oc_section)):
+        led = _Ledger([
+            _Entry("T1", "gemini:gemini-3.1-pro-preview", {"total": 100}, 0.0),
+            _Entry("T2", "opencode/claude-sonnet-4-6", {"total": 250}, 0.03),
+        ])
+        out = render_usage_table(led)
+        assert "T1" in out and "T2" in out
+        assert "gemini:gemini-3.1-pro-preview" in out and "opencode/claude-sonnet-4-6" in out
+        assert "350" in out          # build-total tokens (100 + 250)
+        assert "5.64" in out         # the opencode account aggregate
+        assert "|" in out            # markdown table
+        out.encode("cp1252")         # Windows-console-safe
 
 
 def test_degraded_when_opencode_stats_missing():
-    led = _Ledger([_Entry("T1", "gemini:gemini-3.1-pro-preview", {"total": 100})])
-    out = render_usage_table(led, {})   # no opencode stats
-    assert "T1" in out
-    assert "unavailable" in out.lower()  # notes OpenCode stats missing, doesn't crash
+    # opencode account_section returns "unavailable" block (mirrors real behaviour when stats fail)
+    oc_section = lambda: ["## OpenCode account", "OpenCode stats unavailable"]
+    with _fake_providers(_make_fake_provider("opencode", account_section_fn=oc_section)):
+        led = _Ledger([_Entry("T1", "opencode/deepseek-v4-pro", {"total": 100})])
+        out = render_usage_table(led)
+        assert "T1" in out
+        assert "unavailable" in out.lower()  # notes OpenCode stats missing, doesn't crash
 
 
 from cld.usage import parse_cursor_about
@@ -89,16 +158,20 @@ class _L:
 
 
 def test_cursor_block_only_when_cursor_slice_present():
-    # build WITH a cursor slice -> Cursor account block present
-    out = render_usage_table(_L([_E("T1", "cursor:composer-2.5", {"total": 50})]),
-                             {}, cursor_about={"tier": "Pro", "model": "Composer 2.5"})
-    assert "Cursor account" in out and "Pro" in out
-    assert "/usage" in out or "cursor.com" in out  # server-side pointer
-    out.encode("cp1252")  # ascii-safe
-    # gemini-only build -> NO cursor block
-    out2 = render_usage_table(_L([_E("T2", "gemini:gemini-3.1-pro-preview", {"total": 9})]),
-                              {}, cursor_about={"tier": "Pro", "model": "Composer 2.5"})
-    assert "Cursor account" not in out2
+    cur_section = lambda: [
+        "## Cursor account",
+        "Tier: Pro   Default model: Composer 2.5",
+        "Token/cost totals are server-side - run /usage in the Cursor TUI or see cursor.com.",
+    ]
+    with _fake_providers(_make_fake_provider("cursor", account_section_fn=cur_section)):
+        # build WITH a cursor slice -> Cursor account block present
+        out = render_usage_table(_L([_E("T1", "cursor:composer-2.5", {"total": 50})]))
+        assert "Cursor account" in out and "Pro" in out
+        assert "/usage" in out or "cursor.com" in out  # server-side pointer
+        out.encode("cp1252")  # ascii-safe
+        # gemini-only build -> NO cursor block (cursor provider not matched)
+        out2 = render_usage_table(_L([_E("T2", "gemini:gemini-3.1-pro-preview", {"total": 9})]))
+        assert "Cursor account" not in out2
 
 
 def test_usage_table_has_complexity_and_rung_columns():
@@ -111,15 +184,17 @@ def test_usage_table_has_complexity_and_rung_columns():
         def __init__(s, e): s._e = {x.slice_id: x for x in e}
         @property
         def entries(s): return s._e
-    out = render_usage_table(L([
-        E("S1", "gemini:gemini-3.1-pro-preview", {"total": 100}, 0.0, "standard", "workhorse"),
-        E("S2", "opencode:opencode/deepseek-v4-pro", {"total": 50}, 0.01, "complex", "orchestrator"),
-    ]), {})
-    assert "Complexity" in out and "Rung" in out
-    assert "standard" in out and "workhorse" in out
-    assert "complex" in out and "orchestrator" in out
-    assert "150" in out          # build total tokens
-    out.encode("cp1252")
+
+    with _fake_providers(_make_fake_provider("opencode")):
+        out = render_usage_table(L([
+            E("S1", "gemini:gemini-3.1-pro-preview", {"total": 100}, 0.0, "standard", "workhorse"),
+            E("S2", "opencode:opencode/deepseek-v4-pro", {"total": 50}, 0.01, "complex", "orchestrator"),
+        ]))
+        assert "Complexity" in out and "Rung" in out
+        assert "standard" in out and "workhorse" in out
+        assert "complex" in out and "orchestrator" in out
+        assert "150" in out          # build total tokens
+        out.encode("cp1252")
 
 
 def test_usage_account_blocks_are_separate_helpers():
@@ -141,8 +216,8 @@ def test_usage_handles_missing_routing_fields_gracefully():
         def __init__(s, e): s._e = {x.slice_id: x for x in e}
         @property
         def entries(s): return s._e
-    out = render_usage_table(L([E()]), {})
-    assert "X" in out
-    out.encode("cp1252")
 
-
+    with _fake_providers():   # empty registry — gemini has no section
+        out = render_usage_table(L([E()]))
+        assert "X" in out
+        out.encode("cp1252")

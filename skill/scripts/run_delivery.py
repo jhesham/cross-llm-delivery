@@ -96,50 +96,6 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     return (proc.stdout or "") + (proc.stderr or "")
 
 
-def _opencode_stats_text() -> str:
-    """Return raw `opencode stats` output via the opencode provider's account_stats."""
-    try:
-        p = get_provider("opencode")
-        if p.account_stats is not None:
-            return p.account_stats() or ""
-    except Exception:
-        pass
-    # fallback: direct invocation
-    oc = os.environ.get("OPENCODE_CLI_CMD") or ("opencode.cmd" if os.name == "nt" else "opencode")
-    try:
-        proc = subprocess.run([oc, "stats"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return proc.stdout or ""
-    except Exception:
-        return ""
-
-
-def _cursor_about_text() -> str:
-    """Shell `cursor-agent about` for the usage view's Cursor account block.
-
-    Cursor exposes no headless token/cost metric, so `about` (tier + default model)
-    is the only account signal. Timeout-guarded; returns "" on any failure so the
-    usage view degrades to no-cursor-block."""
-    try:
-        p = get_provider("cursor")
-        if p.account_stats is not None:
-            return p.account_stats() or ""
-    except Exception:
-        pass
-    # fallback: direct invocation
-    try:
-        from cld_providers.cursor.provider import _cursor_cmd
-        cmd = _cursor_cmd()
-    except Exception:
-        cmd = os.environ.get("CURSOR_AGENT_CMD") or "cursor-agent"
-    try:
-        proc = subprocess.run([cmd, "about"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return proc.stdout or ""
-    except Exception:
-        return ""
-
-
 def _parse_name_model(spec: str) -> tuple[str, dict]:
     """Parse the name:model (or slash) portion of an executor spec.
 
@@ -325,11 +281,9 @@ def main(argv=None) -> int:
         return 0
 
     if args.usage:
-        from cld.usage import parse_cursor_about, parse_opencode_stats, render_usage_table
+        from cld.usage import render_usage_table
         ledger = Ledger.load(args.ledger)
-        oc_stats = parse_opencode_stats(_opencode_stats_text())
-        cursor_about = parse_cursor_about(_cursor_about_text())
-        print(render_usage_table(ledger, oc_stats, cursor_about=cursor_about))
+        print(render_usage_table(ledger))
         return 0
 
     plan_md = Path(args.plan).read_text(encoding="utf-8")

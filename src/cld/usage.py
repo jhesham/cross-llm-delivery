@@ -27,7 +27,6 @@ def parse_opencode_stats(text: str) -> dict:
                 result[key.lower().replace(" ", "_")] = m.group(1)
                 break
 
-
     return result
 
 
@@ -38,11 +37,30 @@ def parse_opencode_stats(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
+def _model_belongs_to_provider(model: str, provider_name: str) -> bool:
+    """Return True if a ledger model string belongs to the named provider.
+
+    Matches "opencode:..." or "opencode/..." prefixes.
+    """
+    if not model:
+        return False
+    return model.startswith(f"{provider_name}:") or model.startswith(f"{provider_name}/")
+
+
+def render_usage_table(ledger) -> str:
+    """Render a markdown usage table for *ledger*.
+
+    Provider-blind: discovers registered providers via the registry and calls
+    each provider's account_section() for account blocks.  No hardcoded
+    provider names or imports.
+    """
+    from cld.providers_api import all_providers, load_providers
+    load_providers()
+
     lines = ["| Slice | Complexity | Model | Rung | Tokens | Cost |",
              "|---|---|---|---|---|---|"]
     total_tokens = 0
-    has_cursor_slice = False
+    models_seen: set[str] = set()
 
     for entry in ledger.entries.values():
         tokens = entry.token_usage.get("total", 0)
@@ -54,24 +72,28 @@ def render_usage_table(ledger, oc_stats: dict, *, cursor_about=None) -> str:
         lines.append(
             f"| {entry.slice_id} | {complexity} | {model} | {rung} | {tokens} | {cost_str} |"
         )
-        if (entry.model or "").startswith("cursor:"):
-            has_cursor_slice = True
+        if entry.model:
+            models_seen.add(entry.model)
 
     lines.append("")
     lines.append(f"**Build total tokens:** {total_tokens}")
     lines.append("")
 
-    # Render account blocks via the provider registry (provider-blind).
-    # Fall back to the legacy oc_stats dict for the opencode block (the caller
-    # already parsed `opencode stats` into it).  Cursor block uses cursor_about
-    # (the parsed `cursor-agent about` dict).
-    from cld_providers.opencode.provider import account_block as _oc_block
-    lines.extend(_oc_block(oc_stats))
-
-    if cursor_about and has_cursor_slice:
-        lines.append("")
-        from cld_providers.cursor.provider import account_block as _cur_block
-        lines.extend(_cur_block(cursor_about))
+    # Provider-blind account sections: each provider self-sources its stats.
+    first_section = True
+    for provider in all_providers():
+        if provider.account_section is None:
+            continue
+        # Only emit a block when at least one ledger entry used this provider.
+        has_models = any(_model_belongs_to_provider(m, provider.name) for m in models_seen)
+        if not has_models:
+            continue
+        if not first_section:
+            lines.append("")
+        block = provider.account_section()
+        if block:
+            lines.extend(block)
+            first_section = False
 
     return "\n".join(lines)
 

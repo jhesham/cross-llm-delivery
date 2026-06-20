@@ -253,6 +253,21 @@ def account_block(cursor_about: dict) -> list:
     ]
 
 
+def account_section() -> list:
+    """Self-contained account section: shell cursor-agent about + parse + render.
+
+    Called by render_usage_table via the registry so the engine stays provider-blind.
+    Returns [] on any error (degrades gracefully).
+    """
+    from cld.usage import parse_cursor_about  # local import: avoids circular at module level
+    try:
+        raw = account_stats()
+        about = parse_cursor_about(raw)
+        return account_block(about)
+    except Exception:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Catalog: cursor:composer-2.5 ModelInfo entry
 # ---------------------------------------------------------------------------
@@ -287,6 +302,7 @@ PROVIDER = Provider(
     list_models=list_models,
     account_stats=account_stats,
     account_block=account_block,
+    account_section=account_section,
     skill_fragment=_SKILL_FRAGMENT,
     setup_notes=_SETUP_NOTES,
 )
