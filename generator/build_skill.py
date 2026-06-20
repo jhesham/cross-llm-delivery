@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -149,8 +150,53 @@ def _vendor_aux(out: Path) -> None:
         shutil.copytree(examples, out / "examples", ignore=_ignore)
 
 
-def build_one(provider: str, *, out_root: str | Path = "dist") -> Path:
-    """Create (or wipe+recreate) <out_root>/cross-llm-<provider>/ and return it."""
+# ---------------------------------------------------------------------------
+# Standalone smoke-check: prove the vendored bundle works in isolation
+# ---------------------------------------------------------------------------
+
+PROBE = (
+    "import cld; from cld.providers_api import load_providers, all_providers; "
+    "load_providers(); ps=[p.name for p in all_providers()]; "
+    "assert len(ps)==1, ps; "
+    "from cld.models import recommend; recommend(available_ids=[]); "
+    "print('SMOKE_OK')"
+)
+
+
+def _smoke_check(out: Path) -> None:
+    """Run a subprocess probe against the vendored bundle at *out*.
+
+    The subprocess is given ONLY the bundle's scripts/ directory on PYTHONPATH,
+    so it resolves cld and cld_providers from the vendored copy — not from the
+    monorepo engine path that is on the parent process's sys.path.
+
+    Raises RuntimeError with captured output if the probe fails.
+    """
+    scripts_dir = (out / "scripts").resolve()
+    env = {**os.environ, "PYTHONPATH": str(scripts_dir)}
+    result = subprocess.run(
+        [sys.executable, "-c", PROBE],
+        cwd=scripts_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    combined = (result.stdout or "") + (result.stderr or "")
+    if result.returncode != 0 or "SMOKE_OK" not in combined:
+        raise RuntimeError(
+            f"smoke-check failed for {out}:\n{result.stdout}\n{result.stderr}"
+        )
+
+
+def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = True) -> Path:
+    """Create (or wipe+recreate) <out_root>/cross-llm-<provider>/ and return it.
+
+    If *smoke* is True (the default) a standalone smoke-check is run after the
+    bundle is assembled, proving that the vendored copy of cld is self-contained.
+    Pass smoke=False to skip the check (e.g. for fast unit tests of earlier steps).
+    """
     known = _known_providers()
     if provider not in known:
         raise ValueError(
@@ -166,6 +212,8 @@ def build_one(provider: str, *, out_root: str | Path = "dist") -> Path:
     _vendor_aux(out)
     _compose_skill(provider, out)
     _scaffold(provider, out)
+    if smoke:
+        _smoke_check(out)
     return out
 
 
@@ -189,6 +237,12 @@ def main(argv: list[str] | None = None) -> int:
         default="dist",
         help="Output root directory (default: dist).",
     )
+    parser.add_argument(
+        "--no-smoke",
+        action="store_true",
+        dest="no_smoke",
+        help="Skip the standalone smoke-check (faster, but skips isolation proof).",
+    )
     args = parser.parse_args(argv)
 
     if args.all_providers:
@@ -198,8 +252,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         parser.error("Provide a provider name or use --all.")
 
+    smoke = not args.no_smoke
     for target in targets:
-        out = build_one(target, out_root=args.out_root)
+        out = build_one(target, out_root=args.out_root, smoke=smoke)
         print(out)
 
     return 0

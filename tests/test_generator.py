@@ -92,3 +92,21 @@ def test_version_stamped(tmp_path):
     out = build_one("cursor", out_root=tmp_path)
     ver = Path("VERSION").read_text(encoding="utf-8").strip()
     assert ver in (out / "SKILL.md").read_text(encoding="utf-8")
+
+
+# ---- Task 5: standalone smoke-check ----
+
+def test_smoke_check_passes_on_real_bundle(tmp_path):
+    # build_one runs the smoke-check by default; a clean cursor bundle must pass
+    out = build_one("cursor", out_root=tmp_path)   # raises if smoke fails
+    assert (out / "SKILL.md").is_file()
+
+
+def test_smoke_check_detects_broken_bundle(tmp_path):
+    import pytest
+    from generator.build_skill import _smoke_check
+    out = build_one("cursor", out_root=tmp_path, smoke=False)
+    # break the vendored core: remove providers_api so load_providers/import fails
+    (out / "scripts" / "cld" / "providers_api.py").unlink()
+    with pytest.raises(RuntimeError):
+        _smoke_check(out)
