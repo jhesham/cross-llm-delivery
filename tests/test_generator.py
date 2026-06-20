@@ -62,3 +62,33 @@ def test_skill_template_exists_with_placeholders():
     # the core template must NOT hardcode a specific provider in its prose
     low = t.lower()
     assert "opencode" not in low and "composer" not in low
+
+
+# ---- Task 4: SKILL compose + banner + VERSION + repo scaffolding ----
+
+def test_composes_skill_md(tmp_path):
+    out = build_one("cursor", out_root=tmp_path)
+    skill = (out / "SKILL.md").read_text(encoding="utf-8")
+    # placeholders are gone; provider specifics are in
+    assert "{{" not in skill
+    assert "cursor" in skill.lower()
+    assert "cursor:composer-2.5" in skill            # the provider's default workhorse
+    # provider fragment content is woven in (a phrase from cursor's fragment)
+    assert "cursor-agent" in skill.lower()
+    # GENERATED banner present
+    assert "GENERATED" in skill and "do not edit" in skill.lower()
+    skill.encode("cp1252")
+
+
+def test_scaffolds_repo_files(tmp_path):
+    out = build_one("cursor", out_root=tmp_path)
+    assert (out / "README.md").is_file()
+    assert (out / "LICENSE").is_file()
+    assert (out / ".gitignore").is_file()
+    assert "GENERATED" in (out / "README.md").read_text(encoding="utf-8")
+
+
+def test_version_stamped(tmp_path):
+    out = build_one("cursor", out_root=tmp_path)
+    ver = Path("VERSION").read_text(encoding="utf-8").strip()
+    assert ver in (out / "SKILL.md").read_text(encoding="utf-8")
