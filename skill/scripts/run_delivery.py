@@ -28,6 +28,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Self-contained-skill shim: when this driver is VENDORED into a generated skill,
+# the engine (`cld`) and providers (`cld_providers`) are vendored beside it in the
+# same `scripts/` dir. Putting that dir on sys.path lets `import cld` resolve with
+# NO pip install. Harmless in the monorepo (where `cld` is already importable via
+# the engine pythonpath) -- it just prepends this dir, which has no `cld` there.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from cld.providers_api import load_providers, get_provider, all_providers
 from cld.executors import get_executor
 from cld.judge import judge
