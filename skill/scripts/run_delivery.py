@@ -28,11 +28,22 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cld.executors import KNOWN_EXECUTORS, get_executor
+from cld.providers_api import load_providers, get_provider, all_providers
+from cld.executors import get_executor
 from cld.judge import judge
 from cld.ledger import Ledger, DONE
 from cld.orchestrator import run_plan_parallel
 from cld.plan.slice import load_slices
+
+# Load all providers at startup so the registry is populated before any
+# call to get_executor / get_provider / KNOWN_EXECUTORS.
+load_providers()
+
+# ---------------------------------------------------------------------------
+# KNOWN_EXECUTORS: dynamic shim (registry-backed) for backward-compat callers
+# within this module (e.g. _parse_name_model, _provider_of_spec).
+# ---------------------------------------------------------------------------
+KNOWN_EXECUTORS = tuple(p.name for p in all_providers())
 
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
@@ -86,6 +97,14 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
 
 
 def _opencode_stats_text() -> str:
+    """Return raw `opencode stats` output via the opencode provider's account_stats."""
+    try:
+        p = get_provider("opencode")
+        if p.account_stats is not None:
+            return p.account_stats() or ""
+    except Exception:
+        pass
+    # fallback: direct invocation
     oc = os.environ.get("OPENCODE_CLI_CMD") or ("opencode.cmd" if os.name == "nt" else "opencode")
     try:
         proc = subprocess.run([oc, "stats"], capture_output=True, text=True,
@@ -102,7 +121,14 @@ def _cursor_about_text() -> str:
     is the only account signal. Timeout-guarded; returns "" on any failure so the
     usage view degrades to no-cursor-block."""
     try:
-        from cld.executors.cursor import _cursor_cmd
+        p = get_provider("cursor")
+        if p.account_stats is not None:
+            return p.account_stats() or ""
+    except Exception:
+        pass
+    # fallback: direct invocation
+    try:
+        from cld_providers.cursor.provider import _cursor_cmd
         cmd = _cursor_cmd()
     except Exception:
         cmd = os.environ.get("CURSOR_AGENT_CMD") or "cursor-agent"
@@ -176,7 +202,7 @@ def _provider_of_spec(spec: str) -> str:
     """Extract the executor provider name from an --executor spec.
 
     Strips a trailing @effort if present, then takes the part before the first ':'.
-    Lowercases and returns it if it's in KNOWN_EXECUTORS; falls back to 'gemini'.
+    Lowercases and returns it if it's a registered executor; falls back to 'gemini'.
 
     Examples:
         "gemini"                           -> "gemini"
@@ -200,24 +226,22 @@ def _provider_of_spec(spec: str) -> str:
 def _available_ids_for(provider: str) -> list:
     """Return available model ids for the given provider executor name.
 
-    opencode -> calls list_models via the opencode default runner.
-    cursor   -> calls list_cursor_models via the cursor default runner, returns ids.
-    else     -> [].
-
+    Delegates to the registered provider's list_models callable.
     All exceptions are caught and [] is returned so failures degrade gracefully.
     """
     try:
+        p = get_provider(provider)
+        # Use a default subprocess runner for providers that need one
         if provider == "opencode":
-            from cld.executors.opencode import _default_runner
-            from cld.models import list_models
-            return list_models(runner=_default_runner)
+            from cld_providers.opencode.provider import _default_runner
+            return p.list_models(_default_runner)
         if provider == "cursor":
-            from cld.executors.cursor import _default_runner as _cursor_default_runner
-            from cld.models import list_cursor_models
-            return [i for i, _ in list_cursor_models(runner=_cursor_default_runner)]
+            from cld_providers.cursor.provider import _default_runner as _cursor_runner
+            # list_models for cursor returns plain ids (not (id, label) tuples)
+            return p.list_models(_cursor_runner)
+        return p.list_models(lambda args, cwd: (0, ""))
     except Exception:
         return []
-    return []
 
 
 def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2):
@@ -251,10 +275,15 @@ def prompt_for_executor() -> str:
 
     Degrades gracefully: if OpenCode isn't installed, `list_models` returns [] and
     the shortlist falls back to just the Gemini default."""
-    from cld.executors.opencode import _default_runner
-    from cld.models import list_models, pick_executor, recommend
+    from cld.models import pick_executor, recommend
 
-    available = list_models(runner=_default_runner)
+    try:
+        from cld_providers.opencode.provider import _default_runner
+        p = get_provider("opencode")
+        available = p.list_models(_default_runner)
+    except Exception:
+        available = []
+
     recs = recommend(available_ids=available)
     if not recs:
         return "gemini"

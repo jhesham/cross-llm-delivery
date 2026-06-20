@@ -2,17 +2,27 @@
 
 Authored by Claude before dispatch. Proves pluggability: get_executor(name)
 returns the right adapter; Composer is a documented stub.
+
+Updated for Task 7: KNOWN_EXECUTORS literal removed from the engine; tests now
+assert via cld.providers_api.all_providers() — the registry-backed source.
 """
 
 import pytest
 
-from cld.executors import KNOWN_EXECUTORS, get_executor
+from cld.executors import get_executor
+from cld.providers_api import load_providers, _REGISTRY, all_providers
 from cld.executors.base import Executor
 from cld.executors.gemini import GeminiExecutor
 
 
 def _fake_runner(args, cwd):
     return (0, "{}")
+
+
+def _registered_names():
+    """Return the set of registered executor names (the registry-backed KNOWN_EXECUTORS)."""
+    load_providers()
+    return {p.name for p in all_providers()}
 
 
 def test_get_gemini():
@@ -50,9 +60,11 @@ def test_unknown_executor_raises_valueerror_listing_known():
 
 
 def test_known_executors_exposed():
-    assert "gemini" in KNOWN_EXECUTORS
-    assert "composer" in KNOWN_EXECUTORS
-    assert isinstance(KNOWN_EXECUTORS, tuple)
+    # Previously asserted via the KNOWN_EXECUTORS tuple literal; now via the registry.
+    names = _registered_names()
+    assert "gemini" in names
+    assert "composer" in names
+    assert isinstance(names, set)
 
 
 def test_kwargs_passed_through_to_gemini():
@@ -66,15 +78,14 @@ def test_get_opencode():
     ex = get_executor("opencode", model="opencode/deepseek-v4-flash-free")
     assert isinstance(ex, OpenCodeExecutor)
     assert isinstance(ex, Executor)
-    assert "opencode" in KNOWN_EXECUTORS
+    assert "opencode" in _registered_names()
 
 
 def test_get_cursor():
-    from cld.executors import get_executor, KNOWN_EXECUTORS
     from cld.executors.cursor import CursorExecutor
     ex = get_executor("cursor", model="composer-2.5")
     assert isinstance(ex, CursorExecutor)
-    assert "cursor" in KNOWN_EXECUTORS
+    assert "cursor" in _registered_names()
 
 
 def test_get_cursor_passes_effort():
