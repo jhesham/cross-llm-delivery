@@ -150,3 +150,21 @@ def test_active_provider_executor_shim_kept(tmp_path):
     assert not (ex / "opencode.py").exists()            # non-active shims trimmed
     assert not (ex / "gemini.py").exists()
     assert not (ex / "composer.py").exists()
+
+
+# ---- Task 2 (SP3): end-to-end self-containment via vendored driver ----
+
+def test_vendored_driver_runs_dry_run_in_isolation(tmp_path):
+    out = build_one("gemini", out_root=tmp_path)
+    scripts = out / "scripts"
+    plan = tmp_path / "p.md"
+    plan.write_text(
+        "## SLICE: T1\nbrief: do x\nfiles: src/x.py\nacceptance_test_path: tests/test_x.py\ndeps:\n",
+        encoding="utf-8")
+    r = subprocess.run(
+        [sys.executable, str(scripts / "run_delivery.py"), str(plan), "--dry-run"],
+        cwd=scripts,
+        env={**__import__('os').environ, "PYTHONPATH": str(scripts.resolve())},
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, (r.stdout + r.stderr)
+    assert "T1" in (r.stdout + r.stderr)          # the dry-run printed the layer/schedule
