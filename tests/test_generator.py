@@ -168,3 +168,17 @@ def test_vendored_driver_runs_dry_run_in_isolation(tmp_path):
         capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert r.returncode == 0, (r.stdout + r.stderr)
     assert "T1" in (r.stdout + r.stderr)          # the dry-run printed the layer/schedule
+
+
+# ---- Task 3 (SP3): cross-provider regression ----
+
+def test_build_all_generates_every_provider(tmp_path):
+    from generator.build_skill import build_one, _known_providers
+    for p in _known_providers():
+        out = build_one(p, out_root=tmp_path)
+        assert (out / "SKILL.md").is_file()
+        assert (out / "scripts" / "cld_providers" / p / "provider.py").is_file()
+        # each is trimmed to its own provider only
+        others = [q for q in _known_providers() if q != p]
+        for q in others:
+            assert not (out / "scripts" / "cld_providers" / q).exists()
