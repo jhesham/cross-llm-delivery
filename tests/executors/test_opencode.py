@@ -118,7 +118,9 @@ def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
     # silently falls back to interactive/attach mode and produces no step_finish.
     # The real opencode.exe (invoked directly by subprocess, no shell) handles the
     # argv correctly. _oc_cmd must resolve the real .exe on Windows when findable.
-    import cld.executors.opencode as mod
+    # Patch the impl module (cld_providers.opencode.provider) — that is where the
+    # code actually lives; patching a re-export shim would have no effect.
+    import cld_providers.opencode.provider as mod
 
     monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
     monkeypatch.setattr(mod.os, "name", "nt", raising=False)
@@ -136,7 +138,8 @@ def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
 def test_oc_cmd_falls_back_to_cmd_when_exe_missing(monkeypatch):
     # if the real exe can't be located, fall back to the .cmd shim (still works for
     # short prompts; better than crashing). Override still wins.
-    import cld.executors.opencode as mod
+    # Patch the impl module (cld_providers.opencode.provider) — shim has no os/shutil.
+    import cld_providers.opencode.provider as mod
     monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
     monkeypatch.setattr(mod.os, "name", "nt", raising=False)
     monkeypatch.setattr(mod.shutil, "which", lambda n: None)
@@ -145,7 +148,8 @@ def test_oc_cmd_falls_back_to_cmd_when_exe_missing(monkeypatch):
 
 
 def test_oc_cmd_env_override_wins(monkeypatch):
-    import cld.executors.opencode as mod
+    # Patch the impl module (cld_providers.opencode.provider) — shim has no os.
+    import cld_providers.opencode.provider as mod
     monkeypatch.setenv("OPENCODE_CLI_CMD", "/custom/opencode")
     assert mod._oc_cmd() == "/custom/opencode"
 
