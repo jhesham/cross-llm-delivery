@@ -14,100 +14,6 @@ class ModelInfo:
     last_validated: Optional[str] = None
     tier: str | None = None
 
-MODEL_METADATA: Dict[str, ModelInfo] = {
-    "gemini:gemini-3.1-pro-preview": ModelInfo(
-        id="gemini:gemini-3.1-pro-preview",
-        provider="gemini",
-        cost_class="flat",
-        capability_class="workhorse",
-        headless_status="verified",
-        rework_risk="low",
-        note="our 14/14 grade-A workhorse; $0 flat-rate",
-        tier="workhorse"
-    ),
-    "opencode/claude-opus-4-8": ModelInfo(
-        id="opencode/claude-opus-4-8",
-        provider="opencode",
-        cost_class="premium-metered",
-        capability_class="heavy",
-        headless_status="likely",
-        rework_risk="medium",
-        note="top capability, bills real money",
-        tier=None
-    ),
-    "opencode/deepseek-v4-flash-free": ModelInfo(
-        id="opencode/deepseek-v4-flash-free",
-        provider="opencode",
-        cost_class="free",
-        capability_class="quick",
-        headless_status="untested",
-        rework_risk="medium",
-        note="cheap, validate before trusting",
-        tier="quick"
-    ),
-    "opencode/deepseek-v4-pro": ModelInfo(
-        id="opencode/deepseek-v4-pro",
-        provider="opencode",
-        cost_class="cheap-metered",
-        capability_class="workhorse",
-        headless_status="likely",
-        rework_risk="low",
-        note="solid choice",
-        tier="workhorse"
-    ),
-    "opencode/gemini-3.1-pro": ModelInfo(
-        id="opencode/gemini-3.1-pro",
-        provider="opencode",
-        cost_class="cheap-metered",  # via OpenCode's account, NOT the flat-rate Google sub
-        capability_class="workhorse",
-        headless_status="likely",
-        rework_risk="low",
-        note="same model as the flat-rate workhorse, routed through OpenCode (metered)",
-        tier="workhorse"
-    ),
-    "opencode/kimi-k2.6": ModelInfo(
-        id="opencode/kimi-k2.6",
-        provider="opencode",
-        cost_class="cheap-metered",
-        capability_class="heavy",
-        headless_status="untested",
-        rework_risk="medium",
-        note="strong model; never cleanly validated headless - validate before trusting",
-        tier="workhorse"
-    ),
-    "opencode/kimi-k2.7": ModelInfo(
-        id="opencode/kimi-k2.7",
-        provider="opencode",
-        cost_class="cheap-metered",
-        capability_class="heavy",
-        headless_status="untested",
-        rework_risk="medium",
-        # Catalogued ahead of availability: stays filtered out of the shortlist until
-        # `opencode models` lists it (gated by available_ids), then auto-appears.
-        note="newer Kimi via OpenCode; validate before trusting headless",
-        tier="workhorse"
-    ),
-    "opencode/claude-sonnet-4-6": ModelInfo(
-        id="opencode/claude-sonnet-4-6",
-        provider="opencode",
-        cost_class="premium-metered",
-        capability_class="heavy",
-        headless_status="likely",
-        rework_risk="low",
-        note="capable Anthropic Sonnet via OpenCode; bills real money",
-        tier=None
-    ),
-    "cursor:composer-2.5": ModelInfo(
-        id="cursor:composer-2.5",
-        provider="cursor",
-        cost_class="cheap-metered",
-        capability_class="heavy",
-        headless_status="untested",
-        rework_risk="low",
-        note="Cursor's cost-optimized Composer; resolve_composer_default tracks the current version",
-        tier="workhorse"
-    ),
-}
 
 @dataclass
 class Recommendation:
@@ -126,7 +32,9 @@ class Recommendation:
 # absent from `available_ids` — it runs via the Gemini CLI, not the OpenCode model
 # list, so filtering the picker to `opencode models` ids must never hide it. (Bug
 # found in a live skill test: shortlist came back with no default/workhorse.)
-DEFAULT_WORKHORSE_ID = "gemini:gemini-3.1-pro-preview"
+# NOTE: DEFAULT_WORKHORSE_ID is now resolved lazily from the provider registry
+# via module __getattr__. Direct assignments keep working: callers see the same
+# string as before ("gemini:gemini-3.1-pro-preview") but it is no longer a literal.
 
 KNOWN_PROVIDERS = ("claude", "gpt", "gemini", "deepseek", "grok", "kimi", "qwen", "glm", "minimax")
 TIERS = ("quick", "workhorse")
@@ -164,15 +72,19 @@ def _provider_of(model_id: str) -> str:
 
 def browse_models(available_ids, *, session_known_bad=frozenset(),
                   evidence=None) -> Dict[str, List[BrowseItem]]:
+    from cld.providers_api import load_providers, catalog, default_workhorse
+    load_providers()
+    _catalog = catalog()
+    _default_workhorse_id = default_workhorse()
     evidence = evidence or {}
     ids = [i for i in available_ids if i not in session_known_bad]
-    if DEFAULT_WORKHORSE_ID not in ids and DEFAULT_WORKHORSE_ID not in session_known_bad:
-        ids.append(DEFAULT_WORKHORSE_ID)
+    if _default_workhorse_id not in ids and _default_workhorse_id not in session_known_bad:
+        ids.append(_default_workhorse_id)
 
     groups = {}
     for id in ids:
-        if id in MODEL_METADATA:
-            info = MODEL_METADATA[id]
+        if id in _catalog:
+            info = _catalog[id]
             # durable validation evidence overrides the static catalog status
             status = evidence.get(id, info.headless_status)
             if status == "revalidate":
@@ -184,12 +96,12 @@ def browse_models(available_ids, *, session_known_bad=frozenset(),
                 continue
             cost_class = "free" if id.endswith("-free") else "metered-unknown"
             item = BrowseItem(id, provider=_provider_of(id), cost_class=cost_class, headless_status=status, in_catalog=False)
-            
+
         provider = item.provider
         if provider not in groups:
             groups[provider] = []
         groups[provider].append(item)
-        
+
     for p in groups:
         groups[p].sort(key=lambda x: x.id)
 
@@ -220,10 +132,14 @@ def render_browse_list(grouped) -> tuple:
 def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
               evidence=None) -> list[Recommendation]:
     # Always consider the verified default available (it's not an OpenCode model).
+    from cld.providers_api import load_providers, catalog, default_workhorse
+    load_providers()
+    _catalog = catalog()
+    _default_workhorse_id = default_workhorse()
     evidence = evidence or {}
-    effective_ids = (set(available_ids) | {DEFAULT_WORKHORSE_ID}) - set(session_known_bad)
+    effective_ids = (set(available_ids) | {_default_workhorse_id}) - set(session_known_bad)
     recs: list[Recommendation] = []
-    for id, info in MODEL_METADATA.items():
+    for id, info in _catalog.items():
         if id not in effective_ids:
             continue
         # Cursor models are intentionally NOT offered in the first-selection shortlist:
@@ -254,7 +170,7 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
 
     default_candidate = None
     for rec in recs:
-        if rec.id == "gemini:gemini-3.1-pro-preview":
+        if rec.id == _default_workhorse_id:
             default_candidate = rec
             break
     if default_candidate is None:
@@ -386,97 +302,24 @@ def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
     return _spec_for(chosen)
 
 
-def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:
-    """List available OpenCode model ids via `opencode models`.
-
-    Resolves the platform-correct command (Windows npm shim is `opencode.cmd`,
-    overridable with OPENCODE_CLI_CMD). Degrades to [] on any failure — nonzero
-    exit OR the CLI not being on PATH (FileNotFoundError) — so the picker can
-    fall back to "Gemini only" instead of crashing.
-    """
-    oc_cmd = os.environ.get("OPENCODE_CLI_CMD") or (
-        "opencode.cmd" if os.name == "nt" else "opencode"
-    )
-    try:
-        rc, out = runner([oc_cmd, "models"], ".")
-    except OSError:
-        return []
-    if rc != 0:
-        return []
-    return [line.strip() for line in out.splitlines() if line.strip()]
-
-
-def list_cursor_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[Tuple[str, str]]:
-    try:
-        rc, out = runner(["cursor-agent", "--list-models"], ".")
-    except OSError:
-        return []
-    if rc != 0:
-        return []
-    
-    models = []
-    for line in out.splitlines():
-        line = line.strip()
-        if not line or " - " not in line:
-            continue
-        id_part, label_part = line.split(" - ", 1)
-        id_part = id_part.strip()
-        label_part = label_part.strip()
-        if id_part == "auto":
-            continue
-        models.append((id_part, label_part))
-    return models
-
-
-def resolve_composer_default(runner) -> str:
-    fallback = "composer-2.5"
-    try:
-        models = list_cursor_models(runner)
-        composers = [(mid, label) for mid, label in models if mid.startswith("composer")]
-        if not composers:
-            return fallback
-
-        for mid, label in composers:
-            if "(current)" in label:
-                return mid
-
-        for mid, label in composers:
-            if "(default)" in label:
-                return mid
-
-        max_ver = -1.0
-        max_id = fallback
-        found_version = False
-        for mid, label in composers:
-            if mid.startswith("composer-"):
-                ver_str = mid[len("composer-"):].split("-")[0]
-                try:
-                    ver = float(ver_str)
-                    if ver > max_ver:
-                        max_ver = ver
-                        max_id = mid
-                        found_version = True
-                except ValueError:
-                    pass
-        
-        if found_version:
-            return max_id
-        return fallback
-    except Exception:
-        return fallback
 
 
 def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelChoice]:
+    from cld.providers_api import load_providers, catalog, default_workhorse
+    load_providers()
+    _catalog = catalog()
+    _default_workhorse_id = default_workhorse()
+
     out = []
 
-    gemini_id = "gemini:gemini-3.1-pro-preview"
-    gem_info = MODEL_METADATA[gemini_id]
+    gemini_id = _default_workhorse_id
+    gem_info = _catalog[gemini_id]
     out.append(
         ModelChoice(
             spec=gemini_id,
             executor="gemini",
             provider="gemini",
-            model="gemini-3.1-pro-preview",
+            model=gemini_id.split(":", 1)[1] if ":" in gemini_id else gemini_id,
             label=gem_info.note,
             cost_class=gem_info.cost_class,
             headless_status=evidence.get(gemini_id, gem_info.headless_status),
@@ -486,9 +329,9 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
     )
 
     for id in opencode_ids:
-        if id in MODEL_METADATA:
-            cost_class = MODEL_METADATA[id].cost_class
-            base_status = MODEL_METADATA[id].headless_status
+        if id in _catalog:
+            cost_class = _catalog[id].cost_class
+            base_status = _catalog[id].headless_status
         else:
             cost_class = "free" if id.endswith("-free") else "metered-unknown"
             base_status = "untested"
@@ -496,7 +339,7 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
         status = evidence.get(id, base_status)
         if status == "revalidate":
             continue
-            
+
         out.append(
             ModelChoice(
                 spec="opencode:" + id,
@@ -518,7 +361,7 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
             working_id = working_id[:-5]
         if working_id.endswith("-thinking"):
             working_id = working_id[:-9]
-        
+
         parts = working_id.rsplit("-", 1)
         if len(parts) == 2 and parts[1] in {"low", "medium", "high", "xhigh", "max"}:
             effort = parts[1]
@@ -526,16 +369,16 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
         else:
             effort = None
             base_id = working_id
-            
+
         if base_id not in cursor_groups:
             cursor_groups[base_id] = []
         cursor_groups[base_id].append((cid, clabel, effort))
-        
+
     for base_id, items in cursor_groups.items():
         key = "cursor:" + base_id
-        if key in MODEL_METADATA:
-            cost_class = MODEL_METADATA[key].cost_class
-            base_status = MODEL_METADATA[key].headless_status
+        if key in _catalog:
+            cost_class = _catalog[key].cost_class
+            base_status = _catalog[key].headless_status
         else:
             cost_class = "metered-unknown"
             base_status = "untested"
@@ -546,7 +389,7 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
 
         no_effort_item = next((item for item in items if item[2] is None), None)
         raw_label = no_effort_item[1] if no_effort_item else items[0][1]
-        
+
         if raw_label.endswith(" (current)"):
             clean_label = raw_label[:-10].strip()
         elif raw_label.endswith(" (default)"):
@@ -556,7 +399,7 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
 
         efforts_set = {item[2] for item in items if item[2] is not None}
         efforts = sorted(list(efforts_set))
-        
+
         marked_item = next((item for item in items if "(default)" in item[1] or "(current)" in item[1]), None)
         if marked_item:
             default_effort = marked_item[2]
@@ -734,6 +577,10 @@ def plan_rungs(
     - Untagged: build the chain from COMPLEXITY_ROUTING[task.complexity], de-dupe specs.
     - Fallback: if nothing resolves, return [("workhorse", DEFAULT_WORKHORSE_ID, max_retries)].
     """
+    from cld.providers_api import load_providers, default_workhorse
+    load_providers()
+    _default_workhorse_id = default_workhorse()
+
     # Tagged: pinned to the nominated executor, no auto-routing
     if task.executor:
         return [("workhorse", task.executor, max_retries)]
@@ -755,7 +602,7 @@ def plan_rungs(
         rungs.append((tier, spec, budget))
 
     if not rungs:
-        return [("workhorse", DEFAULT_WORKHORSE_ID, max_retries)]
+        return [("workhorse", _default_workhorse_id, max_retries)]
 
     return rungs
 
@@ -793,9 +640,14 @@ def resolve_tier_model(
     - Sort viable candidates by (cost_rank, id); return the spec of the first.
     - Returns None when nothing viable.
     """
-    avail = set(available_ids) | {DEFAULT_WORKHORSE_ID}
+    from cld.providers_api import load_providers, catalog, default_workhorse
+    load_providers()
+    _catalog = catalog()
+    _default_workhorse_id = default_workhorse()
+
+    avail = set(available_ids) | {_default_workhorse_id}
     cands = []
-    for cid, info in MODEL_METADATA.items():
+    for cid, info in _catalog.items():
         if info.tier != tier or info.provider != provider:
             continue
         if cid not in avail:
@@ -813,3 +665,40 @@ def resolve_tier_model(
     pool.sort(key=lambda c: (_COST_RANK.get(c[1].cost_class, 9), c[0]))
     return _spec_of_catalog_id(pool[0][0])
 
+
+# ---------------------------------------------------------------------------
+# PEP 562 module __getattr__ — lazy assembly of MODEL_METADATA and DEFAULT_WORKHORSE_ID
+#
+# CIRCULAR-IMPORT SAFE: cld_providers.*.provider modules import ModelInfo from
+# cld.models at module load time.  If we called load_providers()/catalog() at
+# cld.models import time we'd trigger those imports mid-load → ImportError.
+# Instead we defer assembly to *first access* of the names.  Any code that does
+#   from cld.models import MODEL_METADATA
+# or
+#   cld.models.MODEL_METADATA[...]
+# triggers this __getattr__ *after* all modules have fully initialised, so the
+# circular dependency is resolved before we call into providers_api.
+# ---------------------------------------------------------------------------
+
+def __getattr__(name: str):
+    if name == "MODEL_METADATA":
+        from cld.providers_api import load_providers, catalog
+        load_providers()
+        return catalog()
+    if name == "DEFAULT_WORKHORSE_ID":
+        from cld.providers_api import load_providers, default_workhorse
+        load_providers()
+        return default_workhorse()
+    # Lazy re-exports of functions whose single source of truth is in cld_providers.
+    # Using __getattr__ avoids both circular imports (providers import ModelInfo from
+    # this module at load time) and duplicate `def` bodies caught by the de-dup gate.
+    if name == "list_models":
+        from cld_providers.opencode.provider import list_models
+        return list_models
+    if name == "list_cursor_models":
+        from cld_providers.cursor.provider import list_cursor_models
+        return list_cursor_models
+    if name == "resolve_composer_default":
+        from cld_providers.cursor.provider import resolve_composer_default
+        return resolve_composer_default
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

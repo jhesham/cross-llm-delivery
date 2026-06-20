@@ -103,16 +103,21 @@ def test_pick_executor_default_on_empty_input():
 
 
 def test_pick_executor_numeric_choice_maps_to_opencode_spec():
+    from cld.models import render_shortlist
     recs = _recs_for_picker()
-    # choose the deepseek free line by its number; find its index (1-based)
-    idx = next(i for i, r in enumerate(recs, 1) if "deepseek-v4-flash-free" in r.id)
+    # find the shortlist index (1-based) of deepseek in the bucket-ordered list
+    _, ordered = render_shortlist(recs)
+    idx = next(i for i, r in enumerate(ordered, 1) if "deepseek-v4-flash-free" in r.id)
     spec = pick_executor(recs, input_fn=lambda _: str(idx), output_fn=lambda _s: None)
     assert spec == "opencode:opencode/deepseek-v4-flash-free"
 
 
 def test_pick_executor_premium_requires_confirmation():
+    from cld.models import render_shortlist
     recs = _recs_for_picker()
-    idx = next(i for i, r in enumerate(recs, 1) if "claude-opus-4-8" in r.id)
+    # find the shortlist index (1-based) of the premium model in the bucket-ordered list
+    _, ordered = render_shortlist(recs)
+    idx = next(i for i, r in enumerate(ordered, 1) if "claude-opus-4-8" in r.id)
     # first prompt: pick the premium model; second prompt (confirm): "n" -> declines,
     # falls back to the default workhorse rather than dispatching a billed model.
     answers = iter([str(idx), "n"])
@@ -169,8 +174,11 @@ def test_picker_output_is_windows_console_safe():
 
 
 def test_pick_executor_premium_confirmed_yes():
+    from cld.models import render_shortlist
     recs = _recs_for_picker()
-    idx = next(i for i, r in enumerate(recs, 1) if "claude-opus-4-8" in r.id)
+    # find the shortlist index (1-based) of the premium model in the bucket-ordered list
+    _, ordered = render_shortlist(recs)
+    idx = next(i for i, r in enumerate(ordered, 1) if "claude-opus-4-8" in r.id)
     answers = iter([str(idx), "y"])
     spec = pick_executor(recs, input_fn=lambda _: next(answers), output_fn=lambda _s: None)
     assert spec == "opencode:opencode/claude-opus-4-8"

@@ -61,3 +61,20 @@ def test_load_providers_noop_when_empty(monkeypatch):
     # At minimum gemini should be registered; other providers may be present too.
     names = [p.name for p in all_providers()]
     assert "gemini" in names
+
+
+def test_get_executor_resolves_via_registry():
+    from cld.executors import get_executor
+    from cld.providers_api import load_providers, _REGISTRY
+    _REGISTRY.clear(); load_providers()
+    from cld_providers.gemini.provider import GeminiExecutor
+    assert isinstance(get_executor("gemini", model="gemini-3.1-pro-preview"), GeminiExecutor)
+
+
+def test_catalog_matches_all_providers():
+    from cld.providers_api import load_providers, _REGISTRY, catalog
+    _REGISTRY.clear(); load_providers()
+    # every catalogued id belongs to a registered provider; gemini default present
+    assert "gemini:gemini-3.1-pro-preview" in catalog()
+    assert "opencode/deepseek-v4-pro" in catalog()
+    assert "cursor:composer-2.5" in catalog()
