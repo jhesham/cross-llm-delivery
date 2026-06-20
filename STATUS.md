@@ -7,7 +7,32 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-21 (✅ SPEC #2 Sub-plan 2 of 4 SHIPPED — the generator; 343 passed; READY-TO-MERGE)
+**Last updated:** 2026-06-21 (✅ SPEC #2 Sub-plan 3 of 4 SHIPPED — self-containment + tests; 349 passed; READY-TO-MERGE)
+
+**✅ SUB-PLAN 3/4 COMPLETE — Self-containment + generator tests (2026-06-21, commits e63d7d7→8d808f4,
+349 passed).** All Claude (Gemini deprecated). Final whole-branch review = **READY-TO-MERGE**.
+- **Dead-shim fix (closes the SP2 carry):** generator `_trim_executor_shims` removes the non-active
+  per-executor compat shims from each bundle (keeps base/__init__/_capture + the active provider's
+  shim). A trimmed cursor bundle now imports all 24 vendored modules cleanly in isolation
+  (walk_packages probe) — no absent-provider ImportError. Generator-only; engine/cld untouched.
+- **End-to-end self-containment:** a test runs the vendored `run_delivery.py --dry-run` on a tiny plan
+  in a subprocess with PYTHONPATH = the bundle's `scripts/` ONLY (no pip cld, no monorepo) → rc 0,
+  prints the schedule. Proves the DRIVER (not just imports) is self-contained.
+- **Cross-provider regression locks:** 4 providers register in the monorepo; assembled `catalog()` == 9
+  ids (the pre-refactor MODEL_METADATA); `--all` generates each provider trimmed to itself.
+
+**⚠️ CARRY INTO SUB-PLAN 4 (publishing):** `__pycache__` pollution — smoke/compose import the vendored
+engine → writes `.pyc` into the bundle. Each bundle's `.gitignore` excludes it, so it's a publish-time
+concern: clean the bundle (or `sys.dont_write_bytecode`) before pushing to mirrors. (Cosmetic minors:
+mid-file import block in test_generator.py; `_scaffold` LICENSE not graceful-if-absent.)
+
+**NEXT: Sub-plan 4 — publishing** (`...-part4-publishing.md`, written just-in-time). `publish-targets.toml`
++ `publish.py` (push each generated skill to its own mirror repo + the `cross-llm-all` umbrella, one
+lockstep VERSION tag), retire the old unified skill, `__pycache__` clean. **Real-world hosting/auth
+decisions live here (GitHub remotes) — confirm with the user before any push; default to a dry-run /
+no-network mode.** AWAIT a fresh go-ahead.
+
+**(prior) ✅ SUB-PLAN 2/4 COMPLETE — the generator; 343 passed; READY-TO-MERGE**
 
 **🚨 EXTERNAL BLOCKER — the Gemini CLI is DEPRECATED (discovered 2026-06-21).** A dogfood dispatch
 failed: *"IneligibleTierError: This client is no longer supported for Gemini Code Assist for
