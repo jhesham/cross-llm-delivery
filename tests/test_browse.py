@@ -50,16 +50,18 @@ def test_catalogued_items_copy_metadata():
 
 def test_workhorse_always_self_included():
     g = browse_models([])  # OpenCode down -> still offers the flat-rate workhorse
-    assert list(g.keys()) == ["gemini"]
-    assert _ids(g["gemini"]) == [DEFAULT_WORKHORSE_ID]
-    wh = g["gemini"][0]
-    assert wh.in_catalog is True and wh.headless_status == "verified"
+    # DEFAULT_WORKHORSE_ID is now antigravity:Gemini 3.1 Pro (High); _provider_of maps it to "other"
+    assert list(g.keys()) == ["other"]
+    assert _ids(g["other"]) == [DEFAULT_WORKHORSE_ID]
+    wh = g["other"][0]
+    assert wh.in_catalog is True and wh.headless_status == "likely"
 
 
 def test_group_order_catalogued_first_then_alpha():
     g = browse_models(IDS)
-    # claude/deepseek/gemini have catalogued items -> first (alpha); gpt/other after
-    assert list(g.keys()) == ["claude", "deepseek", "gemini", "gpt", "other"]
+    # claude/deepseek/gemini have catalogued items -> first (alpha); "other" also gets
+    # the antigravity default workhorse (in_catalog=True) so sorts before uncatalogued gpt
+    assert list(g.keys()) == ["claude", "deepseek", "gemini", "other", "gpt"]
 
 
 def test_session_known_bad_filtered_out():
@@ -75,12 +77,13 @@ def test_render_numbering_round_trips_to_ids():
     # every numbered line N) contains the spec of ordered[N-1]
     import re
     for ln in lines:
-        m = re.match(r"\s*(\d+)\)\s+(\S+)", ln)
+        m = re.match(r"\s*(\d+)\)\s+(.+?)\s{2,}", ln)  # spec ends at 2+ spaces
         if not m:
             continue
-        n, spec = int(m.group(1)), m.group(2)
+        n, spec = int(m.group(1)), m.group(2).strip()
         item = ordered[n - 1]
-        expected = item.id if item.id.startswith("gemini:") else f"opencode:{item.id}"
+        # ids that already contain ":" are already spec-shaped (gemini:, antigravity:, etc.)
+        expected = item.id if ":" in item.id else f"opencode:{item.id}"
         assert spec == expected
 
 
