@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 .cld-ledger.json
 .cld/
+publish-targets.toml
