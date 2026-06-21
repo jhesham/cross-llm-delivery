@@ -7,7 +7,32 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-21 (✅ SPEC #2 ALL 4 SUB-PLANS SHIPPED — per-provider split COMPLETE; full suite green)
+**Last updated:** 2026-06-22 (✅ Antigravity provider + cursor direct-node fix IMPLEMENTED (T1-6, READY-TO-MERGE, ~376 green); live validation T7 pending)
+
+**🚧 POST-REBUILD WORK — "Complete headless provider dispatch" (Tasks 1-6 DONE, 2026-06-22).**
+Spec `docs/.../specs/2026-06-22-complete-headless-provider-dispatch-design.md`; plan
+`docs/.../plans/2026-06-22-complete-headless-provider-dispatch.md`. Subagent-driven; every task
+2-stage reviewed; final whole-branch review = **READY-TO-MERGE** (range f7d0fd8..dde9f1e, ~376 green).
+- **Part A — `antigravity` provider** (`engine/cld_providers/antigravity/`): helpers + `AntigravityExecutor`
+  (runs `agy` with cwd on the C: drive — the POSIX-transcript-path workaround — + `--add-dir <worktree>`,
+  captures the reply from the per-dispatch `transcript.jsonl`); 8-model catalog (Gemini/Claude/GPT-OSS,
+  all `flat`); `default_workhorse()` now prefers antigravity → `antigravity:Gemini 3.1 Pro (High)`;
+  `gemini` demoted to `revalidate` (historical). Catalog now 17, 5 providers.
+- **Part B — cursor direct-node**: `_cursor_invocation()` invokes the bundled `node index.js` directly
+  (no `.cmd` shim) + `CURSOR_INVOKED_AS` + `stdin=DEVNULL`.
+- Two reviewer-caught bugs fixed + locked: `_provider_of` now splits on whitespace (antigravity labels
+  map to their family gemini/claude/gpt, not "other"); a Task-1 scope-creep (premature PROVIDER) reverted.
+  Also a principled generator tweak: `_known_providers()` requires provider.py+fragment+setup.
+
+**⏳ REMAINING — Task 7: live validation + trust promotions (manual, controller-run, NEEDS USER GO-AHEAD).**
+Runs the REAL autonomous CLIs (permission-gated, consumes quota): (1) an `agy` build slice with
+`--add-dir` to confirm on-disk file writes → promote the exercised antigravity model `likely`→`verified`;
+(2) a real long-prompt `cursor-agent` (direct-node) slice → confirm writes → promote
+`cursor:composer-2.5` `untested`→`verified` + lift the cursor shortlist exclusion in
+`engine/cld/models.py` (`if id.startswith("cursor:"): continue`). Until then those trust statuses + the
+exclusion stay as-is (correct).
+
+**🎉 SPEC #2 (PER-PROVIDER SPLIT) COMPLETE — all 4 sub-plans shipped (2026-06-21).**
 
 **🎉 SPEC #2 (PER-PROVIDER SPLIT) COMPLETE — all 4 sub-plans shipped (2026-06-21).**
 SP1 provider extraction → SP2 generator → SP3 self-containment + tests → SP4 publishing + docs.
