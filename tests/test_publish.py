@@ -1,5 +1,6 @@
+import subprocess, sys, os
 from pathlib import Path
-from generator.publish import load_publish_targets
+from generator.publish import load_publish_targets, publish_one
 import pytest
 
 
@@ -25,3 +26,42 @@ def test_missing_file_raises(tmp_path):
 def test_example_config_exists_and_is_documented():
     ex = Path("generator/publish-targets.example.toml").read_text(encoding="utf-8")
     assert "all" in ex and "#" in ex   # has the umbrella key + explanatory comments
+
+
+# ---- Task 2: publish_one ----
+
+def _git(args, cwd):
+    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    return (p.returncode, (p.stdout or "") + (p.stderr or ""))
+
+
+def test_dry_run_touches_nothing_and_returns_plan(tmp_path):
+    targets = {"cursor": "git@example.com:me/cross-llm-cursor.git"}
+    plan = publish_one("cursor", targets=targets, version="9.9.9",
+                       dist_root=tmp_path, execute=False)
+    assert plan["provider"] == "cursor"
+    assert plan["repo"].endswith("cross-llm-cursor.git")
+    assert plan["version"] == "9.9.9"
+    assert plan["files"] > 0
+    # dry-run must NOT have pushed anything (no network); the plan lists intended actions
+    assert any("push" in a.lower() for a in plan["actions"])
+
+
+def test_execute_pushes_to_local_bare_repo(tmp_path):
+    # a LOCAL bare repo stands in for the remote -> real git, zero network
+    remote = tmp_path / "remote.git"
+    _git(["git", "init", "--bare", str(remote)], str(tmp_path))
+    targets = {"cursor": str(remote)}
+    publish_one("cursor", targets=targets, version="9.9.9",
+                dist_root=tmp_path / "dist", execute=True, runner=_git)
+    # clone the bare repo and verify the skill landed at the repo ROOT + the tag exists
+    work = tmp_path / "verify"
+    _git(["git", "clone", str(remote), str(work)], str(tmp_path))
+    assert (work / "SKILL.md").is_file()                 # repo root IS the skill
+    assert (work / "scripts" / "cld_providers" / "cursor").is_dir()
+    rc, tags = _git(["git", "tag"], str(work))
+    assert "v9.9.9" in tags
+    # trimmed: no __pycache__ committed
+    rc, ls = _git(["git", "ls-files"], str(work))
+    assert "__pycache__" not in ls and ".pyc" not in ls
