@@ -85,17 +85,17 @@ from cld.models import pick_executor
 
 def _recs_for_picker():
     return recommend(available_ids=[
-        "gemini:gemini-3.1-pro-preview",      # verified workhorse (default)
+        "antigravity:Gemini 3.1 Pro (High)",  # flat-rate workhorse (default)
         "opencode/claude-opus-4-8",           # premium -> confirm_cost
         "opencode/deepseek-v4-flash-free",    # free / untested
     ])
 
 
 def test_pick_executor_default_on_empty_input():
-    # pressing enter selects the default (verified workhorse) -> gemini spec
+    # pressing enter selects the default (flat-rate workhorse) -> antigravity spec
     out = []
     spec = pick_executor(_recs_for_picker(), input_fn=lambda _: "", output_fn=out.append)
-    assert spec == "gemini:gemini-3.1-pro-preview"
+    assert spec == "antigravity:Gemini 3.1 Pro (High)"
     # the shortlist was actually shown
     shown = "\n".join(out)
     assert "deepseek" in shown and "claude-opus" in shown
@@ -123,7 +123,7 @@ def test_pick_executor_premium_requires_confirmation():
     answers = iter([str(idx), "n"])
     out = []
     spec = pick_executor(recs, input_fn=lambda _: next(answers), output_fn=out.append)
-    assert spec == "gemini:gemini-3.1-pro-preview"  # declined -> default
+    assert spec == "antigravity:Gemini 3.1 Pro (High)"  # declined -> default
     assert any("bill" in line.lower() or "$" in line for line in out)  # warned about cost
 
 
@@ -206,23 +206,23 @@ def test_recommend_filters_to_available_and_catalogued():
 
 def test_recommend_always_includes_verified_default_even_if_unavailable():
     # BUG (found in live skill test): passing only `opencode models` ids excludes
-    # gemini:gemini-3.1-pro-preview, so the shortlist had NO default/workhorse.
-    # recommend() must always surface the verified default workhorse.
-    recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"])  # no gemini
+    # the default workhorse, so the shortlist had NO default/workhorse.
+    # recommend() must always surface the default workhorse.
+    recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"])  # no antigravity
     ids = [r.id for r in recs]
-    assert "gemini:gemini-3.1-pro-preview" in ids
+    assert "antigravity:Gemini 3.1 Pro (High)" in ids
     default = next(r for r in recs if r.is_default)
-    assert default.id == "gemini:gemini-3.1-pro-preview"
-    assert default.headless_status == "verified"
+    assert default.id == "antigravity:Gemini 3.1 Pro (High)"
+    assert default.headless_status == "likely"
 
 
 def test_recommend_default_is_verified_workhorse():
-    recs = recommend(available_ids=["gemini:gemini-3.1-pro-preview",
+    recs = recommend(available_ids=["antigravity:Gemini 3.1 Pro (High)",
                                     "opencode/deepseek-v4-flash-free"])
     defaults = [r for r in recs if r.is_default]
     assert len(defaults) == 1
     assert defaults[0].capability_class == "workhorse"
-    assert defaults[0].headless_status == "verified"
+    assert defaults[0].headless_status == "likely"  # antigravity workhorse is "likely"
 
 
 def test_recommend_buckets_and_cost_flags():
@@ -251,8 +251,8 @@ def test_recommend_hides_session_known_bad():
     ids = [r.id for r in recs]
     assert "opencode/deepseek-v4-flash-free" not in ids
     assert "opencode/claude-opus-4-8" in ids
-    # the verified default is still there and still default
-    assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
+    # the default is still there and still default
+    assert any(r.is_default and r.id == "antigravity:Gemini 3.1 Pro (High)" for r in recs)
 
 
 def test_recommend_evidence_overlay():
@@ -298,7 +298,7 @@ def test_recommend_surfaces_kimi_and_sonnet():
     ids = [r.id for r in recs]
     assert "opencode/kimi-k2.6" in ids
     assert "opencode/claude-sonnet-4-6" in ids
-    assert any(r.is_default and r.id == "gemini:gemini-3.1-pro-preview" for r in recs)
+    assert any(r.is_default and r.id == "antigravity:Gemini 3.1 Pro (High)" for r in recs)
 
 
 def test_recommend_surfaces_kimi_k27_when_available():
@@ -345,8 +345,8 @@ def test_recommend_hides_revalidate_via_evidence():
 
 def test_recommend_default_workhorse_still_resolves():
     from cld.models import recommend
-    recs = recommend(available_ids=["gemini:gemini-3.1-pro-preview"])
-    assert any(r.is_default and r.headless_status == "verified" for r in recs)
+    recs = recommend(available_ids=["antigravity:Gemini 3.1 Pro (High)"])
+    assert any(r.is_default and r.headless_status == "likely" for r in recs)
 
 
 def test_modelinfo_has_tier_and_values_are_valid():
@@ -382,11 +382,12 @@ def test_resolve_tier_model_picks_cheapest_viable():
     assert spec == "opencode:opencode/deepseek-v4-pro"
 
 
-def test_resolve_tier_model_gemini_default_always_available():
+def test_resolve_tier_model_antigravity_default_always_available():
     from cld.models import resolve_tier_model
-    # provider gemini, workhorse: the flat workhorse resolves even with empty available_ids
-    spec = resolve_tier_model("gemini", "workhorse", evidence={}, available_ids=[])
-    assert spec == "gemini:gemini-3.1-pro-preview"
+    # provider antigravity, workhorse: the flat workhorse resolves even with empty available_ids
+    # (antigravity is the default workhorse, so it is always injected into the available set)
+    spec = resolve_tier_model("antigravity", "workhorse", evidence={}, available_ids=[])
+    assert spec == "antigravity:Gemini 3.1 Pro (High)"
 
 
 def test_resolve_tier_model_skips_revalidate_returns_none():
@@ -435,15 +436,15 @@ def test_plan_rungs_easy_climbs_quick_then_workhorse():
 
 def test_plan_rungs_standard_workhorse_only():
     from cld.models import plan_rungs
-    rungs = plan_rungs(_task(complexity="standard"), provider="gemini", evidence={}, available_ids=[])
+    rungs = plan_rungs(_task(complexity="standard"), provider="antigravity", evidence={}, available_ids=[])
     assert [r[0] for r in rungs] == ["workhorse"]
-    assert rungs[0][1] == "gemini:gemini-3.1-pro-preview" and rungs[0][2] == 2
+    assert rungs[0][1] == "antigravity:Gemini 3.1 Pro (High)" and rungs[0][2] == 2
 
 
 def test_plan_rungs_complex_workhorse_budget_1():
     from cld.models import plan_rungs
-    rungs = plan_rungs(_task(complexity="complex"), provider="gemini", evidence={}, available_ids=[])
-    assert rungs == [("workhorse", "gemini:gemini-3.1-pro-preview", 1)]
+    rungs = plan_rungs(_task(complexity="complex"), provider="antigravity", evidence={}, available_ids=[])
+    assert rungs == [("workhorse", "antigravity:Gemini 3.1 Pro (High)", 1)]
 
 
 def test_plan_rungs_tagged_slice_pins_single_rung():
@@ -464,10 +465,10 @@ def test_render_routing_plan_basics():
         SliceTask(id="S3", brief="b", files=["c"], acceptance_test_path="t.py",
                   executor="opencode:opencode/claude-opus-4-8"),   # pinned
     ]
-    out = render_routing_plan(slices, provider="gemini", evidence={}, available_ids=[])
+    out = render_routing_plan(slices, provider="antigravity", evidence={}, available_ids=[])
     assert "S1" in out and "S2" in out and "S3" in out
-    # easy/standard slices recommend the workhorse for the build provider (gemini default)
-    assert "gemini:gemini-3.1-pro-preview" in out
+    # easy/standard slices recommend the workhorse for the build provider (antigravity default)
+    assert "antigravity:Gemini 3.1 Pro (High)" in out
     # complex slice flagged
     assert "!" in out
     # pinned slice shows its tag + [you]; auto-routed show [rec]
@@ -481,5 +482,5 @@ def test_render_routing_plan_shows_complexity():
     from cld.executors.base import SliceTask
     out = render_routing_plan(
         [SliceTask(id="S1", brief="b", files=["a"], acceptance_test_path="t.py", complexity="easy")],
-        provider="gemini", evidence={}, available_ids=[])
+        provider="antigravity", evidence={}, available_ids=[])
     assert "easy" in out

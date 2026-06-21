@@ -208,10 +208,10 @@ def test_provider_of_spec():
 def test_build_rung_planner_untagged_uses_provider_workhorse():
     import skill.scripts.run_delivery as rd
     from cld.executors.base import SliceTask
-    planner = rd.build_rung_planner("gemini", evidence={})
+    planner = rd.build_rung_planner("antigravity", evidence={})
     rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
                               complexity="standard"))
-    assert rungs == [("workhorse", "gemini:gemini-3.1-pro-preview", 2)]
+    assert rungs == [("workhorse", "antigravity:Gemini 3.1 Pro (High)", 2)]
 
 
 def test_build_rung_planner_tagged_pins():

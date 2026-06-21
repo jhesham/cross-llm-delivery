@@ -28,8 +28,8 @@ def test_build_index_merges_opencode_and_gemini_with_evidence():
         cursor_models=[],  # part 2 supplies these
         evidence={"opencode/deepseek-v4-pro": "verified"})
     by_spec = {c.spec: c for c in idx}
-    # gemini workhorse always present (catalog)
-    assert "gemini:gemini-3.1-pro-preview" in by_spec
+    # default workhorse always present (catalog); now antigravity:Gemini 3.1 Pro (High)
+    assert "antigravity:Gemini 3.1 Pro (High)" in by_spec
     # opencode ids present, evidence overlay applied
     ds = by_spec["opencode:opencode/deepseek-v4-pro"]
     assert ds.executor == "opencode" and ds.provider == "deepseek"
@@ -153,7 +153,8 @@ def test_search_31_matches_multiple_routings_labeled():
     idx = build_model_index(opencode_ids=["opencode/gemini-3.1-pro"], cursor_models=[], evidence={})
     res = search_models(idx, "3.1", headless_only=False)
     specs = {c.spec for c in res}
-    assert "gemini:gemini-3.1-pro-preview" in specs
+    # default workhorse is now antigravity:Gemini 3.1 Pro (High); search for "3.1" matches it
+    assert "antigravity:Gemini 3.1 Pro (High)" in specs
     assert "opencode:opencode/gemini-3.1-pro" in specs
     assert {c.executor for c in res} >= {"gemini", "opencode"}
 
