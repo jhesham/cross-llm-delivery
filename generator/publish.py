@@ -124,7 +124,7 @@ def publish_one(
     actions = [
         "git init",
         "git add -A",
-        f"git commit -m \"{commit_msg}\"",
+        f"git -c user.email=\"cross-llm-delivery@local\" -c user.name=\"cross-llm-delivery\" commit -m \"{commit_msg}\"",
         f"git tag v{version}",
         f"git remote add origin {repo}",
         "git push -u origin HEAD --force",
@@ -162,10 +162,6 @@ def publish_one(
             rc, out = runner(args, str(work))
             return rc, out
 
-        # Configure git identity for the commit (needed in clean envs)
-        run(["git", "config", "--global", "user.email", "publish@cross-llm-delivery"])
-        run(["git", "config", "--global", "user.name", "cross-llm-delivery"])
-
         rc, out = run(["git", "init"])
         if rc != 0:
             raise RuntimeError(f"git init failed: {out}")
@@ -174,7 +170,7 @@ def publish_one(
         if rc != 0:
             raise RuntimeError(f"git add failed: {out}")
 
-        rc, out = run(["git", "commit", "-m", commit_msg])
+        rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
         if rc != 0:
             raise RuntimeError(f"git commit failed: {out}")
 
