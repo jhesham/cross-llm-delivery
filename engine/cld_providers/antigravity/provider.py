@@ -156,3 +156,53 @@ class AntigravityExecutor:
                 os.unlink(log_file)
             except OSError:
                 pass
+
+
+from cld.models import ModelInfo
+from cld.providers_api import Provider, register_provider
+
+_HERE = Path(__file__).parent
+_SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
+_SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
+
+
+def _m(label, capability_class, tier, headless_status, rework_risk, note):
+    return ModelInfo(id=f"antigravity:{label}", provider="antigravity", cost_class="flat",
+                     capability_class=capability_class, headless_status=headless_status,
+                     rework_risk=rework_risk, note=note, tier=tier)
+
+
+_CATALOG = (
+    _m("Gemini 3.5 Flash (Low)",    "quick",     None,        "likely",   "low",
+       "fast budget model; pin for trivial slices"),
+    _m("Gemini 3.5 Flash (Medium)", "quick",     "quick",     "likely",   "low",
+       "balanced budget workhorse; quick-tier auto-pick"),
+    _m("Gemini 3.5 Flash (High)",   "quick",     None,        "likely",   "low",
+       "budget model, more thinking; pin manually"),
+    _m("Gemini 3.1 Pro (Low)",      "workhorse", None,        "likely",   "low",
+       "Pro, lighter thinking; pin manually"),
+    _m("Gemini 3.1 Pro (High)",     "workhorse", "workhorse", "likely",   "low",
+       "default workhorse; flat-rate via Antigravity"),
+    _m("GPT-OSS 120B (Medium)",     "workhorse", None,        "untested", "medium",
+       "open model; validate before relying on it"),
+    _m("Claude Sonnet 4.6 (Thinking)", "workhorse", None,     "likely",   "low",
+       "strong workhorse; flat-rate via Antigravity; pin manually"),
+    _m("Claude Opus 4.6 (Thinking)",   "heavy",     None,     "likely",   "low",
+       "premium reasoning; flat-rate via Antigravity; pin manually for hard slices"),
+)
+
+_IDS = [m.id.split(":", 1)[1] for m in _CATALOG]
+
+PROVIDER = Provider(
+    name="antigravity",
+    make_executor=lambda **k: AntigravityExecutor(**k),
+    catalog=_CATALOG,
+    default_workhorse="antigravity:Gemini 3.1 Pro (High)",
+    list_models=lambda runner: list(_IDS),
+    account_stats=None,
+    account_block=None,
+    skill_fragment=_SKILL_FRAGMENT,
+    setup_notes=_SETUP_NOTES,
+)
+
+register_provider(PROVIDER)
