@@ -54,3 +54,105 @@ def _extract_model_reply(transcript_text: str) -> str | None:
         if isinstance(obj, dict) and obj.get("source") == "MODEL" and obj.get("content"):
             replies.append(str(obj["content"]))
     return "\n".join(replies) if replies else None
+
+
+import subprocess
+import tempfile
+from typing import Callable
+
+from cld.executors._capture import capture_diff
+from cld.executors.base import ExecutorResult, SliceTask
+
+Runner = Callable[[list[str], str], tuple[int, str]]
+
+DEFAULT_MODEL = "Gemini 3.1 Pro (High)"
+
+
+def _agy_cmd() -> str:
+    """Resolve the agy executable. AGY_CMD overrides; else the known install path; else 'agy'."""
+    override = os.environ.get("AGY_CMD")
+    if override:
+        return override
+    if os.name == "nt":
+        cand = os.path.join(os.environ.get("LOCALAPPDATA", ""), "agy", "bin", "agy.exe")
+        if os.path.exists(cand):
+            return cand
+    return "agy"
+
+
+def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
+    """Real subprocess runner: stdin closed (agy waits on a TTY otherwise), utf-8/replace."""
+    proc = subprocess.run(args, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace")
+    out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
+    return (proc.returncode, out)
+
+
+class AntigravityExecutor:
+    """Executor backed by the Antigravity CLI (`agy`)."""
+
+    def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
+                 effort: str | None = None, home: str | None = None):
+        # effort accepted for a uniform interface; antigravity bakes effort into the model label
+        self._runner = runner
+        self._model = model
+        self._home = home or _dispatch_cwd()
+
+    def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
+        allowed = ", ".join(task.files)
+        prompt = (
+            f"Implement the following so that the acceptance tests pass.\n\n"
+            f"{task.brief}\n\n"
+            f"You may only create/modify these files: {allowed}\n"
+            f"Acceptance tests: {task.acceptance_test_path}\n"
+            f"Do not edit the test file. Run pytest yourself and iterate until green."
+        )
+        if feedback:
+            prompt += (f"\n\nYour previous attempt did not pass. {feedback}\n"
+                       f"Address this specifically before trying again.")
+        return prompt
+
+    def run(self, task: SliceTask, workdir, feedback: str | None = None) -> ExecutorResult:
+        prompt = self._build_prompt(task, feedback)
+        fd, log_file = tempfile.mkstemp(prefix="agy_", suffix=".log")
+        os.close(fd)
+        try:
+            dispatch = [
+                _agy_cmd(), "-p", prompt, "--model", self._model,
+                "--add-dir", str(workdir), "--dangerously-skip-permissions",
+                "--log-file", log_file,
+            ]
+            rc, raw = self._runner(dispatch, self._home)   # cwd = home on C:
+            if rc != 0:
+                return ExecutorResult(ok=False, diff="", raw_log=raw)
+
+            try:
+                log_text = Path(log_file).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                log_text = ""
+            log_text = (raw or "") + "\n" + log_text       # raw carries it in tests; log file in prod
+
+            reply = None
+            conv = _parse_conversation_id(log_text)
+            if conv:
+                try:
+                    reply = _extract_model_reply(
+                        Path(_transcript_path(self._home, conv)).read_text(
+                            encoding="utf-8", errors="replace"))
+                except OSError:
+                    reply = None
+            if reply is None:
+                return ExecutorResult(
+                    ok=False, diff="",
+                    raw_log=(raw or "") + "\n[antigravity] no MODEL transcript found; the agy "
+                            "dispatch must run with cwd on the C: drive (see "
+                            "docs/notes/antigravity-cli-notes.md)")
+
+            diff, files_changed = capture_diff(self._runner, str(workdir))
+            return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
+                                  token_usage={}, raw_log=reply)
+        finally:
+            try:
+                os.unlink(log_file)
+            except OSError:
+                pass
