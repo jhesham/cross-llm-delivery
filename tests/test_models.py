@@ -19,11 +19,11 @@ def test_metadata_has_opencode_gemini_workhorse():
 
 
 def test_metadata_has_seed_workhorse():
-    # the verified flat-rate workhorse must be present and tagged correctly
+    # gemini is a historical flat-rate workhorse, demoted to revalidate (CLI deprecated 2026-06-21)
     g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
     assert g.cost_class == "flat"
     assert g.capability_class == "workhorse"
-    assert g.headless_status == "verified"
+    assert g.headless_status == "revalidate"
 
 
 def test_metadata_entries_are_modelinfo():
@@ -328,7 +328,7 @@ def test_cursor_composer_never_in_first_shortlist():
 def test_catalog_uses_verified_not_proven():
     from cld.models import MODEL_METADATA
     g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
-    assert g.headless_status == "verified"
+    assert g.headless_status == "revalidate"  # demoted 2026-06-21; CLI deprecated
     # no entry may carry the old vocabulary
     assert all(m.headless_status != "proven" for m in MODEL_METADATA.values())
     assert all(m.headless_status != "known-bad" for m in MODEL_METADATA.values())

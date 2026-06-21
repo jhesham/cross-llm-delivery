@@ -145,9 +145,9 @@ _GEMINI_MODEL_INFO = ModelInfo(
     provider="gemini",
     cost_class="flat",
     capability_class="workhorse",
-    headless_status="verified",
+    headless_status="revalidate",
     rework_risk="low",
-    note="our 14/14 grade-A workhorse; $0 flat-rate",
+    note="CLI deprecated 2026-06-21; superseded by antigravity. Historical adapter.",
     tier="workhorse",
 )
 
