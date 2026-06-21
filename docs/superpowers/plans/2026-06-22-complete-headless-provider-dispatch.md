@@ -24,7 +24,7 @@
 
 ## Part A — the `antigravity` provider
 
-### Task A1: Pure helpers for transcript capture
+### Task 1: [Part A] Pure helpers for transcript capture
 
 **Files:**
 - Create: `engine/cld_providers/antigravity/__init__.py` (one line: `from . import provider  # noqa: F401`)
@@ -157,7 +157,7 @@ git commit -m "feat(antigravity): transcript-capture helpers (cwd-on-C, conversa
 
 ---
 
-### Task A2: `AntigravityExecutor`
+### Task 2: [Part A] `AntigravityExecutor`
 
 **Files:**
 - Modify: `engine/cld_providers/antigravity/provider.py` (append executor + runner + cmd resolver)
@@ -366,7 +366,7 @@ git commit -m "feat(antigravity): AntigravityExecutor (cwd-on-C dispatch, transc
 
 ---
 
-### Task A3: Catalog + provider registration + fragment/setup
+### Task 3: [Part A] Catalog + provider registration + fragment/setup
 
 **Files:**
 - Modify: `engine/cld_providers/antigravity/provider.py` (append catalog + PROVIDER + register)
@@ -501,7 +501,7 @@ git commit -m "feat(antigravity): 8-model catalog + provider registration + frag
 
 ---
 
-### Task A4: Make antigravity the default workhorse
+### Task 4: [Part A] Make antigravity the default workhorse
 
 **Files:**
 - Modify: `engine/cld/providers_api.py` (`default_workhorse()`)
@@ -553,7 +553,7 @@ git commit -m "feat(engine): default_workhorse prefers antigravity over (depreca
 
 ---
 
-### Task A5: Demote the `gemini` provider + update cross-provider regression
+### Task 5: [Part A] Demote the `gemini` provider + update cross-provider regression
 
 **Files:**
 - Modify: `engine/cld_providers/gemini/provider.py` (`_GEMINI_MODEL_INFO`)
@@ -594,7 +594,7 @@ git commit -m "feat(gemini): demote to revalidate (CLI deprecated); catalog now 
 
 ## Part B — cursor direct-node dispatch fix
 
-### Task B1: Replace the `.cmd` shim with direct-node invocation
+### Task 6: [Part B] Replace the `.cmd` shim with direct-node invocation
 
 **Files:**
 - Modify: `engine/cld_providers/cursor/provider.py` (`_cursor_cmd` -> `_cursor_invocation`, `_default_runner`, `run()`, `account_stats()`)
@@ -721,7 +721,7 @@ git commit -m "fix(cursor): direct-node dispatch (no .cmd shim) + CURSOR_INVOKED
 
 ---
 
-## Task V1: Live validation + trust promotions  [CONTROLLER — manual, not a TDD subagent]
+## Task 7: Live validation + trust promotions  [CONTROLLER — manual, not a TDD subagent]
 
 This task is run by the controller (it invokes the real CLIs, which need auth + write to disk). Do NOT dispatch it as an automated implementer. After A1–A5 and B1 are merged and green:
 
