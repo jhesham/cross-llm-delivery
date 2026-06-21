@@ -11,7 +11,7 @@ from pathlib import Path
 
 import tomllib
 
-from generator.build_skill import REPO_ROOT, build_one, _git_sha
+from generator.build_skill import REPO_ROOT, build_one, _git_sha, _known_providers
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +194,127 @@ def publish_one(
 
 
 # ---------------------------------------------------------------------------
+# publish_umbrella
+# ---------------------------------------------------------------------------
+
+def publish_umbrella(
+    *,
+    targets: dict,
+    version: str,
+    dist_root: str | Path = "dist",
+    execute: bool = False,
+    runner=None,
+) -> dict:
+    """Assemble ALL providers' bundles into a cross-llm-all umbrella repo.
+
+    Each provider's bundle is placed as ``cross-llm-<provider>/`` at the root
+    of the umbrella.  A top-level ``README.md`` is also written.
+
+    Args:
+        targets: Mapping that must include ``"all"`` -> remote URL.
+        version: Release version string (e.g. "1.2.3").
+        dist_root: Output root passed to ``build_one`` per provider.
+        execute: If False (default), return the plan without touching git/network.
+                 If True, push via runner.
+        runner: Callable(args, cwd) -> (rc, output). Defaults to real git subprocess.
+
+    Returns:
+        plan dict: {"repo", "version", "bundled": [...], "actions": [...]}
+    """
+    if runner is None:
+        runner = _default_runner
+
+    repo = targets["all"]
+    providers = _known_providers()
+
+    # Regenerate each provider bundle and collect paths
+    bundle_paths: dict[str, Path] = {}
+    for p in providers:
+        bundle_paths[p] = build_one(p, out_root=dist_root)
+        _strip_pycache(bundle_paths[p])
+
+    bundled = [f"cross-llm-{p}" for p in providers]
+
+    # Build the intended git action list
+    sha = _git_sha()
+    commit_msg = f"release v{version} (generated from {sha})"
+    actions = [
+        "git init",
+        "git add -A",
+        f"git -c user.email=\"cross-llm-delivery@local\" -c user.name=\"cross-llm-delivery\" commit -m \"{commit_msg}\"",
+        f"git tag v{version}",
+        f"git remote add origin {repo}",
+        "git push -u origin HEAD --force",
+        "git push --tags",
+    ]
+
+    plan = {
+        "repo": repo,
+        "version": version,
+        "bundled": bundled,
+        "actions": actions,
+    }
+
+    if not execute:
+        return plan
+
+    # ---- Execute: assemble umbrella + push to the remote repo via runner ----
+    with tempfile.TemporaryDirectory() as tmpdir:
+        work = Path(tmpdir) / "umbrella"
+        work.mkdir()
+
+        # Place each provider bundle as cross-llm-<provider>/ in the umbrella
+        for p in providers:
+            dest = work / f"cross-llm-{p}"
+            shutil.copytree(bundle_paths[p], dest)
+            _strip_pycache(dest)
+
+        # Write the top-level README.md
+        readme = (
+            f"# cross-llm-all v{version}\n\n"
+            f"This umbrella bundles every cross-llm provider skill; "
+            f"copy the folder(s) you want — each `cross-llm-<provider>/` "
+            f"is a self-contained skill.\n\n"
+            f"Generated from cross-llm-delivery@{sha}.\n"
+        )
+        (work / "README.md").write_text(readme, encoding="utf-8")
+
+        def run(args):
+            rc, out = runner(args, str(work))
+            return rc, out
+
+        rc, out = run(["git", "init"])
+        if rc != 0:
+            raise RuntimeError(f"git init failed: {out}")
+
+        rc, out = run(["git", "add", "-A"])
+        if rc != 0:
+            raise RuntimeError(f"git add failed: {out}")
+
+        rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
+        if rc != 0:
+            raise RuntimeError(f"git commit failed: {out}")
+
+        rc, out = run(["git", "tag", f"v{version}"])
+        if rc != 0:
+            raise RuntimeError(f"git tag failed: {out}")
+
+        rc, out = run(["git", "remote", "add", "origin", repo])
+        if rc != 0:
+            raise RuntimeError(f"git remote add failed: {out}")
+
+        rc, out = run(["git", "push", "-u", "origin", "HEAD", "--force"])
+        if rc != 0:
+            raise RuntimeError(f"git push failed: {out}")
+
+        rc, out = run(["git", "push", "--tags"])
+        if rc != 0:
+            raise RuntimeError(f"git push --tags failed: {out}")
+
+    return plan
+
+
+# ---------------------------------------------------------------------------
 # main (CLI)
 # ---------------------------------------------------------------------------
 
@@ -232,6 +353,11 @@ def main(argv: list[str] | None = None) -> int:
         default="dist",
         help="Output root for generated bundles (default: dist).",
     )
+    parser.add_argument(
+        "--umbrella",
+        action="store_true",
+        help="Publish only the umbrella cross-llm-all repo.",
+    )
     args = parser.parse_args(argv)
 
     # Resolve version
@@ -246,6 +372,25 @@ def main(argv: list[str] | None = None) -> int:
 
     # Load targets
     targets = load_publish_targets(args.targets)
+
+    if args.umbrella:
+        # Publish ONLY the umbrella
+        plan = publish_umbrella(
+            targets=targets,
+            version=version,
+            dist_root=args.dist_root,
+            execute=args.execute,
+        )
+        print("\n--- umbrella (cross-llm-all) ---")
+        print(f"  repo:    {plan['repo']}")
+        print(f"  version: {plan['version']}")
+        print(f"  bundled: {plan['bundled']}")
+        print("  actions:")
+        for action in plan["actions"]:
+            print(f"    {action}")
+        if not args.execute:
+            print("  (dry-run: no git/network operations performed)")
+        return 0
 
     # Determine which providers to publish
     if args.all_providers:
@@ -273,6 +418,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    {action}")
         if not args.execute:
             print("  (dry-run: no git/network operations performed)")
+
+    # --all --execute also publishes the umbrella after the per-provider repos
+    if args.all_providers and args.execute:
+        print("\n--- umbrella (cross-llm-all) ---")
+        plan = publish_umbrella(
+            targets=targets,
+            version=version,
+            dist_root=args.dist_root,
+            execute=True,
+        )
+        print(f"  repo:    {plan['repo']}")
+        print(f"  version: {plan['version']}")
+        print(f"  bundled: {plan['bundled']}")
 
     return 0
 
