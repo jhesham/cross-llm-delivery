@@ -16,6 +16,9 @@ cursor-agent -p "<task>" --output-format json --workspace <workdir>
   NEVER invoke without both flags -- bare invocation opens an interactive TUI that hangs.
 - Token counts are at `usage.inputTokens` / `usage.outputTokens` / `usage.cacheReadTokens` /
   `usage.cacheWriteTokens`. There is NO per-dispatch cost field; cursor billing is server-side.
+- The flags above are the logical form. On Windows the executor dispatches this via the
+  bundled Node entrypoint directly rather than the `cursor-agent.cmd` shim -- see
+  "Windows dispatch" below.
 
 ### Auth
 
@@ -23,21 +26,16 @@ Cursor uses subscription-based billing. Authenticate by signing into Cursor (cur
 The `cursor-agent` CLI uses the same account credentials. Run `cursor-agent about` to
 verify your subscription tier and active model.
 
-### Known issue: long-prompt headless dispatch (Windows .cmd shim)
+### Windows dispatch: direct-node (not the .cmd shim)
 
-**Core hang: FIXED on cursor-agent 2026.06.15.** The earlier `2026.06.12` version hung
-indefinitely on long multi-line prompts. The 06.15 build resolves this -- direct-node
-invocation with a long prompt now completes cleanly (exit 0, valid result JSON, actual
-file writes verified).
+On Windows the `cursor-agent.cmd` shim mangles long/multi-line `-p` prompts (it drops
+`--trust` / `--workspace`, causing "Workspace Trust Required" failures on real slices).
+The executor therefore bypasses the shim: it resolves the lexically-latest
+`%LOCALAPPDATA%\cursor-agent\versions\<v>\index.js` and invokes it with the bundled
+`node.exe` directly (`[<node>, <version>\index.js] -p ...`), setting
+`CURSOR_INVOKED_AS=cursor-agent` and closing stdin. This is the path verified working on
+cursor-agent 2026.06.15 with a long multi-line prompt (the earlier 2026.06.12 core hang is
+also fixed in that build). Override the binary with `CURSOR_AGENT_CMD=<path>` if needed.
 
-**Remaining issue (as of 2026-06-19): Windows .cmd shim mangles long prompts.**
-The `.cmd -> .ps1 -> node` shim route mangles long/multi-line `-p` argv so `--trust` /
-`--workspace` do not register, causing "Workspace Trust Required" failures on real slice
-prompts. Short prompts (list-models, about, feasibility probes) still work via the shim.
-
-**Deferred fix:** make `_cursor_cmd()` invoke the versioned `node.exe index.js` directly
-(mirroring the OpenCode `.exe` fix) with `CURSOR_INVOKED_AS=cursor-agent` env and
-`stdin=DEVNULL`. This is the direct-node path that was verified working on 06.15 with a
-long multi-line prompt. The fix is NOT yet applied -- CursorExecutor still dispatches via
-the `.cmd` shim and real long-prompt slices will fail until the direct-node fix lands.
-Override with `CURSOR_AGENT_CMD=<path>` if you have a working binary.
+Real end-to-end build-slice validation on Windows is pending; `cursor:composer-2.5` stays
+`untested` in the catalog until a live slice confirms on-disk writes.
