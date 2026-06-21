@@ -178,6 +178,72 @@ cursor-agent defect, so it cannot run real slices on this version yet — see
 **Composer** entry remains a documented stub as a worked example (see
 `docs/notes/opencode-executor-option.md`).
 
+---
+
+## Per-provider skills
+
+This monorepo is the single source for the engine and all provider adapters. It ships a
+**generator** that produces self-contained, per-provider Claude Code skills — one skill per
+executor backend (`cross-llm-gemini`, `cross-llm-opencode`, `cross-llm-cursor`, …). Each
+generated skill requires no `pip install` and carries only the provider code it needs.
+
+> The old unified multi-provider skill (`skill/`) is **superseded** by the per-provider skills
+> described here. New installs should use the per-provider workflow below.
+
+### Generate a skill
+
+```bash
+# one provider
+python generator/build_skill.py gemini
+
+# all providers at once
+python generator/build_skill.py --all
+```
+
+Each run writes a self-contained skill to `dist/cross-llm-<provider>/` (vendored engine +
+provider adapter + references + composed `SKILL.md`). No pip install is needed inside the
+generated skill — the engine is vendored into `scripts/cld/`.
+
+### Install a provider skill
+
+Copy the generated folder into your Claude Code skills directory:
+
+```bash
+# macOS / Linux
+cp -r dist/cross-llm-gemini ~/.claude/skills/cross-llm-gemini
+
+# Windows (PowerShell)
+Copy-Item -Recurse dist\cross-llm-gemini "$env:USERPROFILE\.claude\skills\cross-llm-gemini"
+```
+
+Alternatively, install directly from a published mirror repo (one repo per provider, tagged
+`v<VERSION>`) or from the `cross-llm-all` umbrella (bundles every provider as subdirectories).
+
+### Publish to mirror repos
+
+`generator/publish.py` pushes each generated skill to its own remote mirror repo and tags the
+commit. Dry-run by default; pass `--execute` to push for real.
+
+```bash
+# preview what would be pushed (no network)
+python generator/publish.py
+
+# push to all mirrors + the umbrella (requires publish-targets.toml)
+python generator/publish.py --execute
+```
+
+Configure targets in `publish-targets.toml` (gitignored; copy from
+`generator/publish-targets.example.toml`):
+
+```toml
+gemini  = "git@github.com:you/cross-llm-gemini.git"
+opencode = "git@github.com:you/cross-llm-opencode.git"
+cursor  = "git@github.com:you/cross-llm-cursor.git"
+all     = "git@github.com:you/cross-llm-all.git"
+```
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

@@ -90,3 +90,11 @@ def test_umbrella_execute_to_local_bare_repo(tmp_path):
     for p in _known_providers():
         assert (work / f"cross-llm-{p}" / "SKILL.md").is_file()
     assert (work / "README.md").is_file()
+
+
+# ---- Task 4: README documents per-provider install ----
+
+def test_readme_documents_per_provider_install():
+    r = Path("README.md").read_text(encoding="utf-8")
+    assert "cross-llm-" in r                       # references the per-provider skills
+    assert "generator/build_skill.py" in r or "build_skill" in r   # how to generate

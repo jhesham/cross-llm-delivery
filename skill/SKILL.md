@@ -1,21 +1,36 @@
 ---
-name: cross-llm-delivery
+name: cross-llm-delivery (DEPRECATED — see per-provider skills)
 description: >-
-  Route the bulk IMPLEMENTATION of a large software build to a cheap headless
-  executor LLM (Gemini 3.1 Pro via the Gemini CLI) while Claude acts as architect
-  and judge — cutting expensive-model token cost on large builds while preserving
-  quality. Use this skill whenever you have a multi-slice implementation plan
-  (contracts + acceptance tests + a dependency DAG) and want to dispatch the coding
-  to Gemini in isolated git worktrees, judge each slice against its tests, run
-  independent slices in parallel, and resume a partially-finished build. Trigger it
-  for phrases like "build this plan with Gemini", "dispatch these slices", "run the
-  cross-llm delivery", "have the cheap model implement this", or any time a sizeable
-  build has been decomposed into testable slices and you want Claude to orchestrate
-  + judge rather than type all the code itself. NOT for small one-file fixes — the
-  per-dispatch overhead only pays off on large builds.
+  SUPERSEDED. This unified multi-provider skill has been replaced by per-provider
+  skills (cross-llm-gemini, cross-llm-opencode, cross-llm-cursor, …). Install one
+  of those instead. See README.md for the generator + install instructions.
 ---
 
-# Cross-LLM Delivery
+# Cross-LLM Delivery — SUPERSEDED
+
+> **This file is a deprecation stub.**
+>
+> The unified `skill/SKILL.md` has been superseded by the **per-provider skills**
+> generated from this monorepo. Each provider skill is self-contained (no pip
+> install needed) and carries only the provider adapter it requires.
+>
+> - **To use the skill:** generate a per-provider skill with
+>   `python generator/build_skill.py <provider>` (or `--all`), then install the
+>   resulting `dist/cross-llm-<provider>/` folder into `~/.claude/skills/`.
+>   Full instructions: see the **Per-provider skills** section in
+>   [README.md](../README.md).
+>
+> - **For the skill template and engine:** the live generator input is
+>   `skill/SKILL.template.md` (provider-agnostic core with `{{PROVIDER_NAME}}` /
+>   `{{PROVIDER_FRAGMENT}}` / `{{SETUP}}` / `{{BANNER}}` placeholders). Each
+>   provider's fragment lives in `engine/cld_providers/<provider>/SKILL.fragment.md`.
+>
+> - **For the engine and scripts:** `skill/scripts/run_delivery.py` and
+>   `skill/references/` are live generator inputs — do not modify them here;
+>   they are vendored into each generated skill by `generator/build_skill.py`.
+>
+> Nothing in the engine, tests, or generator reads this file — it is kept only so
+> that any stale link or reference finds a clear explanation of where things moved.
 
 ## What this does and why
 
