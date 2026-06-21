@@ -26,6 +26,12 @@ engine → writes `.pyc` into the bundle. Each bundle's `.gitignore` excludes it
 concern: clean the bundle (or `sys.dont_write_bytecode`) before pushing to mirrors. (Cosmetic minors:
 mid-file import block in test_generator.py; `_scaffold` LICENSE not graceful-if-absent.)
 
+**📌 POST-REBUILD QUEUE (user-directed 2026-06-21 — do AFTER spec #2 / SP4 is complete, NOT during):**
+(1) the **Antigravity provider** / migrate the `gemini` adapter off the deprecated CLI + revisit
+DEFAULT_WORKHORSE ([[project_gemini_cli_deprecated]]); (2) the **cursor direct-node fix** for
+long-prompt dispatch ([[project_cursor_dispatch_open_item]]). Both are localized `cld_providers/<x>/`
+changes the split makes easy — but they wait until the rebuild is fully done.
+
 **NEXT: Sub-plan 4 — publishing** (`...-part4-publishing.md`, written just-in-time). `publish-targets.toml`
 + `publish.py` (push each generated skill to its own mirror repo + the `cross-llm-all` umbrella, one
 lockstep VERSION tag), retire the old unified skill, `__pycache__` clean. **Real-world hosting/auth
