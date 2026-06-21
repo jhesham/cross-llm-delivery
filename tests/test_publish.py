@@ -1,6 +1,6 @@
 import subprocess, sys, os
 from pathlib import Path
-from generator.publish import load_publish_targets, publish_one
+from generator.publish import load_publish_targets, publish_one, publish_umbrella
 import pytest
 
 
@@ -65,3 +65,28 @@ def test_execute_pushes_to_local_bare_repo(tmp_path):
     # trimmed: no __pycache__ committed
     rc, ls = _git(["git", "ls-files"], str(work))
     assert "__pycache__" not in ls and ".pyc" not in ls
+
+
+# ---- Task 3: publish_umbrella ----
+
+def test_umbrella_dry_run_lists_all_providers(tmp_path):
+    targets = {"all": "git@example.com:me/cross-llm-all.git"}
+    plan = publish_umbrella(targets=targets, version="9.9.9",
+                            dist_root=tmp_path / "dist", execute=False)
+    # the umbrella bundles every known provider
+    from generator.build_skill import _known_providers
+    for p in _known_providers():
+        assert f"cross-llm-{p}" in plan["bundled"]
+
+
+def test_umbrella_execute_to_local_bare_repo(tmp_path):
+    remote = tmp_path / "all.git"
+    _git(["git", "init", "--bare", str(remote)], str(tmp_path))
+    publish_umbrella(targets={"all": str(remote)}, version="9.9.9",
+                     dist_root=tmp_path / "dist", execute=True, runner=_git)
+    work = tmp_path / "verify-all"
+    _git(["git", "clone", str(remote), str(work)], str(tmp_path))
+    from generator.build_skill import _known_providers
+    for p in _known_providers():
+        assert (work / f"cross-llm-{p}" / "SKILL.md").is_file()
+    assert (work / "README.md").is_file()
