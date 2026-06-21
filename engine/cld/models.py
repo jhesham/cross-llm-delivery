@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple, Dict
 
@@ -66,7 +67,7 @@ def _provider_of(model_id: str) -> str:
         name = name[len("opencode/"):]
     elif ":" in name:
         name = name.split(":", 1)[1]
-    token = name.replace(".", "-").split("-", 1)[0].lower()
+    token = re.split(r"[-\s.]+", name.strip())[0].lower()
     token = token.rstrip("0123456789")
     return token if token in KNOWN_PROVIDERS else "other"
 
