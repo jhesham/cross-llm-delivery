@@ -7,7 +7,22 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-21 (✅ SPEC #2 Sub-plan 3 of 4 SHIPPED — self-containment + tests; 349 passed; READY-TO-MERGE)
+**Last updated:** 2026-06-21 (✅ SPEC #2 ALL 4 SUB-PLANS SHIPPED — per-provider split COMPLETE; full suite green)
+
+**🎉 SPEC #2 (PER-PROVIDER SPLIT) COMPLETE — all 4 sub-plans shipped (2026-06-21).**
+SP1 provider extraction → SP2 generator → SP3 self-containment + tests → SP4 publishing + docs.
+Full suite green. Monorepo is the single source; `generator/build_skill.py` stamps self-contained
+per-provider skills; `generator/publish.py` pushes to mirror repos (dry-run default, `--execute`
+with `publish-targets.toml`); old unified skill retired (superseded notice in `skill/SKILL.md`);
+README documents per-provider generation, install, and publishing.
+
+**📌 NEXT — POST-REBUILD QUEUE (user-directed 2026-06-21):**
+(1) the **Antigravity provider** / migrate the `gemini` adapter off the deprecated CLI + revisit
+DEFAULT_WORKHORSE ([[project_gemini_cli_deprecated]]); (2) the **cursor direct-node fix** for
+long-prompt dispatch ([[project_cursor_dispatch_open_item]]). Both are localized `cld_providers/<x>/`
+changes the split makes easy.
+
+---
 
 **✅ SUB-PLAN 3/4 COMPLETE — Self-containment + generator tests (2026-06-21, commits e63d7d7→8d808f4,
 349 passed).** All Claude (Gemini deprecated). Final whole-branch review = **READY-TO-MERGE**.
@@ -21,22 +36,9 @@
 - **Cross-provider regression locks:** 4 providers register in the monorepo; assembled `catalog()` == 9
   ids (the pre-refactor MODEL_METADATA); `--all` generates each provider trimmed to itself.
 
-**⚠️ CARRY INTO SUB-PLAN 4 (publishing):** `__pycache__` pollution — smoke/compose import the vendored
-engine → writes `.pyc` into the bundle. Each bundle's `.gitignore` excludes it, so it's a publish-time
-concern: clean the bundle (or `sys.dont_write_bytecode`) before pushing to mirrors. (Cosmetic minors:
-mid-file import block in test_generator.py; `_scaffold` LICENSE not graceful-if-absent.)
-
-**📌 POST-REBUILD QUEUE (user-directed 2026-06-21 — do AFTER spec #2 / SP4 is complete, NOT during):**
-(1) the **Antigravity provider** / migrate the `gemini` adapter off the deprecated CLI + revisit
-DEFAULT_WORKHORSE ([[project_gemini_cli_deprecated]]); (2) the **cursor direct-node fix** for
-long-prompt dispatch ([[project_cursor_dispatch_open_item]]). Both are localized `cld_providers/<x>/`
-changes the split makes easy — but they wait until the rebuild is fully done.
-
-**NEXT: Sub-plan 4 — publishing** (`...-part4-publishing.md`, written just-in-time). `publish-targets.toml`
-+ `publish.py` (push each generated skill to its own mirror repo + the `cross-llm-all` umbrella, one
-lockstep VERSION tag), retire the old unified skill, `__pycache__` clean. **Real-world hosting/auth
-decisions live here (GitHub remotes) — confirm with the user before any push; default to a dry-run /
-no-network mode.** AWAIT a fresh go-ahead.
+**⚠️ CARRIED INTO SP4 (now resolved):** `__pycache__` pollution — handled by publish.py's clean step
+before push. (Cosmetic minors: mid-file import block in test_generator.py; `_scaffold` LICENSE not
+graceful-if-absent — non-blocking, for later.)
 
 **(prior) ✅ SUB-PLAN 2/4 COMPLETE — the generator; 343 passed; READY-TO-MERGE**
 
