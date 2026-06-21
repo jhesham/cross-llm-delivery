@@ -1,17 +1,18 @@
 """Cursor provider plugin -- single source of truth for the Cursor executor.
 
-CursorExecutor, parse_cursor_usage, _cursor_cmd, _default_runner, and
+CursorExecutor, parse_cursor_usage, _cursor_invocation, _default_runner, and
 resolve_composer_default are ALL defined here.  ``cld.executors.cursor`` is a thin
 re-export shim that imports every name from this module so existing callers
 continue to work unchanged.  Do not duplicate logic in the shim.
 
 Invocation form (headless):
-    cursor-agent -p "<prompt>" --output-format json --workspace <cwd>
-                 --model <model> --force --trust
+    [<node>, <version>/index.js] -p "<prompt>" --output-format json --workspace <cwd>
+                                  --model <model> --force --trust
 
-On Windows the top-level launcher shim mangles long prompts; the executor resolves the
-lexically-latest versioned cursor-agent.cmd under <LOCALAPPDATA>/cursor-agent/versions/.
-Override with CURSOR_AGENT_CMD.
+On Windows the .cmd shim mangles long prompts; the executor instead invokes the bundled
+Node entrypoint directly: lexically-latest <LOCALAPPDATA>/cursor-agent/versions/<v>/index.js,
+using the bundled node.exe in the same dir if present, else "node". Override with
+CURSOR_AGENT_CMD (returns [override]). Non-Windows: ["cursor-agent"].
 
 --force (auto-approve writes) + --trust (skip workspace-trust prompt) are REQUIRED
 for headless operation. NEVER invoke bare (bare = interactive TUI that hangs).
@@ -36,34 +37,37 @@ DEFAULT_MODEL = "composer-2.5"
 
 
 def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Real subprocess runner. stderr is merged into stdout on failure so the
-    error text is captured in raw_log. Decodes utf-8 with replacement: model
-    output can contain bytes invalid in the Windows locale codec."""
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
+    """Real subprocess runner. Direct-node cursor-agent needs CURSOR_INVOKED_AS set and
+    stdin closed. utf-8/replace; stderr merged on failure for raw_log."""
+    env = {**os.environ, "CURSOR_INVOKED_AS": "cursor-agent"}
+    proc = subprocess.run(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
     return (proc.returncode, out)
 
 
-def _cursor_cmd() -> str:
-    """Resolve the cursor-agent command. CURSOR_AGENT_CMD overrides. On Windows the
-    top-level shim is broken, so resolve the lexically-latest versioned cursor-agent.cmd
-    under <LOCALAPPDATA>/cursor-agent/versions/. Fallback: bare 'cursor-agent'."""
+def _cursor_invocation() -> list[str]:
+    """Argv prefix to launch cursor-agent. CURSOR_AGENT_CMD overrides (returns [override]).
+    On Windows the .cmd shim mangles long prompts, so invoke the bundled Node entrypoint
+    directly: [<node>, <version>/index.js]. Falls back to ['cursor-agent']."""
     override = os.environ.get("CURSOR_AGENT_CMD")
     if override:
-        return override
+        return [override]
     if os.name == "nt":
         base = os.path.join(os.environ.get("LOCALAPPDATA", ""), "cursor-agent", "versions")
         try:
             versions = sorted((d for d in os.listdir(base)
                                if os.path.isdir(os.path.join(base, d))), reverse=True)
-            for v in versions:
-                cand = os.path.join(base, v, "cursor-agent.cmd")
-                if os.path.exists(cand):
-                    return cand
         except OSError:
-            pass
-    return "cursor-agent"
+            versions = []
+        for v in versions:
+            vdir = os.path.join(base, v)
+            index_js = os.path.join(vdir, "index.js")
+            if os.path.exists(index_js):
+                bundled = os.path.join(vdir, "node.exe")
+                node = bundled if os.path.exists(bundled) else "node"
+                return [node, index_js]
+    return ["cursor-agent"]
 
 
 def parse_cursor_usage(raw_json: str) -> dict[str, int]:
@@ -130,7 +134,7 @@ class CursorExecutor:
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
         model_id = f"{self._model}-{self._effort}" if self._effort else self._model
-        argv = [_cursor_cmd(), "-p", prompt, "--output-format", "json",
+        argv = [*_cursor_invocation(), "-p", prompt, "--output-format", "json",
                 "--workspace", cwd, "--model", model_id, "--force", "--trust"]
         rc, raw = self._runner(argv, cwd)
         if rc != 0:
@@ -230,9 +234,9 @@ def account_stats() -> str:
     Cursor exposes no headless token/cost metric; `about` (tier + default model)
     is the only account signal. Timeout-guarded; returns "" on any failure.
     """
-    cmd = os.environ.get("CURSOR_AGENT_CMD") or _cursor_cmd()
+    invocation = _cursor_invocation()
     try:
-        proc = subprocess.run([cmd, "about"], capture_output=True, text=True,
+        proc = subprocess.run([*invocation, "about"], capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=30)
         return proc.stdout or ""
     except Exception:

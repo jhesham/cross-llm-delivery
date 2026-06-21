@@ -1,3 +1,5 @@
+import os
+
 from cld.executors.base import Executor, ExecutorResult, SliceTask
 from cld.executors.cursor import CursorExecutor
 
@@ -59,3 +61,19 @@ def test_captures_diff_on_success():
     ex = CursorExecutor(runner=_ok_runner(diff="DIFF"))
     res = ex.run(SliceTask(id="T", brief="b", files=["src/x.py"], acceptance_test_path="t.py"), "/work")
     assert res.ok is True and res.diff == "DIFF" and res.files_changed == ["src/x.py"]
+
+
+def test_dispatch_has_no_cmd_shim(monkeypatch, tmp_path):
+    # with a fake versions dir, the dispatched argv must use index.js, not cursor-agent.cmd
+    monkeypatch.delenv("CURSOR_AGENT_CMD", raising=False)
+    monkeypatch.setattr(os, "name", "nt")
+    v = tmp_path / "cursor-agent" / "versions" / "2026.06.15"
+    v.mkdir(parents=True)
+    (v / "index.js").write_text("//", encoding="utf-8")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    runner = _ok_runner()
+    CursorExecutor(runner=runner, model="composer-2.5").run(
+        SliceTask(id="T", brief="b", files=["src/x.py"], acceptance_test_path="t.py"), "/work")
+    argv = runner.calls[0][0]
+    assert any(p.endswith("index.js") for p in argv)
+    assert not any(p.endswith(".cmd") for p in argv)

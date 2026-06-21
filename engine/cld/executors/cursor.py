@@ -8,7 +8,7 @@ source of truth.  This module re-exports every public name so existing callers
 from cld_providers.cursor.provider import (  # noqa: F401
     CursorExecutor,
     parse_cursor_usage,
-    _cursor_cmd,
+    _cursor_invocation,
     _default_runner,
     list_cursor_models,
     resolve_composer_default,
