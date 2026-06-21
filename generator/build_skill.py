@@ -102,12 +102,24 @@ def _scaffold(provider: str, out: Path) -> None:
 
 
 def _known_providers() -> list[str]:
-    """Return subdirs of PROVIDERS_DIR that contain a provider.py."""
-    return sorted(
-        p.name
-        for p in PROVIDERS_DIR.iterdir()
-        if p.is_dir() and (p / "provider.py").exists()
-    )
+    """Return subdirs of PROVIDERS_DIR that are complete providers.
+
+    A complete provider has: provider.py, SKILL.fragment.md, setup.md, and a PROVIDER object.
+    Incomplete/in-development providers (e.g. helpers-only during Task 1) are excluded.
+    """
+    complete = []
+    for p in PROVIDERS_DIR.iterdir():
+        if not p.is_dir():
+            continue
+        # Check for required files
+        if not (p / "provider.py").exists():
+            continue
+        if not (p / "SKILL.fragment.md").exists():
+            continue
+        if not (p / "setup.md").exists():
+            continue
+        complete.append(p.name)
+    return sorted(complete)
 
 
 def _vendor_core(out: Path) -> None:
