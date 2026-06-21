@@ -78,6 +78,55 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
 
 
 # ---------------------------------------------------------------------------
+# Shared git push helper
+# ---------------------------------------------------------------------------
+
+def _git_push_repo(
+    work: Path,
+    *,
+    commit_msg: str,
+    version: str,
+    repo: str,
+    runner,
+) -> None:
+    """Run the standard 7-step git sequence in *work* and push to *repo*.
+
+    Raises RuntimeError on any non-zero return code.
+    """
+    def run(args):
+        rc, out = runner(args, str(work))
+        return rc, out
+
+    rc, out = run(["git", "init"])
+    if rc != 0:
+        raise RuntimeError(f"git init failed: {out}")
+
+    rc, out = run(["git", "add", "-A"])
+    if rc != 0:
+        raise RuntimeError(f"git add failed: {out}")
+
+    rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
+    if rc != 0:
+        raise RuntimeError(f"git commit failed: {out}")
+
+    rc, out = run(["git", "tag", f"v{version}"])
+    if rc != 0:
+        raise RuntimeError(f"git tag failed: {out}")
+
+    rc, out = run(["git", "remote", "add", "origin", repo])
+    if rc != 0:
+        raise RuntimeError(f"git remote add failed: {out}")
+
+    rc, out = run(["git", "push", "-u", "origin", "HEAD", "--force"])
+    if rc != 0:
+        raise RuntimeError(f"git push failed: {out}")
+
+    rc, out = run(["git", "push", "--tags"])
+    if rc != 0:
+        raise RuntimeError(f"git push --tags failed: {out}")
+
+
+# ---------------------------------------------------------------------------
 # publish_one
 # ---------------------------------------------------------------------------
 
@@ -158,37 +207,7 @@ def publish_one(
         # Strip pycache from the working copy too
         _strip_pycache(work)
 
-        def run(args):
-            rc, out = runner(args, str(work))
-            return rc, out
-
-        rc, out = run(["git", "init"])
-        if rc != 0:
-            raise RuntimeError(f"git init failed: {out}")
-
-        rc, out = run(["git", "add", "-A"])
-        if rc != 0:
-            raise RuntimeError(f"git add failed: {out}")
-
-        rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
-        if rc != 0:
-            raise RuntimeError(f"git commit failed: {out}")
-
-        rc, out = run(["git", "tag", f"v{version}"])
-        if rc != 0:
-            raise RuntimeError(f"git tag failed: {out}")
-
-        rc, out = run(["git", "remote", "add", "origin", repo])
-        if rc != 0:
-            raise RuntimeError(f"git remote add failed: {out}")
-
-        rc, out = run(["git", "push", "-u", "origin", "HEAD", "--force"])
-        if rc != 0:
-            raise RuntimeError(f"git push failed: {out}")
-
-        rc, out = run(["git", "push", "--tags"])
-        if rc != 0:
-            raise RuntimeError(f"git push --tags failed: {out}")
+        _git_push_repo(work, commit_msg=commit_msg, version=version, repo=repo, runner=runner)
 
     return plan
 
@@ -279,37 +298,7 @@ def publish_umbrella(
         )
         (work / "README.md").write_text(readme, encoding="utf-8")
 
-        def run(args):
-            rc, out = runner(args, str(work))
-            return rc, out
-
-        rc, out = run(["git", "init"])
-        if rc != 0:
-            raise RuntimeError(f"git init failed: {out}")
-
-        rc, out = run(["git", "add", "-A"])
-        if rc != 0:
-            raise RuntimeError(f"git add failed: {out}")
-
-        rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
-        if rc != 0:
-            raise RuntimeError(f"git commit failed: {out}")
-
-        rc, out = run(["git", "tag", f"v{version}"])
-        if rc != 0:
-            raise RuntimeError(f"git tag failed: {out}")
-
-        rc, out = run(["git", "remote", "add", "origin", repo])
-        if rc != 0:
-            raise RuntimeError(f"git remote add failed: {out}")
-
-        rc, out = run(["git", "push", "-u", "origin", "HEAD", "--force"])
-        if rc != 0:
-            raise RuntimeError(f"git push failed: {out}")
-
-        rc, out = run(["git", "push", "--tags"])
-        if rc != 0:
-            raise RuntimeError(f"git push --tags failed: {out}")
+        _git_push_repo(work, commit_msg=commit_msg, version=version, repo=repo, runner=runner)
 
     return plan
 
