@@ -373,10 +373,13 @@ git commit -m "feat(antigravity): AntigravityExecutor (cwd-on-C dispatch, transc
 - Create: `engine/cld_providers/antigravity/SKILL.fragment.md`
 - Create: `engine/cld_providers/antigravity/setup.md`
 - Test: `tests/test_providers_antigravity.py`
+- Modify: `tests/test_providers_api.py` (registering antigravity changes the assembled totals — update the two SP3 regression assertions in the SAME commit: provider set 4→5, catalog 9→17)
 
 **Interfaces:**
 - Consumes: `AntigravityExecutor`; `cld.models.ModelInfo`; `cld.providers_api.{Provider, register_provider}`.
 - Produces: a registered `Provider(name="antigravity")` with 8 catalog ids and `default_workhorse="antigravity:Gemini 3.1 Pro (High)"`.
+
+**IMPORTANT — registering antigravity changes engine-wide totals.** The moment `register_provider` runs, the assembled catalog becomes 17 (9+8) and the provider set becomes 5. Two existing tests in `tests/test_providers_api.py` will break unless updated in THIS commit (see Step 1b): `test_all_four_providers_register_in_monorepo` (expects exactly the 4 originals) and `test_assembled_catalog_has_expected_ids` (`len(ids) == 9`). Update both here — they are legitimate expectation updates, not weakenings. (gemini's demotion in Task 5 changes only a status, not these counts.)
 
 - [ ] **Step 1: Write the failing test** (`tests/test_providers_antigravity.py`)
 
@@ -409,7 +412,13 @@ def test_antigravity_tiers_and_buckets():
     assert all(m.cost_class == "flat" for m in by_id.values())
 ```
 
-- [ ] **Step 2: Run red** — `python -m pytest tests/test_providers_antigravity.py -q -p no:warnings`. Expected: ValueError "Unknown provider 'antigravity'".
+- [ ] **Step 1b: Update the two SP3 regression assertions** in `tests/test_providers_api.py` (they break once antigravity registers):
+  - `test_all_four_providers_register_in_monorepo`: change the expected list to include antigravity →
+    `assert sorted(p.name for p in all_providers()) == ["antigravity", "composer", "cursor", "gemini", "opencode"]`
+  - `test_assembled_catalog_has_expected_ids`: change `assert len(ids) == 9` to `assert len(ids) == 17`, and add `assert "antigravity:Gemini 3.1 Pro (High)" in ids`.
+  (Leave the other assertions in that test — the existing opencode/cursor id checks — unchanged.)
+
+- [ ] **Step 2: Run red** — `python -m pytest tests/test_providers_antigravity.py tests/test_providers_api.py -q -p no:warnings`. Expected: the antigravity test fails with ValueError "Unknown provider 'antigravity'"; the two updated test_providers_api assertions also fail (still 4 providers / 9 ids until registration lands).
 
 - [ ] **Step 3: Implement** — create the two markdown files, then append the catalog + registration.
 
@@ -491,11 +500,11 @@ PROVIDER = Provider(
 register_provider(PROVIDER)
 ```
 
-- [ ] **Step 4: Run green + full suite.**
+- [ ] **Step 4: Run green + full suite.** The new antigravity registration test + the two updated SP3 regression assertions pass; the whole suite is green (antigravity is now a complete provider, so the generator's `_known_providers()` includes it and `test_build_all_generates_every_provider` builds it — confirm that passes too). NOTE: `default_workhorse()` still returns the gemini spec at this point (Task 4 changes it); that is expected and not a failure.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engine/cld_providers/antigravity/ tests/test_providers_antigravity.py
+git add engine/cld_providers/antigravity/ tests/test_providers_antigravity.py tests/test_providers_api.py
 git commit -m "feat(antigravity): 8-model catalog + provider registration + fragment/setup"
 ```
 
@@ -553,17 +562,17 @@ git commit -m "feat(engine): default_workhorse prefers antigravity over (depreca
 
 ---
 
-### Task 5: [Part A] Demote the `gemini` provider + update cross-provider regression
+### Task 5: [Part A] Demote the `gemini` provider
+
+(The catalog-count / provider-set regression updates were already handled in Task 3, the commit that registered antigravity. This task only flips gemini's trust status — it changes a status, not any count.)
 
 **Files:**
 - Modify: `engine/cld_providers/gemini/provider.py` (`_GEMINI_MODEL_INFO`)
-- Modify: `tests/test_providers_api.py` (the `test_assembled_catalog_has_expected_ids` count 9 -> 17)
 - Test: `tests/test_providers_gemini.py` (append a demotion assertion)
 
 **Interfaces:** Consumes the catalog; produces gemini marked `revalidate`.
 
-- [ ] **Step 1: Write/adjust the failing tests**
-  - In `tests/test_providers_gemini.py`, append:
+- [ ] **Step 1: Write the failing test** — in `tests/test_providers_gemini.py`, append:
 ```python
 def test_gemini_demoted_to_revalidate():
     from cld.providers_api import _REGISTRY, load_providers, get_provider
@@ -571,9 +580,8 @@ def test_gemini_demoted_to_revalidate():
     m = get_provider("gemini").catalog[0]
     assert m.headless_status == "revalidate"
 ```
-  - In `tests/test_providers_api.py`, update `test_assembled_catalog_has_expected_ids`: change `assert len(ids) == 9` to `assert len(ids) == 17` and add `assert "antigravity:Gemini 3.1 Pro (High)" in ids`.
 
-- [ ] **Step 2: Run red** — `python -m pytest tests/test_providers_gemini.py -k demoted tests/test_providers_api.py -k assembled_catalog -q -p no:warnings`. Expected: both FAIL.
+- [ ] **Step 2: Run red** — `python -m pytest tests/test_providers_gemini.py -k demoted -q -p no:warnings`. Expected: FAIL (status is still `verified`).
 
 - [ ] **Step 3: Implement** — in `engine/cld_providers/gemini/provider.py`, change `_GEMINI_MODEL_INFO`:
 ```python
@@ -582,12 +590,12 @@ def test_gemini_demoted_to_revalidate():
 ```
 (leave the rest of the ModelInfo unchanged).
 
-- [ ] **Step 4: Run green + full suite** — confirm the whole suite is green with the new catalog count (17) and gemini demoted.
+- [ ] **Step 4: Run green + full suite** — confirm the whole suite is green with gemini demoted (catalog count stays 17; gemini is still 1 entry, now `revalidate`). If any recommend/routing test asserted the gemini model as `verified`/shortlisted, update it to reflect the demotion (legitimate update).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engine/cld_providers/gemini/provider.py tests/test_providers_gemini.py tests/test_providers_api.py
-git commit -m "feat(gemini): demote to revalidate (CLI deprecated); catalog now 17 with antigravity"
+git add engine/cld_providers/gemini/provider.py tests/test_providers_gemini.py
+git commit -m "feat(gemini): demote to revalidate (CLI deprecated, superseded by antigravity)"
 ```
 
 ---
