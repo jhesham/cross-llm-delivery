@@ -484,3 +484,11 @@ def test_render_routing_plan_shows_complexity():
         [SliceTask(id="S1", brief="b", files=["a"], acceptance_test_path="t.py", complexity="easy")],
         provider="antigravity", evidence={}, available_ids=[])
     assert "easy" in out
+
+
+def test_provider_of_maps_antigravity_to_family():
+    from cld.models import _provider_of
+    assert _provider_of("antigravity:Gemini 3.1 Pro (High)") == "gemini"
+    assert _provider_of("antigravity:Claude Opus 4.6 (Thinking)") == "claude"
+    assert _provider_of("antigravity:GPT-OSS 120B (Medium)") == "gpt"
+    assert _provider_of("gemini:gemini-3.1-pro-preview") == "gemini"   # unchanged

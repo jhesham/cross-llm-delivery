@@ -50,18 +50,18 @@ def test_catalogued_items_copy_metadata():
 
 def test_workhorse_always_self_included():
     g = browse_models([])  # OpenCode down -> still offers the flat-rate workhorse
-    # DEFAULT_WORKHORSE_ID is now antigravity:Gemini 3.1 Pro (High); _provider_of maps it to "other"
-    assert list(g.keys()) == ["other"]
-    assert _ids(g["other"]) == [DEFAULT_WORKHORSE_ID]
-    wh = g["other"][0]
+    assert list(g.keys()) == ["gemini"]
+    assert _ids(g["gemini"]) == [DEFAULT_WORKHORSE_ID]
+    wh = g["gemini"][0]
     assert wh.in_catalog is True and wh.headless_status == "likely"
 
 
 def test_group_order_catalogued_first_then_alpha():
     g = browse_models(IDS)
-    # claude/deepseek/gemini have catalogued items -> first (alpha); "other" also gets
-    # the antigravity default workhorse (in_catalog=True) so sorts before uncatalogued gpt
-    assert list(g.keys()) == ["claude", "deepseek", "gemini", "other", "gpt"]
+    # claude/deepseek/gemini have catalogued items -> first (alpha);
+    # antigravity default now maps to "gemini", so "other" has no in_catalog items,
+    # sorting after gpt (both uncatalogued -> alpha order)
+    assert list(g.keys()) == ["claude", "deepseek", "gemini", "gpt", "other"]
 
 
 def test_session_known_bad_filtered_out():
