@@ -97,3 +97,9 @@ def test_assembled_catalog_has_expected_ids():
             "opencode/kimi-k2.7"} <= ids
     assert "antigravity:Gemini 3.1 Pro (High)" in ids
     assert len(ids) == 17
+
+
+def test_default_workhorse_prefers_antigravity():
+    from cld.providers_api import _REGISTRY, load_providers, default_workhorse
+    _REGISTRY.clear(); load_providers()
+    assert default_workhorse() == "antigravity:Gemini 3.1 Pro (High)"

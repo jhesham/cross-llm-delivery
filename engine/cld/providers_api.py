@@ -81,19 +81,22 @@ def catalog() -> dict[str, "ModelInfo"]:
     return {m.id: m for p in _REGISTRY.values() for m in p.catalog}
 
 
+_WORKHORSE_PREFERENCE = ("antigravity", "gemini")
+
+
 def default_workhorse() -> str:
     """Return the spec for the default workhorse model.
 
-    Rules (in order):
-    1. Exactly one provider registered  →  that provider's own default_workhorse.
-    2. Multiple providers, "gemini" is one of them  →  the gemini provider's default_workhorse.
-    3. Otherwise  →  the first registered provider's default_workhorse.
+    1. Exactly one provider registered  -> that provider's own default_workhorse.
+    2. Multiple providers -> the first present provider in _WORKHORSE_PREFERENCE.
+    3. Otherwise -> the first registered provider's default_workhorse.
     """
     providers = list(_REGISTRY.values())
     if len(providers) == 1:
         return providers[0].default_workhorse
-    if "gemini" in _REGISTRY:
-        return _REGISTRY["gemini"].default_workhorse
+    for name in _WORKHORSE_PREFERENCE:
+        if name in _REGISTRY:
+            return _REGISTRY[name].default_workhorse
     return providers[0].default_workhorse
 
 
