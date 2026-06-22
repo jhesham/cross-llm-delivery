@@ -7,7 +7,15 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-22 (✅ deprecated gemini provider REMOVED; 4 providers, catalog 16; suite green)
+**Last updated:** 2026-06-22 (✅ gemini + composer providers REMOVED; 3 runnable providers, catalog 16; suite green)
+
+**🗑️ COMPOSER STUB REMOVED (2026-06-22).** `composer` was a non-runnable stub (0 catalogued models,
+executor raised `NotImplementedError`) and redundant — the real Composer model ships via the cursor
+provider as `cursor:composer-2.5`. Deleted `engine/cld_providers/composer/` + the
+`cld/executors/composer.py` shim + `tests/test_providers_composer.py`; re-pointed the registry tests.
+Now **3 runnable, CLI-backed executors: antigravity, opencode, cursor.** Catalog stays 16 (composer
+had 0 models). `--all` now emits only the 3 runnable skills (no dead `cross-llm-composer` folder).
+INSTALL.md/README/architecture.md updated; full suite green. (See HANDOFF-clean-install.md.)
 
 **🗑️ GEMINI PROVIDER REMOVED (2026-06-22).** With the Gemini CLI unsupported and antigravity now the
 default workhorse, the `gemini` provider was deleted entirely (`engine/cld_providers/gemini/` + the

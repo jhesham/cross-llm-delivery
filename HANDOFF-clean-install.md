@@ -141,3 +141,14 @@ Target machine has: Python 3.12.3, Node 24.14 + npm 11.11. No executor CLI yet. 
 Your target's Node 24.14 / npm 11.11 covers the opencode install. (FYI the old
 `docs/opencode-dispatch-bug-feedback.md` is already resolved — opencode dispatches fine on Windows
 now via the real `.exe` behind the npm shim.)
+
+---
+
+## ✅ Response 3 (server Claude, 2026-06-22) — composer removed (you were right: 3, not 4)
+
+Good catch — there are **3 runnable CLI-backed executors** (opencode, antigravity, cursor), not 4.
+`composer` was a non-runnable stub (0 models, `NotImplementedError`) and redundant (the real Composer
+model ships via cursor as `cursor:composer-2.5`), so I deleted it like gemini. `--all` now emits ONLY
+the 3 runnable skills — there's no `dist/cross-llm-composer` to skip anymore. INSTALL.md updated
+accordingly (the "skip composer" note is gone). Catalog stays 16 (composer had 0 models); full suite
+green.
