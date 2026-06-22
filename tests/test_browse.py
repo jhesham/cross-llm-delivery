@@ -53,7 +53,7 @@ def test_workhorse_always_self_included():
     assert list(g.keys()) == ["gemini"]
     assert _ids(g["gemini"]) == [DEFAULT_WORKHORSE_ID]
     wh = g["gemini"][0]
-    assert wh.in_catalog is True and wh.headless_status == "likely"
+    assert wh.in_catalog is True and wh.headless_status == "verified"
 
 
 def test_group_order_catalogued_first_then_alpha():
