@@ -17,11 +17,9 @@ provider(s) you install.
 | **opencode** | `dist/cross-llm-opencode` | **$0** with a free model (`opencode/deepseek-v4-flash-free`); metered otherwise | free opencode account |
 | **antigravity** | `dist/cross-llm-antigravity` | flat-rate ($0 marginal) | **Antigravity / Google-AI subscription** |
 | **cursor** | `dist/cross-llm-cursor` | metered | **Cursor subscription** |
-| ~~composer~~ | — | — | **SKIP — it's a stub, not runnable.** Do not copy `dist/cross-llm-composer`. |
 
-**`composer` is a documented placeholder stub** (its executor raises `NotImplementedError`). The
-generator still emits `dist/cross-llm-composer`, but **do not install it** — copying it gives you a
-dead skill. Install only opencode / antigravity / cursor.
+These three are the only runnable executors. (The Composer model is reachable via the **cursor**
+provider as `cursor:composer-2.5`.)
 
 ## Can I install several at once? Yes — they don't collide
 
@@ -45,7 +43,7 @@ So: install one to start, or install all the runnable ones — your choice.
 
 ## Install ALL runnable providers
 
-### 1. Copy the three runnable skill folders (skip composer)
+### 1. Copy the three provider skill folders
 
 ```powershell
 $skills = "$env:USERPROFILE\.claude\skills"
@@ -126,6 +124,6 @@ python scripts\run_delivery.py <plan.md> --repo <target-repo> --step
 - **`python` not found:** use `py` instead of `python`.
 - **Skill folder doesn't import / "no module named cld":** confirm you copied the *generated*
   `dist/cross-llm-<provider>/` folder (it has `scripts/cld/`), NOT the repo's `skill/` folder
-  (that's a deprecation stub) and NOT `dist/cross-llm-composer` (the stub provider).
+  (that's a deprecation stub).
 - **Banner check:** `dist/cross-llm-<provider>/SKILL.md`'s first line should read
   `GENERATED from cross-llm-delivery@<sha>` matching the source HEAD.
