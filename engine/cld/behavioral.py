@@ -1,9 +1,23 @@
 import dataclasses
 import os
 
-from deepeval.metrics import GEval
-from deepeval.models import AnthropicModel
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+try:  # deepeval is an OPTIONAL dependency — behavioral judging is off without it
+    from deepeval.metrics import GEval
+    from deepeval.models import AnthropicModel
+    from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+    _DEEPEVAL_IMPORT_ERROR = None
+except ImportError as _e:  # pragma: no cover - exercised by the deps-blocked subprocess test
+    GEval = AnthropicModel = LLMTestCase = LLMTestCaseParams = None
+    _DEEPEVAL_IMPORT_ERROR = _e
+
+
+def _require_deepeval() -> None:
+    if GEval is None:
+        raise ImportError(
+            "behavioral (G-Eval) judging requires the optional 'deepeval' package "
+            "(pip install deepeval). It is off by default; the deterministic judge "
+            "needs nothing extra."
+        ) from _DEEPEVAL_IMPORT_ERROR
 
 
 @dataclasses.dataclass
@@ -13,7 +27,7 @@ class BehavioralResult:
     reason: str = ""
 
 
-def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8) -> GEval:
+def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8):
     """Build the code-compliance G-Eval metric judged by Claude (no OpenAI).
 
     `AnthropicModel` requires an API key at construction time. When ANTHROPIC_API_KEY
@@ -22,6 +36,7 @@ def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8) ->
     `.measure()` actually runs, which only happens with a real key present. This keeps
     the workaround local to the factory instead of a module-import side effect.
     """
+    _require_deepeval()
     api_key = os.environ.get("ANTHROPIC_API_KEY") or "offline-placeholder"
     return GEval(
         name="Architectural Compliance",
