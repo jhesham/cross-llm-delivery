@@ -35,35 +35,19 @@ def test_get_executor_case_insensitive_and_trimmed():
     assert isinstance(get_executor("  Antigravity ", runner=_fake_runner), AntigravityExecutor)
 
 
-def test_get_composer_returns_executor_shape():
-    ex = get_executor("composer")
-    # satisfies the protocol structurally
-    assert isinstance(ex, Executor)
-
-
-def test_composer_run_raises_not_implemented():
-    from cld.executors.base import SliceTask
-
-    ex = get_executor("composer")
-    task = SliceTask(id="T", brief="b", files=["x"], acceptance_test_path="t.py")
-    with pytest.raises(NotImplementedError) as exc:
-        ex.run(task, "/work")
-    assert "Composer" in str(exc.value)
-
-
 def test_unknown_executor_raises_valueerror_listing_known():
     with pytest.raises(ValueError) as exc:
         get_executor("gpt5")
     msg = str(exc.value)
     assert "gpt5" in msg
-    assert "antigravity" in msg and "composer" in msg
+    assert "antigravity" in msg and "cursor" in msg
 
 
 def test_known_executors_exposed():
     # Previously asserted via the KNOWN_EXECUTORS tuple literal; now via the registry.
     names = _registered_names()
     assert "antigravity" in names
-    assert "composer" in names
+    assert "cursor" in names
     assert isinstance(names, set)
 
 

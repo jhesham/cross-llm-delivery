@@ -80,17 +80,17 @@ def test_catalog_matches_all_providers():
     assert "cursor:composer-2.5" in catalog()
 
 
-def test_all_four_providers_register_in_monorepo():
+def test_all_providers_register_in_monorepo():
     from cld.providers_api import load_providers, all_providers, _REGISTRY
     _REGISTRY.clear(); load_providers()
-    assert sorted(p.name for p in all_providers()) == ["antigravity", "composer", "cursor", "opencode"]
+    assert sorted(p.name for p in all_providers()) == ["antigravity", "cursor", "opencode"]
 
 
 def test_assembled_catalog_has_expected_ids():
     from cld.providers_api import load_providers, _REGISTRY, catalog
     _REGISTRY.clear(); load_providers()
     ids = set(catalog())
-    # the 16 catalogued models (opencode 7 + cursor 1 + antigravity 8; composer 0; gemini removed)
+    # the 16 catalogued models (opencode 7 + cursor 1 + antigravity 8; gemini + composer removed)
     assert "cursor:composer-2.5" in ids
     assert {"opencode/deepseek-v4-pro", "opencode/claude-opus-4-8",
             "opencode/kimi-k2.7"} <= ids

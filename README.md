@@ -169,14 +169,15 @@ docs/superpowers/   design doc + master build plan
 ## Status
 
 The engine and skill are complete and tested. The behavioral-eval judge uses Claude (no OpenAI
-dependency). Three executors ship today: the **Gemini** workhorse (default), an **OpenCode**
-adapter (catalog + picker for deepseek/kimi/claude/gpt/… via `opencode:<provider/model>`), and a
-**Cursor** adapter (`cursor:<model>`, including Composer). Cursor is wired end-to-end (model
-catalog, picker, usage) but its long-prompt headless dispatch is currently blocked by a
-cursor-agent defect, so it cannot run real slices on this version yet — see
-`docs/notes/cursor-cli-notes.md`. The executor registry takes further drop-in adapters; a
-**Composer** entry remains a documented stub as a worked example (see
-`docs/notes/opencode-executor-option.md`).
+dependency). Three executors ship today, all live-validated headless:
+- **Antigravity** (`antigravity:<model>`) — the default workhorse (`antigravity:Gemini 3.1 Pro (High)`,
+  flat-rate); also exposes Claude + GPT-OSS models.
+- **OpenCode** (`opencode:<provider/model>`) — catalog + picker for deepseek/kimi/claude/gpt/… ;
+  has free-tier models for $0 runs.
+- **Cursor** (`cursor:<model>`, including Composer via `cursor:composer-2.5`) — wired end-to-end;
+  long-prompt headless dispatch works via direct-node on Windows.
+
+The executor registry takes further drop-in adapters (one `cld_providers/<name>/` package each).
 
 ---
 
@@ -192,7 +193,7 @@ generated skill requires no `pip install` and carries only the provider code it 
 
 ### Generate a skill
 
-Live providers: **antigravity** (default workhorse), **opencode**, **cursor**, **composer**.
+Live providers: **antigravity** (default workhorse), **opencode**, **cursor**.
 
 ```bash
 # one provider

@@ -147,9 +147,7 @@ def test_active_provider_executor_shim_kept(tmp_path):
     ex = out / "scripts" / "cld" / "executors"
     assert (ex / "cursor.py").is_file()                 # active shim kept
     assert (ex / "base.py").is_file() and (ex / "__init__.py").is_file()
-    assert not (ex / "opencode.py").exists()            # non-active shims trimmed
-    assert not (ex / "gemini.py").exists()
-    assert not (ex / "composer.py").exists()
+    assert not (ex / "opencode.py").exists()            # non-active shim trimmed
 
 
 # ---- Task 2 (SP3): end-to-end self-containment via vendored driver ----
