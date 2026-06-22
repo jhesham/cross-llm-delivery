@@ -184,7 +184,7 @@ cursor-agent defect, so it cannot run real slices on this version yet — see
 
 This monorepo is the single source for the engine and all provider adapters. It ships a
 **generator** that produces self-contained, per-provider Claude Code skills — one skill per
-executor backend (`cross-llm-gemini`, `cross-llm-opencode`, `cross-llm-cursor`, …). Each
+executor backend (`cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`, …). Each
 generated skill requires no `pip install` and carries only the provider code it needs.
 
 > The old unified multi-provider skill (`skill/`) is **superseded** by the per-provider skills
@@ -192,9 +192,11 @@ generated skill requires no `pip install` and carries only the provider code it 
 
 ### Generate a skill
 
+Live providers: **antigravity** (default workhorse), **opencode**, **cursor**, **composer**.
+
 ```bash
 # one provider
-python generator/build_skill.py gemini
+python generator/build_skill.py antigravity
 
 # all providers at once
 python generator/build_skill.py --all
@@ -204,16 +206,20 @@ Each run writes a self-contained skill to `dist/cross-llm-<provider>/` (vendored
 provider adapter + references + composed `SKILL.md`). No pip install is needed inside the
 generated skill — the engine is vendored into `scripts/cld/`.
 
+**`dist/` is gitignored build output — always regenerate it; never rely on a checked-out copy.**
+The one-shot clean rebuild is `pwsh ./rebuild-skills.ps1` (wipes `dist/` then runs `--all`).
+For install steps on a fresh machine, see [INSTALL.md](INSTALL.md).
+
 ### Install a provider skill
 
 Copy the generated folder into your Claude Code skills directory:
 
 ```bash
 # macOS / Linux
-cp -r dist/cross-llm-gemini ~/.claude/skills/cross-llm-gemini
+cp -r dist/cross-llm-antigravity ~/.claude/skills/cross-llm-antigravity
 
 # Windows (PowerShell)
-Copy-Item -Recurse dist\cross-llm-gemini "$env:USERPROFILE\.claude\skills\cross-llm-gemini"
+Copy-Item -Recurse dist\cross-llm-antigravity "$env:USERPROFILE\.claude\skills\cross-llm-antigravity"
 ```
 
 Alternatively, install directly from a published mirror repo (one repo per provider, tagged
