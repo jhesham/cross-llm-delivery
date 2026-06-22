@@ -37,7 +37,7 @@ def test_vendors_core_and_only_one_provider(tmp_path):
     assert (out / "scripts" / "cld_providers" / "cursor" / "provider.py").is_file()
     # TRIMMED: other providers must NOT be vendored
     assert not (out / "scripts" / "cld_providers" / "opencode").exists()
-    assert not (out / "scripts" / "cld_providers" / "gemini").exists()
+    assert not (out / "scripts" / "cld_providers" / "antigravity").exists()
 
 
 def test_vendors_driver_with_syspath_shim(tmp_path):
@@ -155,7 +155,7 @@ def test_active_provider_executor_shim_kept(tmp_path):
 # ---- Task 2 (SP3): end-to-end self-containment via vendored driver ----
 
 def test_vendored_driver_runs_dry_run_in_isolation(tmp_path):
-    out = build_one("gemini", out_root=tmp_path)
+    out = build_one("antigravity", out_root=tmp_path)
     scripts = out / "scripts"
     plan = tmp_path / "p.md"
     plan.write_text(
