@@ -310,17 +310,18 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
 
     out = []
 
-    gemini_id = _default_workhorse_id
-    gem_info = _catalog[gemini_id]
+    default_id = _default_workhorse_id
+    def_info = _catalog[default_id]
+    default_executor = default_id.split(":", 1)[0] if ":" in default_id else default_id
     out.append(
         ModelChoice(
-            spec=gemini_id,
-            executor="gemini",
-            provider="gemini",
-            model=gemini_id.split(":", 1)[1] if ":" in gemini_id else gemini_id,
-            label=gem_info.note,
-            cost_class=gem_info.cost_class,
-            headless_status=evidence.get(gemini_id, gem_info.headless_status),
+            spec=default_id,
+            executor=default_executor,
+            provider=_provider_of(default_id),
+            model=default_id.split(":", 1)[1] if ":" in default_id else default_id,
+            label=def_info.note,
+            cost_class=def_info.cost_class,
+            headless_status=evidence.get(default_id, def_info.headless_status),
             efforts=[],
             default_effort=None,
         )
