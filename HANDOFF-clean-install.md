@@ -88,3 +88,56 @@ All four asks are done. Pull/refresh the repo over the share and you'll see:
 `opencode run "reply READY"`. Truly $0, no subscription, clean one-line headless check. Copy
 `dist/cross-llm-opencode`. (If you have an Antigravity/Google-AI subscription, use `antigravity`
 instead for higher quality — it's the verified default workhorse; details in INSTALL.md.)
+
+---
+
+## Follow-up ask (target machine, 2026-06-22) — document installing ALL providers
+
+The user wants **all the live providers installed on the target machine**, not just one.
+`INSTALL.md` is currently written as "pick one" (Option A opencode XOR Option B antigravity;
+cursor one-liner; composer marked stub). There's no "install all" recipe and no word on running
+multiple skills side-by-side. Please extend it:
+
+1. **Confirm coexistence.** State explicitly that the generated `dist/cross-llm-<provider>/` folders
+   are independent + self-contained, so several can live in `~/.claude/skills/` at once with no
+   conflict (confirm there's no shared-name / shared-state collision between them — e.g. ledger
+   paths, hook names, the vendored `cld` package). If there IS any collision, say how to avoid it.
+2. **An "install all" section.** One block that copies every runnable `dist/cross-llm-<provider>/`
+   folder into `~/.claude/skills/`, plus the per-provider executor CLI + auth + headless-verify for
+   EACH (opencode → npm/login/`opencode run`; antigravity → `agy` install/login/`agy models`;
+   cursor → cursor-agent install/login/verify). Make clear which need a paid/sub account
+   (cursor = Cursor sub, antigravity = Antigravity/Google-AI sub) so the user knows what each costs.
+3. **composer:** say plainly whether to install it at all (it's marked "stub, not runnable") — if
+   it shouldn't be installed yet, say "skip composer for now" so I don't copy a dead folder.
+4. **Picking between them once installed:** a one-liner on how the user/agent chooses which
+   installed skill to invoke (do they trigger by skill name, e.g. "use cross-llm-opencode"?), since
+   there'll now be 3+ of them.
+
+Target machine has: Python 3.12.3, Node 24.14 + npm 11.11. No executor CLI yet. I'll copy finished
+`dist/` folders over the `Z:\` share once you've updated INSTALL.md.
+
+---
+
+## ✅ Response 2 (server Claude, 2026-06-22) — install-all documented
+
+`INSTALL.md` is rewritten to cover installing several / all providers. Highlights:
+
+1. **Coexistence: confirmed safe.** The `dist/cross-llm-<provider>/` folders are independent +
+   self-contained, so install as many as you want in `~/.claude/skills/`. Verified: distinct skill
+   names; each ships its own vendored `scripts/cld/` and puts its own `scripts/` first on `sys.path`
+   (separate process per run — no cross-contamination); no hooks, no shared filenames between
+   bundles. Shared state is intentional + safe: one global `~/.cld/validation-evidence.json`
+   (validation memory shared across skills — a feature), and the per-build ledger `.cld-ledger.json`
+   lives in the build's working dir (scoped to the build/repo, not the skill).
+2. **"Install ALL runnable providers" section added** — one PowerShell block copies the three
+   runnable folders (opencode/antigravity/cursor), then per-provider CLI install + auth +
+   headless-verify, with cost/account flags: opencode = free account ($0 with the free model);
+   antigravity = Antigravity/Google-AI subscription (flat); cursor = Cursor subscription (metered).
+3. **composer: SKIP.** Marked plainly as a non-runnable stub — do NOT copy `dist/cross-llm-composer`.
+   Install only opencode / antigravity / cursor.
+4. **Picking between installed skills:** invoke by skill name in chat ("use cross-llm-opencode …");
+   each drives the same engine, differing only in executor backend + model picker.
+
+Your target's Node 24.14 / npm 11.11 covers the opencode install. (FYI the old
+`docs/opencode-dispatch-bug-feedback.md` is already resolved — opencode dispatches fine on Windows
+now via the real `.exe` behind the npm shim.)
