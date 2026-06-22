@@ -7,7 +7,25 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-22 (✅ gemini + composer providers REMOVED; 3 runnable providers, catalog 16; suite green)
+**Last updated:** 2026-06-22 (✅ first-real-build Windows bugs FIXED — cp1252 crash + subdir imports + data loss; suite green incl. integration)
+
+**🐞 FIRST-REAL-BUILD BUGS FIXED (2026-06-22, commit 6d3982b).** The install machine ran the first
+actual `cross-llm-antigravity` build and hit two real Windows engine bugs (executor produced correct
+code, engine delivered 0/5). All fixed TDD; rebuild/recopy `dist/` to get them:
+- **BUG A (cp1252 crash):** the layer summary printed a U+2192 arrow -> `print()` died with
+  UnicodeEncodeError on a cp1252 console AFTER slices ran but BEFORE the gate. Fix: `run_delivery
+  main()` forces UTF-8 stdout/stderr + `summary.py` uses ASCII `->`.
+- **BUG B-1 (subdir imports — the delivery blocker):** `pytest_test_runner` now injects the worktree
+  root + every ancestor dir of each target test onto PYTHONPATH, so a project in a subdir resolves
+  `from schemas import base` regardless of pytest packaging.
+- **BUG B-2:** `parse_pytest_output` surfaces collection/import errors (`COLLECTION ERROR: ...`)
+  instead of the silent "(no test id)".
+- **BUG B-3 (silent data loss — serious):** orchestrator preserves the executor diff to
+  `.cld/<id>/<id>.patch` before force-removing a worktree for a non-accepted slice; a judge
+  rejection/mis-resolve no longer deletes correct code (recover via `git apply`).
+Tests: `tests/test_windows_build_bugs.py` + `tests/integration/test_preserve_diff.py`.
+
+**(prior) gemini + composer providers REMOVED; 3 runnable providers, catalog 16; suite green.**
 
 **🗑️ COMPOSER STUB REMOVED (2026-06-22).** `composer` was a non-runnable stub (0 catalogued models,
 executor raised `NotImplementedError`) and redundant — the real Composer model ships via the cursor
