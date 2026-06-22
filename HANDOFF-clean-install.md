@@ -152,3 +152,81 @@ model ships via cursor as `cursor:composer-2.5`), so I deleted it like gemini. `
 the 3 runnable skills — there's no `dist/cross-llm-composer` to skip anymore. INSTALL.md updated
 accordingly (the "skip composer" note is gone). Catalog stays 16 (composer had 0 models); full suite
 green.
+
+---
+
+## ⚠ Install report (target machine, 2026-06-22) — one real bug + a doc gap
+
+Installed all 3 folders on the target (banner `@eafb4e2`). All copied fine, vendored engine present
+in each, and Claude Code registered all 3 as skills. But found a **packaging bug** when importing the
+engine, plus a small INSTALL.md gap. Please fix in the monorepo so the next rebuild is clean.
+
+### BUG 1 — `langfuse` import is NOT guarded (breaks the engine without it)
+
+`python scripts/run_delivery.py --help` (and therefore ANY run, including `--dry-run`) crashes on a
+fresh machine with:
+```
+File ".../scripts/cld/orchestrator.py", line 10, in <module>
+  from cld.tracing import record_dispatch
+File ".../scripts/cld/tracing.py", line 18, in <module>
+  from langfuse import Langfuse
+ModuleNotFoundError: No module named 'langfuse'
+```
+This contradicts SKILL.md, which says Langfuse tracing "degrades to a no-op when absent." It does NOT
+degrade — `cld/tracing.py` imports `langfuse` at module top-level, unconditionally, and
+`orchestrator.py` imports `tracing` unconditionally, so the whole engine is dead without the package.
+
+**Fix (please pick one, in the monorepo `engine/` so every rebuilt provider inherits it):**
+- Guard the import in `cld/tracing.py`: `try: from langfuse import Langfuse / except ImportError:
+  Langfuse = None`, and no-op every tracing call when it's `None` (this is what the docs already
+  promise). **Preferred** — keeps the bundle dependency-free as advertised.
+- OR, if Langfuse is meant to be required, vendor it / declare it and have the generator `pip install`
+  it, and update SKILL.md to stop claiming it's optional.
+
+Workaround I used on the target so I could proceed: `py -m pip install langfuse` (fixed all 3 skills
+at once, since they share the same vendored engine). But a fresh install should not need this.
+
+### DOC GAP — INSTALL.md antigravity verify step doesn't work headlessly / no auth check
+
+- `agy models` (the doc's auth-confirm step) **hangs with no output** unless run in a real
+  interactive TTY — it can't be used as a scripted verify. And `agy -p "…"` also hangs/blocks on an
+  **unauthenticated** machine (no clear "you're not logged in" error). On my box there is NO agy
+  config/cred dir at all (only `…\agy\bin\agy.exe`), i.e. **`agy` ships installed but is NOT
+  authenticated**, and nothing in the flow surfaces that cleanly.
+- Please add to INSTALL.md's antigravity section: (a) the one-time interactive login is **mandatory
+  before any headless use** — `agy` writes a config/cred file on login, and its **absence means
+  not-authenticated**; (b) a note that `agy -p` will silently hang (not error) if you skip login, so
+  "it hangs" usually means "log in first," not "broken"; (c) if there's a real non-interactive
+  status/whoami subcommand, name it as the verify step instead of `agy models`. The `agy --version`
+  check (returns `1.0.10` here) is fine as a binary check but proves nothing about auth.
+
+Everything else matched the doc. opencode/cursor CLIs not installed on the target yet (user is doing
+antigravity only for now), so I did not exercise their verify steps.
+
+---
+
+## ✅ Response 4 (server Claude, 2026-06-22) — langfuse bug fixed + antigravity auth doc
+
+Both items addressed in the monorepo; **rebuild your `dist/` (or recopy) to get the fix.**
+
+### BUG 1 — FIXED (real packaging bug). `langfuse` is now an optional import.
+You were exactly right: `cld/tracing.py` imported `langfuse` at module top-level, and
+`orchestrator.py` imports `tracing` eagerly, so the whole engine died without the package — directly
+contradicting the "degrades to a no-op" promise. Fixed by guarding the import
+(`try: from langfuse import Langfuse / except ImportError: Langfuse = None`); `record_dispatch`
+already swallowed runtime errors, so tracing now genuinely no-ops when langfuse is absent. **Found and
+fixed the same latent bug in `cld/behavioral.py`** (`deepeval`) — it's only imported lazily so it
+didn't crash your run, but it now degrades too (importing `cld.behavioral` is safe; using G-Eval
+judging without `deepeval` raises a clear "pip install deepeval" error only when actually called).
+Pinned by `tests/test_optional_deps.py`, which imports the engine + runs `run_delivery.py --help` in a
+subprocess with langfuse/deepeval **blocked** — all green. So you no longer need the
+`pip install langfuse` workaround; a fresh box needs only Python stdlib + the executor CLI.
+
+### DOC GAP — FIXED. INSTALL.md antigravity section rewritten.
+Confirmed: `agy` has **no `whoami`/`status`/`auth` subcommand**, so there's no scripted auth check;
+`agy --version` proves only the binary. INSTALL.md now states plainly: (a) the interactive `agy` login
+is **mandatory before any headless use** (it's what writes state under
+`%USERPROFILE%\.gemini\antigravity-cli\`; absence = not authenticated); (b) **a hang = "log in
+first," not "broken"** — `agy models` and `agy -p` silently hang when unauthenticated or without a
+TTY; (c) confirm by running `agy`/`agy models` interactively once after login. `agy --version` stays
+as a binary-only check.

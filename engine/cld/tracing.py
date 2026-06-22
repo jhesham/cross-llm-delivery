@@ -15,7 +15,10 @@ than silently drop traces.
 import os
 from functools import lru_cache
 
-from langfuse import Langfuse
+try:  # langfuse is an OPTIONAL dependency — tracing degrades to a no-op without it
+    from langfuse import Langfuse
+except ImportError:  # pragma: no cover - exercised by the deps-blocked subprocess test
+    Langfuse = None
 
 # Default to Langfuse Cloud (EU). Override with LANGFUSE_HOST (e.g. the US host
 # or a future self-hosted instance).
@@ -23,13 +26,17 @@ DEFAULT_HOST = "https://cloud.langfuse.com"
 
 
 @lru_cache
-def get_tracer() -> Langfuse:
+def get_tracer():
     """Return a cached Langfuse client built from the environment.
 
     Reads LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY (required) and
-    LANGFUSE_HOST (optional, defaults to Langfuse Cloud). Raises KeyError if a
-    required key is missing — intentional fail-loud behavior.
+    LANGFUSE_HOST (optional, defaults to Langfuse Cloud). Raises if a required
+    key is missing OR langfuse is not installed — both are swallowed by
+    record_dispatch (tracing simply stays off). Intentional fail-loud-here /
+    no-op-at-the-call-site split.
     """
+    if Langfuse is None:
+        raise RuntimeError("langfuse is not installed; tracing is disabled")
     return Langfuse(
         host=os.environ.get("LANGFUSE_HOST", DEFAULT_HOST),
         public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
