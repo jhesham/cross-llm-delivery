@@ -7,7 +7,15 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-22 (✅ Antigravity provider + cursor direct-node fix IMPLEMENTED (T1-6, READY-TO-MERGE, ~376 green); live validation T7 pending)
+**Last updated:** 2026-06-22 (✅ Antigravity provider + cursor direct-node fix COMPLETE & LIVE-VALIDATED; post-rebuild queue CLEARED; suite green)
+
+**🎉 POST-REBUILD QUEUE CLEARED (2026-06-22) — Task 7 live validation done.**
+Both providers were exercised against real throwaway worktrees via `smoketest/validate_live.py` and
+BOTH PASSED (wrote files on disk end-to-end):
+- **Antigravity** `Gemini 3.1 Pro (High)`: `likely`→`verified` (cwd-on-C: + transcript capture works).
+- **Cursor** `composer-2.5`: `untested`→`verified` via the long-prompt direct-node path (the `.cmd`
+  mangling is gone); re-admitted to the `recommend()` shortlist (exclusion lifted).
+Evidence in `docs/notes/{antigravity,cursor}-cli-notes.md`. There is NO remaining post-rebuild work.
 
 **🚧 POST-REBUILD WORK — "Complete headless provider dispatch" (Tasks 1-6 DONE, 2026-06-22).**
 Spec `docs/.../specs/2026-06-22-complete-headless-provider-dispatch-design.md`; plan
