@@ -26,7 +26,16 @@ def parse_pytest_output(output: str) -> tuple[int, int, list[str]]:
         
     for match in re.finditer(r'FAILED\s+(\S+)', output):
         failing_tests.append(match.group(1))
-        
+
+    # Surface COLLECTION / IMPORT errors (pytest reports these as ERROR, not FAILED,
+    # so they otherwise show up as "(no test id)" and hide the real cause — e.g. a
+    # project-in-a-subdir import failure). Without this the slice looks like an
+    # inexplicable non-pass. (BUG B-2)
+    if not failing_tests and re.search(r'\d+\s+error', output):
+        cause = re.search(r'((?:ModuleNotFoundError|ImportError|[A-Za-z_]*Error):[^\n]*)', output)
+        detail = cause.group(1).strip() if cause else "test collection failed"
+        failing_tests.append(f"COLLECTION ERROR: {detail}")
+
     return passed, failed, failing_tests
 
 def check_diff_rule(files_changed: list[str], allowed: list[str]) -> list[str]:

@@ -74,7 +74,7 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
     
     if next_layer:
         next_csv = ", ".join(next_layer)
-        lines.append(f"NEXT: layer {layer_index+2} → [{next_csv}]")
+        lines.append(f"NEXT: layer {layer_index+2} -> [{next_csv}]")
     else:
         lines.append(f"NEXT: build complete — no further layers.")
         
