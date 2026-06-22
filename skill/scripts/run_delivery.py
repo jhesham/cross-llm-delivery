@@ -92,10 +92,44 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     no spaces/`::`/`-k` is unaffected.
     """
     target = shlex.split(acceptance_test_path) if acceptance_test_path else []
+
+    # BUG B fix: when the project lives in a SUBDIR of the repo/worktree, the test's
+    # imports (e.g. `from schemas import base`) need that subdir on sys.path. pytest's
+    # default import resolution puts the WORKTREE ROOT (or repo root) there, not the
+    # package subdir, so collection fails with ModuleNotFoundError and the judge sees a
+    # spurious non-pass. Make import resolution robust + packaging-agnostic by adding
+    # the worktree root AND every ancestor dir of each target test file (up to the
+    # worktree root) onto PYTHONPATH — whatever level the package root sits at, it is an
+    # ancestor of the test file, so its imports resolve.
+    env = os.environ.copy()
+    work_abs = os.path.abspath(workdir)
+    roots = [work_abs]
+    for tok in target:
+        if tok.startswith("-"):
+            continue  # a flag like -k, not a path
+        rel = tok.split("::", 1)[0]  # strip any ::node-id selector
+        test_abs = os.path.normpath(os.path.join(work_abs, rel))
+        d = os.path.dirname(test_abs)
+        while d and len(d) >= len(work_abs) and d.startswith(work_abs):
+            roots.append(d)
+            if d == work_abs:
+                break
+            parent = os.path.dirname(d)
+            if parent == d:
+                break
+            d = parent
+    seen, ordered = set(), []
+    for r in roots:
+        if r not in seen:
+            seen.add(r)
+            ordered.append(r)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(ordered + ([existing] if existing else []))
+
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", *target, "-q"],
-            cwd=workdir, capture_output=True, text=True, timeout=600,
+            cwd=workdir, env=env, capture_output=True, text=True, timeout=600,
             encoding="utf-8", errors="replace",
         )
     except subprocess.TimeoutExpired:
@@ -255,6 +289,17 @@ def prompt_for_executor() -> str:
 
 
 def main(argv=None) -> int:
+    # BUG A fix: Windows consoles default to cp1252, which can't encode some glyphs
+    # the renderers emit -> print() of the layer summary/gate would die with
+    # UnicodeEncodeError AFTER slices ran but BEFORE the exit-code gate, losing the
+    # whole step's result. Force UTF-8 on stdout/stderr so output never crashes the
+    # run. Best-effort (no-op on streams that can't reconfigure).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
