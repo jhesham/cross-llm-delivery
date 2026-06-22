@@ -84,8 +84,9 @@ agy                  # run it bare in a real terminal, complete the browser sign
 **Auth caveats (read these — they save an hour):**
 - **Login is mandatory before headless use.** `agy` ships installed but **unauthenticated**; logging
   in via the interactive `agy` is what writes its state under `%USERPROFILE%\.gemini\antigravity-cli\`.
-- **There is NO `whoami`/`status`/`auth` subcommand** and `agy --version` proves only that the binary
-  exists — it does NOT confirm you're logged in.
+- **There is NO `whoami`/`status`/`auth` subcommand**, so there is no scriptable auth check. The only
+  thing safe to run non-interactively is `agy --version` (returns e.g. `1.0.10`) — and it proves only
+  that the binary exists, NOT that you're logged in. `agy models` requires an interactive terminal.
 - **A hang means "log in first," not "broken."** Both `agy models` and `agy -p "…"` **silently hang
   with no error** if you're not authenticated (or if run without a real interactive TTY). If `agy`
   appears to freeze, the cause is almost always missing login — do the interactive `agy` sign-in.
