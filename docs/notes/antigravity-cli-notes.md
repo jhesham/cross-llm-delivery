@@ -53,9 +53,17 @@ exits 0 with no output, same path-class issue). The provider catalog = "whatever
 - Executor adapter mirrors the recipe above (cwd-on-C:, stdin closed, transcript-read capture). This
   is the SAME class of fix as the cursor direct-node work ([[project_cursor_dispatch_open_item]]).
 
+## LIVE-VALIDATED 2026-06-22
+A real build slice via `AntigravityExecutor` (default model `Gemini 3.1 Pro (High)`, `--add-dir
+<throwaway worktree>`) **wrote the file on disk** and the executor captured it: `executor ok=True`,
+`files_changed=['greeting.py']`, `greeting.py` present with correct content; the agent even ran the
+file and reported the expected output. `capture_diff` correctly filtered the `__pycache__/*.pyc` the
+agent produced when running it. Conclusion: the cwd-on-C: + transcript-capture path works end-to-end.
+→ `antigravity:Gemini 3.1 Pro (High)` promoted `likely`→`verified`. (Harness: `smoketest/validate_live.py antigravity`.)
+
 ## Open questions for the build
-- Does `--add-dir <worktree>` + a multi-file edit prompt produce on-disk diffs in the worktree (the
-  slice-execution path)? (the READY test was text-only — needs a real file-write test.)
+- (ANSWERED 2026-06-22) `--add-dir <worktree>` + a file-write prompt DOES produce on-disk diffs in the
+  worktree — see LIVE-VALIDATED above.
 - Per-dispatch model selection: `--model "<label>"` — confirm exact id strings from `agy models`.
 - Quota/usage surfacing for the `account_section` (the log shows `quota_manager` — may be queryable).
 - Can `--print-timeout` + transcript polling stream progress, or only read-after-exit?

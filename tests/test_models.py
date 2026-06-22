@@ -213,7 +213,7 @@ def test_recommend_always_includes_verified_default_even_if_unavailable():
     assert "antigravity:Gemini 3.1 Pro (High)" in ids
     default = next(r for r in recs if r.is_default)
     assert default.id == "antigravity:Gemini 3.1 Pro (High)"
-    assert default.headless_status == "likely"
+    assert default.headless_status == "verified"
 
 
 def test_recommend_default_is_verified_workhorse():
@@ -222,7 +222,7 @@ def test_recommend_default_is_verified_workhorse():
     defaults = [r for r in recs if r.is_default]
     assert len(defaults) == 1
     assert defaults[0].capability_class == "workhorse"
-    assert defaults[0].headless_status == "likely"  # antigravity workhorse is "likely"
+    assert defaults[0].headless_status == "verified"  # antigravity workhorse live-validated 2026-06-22
 
 
 def test_recommend_buckets_and_cost_flags():
@@ -346,7 +346,7 @@ def test_recommend_hides_revalidate_via_evidence():
 def test_recommend_default_workhorse_still_resolves():
     from cld.models import recommend
     recs = recommend(available_ids=["antigravity:Gemini 3.1 Pro (High)"])
-    assert any(r.is_default and r.headless_status == "likely" for r in recs)
+    assert any(r.is_default and r.headless_status == "verified" for r in recs)
 
 
 def test_modelinfo_has_tier_and_values_are_valid():
