@@ -7,7 +7,15 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-22 (✅ Antigravity provider + cursor direct-node fix COMPLETE & LIVE-VALIDATED; post-rebuild queue CLEARED; suite green)
+**Last updated:** 2026-06-22 (✅ deprecated gemini provider REMOVED; 4 providers, catalog 16; suite green)
+
+**🗑️ GEMINI PROVIDER REMOVED (2026-06-22).** With the Gemini CLI unsupported and antigravity now the
+default workhorse, the `gemini` provider was deleted entirely (`engine/cld_providers/gemini/` + the
+`cld/executors/gemini.py` shim + its tests). Tests that used gemini as the canonical sample executor
+were re-pointed to antigravity; `build_model_index`'s stale hardcoded gemini default row now derives
+executor/provider from the actual default spec; the vendored `architecture.md` updated. Now **4
+providers** (antigravity, opencode, cursor, composer), **catalog 16**, default
+`antigravity:Gemini 3.1 Pro (High)`. Full suite green; all 4 providers build + smoke-pass. (Commit 9b4c4b7.)
 
 **🎉 POST-REBUILD QUEUE CLEARED (2026-06-22) — Task 7 live validation done.**
 Both providers were exercised against real throwaway worktrees via `smoketest/validate_live.py` and
