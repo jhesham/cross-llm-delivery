@@ -230,7 +230,7 @@ def test_composer_in_catalog_and_spec_for_passthrough():
     assert "cursor:composer-2.5" in MODEL_METADATA
     entry = MODEL_METADATA["cursor:composer-2.5"]
     assert entry.cost_class == "cheap-metered"
-    assert entry.headless_status == "untested"
+    assert entry.headless_status == "verified"  # direct-node dispatch live-validated 2026-06-22
 
     class _C:
         id = "cursor:composer-2.5"
