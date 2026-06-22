@@ -282,9 +282,9 @@ _CURSOR_CATALOG = (
         provider="cursor",
         cost_class="cheap-metered",
         capability_class="heavy",
-        headless_status="untested",
+        headless_status="verified",
         rework_risk="low",
-        note="Cursor's cost-optimized Composer; resolve_composer_default tracks the current version",
+        note="Cursor's cost-optimized Composer; direct-node dispatch live-validated 2026-06-22",
         tier="workhorse",
     ),
 )
