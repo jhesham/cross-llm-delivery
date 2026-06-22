@@ -37,5 +37,5 @@ The executor therefore bypasses the shim: it resolves the lexically-latest
 cursor-agent 2026.06.15 with a long multi-line prompt (the earlier 2026.06.12 core hang is
 also fixed in that build). Override the binary with `CURSOR_AGENT_CMD=<path>` if needed.
 
-Real end-to-end build-slice validation on Windows is pending; `cursor:composer-2.5` stays
-`untested` in the catalog until a live slice confirms on-disk writes.
+Live-validated 2026-06-22: a real long multi-line slice via direct-node wrote the file on disk
+(exit 0, valid result JSON), so `cursor:composer-2.5` is `verified` and offered in the shortlist.

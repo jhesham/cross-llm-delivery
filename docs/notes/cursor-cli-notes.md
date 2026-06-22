@@ -106,11 +106,14 @@ A newer cursor-agent (`2026.06.15-...-6f5a2cf`) is installed. Re-tested the long
   <dir>` + `CURSOR_INVOKED_AS=cursor-agent` env + `stdin=DEVNULL` → WORKS** (exit 0, ~45s, valid
   result JSON, and it ACTUALLY wrote a correct `src/calc.py` — verified on disk, not self-report).
 The long-prompt CORE HANG that defined the `2026.06.12` defect is **GONE on 06.15**. The only
-remaining issue is the `.cmd` shim. **Fix:** make `CursorExecutor._cursor_cmd()` invoke the
-versioned `node.exe index.js` directly (mirroring the OpenCode `.exe` fix) instead of the `.cmd`,
-with `CURSOR_INVOKED_AS` env + `stdin=DEVNULL`. Then real long-prompt slices dispatch headlessly and
-Composer can finally be proven headless. `--prompt-file` still does not exist; `-p/--force/--trust`
-is the whole headless surface (confirmed via `--help`).
+remaining issue was the `.cmd` shim. **FIX SHIPPED + LIVE-VALIDATED 2026-06-22:**
+`CursorExecutor` now invokes the versioned `node.exe index.js` directly via `_cursor_invocation()`
+(returns `[node, index.js]`) with `CURSOR_INVOKED_AS=cursor-agent` env + `stdin=DEVNULL`, instead of
+the `.cmd` shim. A real long multi-line slice dispatched headlessly and wrote the file on disk (exit
+0, valid result JSON) — so `cursor:composer-2.5` is promoted to `verified` and re-admitted to the
+recommend() shortlist (the `if id.startswith("cursor:"): continue` exclusion was removed). Composer is
+now proven headless. `--prompt-file` still does not exist; `-p/--force/--trust` is the whole headless
+surface (confirmed via `--help`). (Harness: `smoketest/validate_live.py cursor`.)
 
 ## Windows
 The versioned binary `<LOCALAPPDATA>/cursor-agent/versions/<latest>/cursor-agent.cmd` works; the

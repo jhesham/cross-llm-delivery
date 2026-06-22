@@ -315,14 +315,16 @@ def test_kimi_k27_hidden_until_available():
     assert "opencode/kimi-k2.7" not in [r.id for r in recs]
 
 
-def test_cursor_composer_never_in_first_shortlist():
-    # Cursor models never come through `opencode models`, so even though Composer is in
-    # the catalog it must never reach the first-selection shortlist (its long-prompt
-    # dispatch is a known cursor-agent defect; it lives only in the Browse drill-down).
+def test_cursor_composer_now_in_shortlist_after_validation():
+    # Cursor's long-prompt dispatch was a known cursor-agent defect, so Composer used to be
+    # excluded from the first-selection shortlist. The direct-node fix is live-validated
+    # (2026-06-22), so Composer is now offered normally when it's in available_ids.
     recs = recommend(available_ids=[
         "opencode/kimi-k2.6", "opencode/claude-opus-4-8", "cursor:composer-2.5",
     ])
-    assert "cursor:composer-2.5" not in [r.id for r in recs]
+    cursor_recs = [r for r in recs if r.id == "cursor:composer-2.5"]
+    assert len(cursor_recs) == 1
+    assert cursor_recs[0].headless_status == "verified"
 
 
 def test_catalog_uses_verified_not_proven():

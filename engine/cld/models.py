@@ -143,12 +143,9 @@ def recommend(*, available_ids, job=None, session_known_bad=frozenset(),
     for id, info in _catalog.items():
         if id not in effective_ids:
             continue
-        # Cursor models are intentionally NOT offered in the first-selection shortlist:
-        # cursor-agent's long-prompt headless dispatch is a known defect (see
-        # docs/notes/cursor-cli-notes.md), so Composer/cursor live ONLY in the Browse
-        # drill-down (build_model_index), never as a default shortlist pick.
-        if id.startswith("cursor:"):
-            continue
+        # (Cursor was previously excluded from the shortlist while its long-prompt
+        # headless dispatch was broken; the direct-node fix is live-validated 2026-06-22,
+        # so Composer now participates in the first-selection shortlist normally.)
         # durable validation evidence overrides the static catalog status
         status = evidence.get(id, info.headless_status)
         if status == "revalidate":
