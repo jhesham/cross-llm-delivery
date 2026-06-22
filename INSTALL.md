@@ -75,14 +75,24 @@ opencode run "reply with the single word READY"   # headless verify -> should pr
 **antigravity** (needs an Antigravity / Google-AI subscription; flat-rate):
 ```powershell
 # install the Antigravity CLI so `agy` is on PATH (usually %LOCALAPPDATA%\agy\bin\agy.exe;
-# set AGY_CMD if it's elsewhere). Then, ONE TIME, interactive browser login:
-agy                  # complete the sign-in, then exit
-agy --version        # confirms the binary
-agy models           # interactive terminal -> lists your models (confirms auth)
+# set AGY_CMD if it's elsewhere).
+agy --version        # confirms the BINARY only (says nothing about auth)
+
+# MANDATORY one-time interactive login BEFORE any headless use:
+agy                  # run it bare in a real terminal, complete the browser sign-in, then exit
 ```
-Note: `agy -p` writes its reply to a transcript file, not stdout, so it won't echo a one-liner —
-the skill's executor handles that (and forces the working dir onto C: for a Windows transcript-path
-quirk). The first real `--step` build is the end-to-end headless proof.
+**Auth caveats (read these — they save an hour):**
+- **Login is mandatory before headless use.** `agy` ships installed but **unauthenticated**; logging
+  in via the interactive `agy` is what writes its state under `%USERPROFILE%\.gemini\antigravity-cli\`.
+- **There is NO `whoami`/`status`/`auth` subcommand** and `agy --version` proves only that the binary
+  exists — it does NOT confirm you're logged in.
+- **A hang means "log in first," not "broken."** Both `agy models` and `agy -p "…"` **silently hang
+  with no error** if you're not authenticated (or if run without a real interactive TTY). If `agy`
+  appears to freeze, the cause is almost always missing login — do the interactive `agy` sign-in.
+- Confirm auth by running `agy` (or `agy models`) **interactively** once after login: it should list
+  your models instead of hanging. `agy -p` writes its reply to a transcript file (not stdout), so it
+  won't echo a one-liner — the skill's executor reads that transcript (and forces the working dir onto
+  C: for a Windows path quirk). The first real `--step` build is the true end-to-end headless proof.
 
 **cursor** (needs a Cursor subscription; metered):
 ```powershell
