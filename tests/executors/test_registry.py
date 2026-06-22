@@ -12,7 +12,7 @@ import pytest
 from cld.executors import get_executor
 from cld.providers_api import load_providers, _REGISTRY, all_providers
 from cld.executors.base import Executor
-from cld.executors.gemini import GeminiExecutor
+from cld_providers.antigravity.provider import AntigravityExecutor
 
 
 def _fake_runner(args, cwd):
@@ -25,14 +25,14 @@ def _registered_names():
     return {p.name for p in all_providers()}
 
 
-def test_get_gemini():
-    ex = get_executor("gemini", runner=_fake_runner)
-    assert isinstance(ex, GeminiExecutor)
+def test_get_antigravity():
+    ex = get_executor("antigravity", runner=_fake_runner)
+    assert isinstance(ex, AntigravityExecutor)
     assert isinstance(ex, Executor)
 
 
 def test_get_executor_case_insensitive_and_trimmed():
-    assert isinstance(get_executor("  Gemini ", runner=_fake_runner), GeminiExecutor)
+    assert isinstance(get_executor("  Antigravity ", runner=_fake_runner), AntigravityExecutor)
 
 
 def test_get_composer_returns_executor_shape():
@@ -56,20 +56,20 @@ def test_unknown_executor_raises_valueerror_listing_known():
         get_executor("gpt5")
     msg = str(exc.value)
     assert "gpt5" in msg
-    assert "gemini" in msg and "composer" in msg
+    assert "antigravity" in msg and "composer" in msg
 
 
 def test_known_executors_exposed():
     # Previously asserted via the KNOWN_EXECUTORS tuple literal; now via the registry.
     names = _registered_names()
-    assert "gemini" in names
+    assert "antigravity" in names
     assert "composer" in names
     assert isinstance(names, set)
 
 
-def test_kwargs_passed_through_to_gemini():
-    ex = get_executor("gemini", runner=_fake_runner, model="gemini-3-pro-preview")
-    assert ex._model == "gemini-3-pro-preview"
+def test_kwargs_passed_through_to_antigravity():
+    ex = get_executor("antigravity", runner=_fake_runner, model="Gemini 3.1 Pro (High)")
+    assert ex._model == "Gemini 3.1 Pro (High)"
 
 
 def test_get_opencode():

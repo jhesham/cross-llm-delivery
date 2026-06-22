@@ -1,13 +1,12 @@
-"""B1.2 — failing test pinning BUG 1 / Defect 1.
+"""B1.2 — test pinning BUG 1 / Defect 1 (capture of untracked created files).
 
-The REAL GeminiExecutor captures changed files via `git diff HEAD --name-only`.
-When a slice CREATES a new file, that file is untracked, and `git diff HEAD`
-omits it — so `files_changed` comes back empty for a slice that clearly changed
-the tree. This test drives the real GeminiExecutor with a real git_runner but a
-fake LLM dispatch (the dispatch "creates" the file via a runner shim), and asserts
-the FIXED behavior: the created file appears in files_changed.
-
-RED until B1.3 (executor `git add` before diff). Green after.
+A CLI executor captures changed files via `git diff HEAD --name-only`. When a slice
+CREATES a new file it is untracked, and `git diff HEAD` omits it — so `files_changed`
+would come back empty for a slice that clearly changed the tree. The shared
+`capture_diff` helper fixes this with `git add --intent-to-add -A` before diffing.
+This test drives a real executor (CursorExecutor — the gemini provider was removed
+2026-06-22) with a real git_runner but a fake LLM dispatch (the dispatch "creates"
+the file via a runner shim), and asserts the created file appears in files_changed.
 """
 
 from pathlib import Path
@@ -15,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from cld.executors.base import SliceTask
-from cld.executors.gemini import GeminiExecutor
+from cld_providers.cursor.provider import CursorExecutor
 from tests.integration.harness import real_git_runner
 
 pytestmark = pytest.mark.integration
@@ -24,17 +23,19 @@ CREATED_FILE = "src/created_by_slice.py"
 
 
 def _runner_factory(repo: str):
-    """A runner that behaves like real git for git commands, but for the gemini
-    dispatch it (a) returns a minimal JSON and (b) actually creates the slice file
-    on disk — simulating Gemini's effect. Everything else (git diff/status) is REAL.
+    """A runner that behaves like real git for git commands, but for the executor's
+    CLI dispatch it (a) returns a minimal success JSON and (b) actually creates the
+    slice file on disk — simulating the agent's effect. Everything else (git
+    diff/status) is REAL. The cursor dispatch is identified by its `-p` + `--workspace`
+    flags (argv[0] is a node/cursor-agent path, not a fixed name).
     """
     def runner(args, cwd):
-        if args and args[0] in ("gemini", "gemini.cmd"):
+        if "-p" in args and "--workspace" in args:
             # simulate the executor's effect: a new file appears in the worktree
             dest = Path(cwd) / CREATED_FILE
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text("x = 1\n", encoding="utf-8")
-            return (0, '{"stats": {"models": {}}}')
+            return (0, '{"type":"result","subtype":"success","is_error":false,"usage":{}}')
         # real git for everything else (diff, name-only, add, status, ...)
         return real_git_runner(args, cwd)
 
@@ -42,7 +43,7 @@ def _runner_factory(repo: str):
 
 
 def test_created_file_appears_in_files_changed(git_repo):
-    ex = GeminiExecutor(runner=_runner_factory(git_repo))
+    ex = CursorExecutor(runner=_runner_factory(git_repo))
     task = SliceTask(id="S1", brief="create the module",
                      files=[CREATED_FILE], acceptance_test_path="t.py")
     result = ex.run(task, git_repo)

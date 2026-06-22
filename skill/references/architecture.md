@@ -3,28 +3,24 @@
 The `cld` package is the orchestration engine. The skill drives it; this file documents
 the pieces for anyone who needs to extend or debug a run.
 
-## Locked Gemini CLI invocation (the executor)
+## Executors (the CLI backends)
 
-Verified headless form (native Windows, no WSL):
+Each provider plugin under `cld_providers/<name>/` registers an executor that wraps a CLI
+behind an injected `runner` (so every executor is unit-testable without live calls). The
+default workhorse is `antigravity:Gemini 3.1 Pro (High)` (the Antigravity `agy` CLI, flat-rate).
+Other backends: `opencode`, `cursor` (direct-node dispatch on Windows), and the `composer` stub.
+Pick a backend per slice with `--executor "<provider>:<model>"`.
 
-```
-GEMINI_CLI_TRUST_WORKSPACE=true gemini -p "<task>" -m gemini-3.1-pro-preview \
-    --yolo --skip-trust -o json
-```
-
-- `--yolo --skip-trust` is required for headless autonomy (YOLO is silently downgraded
-  without a trusted workspace).
-- `-o json` returns `stats.models.<id>.tokens` — captured into `ExecutorResult.token_usage`.
-- `GeminiExecutor` (`cld.executors.gemini`) wraps this behind an injected `runner` so it
-  is unit-testable without live calls.
+Each executor returns an `ExecutorResult` (ok / diff / files_changed / token_usage / raw_log);
+diffs are captured uniformly via `cld.executors._capture.capture_diff`.
 
 ## Module map
 
 | Module | Role |
 |---|---|
 | `cld.executors.base` | `Executor` Protocol + `SliceTask` / `ExecutorResult` dataclasses |
-| `cld.executors.gemini` | `GeminiExecutor` — wraps the locked CLI form, parses tokens, captures diff |
-| `cld.executors` (`get_executor`) | registry: `get_executor("gemini"|"composer")` (pluggable) |
+| `cld_providers.<name>.provider` | per-provider executor + catalog + registration (antigravity, opencode, cursor, composer) |
+| `cld.executors` (`get_executor`) | registry: `get_executor("<provider>")` resolves via `cld.providers_api` (pluggable) |
 | `cld.plan.slice` | `load_slices(md)` / `slices_to_markdown` — plan parsing |
 | `cld.worktree` | `worktree(repo, branch, runner=)` context manager (isolation) |
 | `cld.judge` | `judge(...)` — run tests, parse pass/fail + failing names, diff-rule check |

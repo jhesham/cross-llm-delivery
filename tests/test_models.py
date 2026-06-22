@@ -19,11 +19,11 @@ def test_metadata_has_opencode_gemini_workhorse():
 
 
 def test_metadata_has_seed_workhorse():
-    # gemini is a historical flat-rate workhorse, demoted to revalidate (CLI deprecated 2026-06-21)
-    g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
+    # the default flat-rate workhorse is antigravity's Gemini 3.1 Pro (High)
+    g = MODEL_METADATA["antigravity:Gemini 3.1 Pro (High)"]
     assert g.cost_class == "flat"
     assert g.capability_class == "workhorse"
-    assert g.headless_status == "revalidate"
+    assert g.headless_status == "verified"
 
 
 def test_metadata_entries_are_modelinfo():
@@ -226,7 +226,7 @@ def test_recommend_default_is_verified_workhorse():
 
 
 def test_recommend_buckets_and_cost_flags():
-    available = ["gemini:gemini-3.1-pro-preview", "opencode/claude-opus-4-8",
+    available = ["antigravity:Gemini 3.1 Pro (High)", "opencode/claude-opus-4-8",
                  "opencode/deepseek-v4-flash-free"]
     recs = recommend(available_ids=available)
     buckets = {r.bucket for r in recs}
@@ -329,8 +329,8 @@ def test_cursor_composer_now_in_shortlist_after_validation():
 
 def test_catalog_uses_verified_not_proven():
     from cld.models import MODEL_METADATA
-    g = MODEL_METADATA["gemini:gemini-3.1-pro-preview"]
-    assert g.headless_status == "revalidate"  # demoted 2026-06-21; CLI deprecated
+    # the verified default uses the new vocabulary
+    assert MODEL_METADATA["antigravity:Gemini 3.1 Pro (High)"].headless_status == "verified"
     # no entry may carry the old vocabulary
     assert all(m.headless_status != "proven" for m in MODEL_METADATA.values())
     assert all(m.headless_status != "known-bad" for m in MODEL_METADATA.values())
@@ -360,7 +360,7 @@ def test_modelinfo_has_tier_and_values_are_valid():
 
 def test_catalog_tier_assignments():
     from cld.models import MODEL_METADATA as M
-    assert M["gemini:gemini-3.1-pro-preview"].tier == "workhorse"
+    assert M["antigravity:Gemini 3.1 Pro (High)"].tier == "workhorse"
     assert M["opencode/deepseek-v4-flash-free"].tier == "quick"
     assert M["opencode/deepseek-v4-pro"].tier == "workhorse"
     assert M["opencode/gemini-3.1-pro"].tier == "workhorse"

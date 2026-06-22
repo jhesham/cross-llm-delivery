@@ -81,7 +81,7 @@ def catalog() -> dict[str, "ModelInfo"]:
     return {m.id: m for p in _REGISTRY.values() for m in p.catalog}
 
 
-_WORKHORSE_PREFERENCE = ("antigravity", "gemini")
+_WORKHORSE_PREFERENCE = ("antigravity",)
 
 
 def default_workhorse() -> str:
@@ -131,7 +131,7 @@ def load_providers() -> None:
         # first imported (the module-level register_provider() won't re-run).
         p = getattr(mod, "PROVIDER", None)
         if p is None:
-            # Try the nested .provider sub-submodule (e.g. cld_providers.gemini.provider)
+            # Try the nested .provider sub-submodule (e.g. cld_providers.antigravity.provider)
             sub = sys.modules.get(modname + ".provider")
             if sub is not None:
                 p = getattr(sub, "PROVIDER", None)

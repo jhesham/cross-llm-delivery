@@ -95,9 +95,9 @@ def _idx():
 def test_executor_level_lists_executors_and_search():
     lines, ordered = render_executor_level(_idx())
     blob = "\n".join(lines)
-    assert "gemini" in blob and "opencode" in blob
+    assert "antigravity" in blob and "opencode" in blob
     assert any("Search" in l for l in lines)
-    assert "gemini" in ordered and "opencode" in ordered
+    assert "antigravity" in ordered and "opencode" in ordered
 
 
 def test_provider_level_lists_providers_under_executor():
@@ -156,7 +156,7 @@ def test_search_31_matches_multiple_routings_labeled():
     # default workhorse is now antigravity:Gemini 3.1 Pro (High); search for "3.1" matches it
     assert "antigravity:Gemini 3.1 Pro (High)" in specs
     assert "opencode:opencode/gemini-3.1-pro" in specs
-    assert {c.executor for c in res} >= {"gemini", "opencode"}
+    assert {c.executor for c in res} >= {"antigravity", "opencode"}
 
 
 def test_search_respects_headless_filter_and_empty():
