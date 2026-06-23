@@ -7,7 +7,22 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-22 (✅ first-real-build Windows bugs FIXED — cp1252 crash + subdir imports + data loss; suite green incl. integration)
+**Last updated:** 2026-06-23 (🔬 concurrent judge false-negative: diagnostic + hardening shipped (0b63f38); race-fix deferred pending judge-output.txt)
+
+**🔬 CONCURRENT JUDGE FALSE-NEGATIVE — diagnosing (2026-06-23, commit 0b63f38).** Second real build:
+single-slice dispatch is reliable, but a 9-slice concurrent layer (`--workers 4`) false-negatived 9
+slices of CORRECT code with silent "(no test id)". B-3 patches saved the work (all 9 applied + passed;
+suite 116). Not reproducible from final state. Deduction: `capture_diff` runs before `executor.run`
+returns (files were present), and all retries of all 9 failed → a DETERMINISTIC concurrency condition,
+not a write/read race. Couldn't name the exact mechanism because raw judge output was discarded.
+Shipped (rebuild dist to get it): (1) **persist raw judge output** per attempt to
+`.cld/<id>/judge-output.txt` (the diagnostic); (2) **kill silent "(no test id)"** — `parse_pytest_output`
+now surfaces `COLLECTION ERROR` / `NO TESTS COLLECTED` / `INDETERMINATE` / `EMPTY`; (3) **harden judge
+env** with `PYTHONDONTWRITEBYTECODE=1` + `-p no:cacheprovider` (no concurrent cache contention).
+DEFERRED the speculative race-fix on purpose. **NEXT:** await a `--workers 4` re-run + its
+`judge-output.txt` to pinpoint the mechanism. Workaround today: `--workers 1`.
+
+**(prior) first-real-build Windows bugs FIXED — cp1252 crash + subdir imports + data loss.**
 
 **🐞 FIRST-REAL-BUILD BUGS FIXED (2026-06-22, commit 6d3982b).** The install machine ran the first
 actual `cross-llm-antigravity` build and hit two real Windows engine bugs (executor produced correct
