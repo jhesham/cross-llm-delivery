@@ -76,5 +76,45 @@ def test_parse_pytest_output_surfaces_collection_error():
     assert any("COLLECTION ERROR" in f for f in failing), failing
     assert any("schemas" in f for f in failing), failing
 
+
+# ---- the concurrency false-negative: a non-pass with no recognizable summary must
+#      ALWAYS surface a concrete reason, never the silent "(no test id)" ----
+def test_parse_surfaces_no_tests_collected():
+    from cld.judge import parse_pytest_output
+    passed, failed, failing = parse_pytest_output("no tests ran in 0.01s\n")
+    assert passed == 0 and failed == 0
+    assert any("NO TESTS COLLECTED" in f for f in failing), failing
+
+
+def test_parse_surfaces_indeterminate_output():
+    from cld.judge import parse_pytest_output
+    _, _, failing = parse_pytest_output("garbled output with no pytest summary line\n")
+    assert any("INDETERMINATE" in f for f in failing), failing
+
+
+def test_parse_surfaces_empty_output():
+    from cld.judge import parse_pytest_output
+    _, _, failing = parse_pytest_output("")
+    assert any("EMPTY JUDGE OUTPUT" in f for f in failing), failing
+
+
+def test_parse_normal_pass_unaffected():
+    from cld.judge import parse_pytest_output
+    passed, failed, failing = parse_pytest_output("3 passed in 0.10s\n")
+    assert passed == 3 and failed == 0 and failing == []
+
+
+# ---- concurrency hardening: the judge env must not write bytecode / pytest cache
+#      into the worktree (so concurrent judges never contend on those files) ----
+def test_pytest_runner_writes_no_bytecode_or_cache(tmp_path):
+    pkg = tmp_path / "p"
+    pkg.mkdir()
+    (pkg / "m.py").write_text("def f(): return 1\n", encoding="utf-8")
+    (pkg / "test_m.py").write_text("from m import f\ndef test_f(): assert f() == 1\n", encoding="utf-8")
+    out = run_delivery.pytest_test_runner(str(tmp_path), "p/test_m.py")
+    assert "1 passed" in out, out
+    assert not list(tmp_path.rglob("__pycache__")), "bytecode written despite PYTHONDONTWRITEBYTECODE"
+    assert not list(tmp_path.rglob(".pytest_cache")), ".pytest_cache written despite no:cacheprovider"
+
 # (BUG B-3 — non-destructive worktree preservation — needs a real git repo, so it
 #  lives in tests/integration/test_preserve_diff.py where the git_repo fixture is.)

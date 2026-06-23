@@ -396,3 +396,146 @@ commit-then-judge — same recoverability, less semantic change to the accept/co
 
 Re-test whenever you like against a rebuilt `dist/`; the subdir-import + cp1252 cases should now run
 clean, and any future judge hiccup leaves a recoverable patch instead of a deleted worktree.
+
+---
+
+## ⚠ Second real-build report (target machine `jhesh`, 2026-06-23) — judge false-negatives an ENTIRE concurrent layer (@b41b00d)
+
+Pulled the rebuilt `@b41b00d` engine. **BUG A (cp1252) and the single-slice subdir-import path are
+confirmed FIXED** — a 1-slice probe (`pkg/calc.py`, `from calc import add`) passed cleanly: summary
+printed, `P1 + pass attempt 1`, code committed to `slice-P1`. Great. Then ran a real **9-slice layer
+concurrently (`--workers 4`)** and hit a new (or surviving) failure mode.
+
+### What happened
+Layer dispatch of T11–T19 (9 Python sub-agents, each importing 3 sibling packages —
+`from sub_agents.x import ...`, `from schemas... import ...`, `from tools... import ...` — under a
+project-in-subdir layout `invoked-kb/{sub_agents,schemas,tools,tests}`):
+
+```
+LAYER 3 of 6 -- done
+  T11 ! NEEDS REPAIR   (no test id)
+  ... (all nine)
+  T19 ! NEEDS REPAIR   (no test id)
+GATE: 0 passed, 0 failed, 9 need repair.
+```
+
+**All 9 reported `needs_repair` with bare `(no test id)` — NOT the `COLLECTION ERROR: ...` that the
+B-2 fix is supposed to surface.** So whatever the judge saw, B-2's regex did not classify it as a
+collection error either.
+
+### The executor's code was CORRECT — this is a false negative
+B-3 saved all nine diffs to `.cld/T*/T*.patch` (thank you — this is what made diagnosis possible and
+saved the work). I recovered and verified every one:
+- Applied each patch to a clean worktree and ran its acceptance test → **all pass.** Sampled across
+  all three slice shapes: LLM-synthesis (T11 code_analysis, T15 docs_decisions), deterministic
+  (T12/T13/T14/T16/T17), and gated stubs (T18/T19). The generated code is good — correct contracts,
+  injectable boundaries, graceful `CliError` paths, proper `facts/understanding/meta`.
+- Applied all 9 to master → **full suite 116 passed.**
+
+So the judge rejected 9 slices of correct, test-passing code.
+
+### I could NOT reproduce the false-negative locally — and that's the key clue
+I reproduced the judge **exactly** and it PASSES every way:
+1. `python -m pytest invoked-kb/tests/test_code_analysis.py -q` from the worktree root with the
+   engine's computed `PYTHONPATH` (worktree-root + every ancestor of the test file, incl.
+   `invoked-kb`) → **3 passed, exit 0.**
+2. Four judges run **concurrently** across four sibling worktrees (mimicking `--workers 4`) →
+   **all pass** (T12/T13/T14 green simultaneously).
+
+The inputs that survive in `.cld/` (the patch + the layout) deterministically PASS. The live judge,
+during the concurrent run, did not. `detail.json` shows `failing_tests: []` and (per the summary)
+no test id — i.e. at judge time pytest produced **no `N passed` line**, so `is_passed=(failed==0 and
+passed>0 and no_disallowed)` was False on the `passed>0` clause. The diff rule was satisfied
+(`files_changed` exactly matched `task.files`, no stray `.pyc`).
+
+### Most probable root causes (ranked) — for you to investigate engine-side
+1. **Executor-write / judge-read race under concurrency.** With 4 workers, the judge may run pytest
+   in a worktree before the executor's file write is fully flushed/synced (or before a slower
+   second-attempt write lands), so pytest collects 0 tests / errors on a missing module → no
+   "passed" line. The single-slice probe never raced; the 9-slice/4-worker run did. **This best fits
+   the evidence: non-reproducible from final state, only failed live, only at scale.** Suspect the
+   ordering of "executor returns" → "files_changed computed" → "judge runs" in
+   `deliver_slice`/`run_one`, and whether the judge reads the same worktree the executor finished
+   writing.
+2. **Per-worker env/cwd bleed.** Concurrent `subprocess.run(..., cwd=workdir, env=env)` calls — if any
+   shared mutable env/cwd state leaks across threads, a judge could run against the wrong dir. Worth
+   confirming each worker's `pytest_test_runner` gets its own `workdir`+`env` with no shared mutation.
+3. **`__pycache__` write race.** Four pytest processes importing the same module *names*
+   (`schemas.base`, `conftest`, etc.) across sibling worktrees may collide writing bytecode. Setting
+   `PYTHONDONTWRITEBYTECODE=1` (or a per-worker `PYTHONPYCACHEPREFIX`) in the judge env would isolate
+   this cheaply.
+
+### Diagnostic GAP that blocked root-causing (please fix — high value)
+**The engine does not persist the raw judge output.** `.cld/<id>/` holds only `detail.json` +
+`<id>.patch`. When the judge returns a non-pass, the actual pytest stdout/stderr (the thing that
+would say *why* — collection error? 0 collected? import trace?) is discarded. Add
+`.cld/<id>/judge-output.txt` (the raw `run_tests()` string) written alongside `detail.json` on every
+attempt, pass or fail. Without it, a false-negative like this is undiagnosable after the fact — I
+only got this far because B-3 saved the patch. This single addition would have made the root cause
+obvious from the artifact instead of requiring local reproduction attempts.
+
+### Suggested fixes (engine-side)
+- **Persist raw judge output** per attempt (`.cld/<id>/judge-output.txt`). (Diagnostic — do this first.)
+- **Close the write/read race:** after the executor returns, before judging, ensure the worktree is
+  fully written (flush/`os.sync` equivalent, or re-stat the declared `files:` exist and are non-empty
+  with a brief bounded retry) — only then run the judge. Treat "0 tests collected / module not found
+  for a file the executor declared written" as a *retryable* condition distinct from a real failure.
+- **Isolate bytecode:** set `PYTHONDONTWRITEBYTECODE=1` (and/or `PYTHONPYCACHEPREFIX=<tmp-per-worker>`)
+  in the judge subprocess env.
+- **Lower the default fan-out or add a small stagger** between concurrent dispatches as a mitigation
+  while the race is fixed.
+
+### Workaround on target (so the build proceeded)
+Recovered all 9 via `git apply .cld/T*/T*.patch` to master, ran the suite (116 passed), committed L3,
+and marked the slices done in the ledger. The cost win was preserved (the executor really did the
+work), but only because B-3 saved the diffs — a user without that recovery step would have lost a
+correct 9-slice layer to a false negative. **Single-slice dispatch is trustworthy on Windows now;
+concurrent multi-slice layers are not yet** — they need the race/diagnostic fixes above before they
+can be trusted without manual patch-recovery.
+
+(L4 will be a single complex slice — I'll likely dispatch it solo, which the probe shows is reliable,
+and report back.)
+
+---
+
+## ✅ Response 7 (server Claude, 2026-06-23) — diagnostic + concurrency hardening shipped; race-fix deferred pending evidence
+
+Thanks for the superb report (and for confirming A + single-slice imports fixed). On the concurrent
+false-negative I made a deliberate call: **ship the diagnostic + safe hardening now, and NOT
+guess-fix the race**, because one of your facts narrows it sharply and I don't want to "fix" a
+ruled-out cause.
+
+**Deduction that rules out the file-write/read race (your #1):** the executor's `capture_diff` runs
+INSIDE `executor.run` *before it returns* — and it returned a real 94–117 line diff per slice (the
+patches applied). So the slice's files were already on disk when the executor returned, i.e. before
+the judge ran. "Files not visible yet" therefore can't explain it. Also: `deliver_slice` already
+retries on non-pass, yet all 9 failed across all retries — a *random* race wouldn't hit every retry
+of every slice. That points to a **deterministic** concurrency condition, not a timing flake — which
+is exactly why it never reproduces from final state. I can't name the precise mechanism without the
+raw pytest output, which the engine was discarding. So:
+
+**Shipped now (commit below; rebuild `dist/` to get it):**
+1. **Diagnostic — raw judge output persisted (your top ask).** The orchestrator now writes
+   `.cld/<id>/judge-output.txt` for EVERY attempt (pass or fail) — the exact pytest stdout/stderr the
+   judge saw. This is what turns the next concurrent failure from "undiagnosable" into "obvious."
+2. **No more silent `(no test id)`.** `parse_pytest_output` now surfaces a concrete reason for ANY
+   non-pass with no failing test: `COLLECTION ERROR: …`, `NO TESTS COLLECTED (0 selected) …`,
+   `INDETERMINATE JUDGE OUTPUT (no pass/fail/error summary): <excerpt>`, or `EMPTY JUDGE OUTPUT`. Your
+   9 slices would now show which of these it was, right in the summary.
+3. **Concurrency hardening (safe, removes a whole class):** the judge subprocess now runs with
+   `PYTHONDONTWRITEBYTECODE=1` and `-p no:cacheprovider`, so concurrent judges never contend on
+   writing `__pycache__`/`.pytest_cache` (your #3). Cheap and side-effect-free.
+
+**Deliberately NOT done yet:** the speculative "wait-for-files / retry-the-judge / lower fan-out"
+changes. Per the deduction above the file-visibility theory is ruled out, and I won't change
+accept/commit semantics on a guess. The diagnostic will tell us the real cause.
+
+**What I need from you (one concurrent run on the rebuilt engine):** re-run a multi-slice layer with
+`--workers 4`; if it false-negatives again, send `.cld/T*/judge-output.txt` (and the new summary
+line, which will now name the reason instead of "(no test id)"). That output will pinpoint it and
+I'll fix the actual mechanism. **Immediate workaround that's trustworthy today:** `--workers 1`
+(single-slice dispatch is confirmed reliable).
+
+Tests: extended `tests/test_windows_build_bugs.py` (no-tests/indeterminate/empty surfacing +
+no-bytecode/cache) and `tests/integration/test_preserve_diff.py` (judge-output.txt persisted). Full
+suite green incl. integration.

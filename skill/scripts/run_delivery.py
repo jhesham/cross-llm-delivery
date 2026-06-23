@@ -125,10 +125,14 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
             ordered.append(r)
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = os.pathsep.join(ordered + ([existing] if existing else []))
+    # Concurrency hardening: when layers fan out (--workers N), multiple judge pytest
+    # processes run at once. Disable bytecode + pytest's cache so concurrent runs never
+    # contend on writing `__pycache__`/`.pytest_cache` files. Cheap and side-effect-free.
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pytest", *target, "-q"],
+            [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"],
             cwd=workdir, env=env, capture_output=True, text=True, timeout=600,
             encoding="utf-8", errors="replace",
         )
