@@ -31,6 +31,32 @@ def _save_failed_diff(git_runner, wt_path: str, repo_dir: str, slice_id: str) ->
     except Exception:
         pass
 
+
+def _save_judge_output(repo_dir: str, slice_id: str, deliver_res) -> None:
+    """Diagnostic (concurrency report): persist the RAW judge (pytest) output for every
+    attempt to `<repo>/.cld/<slice_id>/judge-output.txt`, on pass AND fail. Without this
+    a judge false-negative is undiagnosable after the run — `detail.json` only records the
+    parsed verdict, not what pytest actually printed. Best-effort; never raises.
+    """
+    try:
+        history = list(getattr(deliver_res, "history", []) or [])
+        if not history:
+            return
+        chunks = []
+        for i, jr in enumerate(history, 1):
+            chunks.append(
+                f"----- attempt {i}  (passed={getattr(jr, 'passed', None)}, "
+                f"tests_passed={getattr(jr, 'tests_passed', '?')}, "
+                f"tests_failed={getattr(jr, 'tests_failed', '?')}) -----\n"
+                f"{getattr(jr, 'raw_output', '') or ''}"
+            )
+        d = os.path.join(os.path.abspath(repo_dir), ".cld", slice_id)
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "judge-output.txt"), "w", encoding="utf-8") as f:
+            f.write("\n\n".join(chunks))
+    except Exception:
+        pass
+
 def _count_diff_lines(diff: str | None) -> int:
     """Count added/removed content lines in a unified diff (excludes +++/--- headers)."""
     return sum(
@@ -319,6 +345,7 @@ def run_plan_parallel(
                         max_retries=max_retries, workdir=wt_path,
                         test_runner=test_runner, model=resolved_spec,
                     )
+                    _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
                         git_runner(["git", "add", "-A"], wt_path)
                         git_runner(
@@ -343,6 +370,7 @@ def run_plan_parallel(
                     res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
                                         max_retries=max(budget - 1, 0), workdir=wt,
                                         test_runner=test_runner, model=spec)
+                    _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
                         git_runner(["git", "add", "-A"], wt)
                         git_runner(["git", "commit", "-m", f"slice {task.id}: accepted by cld"], wt)

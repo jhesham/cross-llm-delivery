@@ -40,3 +40,9 @@ def test_failed_slice_preserves_executor_diff(git_repo):
     assert patch.is_file(), "executor diff was NOT preserved on non-accept (data loss)"
     body = patch.read_text(encoding="utf-8", errors="replace")
     assert "src/new.py" in body and "x = 42" in body, body
+
+    # the raw judge output must be persisted for diagnosis (concurrency false-negative report)
+    judge_out = Path(git_repo) / ".cld" / "T9" / "judge-output.txt"
+    assert judge_out.is_file(), "raw judge output was not persisted (undiagnosable)"
+    jo = judge_out.read_text(encoding="utf-8", errors="replace")
+    assert "no tests ran" in jo and "attempt 1" in jo, jo

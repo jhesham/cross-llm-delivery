@@ -27,14 +27,26 @@ def parse_pytest_output(output: str) -> tuple[int, int, list[str]]:
     for match in re.finditer(r'FAILED\s+(\S+)', output):
         failing_tests.append(match.group(1))
 
-    # Surface COLLECTION / IMPORT errors (pytest reports these as ERROR, not FAILED,
-    # so they otherwise show up as "(no test id)" and hide the real cause — e.g. a
-    # project-in-a-subdir import failure). Without this the slice looks like an
-    # inexplicable non-pass. (BUG B-2)
-    if not failing_tests and re.search(r'\d+\s+error', output):
-        cause = re.search(r'((?:ModuleNotFoundError|ImportError|[A-Za-z_]*Error):[^\n]*)', output)
-        detail = cause.group(1).strip() if cause else "test collection failed"
-        failing_tests.append(f"COLLECTION ERROR: {detail}")
+    # When the verdict is a non-pass with NO identifiable failing test, ALWAYS surface a
+    # concrete reason instead of the silent "(no test id)" that hid two real bugs:
+    #  - collection/import errors (pytest reports ERROR, not FAILED) — e.g. project-in-subdir;
+    #  - 0 tests collected (wrong path/selector);
+    #  - an unrecognized/empty summary (the concurrency false-negative: pytest produced no
+    #    "passed"/"failed"/"error" line at all). Surfacing the raw tail makes such a case
+    #    diagnosable instead of an inexplicable "(no test id)". (BUG B-2 + concurrency report)
+    if not failing_tests and passed == 0 and failed == 0:
+        if re.search(r'\d+\s+error', output):
+            cause = re.search(r'((?:ModuleNotFoundError|ImportError|[A-Za-z_]*Error):[^\n]*)', output)
+            detail = cause.group(1).strip() if cause else "test collection failed"
+            failing_tests.append(f"COLLECTION ERROR: {detail}")
+        elif re.search(r'no tests ran', output) or 'collected 0 items' in output:
+            failing_tests.append(
+                "NO TESTS COLLECTED (0 selected) — check acceptance_test_path / selector")
+        elif output.strip():
+            excerpt = " ".join(output.split())[:200]
+            failing_tests.append(f"INDETERMINATE JUDGE OUTPUT (no pass/fail/error summary): {excerpt}")
+        else:
+            failing_tests.append("EMPTY JUDGE OUTPUT (pytest produced no output)")
 
     return passed, failed, failing_tests
 
