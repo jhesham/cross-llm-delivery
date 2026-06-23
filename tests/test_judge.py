@@ -54,9 +54,14 @@ def test_parse_failed_only():
     assert failing == ["tests/test_x.py::test_z"]
 
 
-def test_parse_unparseable_is_safe():
-    assert parse_pytest_output("") == (0, 0, [])
-    assert parse_pytest_output("garbage with no summary") == (0, 0, [])
+def test_parse_unparseable_surfaces_reason_safely():
+    # A non-pass with no recognizable summary must NOT silently return empty (that hid
+    # the concurrency false-negative as "(no test id)"). It returns 0/0 with a concrete,
+    # surfaced reason instead — never raises.
+    p, f, empty = parse_pytest_output("")
+    assert (p, f) == (0, 0) and any("EMPTY JUDGE OUTPUT" in x for x in empty)
+    p, f, garbage = parse_pytest_output("garbage with no summary")
+    assert (p, f) == (0, 0) and any("INDETERMINATE" in x for x in garbage)
 
 
 def test_parse_tolerates_extra_whitespace():
