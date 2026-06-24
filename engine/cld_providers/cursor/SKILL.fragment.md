@@ -39,3 +39,8 @@ also fixed in that build). Override the binary with `CURSOR_AGENT_CMD=<path>` if
 
 Live-validated 2026-06-22: a real long multi-line slice via direct-node wrote the file on disk
 (exit 0, valid result JSON), so `cursor:composer-2.5` is `verified` and offered in the shortlist.
+
+TLS interception (corporate proxy / AV MITM, e.g. Norton): cursor's bundled node uses its own CA
+store and would fail HTTPS to the Cursor API (writing nothing — a silent empty diff). The executor
+auto-sets `NODE_OPTIONS=--use-system-ca` for the bundled node so it trusts the OS trust store; no
+action needed on intercepted machines.
