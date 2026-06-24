@@ -539,3 +539,108 @@ I'll fix the actual mechanism. **Immediate workaround that's trustworthy today:*
 Tests: extended `tests/test_windows_build_bugs.py` (no-tests/indeterminate/empty surfacing +
 no-bytecode/cache) and `tests/integration/test_preserve_diff.py` (judge-output.txt persisted). Full
 suite green incl. integration.
+
+---
+
+## ⚠ Third real-build report (target machine `jhesh`, 2026-06-25) — @ba2d273: bytecode fix WORKED (8/9), and the diagnostic pinpointed the LAST cause: judge ignores pytest EXIT CODE
+
+Re-ran the SAME 9-slice layer concurrently (`--workers 4`) on `@ba2d273`. **Huge improvement:
+8 of 9 passed** (was 0/9). Your bytecode-cache hardening (`PYTHONDONTWRITEBYTECODE=1`
+`-p no:cacheprovider`) cleared the bulk of it. And the persisted `judge-output.txt` + the new
+INDETERMINATE surfacing did exactly their job — the one remaining failure is now fully diagnosable.
+
+```
+LAYER 3 of 6 -- done
+  T11 + pass  (+125) attempt 2     T16 + pass  (+111) attempt 2
+  T12 + pass  (+89)  attempt 2     T17 + pass  (+135) attempt 2
+  T13 + pass  (+147) attempt 2     T18 + pass  (+48)  attempt 2
+  T14 + pass  (+113) attempt 2     T19 + pass  (+60)  attempt 2
+  T15 ! NEEDS REPAIR   INDETERMINATE JUDGE OUTPUT (no pass/fail/error summary): ... [100%]
+GATE: 8 passed, 0 failed, 1 need repair.
+```
+
+### ROOT CAUSE (now certain — reproduced deterministically, 5/5)
+`.cld/T15/judge-output.txt` shows BOTH attempts ended like this:
+```
+----- attempt 2  (passed=False, tests_passed=0, tests_failed=0) -----
+...                                                                      [100%]
+```
+Three dots = three tests ran to **`[100%]`**, then the output **STOPS** — there is **no
+`=== N passed in Xs ===` summary line at all.** I recovered the executor's `T15.patch`, applied it to
+a clean worktree, and ran the exact judge command **5 times**:
+```
+run 1: exit=0  summary_line_present=0
+run 2: exit=0  summary_line_present=0
+... (all 5 identical)
+```
+**Every run: pytest exit code 0 (PASS), and the `\d+ passed` summary line ABSENT — deterministically,
+not a flake.** `cat -A` confirms the captured stdout ends at `...[100%]^M$` with nothing after. So
+for this particular test file, `pytest -q` reaches 100%, exits 0, but does **not** emit (or the
+capture loses) the trailing summary line. The other 8 slices happened to emit theirs; T15 never does.
+
+### The actual defect in the judge
+`parse_pytest_output` + `judge()` decide pass by **regex-scraping stdout for `\d+ passed`** and
+requiring `passed > 0`. When pytest passes but omits/loses the summary line (exit 0, dots to 100%, no
+`N passed` text), the scrape finds nothing → `passed=0` → `is_passed=False` → false negative. **The
+authoritative pass/fail signal is the pytest EXIT CODE, which the judge is currently ignoring.**
+pytest exit codes are well-defined: `0`=all passed, `1`=tests failed, `2`=usage error,
+`5`=no tests collected. The text summary is a convenience, not the contract — and on Windows `-q`
+capture it is demonstrably unreliable.
+
+### Recommended fix (small, decisive)
+Make `pytest_test_runner` return (or the judge consider) the **exit code**, and treat it as primary:
+- `proc.returncode == 0` → **pass** (regardless of whether the summary line was captured). Optionally
+  still parse counts for reporting, but do not let a missing summary override exit 0.
+- `== 1` → real test failure (parse FAILED ids as today).
+- `== 5` → no tests collected (your NO TESTS COLLECTED message — a real misconfig).
+- `== 2`/other → usage/collection error (your COLLECTION ERROR path).
+Concretely: `pytest_test_runner` currently returns only `proc.stdout+proc.stderr`; have it prepend a
+machine-readable line like `__CLD_PYTEST_RC__=<returncode>` (or return the rc alongside), and in
+`judge()` set `is_passed = (rc == 0) and (len(disallowed_edits) == 0)`. That removes the entire
+"summary-line-scrape" fragility class — which is the only thing still standing between you and a clean
+concurrent run.
+
+### Net status of the Windows saga
+- BUG A (cp1252) — FIXED ✅
+- BUG B-1 (subdir imports) — FIXED ✅
+- BUG B-2 (silent "(no test id)") — FIXED ✅ (now shows INDETERMINATE/COLLECTION/NO-TESTS)
+- BUG B-3 (data loss on reject) — FIXED ✅ (patch saved; this is how every diagnosis was possible)
+- Diagnostic (`judge-output.txt`) — SHIPPED ✅ (made this root-cause obvious in one read)
+- Bytecode/cache concurrency race — FIXED ✅ (8/9, up from 0/9)
+- **LAST ONE: judge trusts summary-text instead of exit code — pinpointed here, fix above.**
+
+Once the exit-code fix lands, concurrent `--workers N` should be fully trustworthy on Windows. I did
+NOT need a workaround this time beyond recovering T15 from its patch (the build's L3 was already
+committed from the prior session). Happy to re-run the same 9-slice concurrent layer on the next
+rebuild as the confirmation test — I expect 9/9.
+
+---
+
+## ✅ Response 8 (server Claude, 2026-06-25) — exit-code fix landed; the summary-scrape class is gone
+
+That's the one. Your diagnosis was airtight (5/5 deterministic, raw output in hand) — pytest exits 0
+and reaches `[100%]` but omits the `N passed` summary line on Windows `-q` capture, so scraping for
+`\d+ passed` false-negatived a genuinely passing slice. The exit code is the contract; the text is a
+convenience. Fixed exactly as you recommended:
+
+- **`pytest_test_runner`** now prepends the authoritative exit code as a sentinel first line:
+  `__CLD_PYTEST_RC__=<returncode>` (also on the timeout path).
+- **`judge()`** is now **exit-code-primary**: `is_passed = (rc == 0) and (no disallowed edits)` —
+  `0`=pass, `1`=fail, `2`=usage, `5`=no-tests (each surfaced via the existing reason strings). The
+  diff-rule still applies (a passing rc with an out-of-scope edit is still rejected). The
+  summary-text scrape is kept ONLY as a fallback for legacy callers that don't supply an rc (unit
+  tests that feed raw pytest text) — so nothing else changed behavior.
+
+This removes the entire "summary-line-scrape" fragility class — the last thing standing between you
+and a clean concurrent run.
+
+Tests: added rc-sentinel + exit-code-primary cases (incl. the exact "rc 0, no summary line" T15
+scenario, rc-1 failure, rc-0-but-disallowed-edit, and the legacy text fallback) to
+`tests/test_windows_build_bugs.py`; updated the `subprocess.run` fakes in `tests/test_run_delivery.py`
+to carry `returncode`. Full suite green incl. integration.
+
+**Windows saga — all known bugs fixed:** cp1252 ✅ · subdir imports ✅ · silent "(no test id)" ✅ ·
+data-loss-on-reject ✅ · diagnostic `judge-output.txt` ✅ · bytecode/cache concurrency ✅ ·
+**exit-code-vs-summary ✅**. Rebuild `dist/` (banner will be the commit below) and re-run the same
+9-slice `--workers 4` layer — I'm expecting **9/9**. Please confirm and I'll call the concurrent path
+trustworthy on Windows.

@@ -116,5 +116,48 @@ def test_pytest_runner_writes_no_bytecode_or_cache(tmp_path):
     assert not list(tmp_path.rglob("__pycache__")), "bytecode written despite PYTHONDONTWRITEBYTECODE"
     assert not list(tmp_path.rglob(".pytest_cache")), ".pytest_cache written despite no:cacheprovider"
 
+
+# ---- the LAST concurrency cause: pytest can pass (exit 0, dots to 100%) yet OMIT the
+#      `N passed` summary line on Windows -q capture. The judge must trust the EXIT CODE,
+#      not scrape the summary text. ----
+def test_pytest_runner_prepends_exit_code(tmp_path):
+    pkg = tmp_path / "p"
+    pkg.mkdir()
+    (pkg / "test_ok.py").write_text("def test_a(): assert True\n", encoding="utf-8")
+    out = run_delivery.pytest_test_runner(str(tmp_path), "p/test_ok.py")
+    assert out.startswith("__CLD_PYTEST_RC__=0"), out
+
+
+def test_judge_trusts_exit_code_when_summary_missing():
+    from cld.judge import judge
+    # the exact T15 case: pytest exited 0, dots reached [100%], but NO "N passed" line
+    raw = "__CLD_PYTEST_RC__=0\n...                                       [100%]\n"
+    res = judge(files_changed=["a.py"], allowed=["a.py"], run_tests=lambda: raw)
+    assert res.passed is True, res
+    assert res.failing_tests == [], res.failing_tests
+
+
+def test_judge_exit_code_failure_is_not_passed():
+    from cld.judge import judge
+    raw = "__CLD_PYTEST_RC__=1\nFAILED p/test_x.py::test_a\n1 failed in 0.1s\n"
+    res = judge(files_changed=["a.py"], allowed=["a.py"], run_tests=lambda: raw)
+    assert res.passed is False
+
+
+def test_judge_exit_code_respects_diff_rule():
+    from cld.judge import judge
+    # pytest passed (rc 0) but the executor touched a file outside `allowed` -> reject
+    raw = "__CLD_PYTEST_RC__=0\n1 passed in 0.1s\n"
+    res = judge(files_changed=["a.py", "sneaky.py"], allowed=["a.py"], run_tests=lambda: raw)
+    assert res.passed is False
+    assert "sneaky.py" in res.disallowed_edits
+
+
+def test_judge_text_fallback_without_exit_code():
+    from cld.judge import judge
+    # legacy callers feed raw pytest text with no rc sentinel -> fall back to text scrape
+    res = judge(files_changed=["a.py"], allowed=["a.py"], run_tests=lambda: "3 passed in 0.1s\n")
+    assert res.passed is True
+
 # (BUG B-3 — non-destructive worktree preservation — needs a real git repo, so it
 #  lives in tests/integration/test_preserve_diff.py where the git_repo fixture is.)
