@@ -2,7 +2,7 @@
 """Drive a cross-llm-delivery run from a plan file.
 
 Assembles the cld engine end-to-end:
-  load_slices(plan.md) -> get_executor("gemini") -> run_plan_parallel(...)
+  load_slices(plan.md) -> get_executor(<provider>) -> run_plan_parallel(...)
 with a real git runner (for per-slice worktree isolation) and a real pytest-based
 judge. Progress is persisted to a JSON ledger so the run is resumable.
 
@@ -35,7 +35,7 @@ from pathlib import Path
 # the engine pythonpath) -- it just prepends this dir, which has no `cld` there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cld.providers_api import load_providers, get_provider, all_providers
+from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
 from cld.judge import judge
 from cld.ledger import Ledger, DONE
@@ -51,6 +51,20 @@ load_providers()
 # within this module (e.g. _parse_name_model, _provider_of_spec).
 # ---------------------------------------------------------------------------
 KNOWN_EXECUTORS = tuple(p.name for p in all_providers())
+
+
+def _default_spec() -> str:
+    """The default executor SPEC when the user names none — the engine's current default
+    workhorse (provider-blind). Replaces the old hardcoded ``"gemini"`` defaults, which
+    pointed at a provider that has since been removed (a defaulted/empty executor would
+    otherwise resolve to a deleted provider and crash get_executor)."""
+    return default_workhorse()
+
+
+def _default_provider() -> str:
+    """The default executor NAME (the default spec's provider prefix), e.g. 'antigravity'."""
+    spec = _default_spec()
+    return spec.split(":", 1)[0] if ":" in spec else spec
 
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
@@ -159,7 +173,7 @@ def _parse_name_model(spec: str) -> tuple[str, dict]:
     """
     if ":" in spec:
         name, model = spec.split(":", 1)
-        name = name.strip() or "gemini"
+        name = name.strip() or _default_provider()
         model = model.strip()
         return (name, {"model": model} if model else {})
     # no colon: accept "<known-executor>/<model>" (the picker/catalog slash form)
@@ -169,7 +183,7 @@ def _parse_name_model(spec: str) -> tuple[str, dict]:
             name, model = spec.split("/", 1)
             model = model.strip()
             return (name.strip(), {"model": model} if model else {})
-    return (spec or "gemini", {})
+    return (spec or _default_provider(), {})
 
 
 def parse_executor_spec(spec: str) -> tuple[str, dict]:
@@ -183,7 +197,7 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
     An optional @<effort> suffix (e.g. "cursor:claude-opus-4-8@low") is split
     off and returned as kwargs["effort"]. Specs without @ are unchanged.
     """
-    spec = (spec or "gemini").strip()
+    spec = (spec or _default_spec()).strip()
     effort = None
     if "@" in spec:
         spec, effort = spec.rsplit("@", 1)
@@ -207,16 +221,17 @@ def _provider_of_spec(spec: str) -> str:
     """Extract the executor provider name from an --executor spec.
 
     Strips a trailing @effort if present, then takes the part before the first ':'.
-    Lowercases and returns it if it's a registered executor; falls back to 'gemini'.
+    Lowercases and returns it if it's a registered executor; falls back to the default
+    workhorse's provider.
 
     Examples:
-        "gemini"                           -> "gemini"
-        "gemini:gemini-3.1-pro-preview"   -> "gemini"
-        "opencode:opencode/deepseek-v4"   -> "opencode"
-        "cursor:composer-2.5"             -> "cursor"
-        "unknown:whatever"                -> "gemini"
+        "antigravity"                       -> "antigravity"
+        "antigravity:Gemini 3.1 Pro (High)" -> "antigravity"
+        "opencode:opencode/deepseek-v4"     -> "opencode"
+        "cursor:composer-2.5"               -> "cursor"
+        "unknown:whatever"                  -> <default workhorse provider>
     """
-    s = (spec or "gemini").strip()
+    s = (spec or _default_spec()).strip()
     # strip @effort suffix
     if "@" in s:
         s = s.rsplit("@", 1)[0].strip()
@@ -225,7 +240,7 @@ def _provider_of_spec(spec: str) -> str:
         name = s.split(":", 1)[0].strip().lower()
     else:
         name = s.lower()
-    return name if name in KNOWN_EXECUTORS else "gemini"
+    return name if name in KNOWN_EXECUTORS else _default_provider()
 
 
 def _available_ids_for(provider: str) -> list:
@@ -291,7 +306,7 @@ def prompt_for_executor() -> str:
 
     recs = recommend(available_ids=available)
     if not recs:
-        return "gemini"
+        return _default_spec()
     return pick_executor(recs)
 
 
@@ -314,10 +329,10 @@ def main(argv=None) -> int:
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
-                   help="Executor to use, e.g. 'gemini', 'gemini:<model-id>', or "
+                   help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
                         "'opencode:<provider/model>'. If omitted and stdin is a TTY, "
                         "an interactive picker prompts you to choose (default: the "
-                        "proven Gemini workhorse). Non-interactive: defaults to gemini.")
+                        "verified workhorse). Non-interactive: defaults to the workhorse.")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
     p.add_argument("--step", action="store_true",
@@ -353,13 +368,14 @@ def main(argv=None) -> int:
         return 1
 
     # Resolve the executor. If the user didn't pass --executor and we're attached to
-    # an interactive terminal, show the model picker. Otherwise default to gemini so
-    # automation / --step loops never block on a prompt.
+    # an interactive terminal, show the model picker. Otherwise default to the engine's
+    # default workhorse so automation / --step loops never block on a prompt (and never
+    # resolve to a removed provider).
     if args.executor is None:
         if not args.dry_run and sys.stdin.isatty():
             args.executor = prompt_for_executor()
         else:
-            args.executor = "gemini"
+            args.executor = _default_spec()
 
     if args.dry_run:
         from cld.dag import parallel_batches
@@ -383,8 +399,8 @@ def main(argv=None) -> int:
         result = run_plan_parallel(
             layer_slices, ledger,
             executor_factory=build_executor_factory(),
-            default_spec=args.executor or "gemini",
-            rung_planner=build_rung_planner(args.executor or "gemini"),
+            default_spec=args.executor or _default_spec(),
+            rung_planner=build_rung_planner(args.executor or _default_spec()),
             judge_fn=judge_fn,
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner,
@@ -403,8 +419,8 @@ def main(argv=None) -> int:
     result = run_plan_parallel(
         slices, ledger,
         executor_factory=build_executor_factory(),
-        default_spec=args.executor or "gemini",
-        rung_planner=build_rung_planner(args.executor or "gemini"),
+        default_spec=args.executor or _default_spec(),
+        rung_planner=build_rung_planner(args.executor or _default_spec()),
         judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner,
