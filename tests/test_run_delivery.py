@@ -60,6 +60,7 @@ def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
     captured = {}
 
     class _Proc:
+        returncode = 0
         stdout = "1 passed in 0.0s"
         stderr = ""
 
@@ -85,6 +86,7 @@ def test_pytest_test_runner_splits_test_selector(monkeypatch):
     captured = {}
 
     class _Proc:
+        returncode = 0
         stdout = "1 passed"
         stderr = ""
 
@@ -106,6 +108,7 @@ def test_pytest_test_runner_without_path_runs_default(monkeypatch):
     # backward-compatible: no path -> runs pytest with no explicit target (still scoped
     # by cwd), and must not crash.
     class _Proc:
+        returncode = 0
         stdout = "1 passed"
         stderr = ""
 

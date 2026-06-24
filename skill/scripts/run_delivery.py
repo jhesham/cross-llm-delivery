@@ -137,8 +137,12 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
             encoding="utf-8", errors="replace",
         )
     except subprocess.TimeoutExpired:
-        return "1 failed in 600s (timeout — acceptance test did not complete)"
-    return (proc.stdout or "") + (proc.stderr or "")
+        return "__CLD_PYTEST_RC__=1\n1 failed in 600s (timeout — acceptance test did not complete)"
+    # Prepend the pytest EXIT CODE as the authoritative pass/fail signal. The `-q` text
+    # summary ("N passed") is unreliable on Windows capture (it can be omitted even when
+    # pytest exits 0 — a real, deterministic case), so the judge must trust the rc, not
+    # scrape the summary. (0=passed, 1=failed, 2=usage, 5=no tests collected.)
+    return f"__CLD_PYTEST_RC__={proc.returncode}\n" + (proc.stdout or "") + (proc.stderr or "")
 
 
 def _parse_name_model(spec: str) -> tuple[str, dict]:

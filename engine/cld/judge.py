@@ -55,13 +55,33 @@ def check_diff_rule(files_changed: list[str], allowed: list[str]) -> list[str]:
     disallowed = [f for f in files_changed if f not in allowed_set]
     return sorted(disallowed)
 
+def _extract_rc(output: str):
+    """Return the pytest exit code the runner prepended (`__CLD_PYTEST_RC__=N`), or None
+    when absent (legacy callers / unit tests that feed raw pytest text directly)."""
+    m = re.search(r'__CLD_PYTEST_RC__=(-?\d+)', output or "")
+    return int(m.group(1)) if m else None
+
+
 def judge(files_changed: list[str], allowed: list[str], *, run_tests: Callable[[], str]) -> JudgeResult:
     raw_output = run_tests()
+    rc = _extract_rc(raw_output)
     passed, failed, failing_tests = parse_pytest_output(raw_output)
     disallowed_edits = check_diff_rule(files_changed, allowed)
-    
-    is_passed = (failed == 0) and (passed > 0) and (len(disallowed_edits) == 0)
-    
+
+    if rc is not None:
+        # EXIT CODE is authoritative: pytest's `-q` summary line ("N passed") is
+        # demonstrably unreliable on Windows capture (omitted even when pytest exits 0),
+        # which produced false-negatives that scraping the text could never get right.
+        #   0 = all passed, 1 = tests failed, 2 = usage, 5 = no tests collected.
+        is_passed = (rc == 0) and (len(disallowed_edits) == 0)
+        if is_passed:
+            failing_tests = []  # a passing slice has no failing tests (ignore absent-summary noise)
+        elif rc != 0 and not failing_tests:
+            failing_tests = [f"pytest exit code {rc}"]
+    else:
+        # Legacy / no-rc path: fall back to scraping the summary text.
+        is_passed = (failed == 0) and (passed > 0) and (len(disallowed_edits) == 0)
+
     return JudgeResult(
         passed=is_passed,
         tests_passed=passed,
