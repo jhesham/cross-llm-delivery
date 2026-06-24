@@ -40,6 +40,17 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Real subprocess runner. Direct-node cursor-agent needs CURSOR_INVOKED_AS set and
     stdin closed. utf-8/replace; stderr merged on failure for raw_log."""
     env = {**os.environ, "CURSOR_INVOKED_AS": "cursor-agent"}
+    # TLS-interception fix: cursor's BUNDLED node uses its own CA store, so behind a
+    # TLS-intercepting proxy / AV MITM (e.g. Norton) it can't verify the Cursor API cert
+    # and the agent writes NOTHING (a silent empty-diff failure). `--use-system-ca` makes
+    # node trust the OS store (where the interceptor's root lives). Gate it to the bundled
+    # node only: it's >=22 (cursor ships v24.x) and supports the flag; a bare system-`node`
+    # fallback may be older and would reject an unknown NODE_OPTIONS flag. (git commands run
+    # through this same runner are unaffected — they ignore NODE_OPTIONS anyway.)
+    if args and os.path.isabs(args[0]) and "node" in os.path.basename(args[0]).lower():
+        opts = env.get("NODE_OPTIONS", "")
+        if "--use-system-ca" not in opts:
+            env["NODE_OPTIONS"] = (opts + " --use-system-ca").strip()
     proc = subprocess.run(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
