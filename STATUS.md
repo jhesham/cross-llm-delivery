@@ -7,7 +7,20 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-23 (🔬 concurrent judge false-negative: diagnostic + hardening shipped (0b63f38); race-fix deferred pending judge-output.txt)
+**Last updated:** 2026-06-25 (✅ Windows concurrent build: ALL known bugs fixed — exit-code judge fix landed (77a5b72); awaiting 9/9 confirm)
+
+**✅ WINDOWS CONCURRENT BUILD — exit-code judge fix (2026-06-25, commit 77a5b72).** Third real build
+on the diagnostic-enabled engine: bytecode hardening took it 0/9 → 8/9, and `judge-output.txt`
+pinpointed the last cause deterministically (5/5): pytest exits 0 and reaches `[100%]` but OMITS the
+`N passed` summary line on Windows `-q` capture, so the judge's `\d+ passed` scrape false-negatived a
+passing slice (T15). Fix: the **exit code is authoritative** — `pytest_test_runner` prepends
+`__CLD_PYTEST_RC__=<rc>`; `judge()` is exit-code-primary (`is_passed = rc==0 and no disallowed edits`),
+text-scrape kept only as a legacy fallback. Removes the summary-scrape fragility class.
+**Windows saga — all known bugs fixed:** cp1252 · subdir imports · silent "(no test id)" ·
+data-loss-on-reject · diagnostic judge-output.txt · bytecode/cache concurrency · exit-code-vs-summary.
+**NEXT:** install machine re-runs the 9-slice `--workers 4` layer on @77a5b72 to confirm 9/9.
+
+**(prior) concurrent judge false-negative — diagnostic + hardening shipped (0b63f38).**
 
 **🔬 CONCURRENT JUDGE FALSE-NEGATIVE — diagnosing (2026-06-23, commit 0b63f38).** Second real build:
 single-slice dispatch is reliable, but a 9-slice concurrent layer (`--workers 4`) false-negatived 9
