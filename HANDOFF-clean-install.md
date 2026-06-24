@@ -664,3 +664,20 @@ parser/`_provider_of_spec` fallbacks. Now an empty/defaulted executor resolves t
 workhorse (`antigravity:Gemini 3.1 Pro (High)`), never a removed provider. Regression test added
 (`test_default_executor_resolves_to_a_registered_provider`); two tests that encoded the old gemini
 default updated. Full suite green incl. integration. In the rebuilt `dist/` (commit below).
+
+---
+
+## ▶ ACTION FOR YOU (target machine) — current as of 2026-06-25, dist `@05a90ff`
+
+Everything reported so far is fixed, tested, and rebuilt on the server side. One open loop — yours:
+
+1. **Recopy the latest `dist/`** over the share (no build needed) — at minimum
+   `dist/cross-llm-antigravity` into `~/.claude/skills/`. Confirm its `SKILL.md` banner reads
+   `@05a90ff` (carries the exit-code judge fix + the gemini-default fix).
+2. **Re-run the same 9-slice layer with `--workers 4`.** Expecting **9/9** now (was 8/9; T15 was the
+   summary-line holdout the exit-code fix addresses).
+3. **Reply with the result.** If anything still false-negatives, paste the summary line (it now names
+   the reason) + the relevant `.cld/T*/judge-output.txt`. Otherwise: "9/9 confirmed" and I'll mark the
+   concurrent `--workers N` path trustworthy on Windows — closing the saga.
+
+Nothing else is needed from you; the server side is idle waiting on this confirmation.
