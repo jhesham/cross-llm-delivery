@@ -24,7 +24,10 @@ def test_name_with_model():
 
 
 def test_default_when_empty():
-    assert parse_executor_spec("") == ("gemini", {})
+    # empty spec -> the engine's default workhorse (was hardcoded "gemini"; gemini removed)
+    name, kwargs = parse_executor_spec("")
+    assert name == "antigravity"
+    assert kwargs.get("model") == "Gemini 3.1 Pro (High)"
 
 
 def test_strips_whitespace():
@@ -102,6 +105,25 @@ def test_pytest_test_runner_splits_test_selector(monkeypatch):
     assert "tests/test_advisor_graph.py" in argv
     assert "-k" in argv
     assert "merge" in argv  # quotes stripped by shlex, expression is its own token
+
+
+def test_default_executor_resolves_to_a_registered_provider():
+    # gemini was removed; a defaulted/empty executor spec must NOT resolve to a deleted
+    # provider (the non-interactive --step fallback used to hardcode "gemini").
+    from cld.executors import get_executor
+
+    # empty spec -> default; the resolved name must be a real registered executor
+    name, _ = run_delivery.parse_executor_spec("")
+    assert name in run_delivery.KNOWN_EXECUTORS, name
+    get_executor(name)  # must not raise "Unknown provider"
+
+    # unknown spec falls back to the default provider, not the removed gemini
+    fb = run_delivery._provider_of_spec("totally-unknown:x")
+    assert fb in run_delivery.KNOWN_EXECUTORS and fb != "gemini", fb
+
+    # the default spec itself resolves end-to-end
+    spec = run_delivery._default_spec()
+    get_executor(run_delivery._provider_of_spec(spec))
 
 
 def test_pytest_test_runner_without_path_runs_default(monkeypatch):
@@ -202,10 +224,12 @@ def test_step_help_documents_gate_4(capsys):
 
 def test_provider_of_spec():
     import skill.scripts.run_delivery as rd
-    assert rd._provider_of_spec("gemini") == "gemini"
-    assert rd._provider_of_spec("gemini:gemini-3.1-pro-preview") == "gemini"
+    assert rd._provider_of_spec("antigravity") == "antigravity"
+    assert rd._provider_of_spec("antigravity:Gemini 3.1 Pro (High)") == "antigravity"
     assert rd._provider_of_spec("opencode:opencode/deepseek-v4-pro") == "opencode"
     assert rd._provider_of_spec("cursor:composer-2.5") == "cursor"
+    # a removed/unknown provider falls back to the default workhorse provider, not "gemini"
+    assert rd._provider_of_spec("gemini:gemini-3.1-pro-preview") == "antigravity"
 
 
 def test_build_rung_planner_untagged_uses_provider_workhorse():

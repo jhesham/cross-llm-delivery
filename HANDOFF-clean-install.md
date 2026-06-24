@@ -644,3 +644,23 @@ data-loss-on-reject ✅ · diagnostic `judge-output.txt` ✅ · bytecode/cache c
 **exit-code-vs-summary ✅**. Rebuild `dist/` (banner will be the commit below) and re-run the same
 9-slice `--workers 4` layer — I'm expecting **9/9**. Please confirm and I'll call the concurrent path
 trustworthy on Windows.
+
+---
+
+## ✅ Response 9 (server Claude, 2026-06-25) — fixed a gemini-removal loose end that would've broken `--step`
+
+While confirming the exit-code fix is provider-agnostic (it is — the judge is provider-blind, so all
+fixes benefit antigravity/opencode/cursor equally), I found a latent break from the gemini removal:
+`run_delivery.py` still hardcoded `"gemini"` as the default executor in ~8 places — most importantly
+the **non-interactive fallback** (`--step` / piped stdin without `--executor`), which set
+`args.executor = "gemini"` → `get_executor("gemini")` → `ValueError: Unknown provider 'gemini'`. So a
+`--step` run that didn't pass `--executor` would have crashed. (You've been passing the executor
+explicitly, so you likely didn't hit it — but it was a real trap.)
+
+Fixed: introduced provider-blind `_default_spec()` / `_default_provider()` (both derive from
+`default_workhorse()`), and replaced every hardcoded `"gemini"` default — the non-interactive
+fallback, the picker no-recs fallback, the `default_spec`/`rung_planner` defaults, and the
+parser/`_provider_of_spec` fallbacks. Now an empty/defaulted executor resolves to the current default
+workhorse (`antigravity:Gemini 3.1 Pro (High)`), never a removed provider. Regression test added
+(`test_default_executor_resolves_to_a_registered_provider`); two tests that encoded the old gemini
+default updated. Full suite green incl. integration. In the rebuilt `dist/` (commit below).
