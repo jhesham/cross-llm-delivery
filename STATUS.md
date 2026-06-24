@@ -7,7 +7,20 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-25 (✅ Windows concurrent build: ALL known bugs fixed — exit-code judge fix landed (77a5b72); awaiting 9/9 confirm)
+**Last updated:** 2026-06-25 (🎉 Windows concurrent build CONFIRMED 9/9 — saga CLOSED; + cursor TLS-CA fix (e37ab45))
+
+**🎉 WINDOWS BUILD SAGA CLOSED (2026-06-25).** The install machine re-ran the 9-slice `--workers 4`
+layer on the exit-code-fixed engine → **9/9, all attempt 1** (T15, the summary-line holdout, now
+passes). The concurrent `--workers N` path is trustworthy on Windows. Every bug fixed + validated:
+cp1252 · subdir imports · silent "(no test id)" · data-loss-on-reject · diagnostic judge-output.txt ·
+bytecode/cache concurrency · exit-code-vs-summary · gemini-default cleanup.
+
+**+ CURSOR TLS-INTERCEPTION FIX (e37ab45).** First real cursor-executor use surfaced a silent failure
+behind a TLS interceptor (Norton/corp MITM): cursor's bundled node uses its own CA store → can't
+verify the Cursor API cert → writes nothing (empty diff, no error). Fix: `cursor` `_default_runner`
+adds `NODE_OPTIONS=--use-system-ca` for the bundled node (gated to the absolute bundled-node path
+— >=22, supports the flag; bare system-`node` + git skipped). Fragment note added; tests added; suite
+green. `cursor:composer-2.5` stays `verified` (now works behind interceptors).
 
 **✅ WINDOWS CONCURRENT BUILD — exit-code judge fix (2026-06-25, commit 77a5b72).** Third real build
 on the diagnostic-enabled engine: bytecode hardening took it 0/9 → 8/9, and `judge-output.txt`
