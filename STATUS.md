@@ -18,7 +18,10 @@ passing slice (T15). Fix: the **exit code is authoritative** — `pytest_test_ru
 text-scrape kept only as a legacy fallback. Removes the summary-scrape fragility class.
 **Windows saga — all known bugs fixed:** cp1252 · subdir imports · silent "(no test id)" ·
 data-loss-on-reject · diagnostic judge-output.txt · bytecode/cache concurrency · exit-code-vs-summary.
-**NEXT:** install machine re-runs the 9-slice `--workers 4` layer on @77a5b72 to confirm 9/9.
+**Also (05a90ff):** fixed a gemini-removal loose end — `run_delivery` hardcoded `"gemini"` as the
+default executor (incl. the non-interactive/--step fallback → would crash `get_executor`); now routed
+through provider-blind `_default_spec()`/`_default_provider()` (= `default_workhorse()`).
+**NEXT:** install machine re-runs the 9-slice `--workers 4` layer on the latest `dist/` to confirm 9/9.
 
 **(prior) concurrent judge false-negative — diagnostic + hardening shipped (0b63f38).**
 
