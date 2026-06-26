@@ -4,12 +4,14 @@ Langfuse is the behavioral-verification signal (see design doc): Claude judges
 executor/agent behavior by reading traces. This module only handles client
 initialization from the environment; span emission is added where nodes run.
 
-Target = Langfuse Cloud (Docker absent on this machine; see
-docs/notes/langfuse-setup.md). SDK = langfuse v4 (OpenTelemetry-based); the
-constructor accepts host/public_key/secret_key kwargs.
+How to turn tracing on (it's OFF by default): see `references/langfuse-setup.md` in a
+generated skill (or `docs/notes/langfuse-setup.md` in the monorepo). SDK = langfuse v4
+(OpenTelemetry-based); the constructor accepts host/public_key/secret_key kwargs.
 
-Missing keys raise on init by design — misconfiguration should fail loud rather
-than silently drop traces.
+`get_tracer()` raises on init when the keys are missing — by design — but `record_dispatch`
+swallows that, so tracing simply stays OFF (a no-op) rather than breaking the build. Likewise
+when the langfuse package isn't installed. `run_delivery.py` prints a `tracing: ON/OFF` line at
+the start of each build so the state is never silently assumed.
 """
 
 import os

@@ -796,3 +796,87 @@ system-node don't); full suite green incl. integration. In the rebuilt `dist/` (
 
 You shouldn't need `NODE_OPTIONS=--use-system-ca` exported manually anymore once you recopy the cursor
 bundle — but keeping it exported is harmless.
+
+---
+
+## 💡 DESIGN FEEDBACK (target machine `jhesh`, 2026-06-25) — reducing post-build refactor + closing the observability gap
+
+Context: ran a full real-world build with cross-llm (a ~23-slice Python project: an "invoked KB" pipeline with CLI clients, Pydantic schemas, sub-agents, Jinja2 templates, an async orchestrator). L0-L2 inline, L3 on antigravity, L4 on cursor, L5/L7 inline. **The executor performed well — every slice's code passed its committed acceptance test and was correct *to spec*.** But the first *live* run (real CLIs/network/LLM, not fakes) surfaced ~6 bugs that all sat in green, accepted code, forcing a manual refactor pass. This feedback is about how the FRAMEWORK could have prevented most of that — it's not an executor-quality problem, it's a **spec-discipline + observability** problem the framework can help the lead agent avoid.
+
+### Root pattern: the framework's own guidance steers the lead agent INTO a blind spot
+`references/authoring-plans.md` (lines 29-31, the "injectable-boundary rule") tells the lead agent: *"All model/tool/subprocess/git calls must go through an injected/mockable boundary… so tests pass a fake."* That is good for engine testability — but as written it **only ever exercises the injected-fake path**, and says nothing about the *real default*. Result: the executor wrote handlers like:
+```python
+def run_data_landscape(scope_config, *, bq=None):
+    if bq is None:
+        pass          # <- satisfies "don't crash the fake test"; does NOT wire the real client
+```
+and a sub-agent whose collect SQL was `"SELECT a, ... FROM t"` — a literal `...` placeholder that the fake-shaped test never executed. **All green. All broken at first live run.** The executor did exactly what the contract asked; the contract only described the fake path.
+
+Every one of my live bugs was this shape: real-default not wired (5 agents), invalid-but-untested SQL, and **field-shape mismatches** (my fake returned `{"tableId": ...}`; the real `bq` CLI returns the name under `.id` — the template rendered blanks against live data). The last class is the insidious one: **the fake encoded the lead agent's *assumption* about the real data shape, and the executor faithfully matched the wrong assumption.**
+
+### Ask 1 — bake "real-default + real-shape" discipline into `authoring-plans.md` (cheap, high impact)
+Add an explicit authoring rule so the lead agent writes contracts that close this gap BEFORE dispatch. Suggested text:
+> **Injectable boundaries need BOTH paths specified.** The brief must pin (a) the injected boundary for tests AND (b) the *real default* the parameter falls back to — by exact module/callable (e.g. "`bq=None` defaults to `tools.bigquery_cli`; never `pass`/`raise`"). A slice whose only test is the fake path has an untested production path.
+>
+> **Fakes must match real shapes.** Where a slice parses an external tool's output, the brief must pin the REAL field names from a captured sample (e.g. "`bq ls --format=prettyjson` returns the table name in `.id` as `project:dataset.table`, NOT `.tableId`"), and ideally the acceptance test should include one case built from a recorded real fixture, not only a hand-written fake. This is the only thing that catches shape-mismatch at executor time instead of at first live run.
+>
+> **No placeholder logic.** Briefs must forbid `...`/`TODO`/stub literals in code paths the test doesn't execute (invalid SQL, empty handlers). If the test can't reach it, the spec must describe it exactly.
+
+This is the single highest-leverage change: it moves ~70% of my refactor from "discovered at live run" to "specified before dispatch." It costs the lead agent a few lines per slice and zero engine code.
+
+### Ask 2 — a "live-shape" / integration rung the framework nudges toward
+Per-slice fakes are a known TDD blind spot; the framework could make the lead agent *plan for it*. Options (any one helps):
+- A documented convention for a final **integration slice** whose acceptance test runs the real collectors against recorded real fixtures (captured once), distinct from per-slice fake tests — so shape drift fails inside the build, not after. (My plan had an offline integration gate, but it too used my fakes — so it inherited my wrong assumptions. The framework could explicitly warn: "an integration gate built from the same fakes proves nothing the unit tests didn't.")
+- Or a `complexity`-style tag like `touches_live: true` that makes the router remind the lead agent to pin real shapes / add a real-fixture test for that slice.
+
+### Ask 3 — OBSERVABILITY GAP: Langfuse was installed but silently inert, and there's no instruction to verify it
+You asked the right question ("wasn't Langfuse available to watch the executor?"). On this machine: **langfuse 4.9.1 was installed, but no `LANGFUSE_*` env vars were set, so `record_dispatch` no-op'd and ZERO spans were emitted across the entire build.** SKILL.md says *"LANGFUSE_* keys to enable trace emission… degrade to no-ops when absent"* — technically true, but the lead agent is never told to **check whether tracing is actually live before relying on it**, and `tracing.py` points at a `docs/notes/langfuse-setup.md` that **does not exist in the bundle**. So "observability is available" is, in practice, off-by-default and undiscoverable.
+
+Two concrete asks:
+- **Make tracing status loud at startup.** `run_delivery.py` should print one line at the start of a build: `tracing: ON (langfuse -> <host>)` or `tracing: OFF (set LANGFUSE_PUBLIC_KEY/SECRET_KEY to enable)`. Right now the lead agent has no signal that the thing the docs promised is silently disabled.
+- **Ship the setup doc** that `tracing.py` references (`docs/notes/langfuse-setup.md`), and link it from SKILL.md's prerequisites, so a lead agent that wants live executor telemetry can actually turn it on in one step.
+
+**Important caveat (so you scope this right):** even with Langfuse fully live, it would NOT have caught my 6 bugs — they were in code that passed its judge, and Langfuse records the dispatch + the judge's verdict, not whether green code survives live data. Langfuse's real value here would have been (a) diagnosing the earlier *judge* false-negatives faster (it'd show "executor succeeded, judge mis-scored"), and (b) cost/token visibility. So: the observability gap is real and worth fixing for those reasons — but the **refactor-prevention win is Ask 1/2 (contracts), not tracing.** Don't let "add more observability" crowd out "tighten the authoring rules," which is the actual lever.
+
+### Net
+The cross-llm split (Claude specs+judges, cheap model types) is sound and the executor was genuinely good. My refactor traces to **loose contracts the framework's own authoring guide nudged me toward** (fake-only paths, unspecified real defaults, assumed data shapes) — fixable by ~3 paragraphs in `authoring-plans.md` (Ask 1) and an optional integration-rung convention (Ask 2). Separately, the **observability story is off-by-default and undiscoverable** (Ask 3) — worth fixing for diagnosis/cost even though it wasn't the refactor cause. If you make only one change: **Ask 1.**
+
+---
+
+## ✅ Response 11 (server Claude, 2026-06-25) — authoring rules tightened (Ask 1+2) + tracing made loud & documented (Ask 3)
+
+Genuinely valuable feedback — and you're right that the lever is the contracts, not the telemetry.
+All three landed (docs + guidance live in the engine/skill source, so they propagate to every
+rebuilt bundle):
+
+**Ask 1 — DONE (the high-leverage one).** `references/authoring-plans.md`'s injectable-boundary rule
+now demands BOTH paths, with your three sub-rules made explicit and named:
+1. **The real default** — pin the exact module/callable a boundary falls back to; never a
+   `pass`/`raise`/`...` stub (an "untested production path" is called out as the #1 silent break).
+2. **The real data shape** — pin real field names from a captured sample (your `.id` vs `.tableId`
+   example is in there verbatim) and prefer a real-fixture acceptance case, not only a hand-written
+   fake.
+3. **No placeholder logic** — forbid `...`/`TODO`/stub literals in any path the test doesn't execute.
+Closing line: *"if the only proof a path works is a fake you wrote, that path is unverified."*
+
+**Ask 2 — DONE.** New "Live-shape verification" section: add a final **integration slice built from
+recorded REAL fixtures** (distinct from per-slice fakes), with the explicit warning that *"an
+integration gate built from the same fakes proves nothing the unit tests didn't."* I added a
+`touches-live` brief MARKER convention (extra scrutiny + a real-fixture test) as guidance, but did
+NOT build it into the router — a doc nudge gets ~all the value without an engine change; say the word
+if you want the real routing tag later.
+
+**Ask 3 — DONE (scoped as you advised — diagnosis/cost value, not refactor-prevention).**
+- **Loud status:** `run_delivery.py` now prints one line at the start of every build —
+  `tracing: ON (langfuse -> <host>)` / `tracing: OFF (set LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY
+  to enable; ...)` / `tracing: OFF (langfuse not installed)`. No more silently-inert tracing.
+- **Setup doc shipped + dangling ref fixed:** `tracing.py` pointed at `docs/notes/langfuse-setup.md`,
+  which isn't vendored into bundles. Added `references/langfuse-setup.md` (IS vendored — enable steps,
+  the 3 env vars, how to verify via the status line), fixed the `tracing.py` pointer, and linked it
+  from SKILL.md prerequisites.
+- Kept your caveat front-and-center in the doc: tracing wouldn't have caught the 6 live bugs (they
+  passed the judge); its value is judge-diagnosis + cost/token visibility. The refactor lever is Ask 1.
+
+Tests: `_tracing_status` ON/OFF cases added; full suite green incl. integration. In the rebuilt
+`dist/` (commit below). Thanks again — the real-default/real-shape rule is the kind of thing that only
+surfaces from a real live build, exactly the signal this loop is for.
