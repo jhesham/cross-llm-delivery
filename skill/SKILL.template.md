@@ -49,7 +49,9 @@ you prepare a plan and invoke the driver script.
 - The `cld` package importable (`pip install -e .` from the repo root).
 - A git repo (worktree isolation runs `git worktree add/remove`).
 - Optional: `ANTHROPIC_API_KEY` to enable behavioral (G-Eval) judging; `LANGFUSE_*`
-  keys to enable trace emission. Both degrade to no-ops when absent.
+  keys to enable trace emission (both degrade to no-ops when absent). Tracing is OFF by
+  default — `run_delivery.py` prints a `tracing: ON/OFF` line at the start of each build;
+  to turn it on see `references/langfuse-setup.md`.
 
 ## The workflow
 

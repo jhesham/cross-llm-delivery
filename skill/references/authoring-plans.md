@@ -31,6 +31,45 @@ boundary** (dependency injection), never hardcoded. This keeps deterministic tes
 deterministic (tests pass a fake), and it's how the whole engine stays testable without live
 calls. State this rule in the brief for any slice that touches I/O.
 
+### …but injectable boundaries need BOTH paths specified (or green code breaks live)
+
+The rule above, alone, only ever exercises the **fake** path. An executor faithfully implements
+exactly what the brief + test describe — so if the brief only describes the fake, you get code
+that passes its test and fails on the first real run. This is the #1 source of post-build
+refactor. For every injected boundary, the brief MUST pin all three of these:
+
+1. **The real default.** Say exactly what the parameter falls back to when not injected — by
+   module/callable. e.g. *"`bq=None` defaults to `tools.bigquery_cli.run`; it must NEVER be a
+   `pass`/`raise`/`...` stub."* A boundary whose only test is the fake path has an **untested
+   production path** — the most common silently-broken shape (`def f(x, *, bq=None): if bq is
+   None: pass`).
+2. **The real data shape.** Where a slice parses an external tool's output, pin the REAL field
+   names from a **captured sample**, not your assumption. e.g. *"`bq ls --format=prettyjson`
+   returns the table name in `.id` as `project:dataset.table`, NOT `.tableId`."* A fake encodes
+   your assumption about the shape; if the assumption is wrong, the executor matches the wrong
+   shape and every test still passes. Prefer at least one acceptance-test case built from a
+   recorded real fixture, not only a hand-written fake — that is the only thing that catches a
+   shape mismatch at executor time instead of at first live run.
+3. **No placeholder logic.** Forbid `...` / `TODO` / stub literals in any code path the test
+   does not execute (invalid SQL like `SELECT a, ... FROM t`, empty handlers). If the test
+   can't reach it, the brief must describe it exactly so the executor writes the real thing.
+
+Rule of thumb: **if the only proof a path works is a fake you wrote, that path is unverified.**
+
+## Live-shape verification: add an integration slice built from REAL fixtures
+
+Per-slice fakes are a known TDD blind spot: a whole plan of green slices can still break on real
+data because every test encoded the same assumptions. Plan for it explicitly:
+
+- Add a final **integration slice** whose acceptance test runs the real collectors/parsers
+  against **recorded real fixtures** (capture each external tool's output ONCE, commit it), kept
+  distinct from the per-slice fake tests. This fails shape/contract drift INSIDE the build.
+- **An integration gate built from the same fakes proves nothing the unit tests didn't.** If your
+  integration check reuses the per-slice fakes, it inherits their wrong assumptions — capture
+  real fixtures for it, or it is theater.
+- For slices that touch live systems, note it in the brief (e.g. a `touches-live` marker) so the
+  real-default + real-shape rules above get extra scrutiny and a real-fixture test case.
+
 ## Right-sizing
 
 - Big enough that executor implementation tokens dwarf Claude's spec + judge tokens.
