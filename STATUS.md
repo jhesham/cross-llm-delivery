@@ -7,7 +7,23 @@
 > 4. Do ONE task (or as many as the token budget allows), each ending in a commit + an update to this file.
 > 5. Before stopping, update "Last updated", tick the task in the master plan, and set "Next task".
 
-**Last updated:** 2026-06-25 (🎉 Windows concurrent build CONFIRMED 9/9 — saga CLOSED; + cursor TLS-CA fix (e37ab45))
+**Last updated:** 2026-06-25 (📐 design feedback applied: tighter authoring contracts + loud/documented tracing (18ccc52))
+
+**📐 DESIGN FEEDBACK APPLIED (2026-06-25, commit 18ccc52).** First full live build: every slice
+passed its committed (fake-based) acceptance test yet ~6 bugs surfaced at first real run — all the
+same shape: the injectable-boundary rule only specified the FAKE path. Applied the install machine's
+3 asks (docs/guidance, so they propagate to every rebuilt bundle):
+- **Ask 1 (the lever):** `references/authoring-plans.md` injectable-boundary rule now requires BOTH
+  paths — the **real default** (exact module/callable, never a stub), the **real data shape** (pin
+  field names from a captured fixture; prefer a real-fixture test case), and **no placeholder logic**.
+- **Ask 2:** new "Live-shape verification" section — a final integration slice built from RECORDED
+  REAL fixtures (not per-slice fakes), with the "fakes-built gate proves nothing" warning + a
+  `touches-live` brief marker convention (doc nudge; not a router change).
+- **Ask 3 (observability):** `run_delivery.py` prints a `tracing: ON/OFF` line at every build start;
+  shipped vendored `references/langfuse-setup.md`, fixed the dangling `tracing.py` pointer, linked it
+  from SKILL prereqs. (Tracing wasn't the refactor cause — value is judge-diagnosis + cost.)
+
+**(prior) 🎉 Windows build saga CLOSED (9/9 confirmed) + cursor TLS-CA fix (e37ab45).**
 
 **🎉 WINDOWS BUILD SAGA CLOSED (2026-06-25).** The install machine re-ran the 9-slice `--workers 4`
 layer on the exit-code-fixed engine → **9/9, all attempt 1** (T15, the summary-line holdout, now
