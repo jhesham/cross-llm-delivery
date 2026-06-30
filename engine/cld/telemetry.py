@@ -17,8 +17,13 @@ This module defines three names, stdlib only:
 Slice S2 (``emit`` / ``set_sink`` / ``get_sink``) is added later on top of these.
 """
 
+import datetime
 import json
 import threading
+
+
+_sink: "Sink | None" = None
+_sink_lock = threading.Lock()
 
 
 class Sink:
@@ -73,3 +78,39 @@ class MultiSink(Sink):
             except Exception:
                 # A failing sink must not stop the others nor surface upward.
                 pass
+
+
+def set_sink(sink) -> None:
+    """Install the process-global telemetry sink (replaces any prior sink)."""
+    global _sink
+    with _sink_lock:
+        _sink = sink
+
+
+def get_sink():
+    """Return the currently-installed telemetry sink (or ``None``)."""
+    with _sink_lock:
+        return _sink
+
+
+def emit(event_type: str, **fields) -> None:
+    """Emit one telemetry event to the global sink, best-effort.
+
+    A record is built as ``{"type": event_type, **fields, "ts": <iso utc>}``
+    and forwarded to the sink installed via :func:`set_sink`. Telemetry must
+    never break the build: any exception raised by the sink (or if no sink is
+    installed) is swallowed.
+    """
+    sink = get_sink()
+    if sink is None:
+        return
+    record = {
+        "type": event_type,
+        **fields,
+        "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    try:
+        sink.emit(record)
+    except Exception:
+        # Best-effort telemetry: a failing sink must never break the build.
+        pass
