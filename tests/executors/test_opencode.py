@@ -134,6 +134,17 @@ def test_default_runner_detaches_stdin(monkeypatch):
     assert captured.get("stdin") is mod.subprocess.DEVNULL
 
 
+def test_parse_opencode_usage_captures_cost():
+    # opencode reports a per-step dollar cost on step_finish; it must be accumulated
+    # alongside tokens so dispatch_end / the by-model rollup can show real $.
+    from cld_providers.opencode.provider import parse_opencode_usage
+    raw = ('{"type":"step_finish","part":{"tokens":{"input":10,"total":15},"cost":0.01}}\n'
+           '{"type":"step_finish","part":{"tokens":{"total":5},"cost":0.02}}')
+    u = parse_opencode_usage(raw)
+    assert u["total"] == 20
+    assert abs(u["cost"] - 0.03) < 1e-9
+
+
 def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
     # BUG (found live): the opencode.cmd npm shim routes through cmd.exe /c, which
     # MANGLES a long multi-line prompt passed as a positional arg -> the dispatch
