@@ -101,3 +101,34 @@ class TestEmit:  # ---- Slice S2 ----
 
         telemetry.set_sink(Boom())
         telemetry.emit("anything", a=1)  # telemetry must never break the build
+
+
+class TestRunId:  # ---- run_id threading (wiring contract) ----
+    def test_set_run_id_is_injected_into_every_record(self):
+        from cld import telemetry
+        captured = []
+
+        class Cap:
+            def emit(self, record):
+                captured.append(record)
+
+        telemetry.set_sink(Cap())
+        telemetry.set_run_id("a1b2c3")
+        try:
+            telemetry.emit("run_start", plan="p.md")
+            assert captured[-1]["run_id"] == "a1b2c3"
+        finally:
+            telemetry.set_run_id(None)  # don't leak into other tests
+
+    def test_run_id_absent_when_unset(self):
+        from cld import telemetry
+        captured = []
+
+        class Cap:
+            def emit(self, record):
+                captured.append(record)
+
+        telemetry.set_run_id(None)
+        telemetry.set_sink(Cap())
+        telemetry.emit("slice_start", slice_id="T1")
+        assert "run_id" not in captured[-1]  # additive: omitted, not null
