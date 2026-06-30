@@ -64,6 +64,9 @@ def render_status(
     started: set[str] = set()
     done: dict[str, str] = {}
     dispatch: dict[str, tuple[str, str]] = {}  # slice_id -> (model, ts)
+    # Per-model rollup, cumulative across the whole run (not reset per layer):
+    # model -> {"slice_ids": [...], "tokens": int, "source": str}
+    by_model: dict[str, dict[str, Any]] = {}
     total_tokens = 0
     gate: "str | None" = None
 
@@ -87,12 +90,28 @@ def render_status(
             sid = ev.get("slice_id")
             if sid is not None:
                 dispatch[sid] = (ev.get("model", "") or "", ev.get("ts", "") or "")
+            model = ev.get("model", "") or ""
+            if model:
+                entry = by_model.setdefault(
+                    model, {"slice_ids": [], "tokens": 0, "source": ""}
+                )
+                if sid is not None and sid not in entry["slice_ids"]:
+                    entry["slice_ids"].append(sid)
+                src = ev.get("source", "") or ""
+                if src:
+                    entry["source"] = src
         elif etype == "dispatch_end":
             tok = ev.get("tokens") or {}
             try:
-                total_tokens += int(tok.get("total", 0) or 0)
+                t = int(tok.get("total", 0) or 0)
             except (TypeError, ValueError):
-                pass
+                t = 0
+            total_tokens += t
+            model = ev.get("model", "") or ""
+            if model:
+                by_model.setdefault(
+                    model, {"slice_ids": [], "tokens": 0, "source": ""}
+                )["tokens"] += t
         elif etype == "slice_done":
             sid = ev.get("slice_id")
             if sid is not None:
@@ -139,6 +158,17 @@ def render_status(
         lines.append(
             f"running: {sid}  model: {model}  elapsed: {_elapsed_seconds(ts, now)}s"
         )
+
+    lines.append("by model:")
+    if by_model:
+        for model, info in by_model.items():
+            slices = ",".join(info["slice_ids"]) if info["slice_ids"] else "--"
+            lines.append(
+                f"  {model}  slices: {slices}  tokens: {info['tokens']}  "
+                f"source: {info['source'] or '--'}"
+            )
+    else:
+        lines.append("  --")
 
     lines.append(f"gate: {gate}" if gate is not None else "gate: --")
     return "\n".join(lines)
