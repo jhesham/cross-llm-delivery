@@ -29,9 +29,16 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Real subprocess runner. stderr is merged into stdout on failure so the
     error text is captured in raw_log. Decodes utf-8 with replacement: model
     output can contain bytes invalid in the Windows locale codec (live kimi-k2.6
-    validation emitted 0x90 and crashed the cp1252 reader thread)."""
+    validation emitted 0x90 and crashed the cp1252 reader thread).
+
+    stdin=DEVNULL is REQUIRED, not cosmetic: opencode.exe invoked directly (the
+    long-prompt path, no .cmd shim) BLOCKS forever reading an inherited stdin and
+    emits zero output -- a live hang reproduced with gemini-3.1-pro (160s, nothing
+    written) that vanished the instant stdin was closed. Detaching stdin makes the
+    dispatch deterministic."""
     proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
+                          encoding="utf-8", errors="replace",
+                          stdin=subprocess.DEVNULL)
     out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
     return (proc.returncode, out)
 
