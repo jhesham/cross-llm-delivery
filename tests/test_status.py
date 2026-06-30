@@ -101,3 +101,20 @@ def test_status_flag_missing_file_is_graceful(tmp_path, capsys):
     rc = rd.main(["--status", "--repo", str(tmp_path)])
     out = capsys.readouterr().out
     assert rc == 0 and "no events" in out.lower()
+
+
+def test_watch_repaints_then_stops_on_interrupt(tmp_path, monkeypatch, capsys):
+    """--watch repaints the digest then exits cleanly on Ctrl-C (one iteration here)."""
+    import skill.scripts.run_delivery as rd
+    cld = tmp_path / ".cld"
+    cld.mkdir()
+    (cld / "events.jsonl").write_text(
+        '{"type":"run_start","run_id":"w1","ts":"2026-06-30T12:00:00+00:00"}', encoding="utf-8")
+
+    def fake_sleep(_):
+        raise KeyboardInterrupt  # stop after the first repaint
+
+    monkeypatch.setattr("time.sleep", fake_sleep)
+    rc = rd.main(["--watch", "--repo", str(tmp_path), "--interval", "1"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "w1" in out
