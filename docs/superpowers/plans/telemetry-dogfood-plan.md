@@ -6,7 +6,7 @@ Engine layout: the package is `cld` under `engine/` (pytest resolves it via pypr
 All code is Python 3.11+, standard library only.
 
 ## SLICE: S1
-executor: opencode:opencode/glm-5.2
+executor: opencode:opencode/gemini-3.1-pro
 brief: Create the file `engine/cld/telemetry.py`. It must provide three names, stdlib only:
   (1) `Sink` — a `typing.Protocol` (runtime not required) declaring `def emit(self, record: dict) -> None`.
   (2) `JsonlSink` — `class JsonlSink:` constructed as `JsonlSink(path: str)`. Its `.emit(record: dict)`
@@ -23,7 +23,7 @@ acceptance_test_path: tests/test_telemetry.py::TestSinks
 deps:
 
 ## SLICE: S2
-executor: opencode:opencode/glm-5.2
+executor: opencode:opencode/gemini-3.1-pro
 brief: Extend `engine/cld/telemetry.py` (keep S1's `Sink`/`JsonlSink`/`MultiSink` intact) with a
   module-level emitter, stdlib only:
   (1) A module global current sink, defaulting to a no-op sink (an object whose `.emit` does nothing),
