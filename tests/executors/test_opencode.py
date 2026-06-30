@@ -112,6 +112,28 @@ def test_default_runner_survives_non_utf8_console_bytes():
     assert "ok" in out and "end" in out  # decoded with replacement, not crashed
 
 
+def test_default_runner_detaches_stdin(monkeypatch):
+    # ROOT CAUSE of a live hang (found dogfooding): a real gemini-3.1-pro dispatch
+    # produced ZERO output and hung for 160s. opencode.exe, invoked directly (the
+    # long-prompt path that bypasses the .cmd shim), BLOCKS forever reading an
+    # inherited stdin. The identical dispatch with stdin closed completed, wrote the
+    # file, and ran pytest to green. The runner MUST detach stdin (DEVNULL) so a
+    # dispatched CLI can never block on the parent's stdin.
+    import cld_providers.opencode.provider as mod
+
+    captured = {}
+
+    class _P:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    monkeypatch.setattr(mod.subprocess, "run",
+                        lambda args, **kw: captured.update(kw) or _P())
+    mod._default_runner(["opencode", "run", "x"], ".")
+    assert captured.get("stdin") is mod.subprocess.DEVNULL
+
+
 def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
     # BUG (found live): the opencode.cmd npm shim routes through cmd.exe /c, which
     # MANGLES a long multi-line prompt passed as a positional arg -> the dispatch
