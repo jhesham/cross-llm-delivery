@@ -109,9 +109,13 @@ def render_status(
             total_tokens += t
             model = ev.get("model", "") or ""
             if model:
-                by_model.setdefault(
-                    model, {"slice_ids": [], "tokens": 0, "source": ""}
-                )["tokens"] += t
+                bm = by_model.setdefault(
+                    model, {"slice_ids": [], "tokens": 0, "source": "", "cost": 0.0}
+                )
+                bm["tokens"] += t
+                c = ev.get("cost")
+                if isinstance(c, (int, float)) and not isinstance(c, bool):
+                    bm["cost"] = bm.get("cost", 0.0) + c
         elif etype == "slice_done":
             sid = ev.get("slice_id")
             if sid is not None:
@@ -135,6 +139,8 @@ def render_status(
     # Pending: in the layer but never started (and not done).
     pending = [sid for sid in layer_slice_ids if sid not in started and sid not in done]
 
+    total_cost = sum(float(i.get("cost", 0) or 0) for i in by_model.values())
+
     lines: list[str] = []
     head = f"cld status - run {run_id or '?'}"
     if plan:
@@ -146,12 +152,12 @@ def render_status(
         tot = layer_total if layer_total is not None else 0
         lines.append(
             f"layer {pos}/{tot}  done: {len(done)}  pending: {len(pending)}  "
-            f"running: {len(running)}  tokens: {total_tokens}"
+            f"running: {len(running)}  tokens: {total_tokens}  cost: ${total_cost:.2f}"
         )
     else:
         lines.append(
             f"done: {len(done)}  pending: {len(pending)}  "
-            f"running: {len(running)}  tokens: {total_tokens}"
+            f"running: {len(running)}  tokens: {total_tokens}  cost: ${total_cost:.2f}"
         )
 
     for sid, (model, ts) in running:
@@ -165,7 +171,7 @@ def render_status(
             slices = ",".join(info["slice_ids"]) if info["slice_ids"] else "--"
             lines.append(
                 f"  {model}  slices: {slices}  tokens: {info['tokens']}  "
-                f"source: {info['source'] or '--'}"
+                f"cost: ${float(info.get('cost', 0) or 0):.2f}  source: {info['source'] or '--'}"
             )
     else:
         lines.append("  --")

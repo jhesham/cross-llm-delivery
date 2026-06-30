@@ -43,3 +43,12 @@ def test_by_model_rollup_groups_slices_tokens_source():
     assert "1000" in out and "5000" in out                     # per-model token sums
     assert "tag" in low and "default" in low                   # source/reason per model
     out.encode("cp1252")                                       # cp1252-safe
+
+
+def test_by_model_shows_cost_when_present():
+    events = _events()
+    for e in events:  # T2 ran on a metered model -> a per-dispatch dollar cost
+        if e["type"] == "dispatch_end" and e["slice_id"] == "T2":
+            e["cost"] = 0.41
+    out = render_status(events, now=_BASE + datetime.timedelta(seconds=3))
+    assert "$" in out and "0.41" in out  # cost surfaced (per-model + total)

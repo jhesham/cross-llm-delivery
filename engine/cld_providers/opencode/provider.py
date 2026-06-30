@@ -104,6 +104,11 @@ def parse_opencode_usage(raw_json: str) -> dict[str, int]:
                     for k, v in tokens.items():
                         if type(v) is int:
                             usage[k] = usage.get(k, 0) + v
+                # opencode reports a per-step dollar cost on the step_finish part;
+                # accumulate it so dispatch_end / the by-model rollup can show real $.
+                cost = part.get("cost")
+                if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+                    usage["cost"] = usage.get("cost", 0) + cost
     return usage
 
 

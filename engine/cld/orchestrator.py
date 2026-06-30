@@ -134,9 +134,10 @@ def deliver_slice(
                 result = executor.run(task, effective_workdir, feedback=feedback)
             except TypeError:
                 result = executor.run(task, effective_workdir)
+        _tok = getattr(result, "token_usage", {}) or {}
         emit("dispatch_end", slice_id=task.id, model=model,
              rc=0 if getattr(result, "ok", True) else 1,
-             tokens=getattr(result, "token_usage", {}) or {},
+             tokens=_tok, cost=_tok.get("cost"),
              ms=int((time.monotonic() - _t0) * 1000))
 
         # The judge runs the REAL acceptance tests in the worktree when a
