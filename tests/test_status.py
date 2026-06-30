@@ -74,3 +74,30 @@ def test_render_status_gate_from_run_done():
 def test_render_status_empty_is_graceful():
     out = render_status([])
     assert out and "no events" in out.lower()  # degrades, never crashes
+
+
+def test_status_flag_reads_events_file(tmp_path, capsys):
+    """run_delivery --status reads <repo>/.cld/events.jsonl and prints the digest (no plan)."""
+    import json
+    import skill.scripts.run_delivery as rd
+    cld = tmp_path / ".cld"
+    cld.mkdir()
+    evs = [
+        {"type": "run_start", "run_id": "zz9", "ts": _ts(0)},
+        {"type": "layer_start", "layer": 0, "slice_ids": ["A"], "total": 1, "ts": _ts(0)},
+        {"type": "slice_start", "slice_id": "A", "ts": _ts(0)},
+        {"type": "dispatch_end", "slice_id": "A", "tokens": {"total": 42}, "ts": _ts(1)},
+        {"type": "slice_done", "slice_id": "A", "status": "completed", "ts": _ts(1)},
+        {"type": "run_done", "gate": "passed", "ts": _ts(2)},
+    ]
+    (cld / "events.jsonl").write_text("\n".join(json.dumps(e) for e in evs), encoding="utf-8")
+    rc = rd.main(["--status", "--repo", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0 and "zz9" in out and "42" in out and "passed" in out.lower()
+
+
+def test_status_flag_missing_file_is_graceful(tmp_path, capsys):
+    import skill.scripts.run_delivery as rd
+    rc = rd.main(["--status", "--repo", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0 and "no events" in out.lower()

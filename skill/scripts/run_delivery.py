@@ -396,7 +396,7 @@ def main(argv=None) -> int:
             pass
 
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
-    p.add_argument("plan", help="Path to the plan markdown file")
+    p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
@@ -417,6 +417,10 @@ def main(argv=None) -> int:
     p.add_argument("--usage", action="store_true",
                    help="Print a combined LLM-usage table (this build's ledger + opencode "
                         "account stats) and exit. No dispatch.")
+    p.add_argument("--status", action="store_true",
+                   help="Print a compact digest of the current build state from "
+                        ".cld/events.jsonl and exit. No plan/dispatch needed (the lead agent "
+                        "polls this between turns during a background build).")
     args = p.parse_args(argv)
 
     # Handle --mark-repaired early, before reading the plan (it must not require the plan to exist)
@@ -432,6 +436,30 @@ def main(argv=None) -> int:
         ledger = Ledger.load(args.ledger)
         print(render_usage_table(ledger))
         return 0
+
+    if args.status:
+        import json
+        from cld.status import render_status
+        events = []
+        try:
+            with open(_events_path(args.repo), "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        events.append(json.loads(line))
+                    except Exception:
+                        pass  # skip a torn final line written mid-flush
+        except FileNotFoundError:
+            pass
+        print(render_status(events))
+        return 0
+
+    if args.plan is None:
+        print("A plan file is required for dispatch (or use --status/--usage/--mark-repaired).",
+              file=sys.stderr)
+        return 2
 
     plan_md = Path(args.plan).read_text(encoding="utf-8")
     slices = load_slices(plan_md)
