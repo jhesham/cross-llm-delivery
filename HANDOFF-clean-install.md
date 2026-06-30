@@ -880,3 +880,27 @@ if you want the real routing tag later.
 Tests: `_tracing_status` ON/OFF cases added; full suite green incl. integration. In the rebuilt
 `dist/` (commit below). Thanks again — the real-default/real-shape rule is the kind of thing that only
 surfaces from a real live build, exactly the signal this loop is for.
+
+---
+
+## Field note (2026-06-30) — the real-shape rule keeps paying out
+
+Fixed three more live bugs in the invoked-KB build (§8 Data Sources, §9 Upstream, §15 ADR/BDR).
+ALL THREE had the same root cause as the contract-discipline feedback below: **the unit test
+fakes encoded a shape the live source does not have**, so tests were green while live output was
+blank/wrong.
+
+- §8: fake returned a JSON-ish body; live Confluence body is an HTML `<table>`. Test passed, live
+  rendered 11 blank `—` rows. Fix = deterministic `<table>` parse + fake rebuilt from the live
+  HTML shape.
+- §15 BDR: fake used `childPages`; live acli returns `directChildren.results[]` with `[BDR] ` title
+  prefixes. Test passed, live returned 0 BDRs (FAILED).
+- §15 ADR: fake had inline `Status: Accepted`; live ADRs use a `## Status` heading with the value on
+  the *next* line. Test passed, live status column = the literal string "## Status".
+
+Each fix followed the rule: **capture the real shape first, make the fake match it, then code to it.**
+After fixing, all three verified against live sources (FRESH, real rows). This is the strongest
+evidence yet for the cross-llm executor guardrail you're building: *a fixture that wasn't captured
+from a real call is a latent false-green.* Worth a hard check in the judge — "was this fixture
+derived from a recorded real response?" — because a passing test over a hand-faked shape is the
+exact failure mode that ships broken sections.
