@@ -80,6 +80,65 @@ def _tracing_status() -> str:
     return "tracing: OFF (set LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY to enable; see references/langfuse-setup.md)"
 
 
+def _events_path(repo_dir: str) -> str:
+    """The build's local event stream: <repo>/.cld/events.jsonl (gitignored scratch)."""
+    return os.path.join(os.path.abspath(repo_dir), ".cld", "events.jsonl")
+
+
+def _run_id_from_stream(events_path: str) -> "str | None":
+    """Read the stable run_id from an existing event stream (the run_start line),
+    so every --step invocation of one build shares it. None if unreadable."""
+    import json
+    try:
+        with open(events_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                d = json.loads(line)
+                if isinstance(d, dict) and d.get("run_id"):
+                    return d["run_id"]
+    except Exception:
+        pass
+    return None
+
+
+def _install_telemetry(repo_dir: str, ledger: Ledger, plan_path: str, default_spec: str) -> str:
+    """Install the JSONL telemetry sink + run_id for this build and emit run_start on a
+    fresh build. A build spans many --step invocations (each a fresh process) that all
+    APPEND to one stream; a brand-new build (ledger with no recorded slices) truncates the
+    prior stream first. Best-effort: never blocks the build. Returns the events.jsonl path.
+    """
+    import uuid
+    from cld import telemetry
+    events_path = _events_path(repo_dir)
+    try:
+        os.makedirs(os.path.dirname(events_path), exist_ok=True)
+        fresh = not ledger.entries  # no recorded slices yet => brand-new build
+        if fresh:
+            open(events_path, "w", encoding="utf-8").close()  # new build = fresh stream
+            run_id = uuid.uuid4().hex[:8]
+        else:
+            run_id = _run_id_from_stream(events_path) or uuid.uuid4().hex[:8]
+        telemetry.set_run_id(run_id)
+        telemetry.set_sink(telemetry.JsonlSink(events_path))
+        if fresh:
+            telemetry.emit("run_start", run_id=run_id,
+                           plan=os.path.basename(plan_path), executor_default=default_spec)
+    except Exception:
+        pass
+    return events_path
+
+
+def _layer_gate(result) -> str:
+    """Coarse gate label for a layer/run result, ASCII-safe."""
+    if getattr(result, "needs_repair", None):
+        return "needs_repair"
+    if getattr(result, "failed", None):
+        return "failed"
+    return "passed"
+
+
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Run a git command; return (returncode, combined output)."""
     proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
@@ -386,7 +445,12 @@ def main(argv=None) -> int:
     # resolve to a removed provider).
     if args.executor is None:
         if not args.dry_run and sys.stdin.isatty():
-            args.executor = prompt_for_executor()
+            try:
+                args.executor = prompt_for_executor()
+            except EOFError:
+                # non-interactive stdin that still reports isatty (e.g. a backgrounded
+                # run): fall back to the default instead of crashing the build.
+                args.executor = _default_spec()
         else:
             args.executor = _default_spec()
 
@@ -402,16 +466,22 @@ def main(argv=None) -> int:
             print(f"  layer {i}: {', '.join(layer)}")
         return 0
 
+    # Install the local telemetry stream (zero-config) + emit run_start on a fresh build.
+    ledger = Ledger.load(args.ledger)
+    events_path = _install_telemetry(args.repo, ledger, args.plan, args.executor or _default_spec())
+    print(f"telemetry: {os.path.relpath(events_path, os.path.abspath(args.repo))} (local)")
+
     if args.step:
         from cld.orchestrator import next_pending_layer
         from cld.summary import classify_gate, summarize_layer, write_artifacts
-        ledger = Ledger.load(args.ledger)
+        from cld import telemetry
         sel = next_pending_layer(slices, ledger)
         if sel is None:
             print("BUILD COMPLETE — no pending layers.")
             return 3
         idx, layer_ids, total = sel
         layer_slices = [s for s in slices if s.id in layer_ids]
+        telemetry.emit("layer_start", layer=idx, slice_ids=list(layer_ids))
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(
             layer_slices, ledger,
@@ -425,12 +495,14 @@ def main(argv=None) -> int:
         )
         write_artifacts(result, repo_dir=args.repo)
         nxt = next_pending_layer(slices, ledger)
+        telemetry.emit("layer_done", layer=idx, gate=_layer_gate(result))
+        if nxt is None:
+            telemetry.emit("run_done", gate=_layer_gate(result))
         next_layer = nxt[1] if nxt else []
         print(summarize_layer(result, layer_index=idx, total_layers=total,
                               next_layer=next_layer))
         return classify_gate(result, more_layers=bool(nxt))
 
-    ledger = Ledger.load(args.ledger)
     judge_fn = make_judge_fn(args.repo)
 
     result = run_plan_parallel(
@@ -443,6 +515,8 @@ def main(argv=None) -> int:
         repo_dir=args.repo, git_runner=git_runner,
         test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
     )
+    from cld import telemetry as _tel
+    _tel.emit("run_done", gate=_layer_gate(result))
 
     print(f"completed: {result.completed}")
     print(f"failed:    {result.failed}")

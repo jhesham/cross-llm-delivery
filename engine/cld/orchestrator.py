@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -8,6 +9,7 @@ from cld.dag import parallel_batches
 from cld.executors.base import SliceTask
 from cld.judge import JudgeResult
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
+from cld.telemetry import emit
 from cld.tracing import record_dispatch
 from cld.worktree import worktree
 
@@ -107,6 +109,8 @@ def deliver_slice(
     model: str = "gemini-3.1-pro-preview",
     tracer=None,
     test_runner: Callable[[str], str] | None = None,
+    source: str | None = None,
+    rung: str | None = None,
 ) -> DeliverResult:
     # workdir defaults to task.id (prior behavior); callers wiring real worktrees
     # pass the worktree path so the executor operates in an isolated directory.
@@ -117,6 +121,10 @@ def deliver_slice(
     feedback = None  # set after a failed attempt, fed to the next dispatch
 
     for attempt in range(1, total_attempts + 1):
+        # Telemetry: one dispatch_start per attempt (best-effort, never raises).
+        emit("dispatch_start", slice_id=task.id, model=model, attempt=attempt,
+             rung=rung, source=source)
+        _t0 = time.monotonic()
         # Pass judge feedback into the retry so the executor can self-correct.
         # Executors that don't accept a `feedback` kwarg (legacy) keep working.
         if feedback is None:
@@ -126,6 +134,10 @@ def deliver_slice(
                 result = executor.run(task, effective_workdir, feedback=feedback)
             except TypeError:
                 result = executor.run(task, effective_workdir)
+        emit("dispatch_end", slice_id=task.id, model=model,
+             rc=0 if getattr(result, "ok", True) else 1,
+             tokens=getattr(result, "token_usage", {}) or {},
+             ms=int((time.monotonic() - _t0) * 1000))
 
         # The judge runs the REAL acceptance tests in the worktree when a
         # `test_runner` is supplied (the trustworthy path — never trust the
@@ -153,6 +165,11 @@ def deliver_slice(
 
         history.append(judge_result)
         final_judge_result = judge_result
+
+        _verdict_failing = getattr(judge_result, "failing_tests", []) or []
+        emit("judge_verdict", slice_id=task.id, passed=judge_result.passed,
+             reason=("; ".join(_verdict_failing) if _verdict_failing else ""),
+             attempt=attempt)
 
         # Observability: record one span per dispatch (best-effort, never raises).
         record_dispatch(
@@ -192,6 +209,10 @@ def deliver_slice(
             + " ".join(parts)
             + " Fix these and try again."
         ) if parts else "Your previous attempt did not pass. Fix the failures and try again."
+
+        if attempt < total_attempts:
+            emit("retry", slice_id=task.id, attempt=attempt + 1,
+                 reason=("; ".join(failing) if failing else ""))
 
     return DeliverResult(
         accepted=False,
@@ -338,12 +359,14 @@ def run_plan_parallel(
         if rung_planner is None:
             # UNCHANGED existing body — single _executor_for dispatch with max_retries
             slice_executor, resolved_spec = _executor_for(task)
+            _src = "tag" if task.executor else "default"
             if repo_dir is not None and git_runner is not None:
                 with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
                     res = deliver_slice(
                         task, executor=slice_executor, judge_fn=judge_fn,
                         max_retries=max_retries, workdir=wt_path,
                         test_runner=test_runner, model=resolved_spec,
+                        source=_src, rung="workhorse",
                     )
                     _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
@@ -358,18 +381,24 @@ def run_plan_parallel(
             return deliver_slice(
                 task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
                 test_runner=test_runner, model=resolved_spec,
+                source=_src, rung="workhorse",
             )
 
         # Escalation ladder: walk each rung, first acceptance wins.
         rungs = rung_planner(task) or [("workhorse", _resolve_spec(task), max_retries)]
         last = None
-        for rung_name, spec, budget in rungs:
+        for _i, (rung_name, spec, budget) in enumerate(rungs):
+            if _i > 0:
+                emit("escalate", slice_id=task.id,
+                     from_rung=rungs[_i - 1][0], to_rung=rung_name)
+            _src = "tag" if task.executor else ("escalated" if _i > 0 else "default")
             ex = executor_factory(spec) if executor_factory is not None else executor
             if repo_dir is not None and git_runner is not None:
                 with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt:
                     res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
                                         max_retries=max(budget - 1, 0), workdir=wt,
-                                        test_runner=test_runner, model=spec)
+                                        test_runner=test_runner, model=spec,
+                                        source=_src, rung=rung_name)
                     _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
                         git_runner(["git", "add", "-A"], wt)
@@ -378,12 +407,14 @@ def run_plan_parallel(
                         _save_failed_diff(git_runner, wt, repo_dir, task.id)
             else:
                 res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
-                                    max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec)
+                                    max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec,
+                                    source=_src, rung=rung_name)
             last = res
             if res.accepted:
                 res.final_rung = rung_name
                 return res
         # All cheap rungs failed -> handoff for repair
+        emit("needs_repair", slice_id=task.id)
         last.final_rung = "orchestrator"
         last.needs_repair = True
         return last
@@ -399,6 +430,7 @@ def run_plan_parallel(
         with ledger_lock:
             ledger.set(task.id, status=IN_PROGRESS)
             ledger.save()
+        emit("slice_start", slice_id=task.id)
 
         try:
             deliver_res = _run_one(task)
@@ -416,6 +448,7 @@ def run_plan_parallel(
                     failing_tests=[f"executor error: {exc}"],
                 )
                 ledger.save()
+            emit("slice_done", slice_id=task.id, status="failed")
             return
 
         with ledger_lock:
@@ -451,6 +484,7 @@ def run_plan_parallel(
                 failing_tests=failing,
             )
             ledger.save()
+            emit("slice_done", slice_id=task.id, status=status)
 
     for layer in parallel_batches(deps):
         # A layer may include dep-only ids not in this plan — keep only real tasks

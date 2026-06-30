@@ -24,6 +24,13 @@ import threading
 
 _sink: "Sink | None" = None
 _sink_lock = threading.Lock()
+_run_id: "str | None" = None  # stable id per run; set once by run_delivery, shared by all events
+
+
+def set_run_id(run_id) -> None:
+    """Install the process-global run id stamped onto every emitted record."""
+    global _run_id
+    _run_id = run_id
 
 
 class Sink:
@@ -109,6 +116,8 @@ def emit(event_type: str, **fields) -> None:
         **fields,
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
+    if _run_id is not None:
+        record["run_id"] = _run_id
     try:
         sink.emit(record)
     except Exception:
