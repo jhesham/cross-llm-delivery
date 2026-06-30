@@ -85,6 +85,25 @@ def _events_path(repo_dir: str) -> str:
     return os.path.join(os.path.abspath(repo_dir), ".cld", "events.jsonl")
 
 
+def _read_event_stream(repo_dir: str) -> "list":
+    """Load .cld/events.jsonl into a list of records (skips blank/torn lines). [] if absent."""
+    import json
+    events = []
+    try:
+        with open(_events_path(repo_dir), "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    events.append(json.loads(line))
+                except Exception:
+                    pass  # a final line may be torn mid-flush; skip it
+    except FileNotFoundError:
+        pass
+    return events
+
+
 def _run_id_from_stream(events_path: str) -> "str | None":
     """Read the stable run_id from an existing event stream (the run_start line),
     so every --step invocation of one build shares it. None if unreadable."""
@@ -121,7 +140,9 @@ def _install_telemetry(repo_dir: str, ledger: Ledger, plan_path: str, default_sp
         else:
             run_id = _run_id_from_stream(events_path) or uuid.uuid4().hex[:8]
         telemetry.set_run_id(run_id)
-        telemetry.set_sink(telemetry.JsonlSink(events_path))
+        jsonl = telemetry.JsonlSink(events_path)
+        otel = _maybe_otel_sink()  # +OTLP export when configured (else None -> JSONL only)
+        telemetry.set_sink(telemetry.MultiSink([jsonl, otel]) if otel is not None else jsonl)
         if fresh:
             telemetry.emit("run_start", run_id=run_id,
                            plan=os.path.basename(plan_path), executor_default=default_spec)
@@ -137,6 +158,71 @@ def _layer_gate(result) -> str:
     if getattr(result, "failed", None):
         return "failed"
     return "passed"
+
+
+def _otel_target_from_env(env=None):
+    """Resolve (endpoint, headers) for OTLP trace export from env, or None. Encodes the
+    Langfuse keys-convenience. Pure (env in -> target out) so it's unit-testable.
+
+    - OTEL_EXPORTER_OTLP_ENDPOINT (+ optional OTEL_EXPORTER_OTLP_HEADERS "k=v,k=v") wins.
+    - else LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY -> {LANGFUSE_HOST|cloud}/api/public/otel/v1/traces
+      with an `Authorization: Basic base64(pk:sk)` header (Langfuse is OTLP-native).
+    """
+    import base64
+    env = env if env is not None else os.environ
+    headers = {}
+    raw = env.get("OTEL_EXPORTER_OTLP_HEADERS")
+    if raw:
+        for pair in raw.split(","):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                headers[k.strip()] = v.strip()
+    endpoint = env.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        pk, sk = env.get("LANGFUSE_PUBLIC_KEY"), env.get("LANGFUSE_SECRET_KEY")
+        if pk and sk:
+            host = env.get("LANGFUSE_HOST", "https://cloud.langfuse.com").rstrip("/")
+            endpoint = f"{host}/api/public/otel/v1/traces"
+            token = base64.b64encode(f"{pk}:{sk}".encode()).decode()
+            headers.setdefault("Authorization", f"Basic {token}")
+    if not endpoint:
+        return None
+    return endpoint, headers
+
+
+def _maybe_otel_sink():
+    """Build an OtelSink wired to the env-configured OTLP endpoint, or None. Guarded:
+    a missing target, SDK, or exporter => None (JSONL stays the only sink). Never raises."""
+    target = _otel_target_from_env()
+    if target is None:
+        return None
+    endpoint, headers = target
+    try:
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from cld.telemetry import OtelSink
+        provider = TracerProvider()
+        provider.add_span_processor(
+            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, headers=headers or None)))
+        return OtelSink(tracer=provider.get_tracer("cld"))
+    except Exception:
+        return None
+
+
+def _otel_status_line() -> str:
+    """One-line OTLP export status for the build header."""
+    target = _otel_target_from_env()
+    if target is None:
+        return ("otel: OFF (set OTEL_EXPORTER_OTLP_ENDPOINT, or LANGFUSE_PUBLIC_KEY+"
+                "LANGFUSE_SECRET_KEY; see references/observability.md)")
+    try:
+        import opentelemetry.sdk  # noqa: F401
+        import opentelemetry.exporter.otlp.proto.http  # noqa: F401
+        return f"otel: ON -> {target[0]}"
+    except Exception:
+        return (f"otel: configured ({target[0]}) but SDK missing — "
+                "pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
 
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
@@ -421,6 +507,11 @@ def main(argv=None) -> int:
                    help="Print a compact digest of the current build state from "
                         ".cld/events.jsonl and exit. No plan/dispatch needed (the lead agent "
                         "polls this between turns during a background build).")
+    p.add_argument("--watch", action="store_true",
+                   help="Repaint --status every --interval seconds (a tiny human terminal view; "
+                        "Ctrl-C to stop). Equivalent to `tail -f` on the digest.")
+    p.add_argument("--interval", type=int, default=5,
+                   help="Seconds between repaints for --watch (default 5).")
     args = p.parse_args(argv)
 
     # Handle --mark-repaired early, before reading the plan (it must not require the plan to exist)
@@ -438,23 +529,20 @@ def main(argv=None) -> int:
         return 0
 
     if args.status:
-        import json
         from cld.status import render_status
-        events = []
-        try:
-            with open(_events_path(args.repo), "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        events.append(json.loads(line))
-                    except Exception:
-                        pass  # skip a torn final line written mid-flush
-        except FileNotFoundError:
-            pass
-        print(render_status(events))
+        print(render_status(_read_event_stream(args.repo)))
         return 0
+
+    if args.watch:
+        import time as _time
+        from cld.status import render_status
+        try:
+            while True:
+                print(render_status(_read_event_stream(args.repo)))
+                print("-" * 48)
+                _time.sleep(args.interval)
+        except KeyboardInterrupt:
+            return 0
 
     if args.plan is None:
         print("A plan file is required for dispatch (or use --status/--usage/--mark-repaired).",
@@ -498,6 +586,7 @@ def main(argv=None) -> int:
     ledger = Ledger.load(args.ledger)
     events_path = _install_telemetry(args.repo, ledger, args.plan, args.executor or _default_spec())
     print(f"telemetry: {os.path.relpath(events_path, os.path.abspath(args.repo))} (local)")
+    print(_otel_status_line())
 
     if args.step:
         from cld.orchestrator import next_pending_layer

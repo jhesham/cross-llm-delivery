@@ -43,3 +43,28 @@ def test_otel_sink_is_noop_without_tracer():
     from cld.telemetry import OtelSink
     # No tracer (SDK absent / not configured) must never raise — telemetry stays best-effort.
     OtelSink(tracer=None).emit({"type": "dispatch_start", "slice_id": "X", "model": "m"})
+
+
+def test_otel_target_langfuse_keys_convenience():
+    import base64
+    from skill.scripts.run_delivery import _otel_target_from_env
+    env = {"LANGFUSE_PUBLIC_KEY": "pk-x", "LANGFUSE_SECRET_KEY": "sk-y",
+           "LANGFUSE_HOST": "https://h.example"}
+    endpoint, headers = _otel_target_from_env(env)
+    assert endpoint == "https://h.example/api/public/otel/v1/traces"
+    assert headers["Authorization"] == "Basic " + base64.b64encode(b"pk-x:sk-y").decode()
+
+
+def test_otel_target_explicit_endpoint_wins_over_langfuse():
+    from skill.scripts.run_delivery import _otel_target_from_env
+    env = {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318/v1/traces",
+           "OTEL_EXPORTER_OTLP_HEADERS": "x-key=secret",
+           "LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk"}
+    endpoint, headers = _otel_target_from_env(env)
+    assert endpoint == "http://collector:4318/v1/traces"
+    assert headers["x-key"] == "secret"
+
+
+def test_otel_target_none_when_unconfigured():
+    from skill.scripts.run_delivery import _otel_target_from_env
+    assert _otel_target_from_env({}) is None
