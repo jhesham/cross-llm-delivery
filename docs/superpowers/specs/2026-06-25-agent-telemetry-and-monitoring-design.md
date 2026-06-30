@@ -77,8 +77,8 @@ orchestrator / run_delivery  --emit(event)-->  [ Sink(s) ]
 | `run_start` | `run_id`, `plan`, `executor_default` |
 | `layer_start` / `layer_done` | `layer`, `slice_ids`, (`gate` on done) |
 | `slice_start` / `slice_done` | `slice_id`, (`status` on done) |
-| `dispatch_start` | `slice_id`, `model`, `rung`, `attempt` |
-| `dispatch_end` | `slice_id`, `rc`, `tokens`(dict), `cost`, `ms` |
+| `dispatch_start` | `slice_id`, `model`, `rung`, `attempt`, `source` |
+| `dispatch_end` | `slice_id`, `model`, `rc`, `tokens`(dict), `cost`, `ms` |
 | `judge_verdict` | `slice_id`, `passed`(bool), `reason`(str), `attempt` |
 | `retry` | `slice_id`, `attempt`, `reason` |
 | `escalate` | `slice_id`, `from_rung`, `to_rung` |
@@ -86,6 +86,25 @@ orchestrator / run_delivery  --emit(event)-->  [ Sink(s) ]
 
 Fields are additive; a missing optional field is fine. JSONL is utf-8, ASCII-safe values where the
 renderer prints them (cp1252 discipline).
+
+#### Model-switching visibility (a first-class concern)
+
+Switching models between slices is common (per-slice `executor:` tags, complexity-based auto-routing,
+a mid-build default change, or a cheap→workhorse escalation). Because **`model` is recorded on every
+dispatch event** (not once per run), per-slice attribution is automatic — the stream always says which
+model ran which slice. Two affordances make a switch *legible at a glance* rather than inferable:
+
+- **`source` on `dispatch_start`** — WHY this model: `tag` (per-slice `executor:` tag), `auto`
+  (router/complexity tier), `default` (the build default), or `escalated` (a higher rung after a
+  cheaper one failed). So a different model on a slice is labelled with its reason.
+- **A by-model rollup** in `--status` (and the `--usage` table): group slices + tokens + **cost** by
+  model, so the mix — and especially the per-model COST when a paid model handled a slice — is one
+  line:
+  ```
+  by model: antigravity:Gemini 3.1 Pro (High) [T1,T2,T3,T5 · $0.00] · opencode:claude-opus-4-8 [T4 (tag) · $0.41]
+  ```
+  This is the high-value view when models switch: flat-rate slices cost nothing, a pinned premium
+  slice shows its real spend, attributed to the slice + the reason it switched.
 
 ## Phase 1 — local event stream + `--status` (the whole story for the lead agent)
 
@@ -98,9 +117,11 @@ renderer prints them (cp1252 discipline).
    for cross-`--step` completed state), reconstructs current state, prints a compact digest, e.g.:
    ```
    run a1b2 · layer 3/6 · 9 slices: 5 done(✓ 5/✗ 0) · T13 running antigravity@workhorse a1 47s ·
-   T15 retry a2 (COLLECTION ERROR ...) · 2 pending · tokens 412k · cost $0.00 · gate: pending
+   T15 retry a2 (COLLECTION ERROR ...) · 2 pending · tokens 412k · cost $0.41 · gate: pending
+   by model: antigravity:Gemini 3.1 Pro (High) [T11,T12,T13,T16,T17 · $0.00] · opencode:claude-opus-4-8 [T4 (tag) · $0.41]
    ```
-   Context-cheap (the agent reads THIS, not the raw log). ASCII-safe.
+   The `by model` line surfaces model-switching (which model ran which slice, the reason, per-model
+   cost). Context-cheap (the agent reads THIS, not the raw log). ASCII-safe.
 4. **Loud status line at build start** (already shipped: `tracing: ON/OFF`); extend to also note the
    local stream: `telemetry: .cld/events.jsonl (local) · tracing: OFF (...)`.
 
@@ -176,6 +197,9 @@ The mechanism by which a turn-based agent achieves "real-time": run the build of
   incl. the escalate/needs_repair events on the failure path.
 - **`--status` (unit):** render against a synthetic `events.jsonl` → asserts in-flight slice shown
   with elapsed, done counts, gate, token/cost totals; ASCII/cp1252-safe.
+- **model-switching (unit):** a synthetic `events.jsonl` with two slices on different models (one
+  `source=tag`, one `source=auto`) → `--status` shows each slice's model and the `by model` rollup
+  groups slices + cost per model (incl. a non-zero cost for the paid model).
 - **Phase 2:** `--status` mid-run shows in-flight (small integration); `--watch` smoke (1 iteration).
 - **Phase 3:** `OtelSink` against `opentelemetry.sdk` `InMemorySpanExporter` → spans nested correctly
   with GenAI attributes; guarded no-op when the SDK is blocked (subprocess test, like the langfuse
