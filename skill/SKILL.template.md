@@ -48,10 +48,11 @@ you prepare a plan and invoke the driver script.
 
 - The `cld` package importable (`pip install -e .` from the repo root).
 - A git repo (worktree isolation runs `git worktree add/remove`).
-- Optional: `ANTHROPIC_API_KEY` to enable behavioral (G-Eval) judging; `LANGFUSE_*`
-  keys to enable trace emission (both degrade to no-ops when absent). Tracing is OFF by
-  default — `run_delivery.py` prints a `tracing: ON/OFF` line at the start of each build;
-  to turn it on see `references/langfuse-setup.md`.
+- Optional: `ANTHROPIC_API_KEY` to enable behavioral (G-Eval) judging (no-op when absent).
+- Telemetry is **always on and local** — every build writes `<repo>/.cld/events.jsonl` and you
+  read it with `--status` (see below). Exporting to a dashboard (Arize Phoenix / Langfuse / any
+  OTLP backend) is opt-in via env vars; see `references/observability.md`. The build header prints
+  `telemetry:` and `otel:` status lines.
 
 ## The workflow
 
@@ -100,6 +101,21 @@ and act on the gate (the exit code):
 
 Re-invoking `--step` advances automatically (the ledger is the state). A partially-done layer
 re-runs only its non-`done` slices, so "fix T3 then continue" works by editing + re-`--step`.
+
+**Live monitoring (optional -- background dispatch + poll).** To watch a multi-minute layer land
+slice-by-slice instead of blocking on it, dispatch in the BACKGROUND and poll the digest between
+turns:
+
+```bash
+python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step --workers N   # background
+python skill/scripts/run_delivery.py --status --repo <dir>                       # poll between turns
+```
+
+`--status` is context-cheap -- one short digest (layer position, done/running/pending, in-flight
+model + elapsed, tokens + cost, a by-model rollup, gate). Read THAT, not the raw log. It is fresh
+mid-run (events flush live), so you see slices finish one-by-one and can react at the next decision
+point (escalate / repair / stop). Humans can `--watch [--interval N]` or `tail -f .cld/events.jsonl`.
+The synchronous foreground `--step` stays the simple default.
 
 Per slice inside a layer: isolate (git worktree `slice-<id>`) -> executor implements -> the
 deterministic judge runs the REAL acceptance tests + diff-rule (failures feed back into a
