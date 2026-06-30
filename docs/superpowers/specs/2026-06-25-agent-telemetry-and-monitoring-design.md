@@ -52,6 +52,19 @@ orchestrator / run_delivery  --emit(event)-->  [ Sink(s) ]
 - `class Sink(Protocol): def emit(self, record: dict) -> None`.
 - `JsonlSink(path)` — append one JSON line per record; **thread-safe** (a lock, because the
   orchestrator emits from a `ThreadPoolExecutor`); flush per write so the stream is live.
+
+#### `events.jsonl` lifecycle
+
+- **One stream per BUILD, keyed to the ledger.** The file lives next to the ledger (default
+  `<repo>/.cld/events.jsonl`). A build spans many `--step` invocations (one per DAG layer, each a
+  fresh process); they all **append** to the same file so the file is the whole build's trace.
+- **New build = fresh stream.** When `run_delivery` starts against a ledger with no recorded progress
+  (a brand-new build), it truncates/rotates the prior `events.jsonl` first; continuing an in-progress
+  ledger appends. (`run_start` is emitted on the first invocation of a build.)
+- **No rotation/cap** — per build the stream is small (hundreds of short lines). It is `.cld/`
+  gitignored scratch (like `detail.json`/`*.patch`); `git clean` / deleting `.cld/` clears it.
+- **Future (YAGNI now):** if many builds in one repo become a disk concern, switch to a per-build
+  subdir `.cld/runs/<run_id>/events.jsonl`; the schema/readers don't change.
 - `MultiSink(sinks)` — fan-out; one failing sink doesn't stop the others.
 - `set_sink(sink) / get_sink()` — the run wiring sets the active sink once (default `JsonlSink`).
 - `run_id` — a stable id per run, generated once by `run_delivery.py` (e.g. `uuid4().hex[:8]` or a
@@ -114,15 +127,25 @@ The mechanism by which a turn-based agent achieves "real-time": run the build of
   exactly like the `langfuse` guard); maps events to **nested OTel spans** (`run` → `layer` → `slice`
   → `dispatch`) using **GenAI semantic attributes** (`gen_ai.request.model`,
   `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, plus `cld.judge.passed`, `cld.rung`).
-- **Activation:** standard `OTEL_EXPORTER_OTLP_ENDPOINT` (+ optional headers) turns it on; when set,
-  the run wiring installs `MultiSink([JsonlSink(...), OtelSink(...)])`. Unset ⇒ JSONL only. The local
-  default never changes.
-- **Langfuse becomes one OTLP target**, not a special integration; `get_tracer`/`record_dispatch`'s
-  Langfuse path is retired in favor of the OTel sink (or kept as a thin legacy adapter, decided in the
-  plan) so there is a single tracing path.
+- **Activation (generic):** standard `OTEL_EXPORTER_OTLP_ENDPOINT` (+ optional
+  `OTEL_EXPORTER_OTLP_HEADERS`) turns it on; when set, the run wiring installs
+  `MultiSink([JsonlSink(...), OtelSink(...)])`. Unset ⇒ JSONL only. The local default never changes.
+- **Langfuse — a first-class, easy plug-in (NOT retired).** Langfuse is itself OTel-based (exposes an
+  OTLP ingest endpoint), so it's reached through the *same* seam — no bespoke Langfuse SDK path:
+  - *Generic way:* set `OTEL_EXPORTER_OTLP_ENDPOINT=https://cloud.langfuse.com/api/public/otel` + an
+    `Authorization: Basic <base64(pk:sk)>` header — same as any backend.
+  - *Convenience (keeps the familiar UX):* if `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` are set
+    (and no explicit OTLP endpoint), `run_delivery` **auto-wires** the OtelSink to
+    `{LANGFUSE_HOST or cloud}/api/public/otel` with the Basic-auth header derived from the keys. So
+    existing Langfuse users keep "set two env vars and it works," now on the single OTel path.
+  - This **drops the bespoke langfuse Python SDK dependency** (OTLP is plain HTTP), which also removes
+    the silent-inert fragility — and `get_tracer`/`record_dispatch`'s old Langfuse-SDK path is
+    replaced by `OtelSink` so there is exactly one tracing path. (`record_dispatch` keeps emitting the
+    `dispatch_end` event; the span just comes from the sink.)
 - **Docs:** `references/observability.md` (supersedes/extends `langfuse-setup.md`) — "bring your own
   backend": **Arize Phoenix** (`pip install arize-phoenix; phoenix serve` → local, no account) as the
-  easy default, plus Grafana Tempo / Jaeger (self-host) and Honeycomb / Langfuse (hosted) as targets.
+  easy local option, **Langfuse** (the two-keys convenience above), plus Grafana Tempo / Jaeger
+  (self-host) and Honeycomb / Grafana Cloud (hosted) as targets.
 
 ## Data flow (end to end)
 
