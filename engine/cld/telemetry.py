@@ -87,6 +87,67 @@ class MultiSink(Sink):
                 pass
 
 
+class OtelSink(Sink):
+    """Map the event stream to OpenTelemetry spans (GenAI semantic attributes).
+
+    Each dispatch becomes one span: opened on ``dispatch_start`` and closed on
+    ``dispatch_end``, carrying OpenTelemetry GenAI semantic-convention
+    attributes (``gen_ai.request.model``, ``gen_ai.usage.input_tokens`` /
+    ``gen_ai.usage.output_tokens``) plus cld-specific ones
+    (``cld.slice_id``, ``cld.rung``). Spans are tracked by ``slice_id`` so the
+    matching end event can stamp usage and finish them.
+
+    With ``tracer=None`` (SDK absent / not configured) the sink is a silent
+    no-op: telemetry stays best-effort and must never break the build.
+    """
+
+    def __init__(self, tracer=None) -> None:
+        self._tracer = tracer
+        self._spans: dict = {}  # slice_id -> open span
+
+    def emit(self, record) -> None:
+        if self._tracer is None:
+            return
+        try:
+            self._handle(record)
+        except Exception:
+            # Best-effort telemetry: never break the build.
+            pass
+
+    def _handle(self, record) -> None:
+        rtype = record.get("type")
+        if rtype == "dispatch_start":
+            slice_id = record.get("slice_id")
+            if slice_id is None:
+                return
+            attrs = {
+                "gen_ai.request.model": record.get("model"),
+                "cld.slice_id": slice_id,
+                "cld.rung": record.get("rung"),
+                "cld.source": record.get("source"),
+                "cld.attempt": record.get("attempt"),
+            }
+            attrs = {k: v for k, v in attrs.items() if v is not None}
+            span = self._tracer.start_span("cld.dispatch", attributes=attrs)
+            self._spans[slice_id] = span
+        elif rtype == "dispatch_end":
+            slice_id = record.get("slice_id")
+            span = self._spans.pop(slice_id, None)
+            if span is None:
+                return
+            tokens = record.get("tokens") or {}
+            attrs = {
+                "gen_ai.usage.input_tokens": tokens.get("input", 0),
+                "gen_ai.usage.output_tokens": tokens.get("output", 0),
+                "gen_ai.usage.total_tokens": tokens.get("total", 0),
+                "cld.rc": record.get("rc"),
+                "cld.ms": record.get("ms"),
+            }
+            attrs = {k: v for k, v in attrs.items() if v is not None}
+            span.set_attributes(attrs)
+            span.end()
+
+
 def set_sink(sink) -> None:
     """Install the process-global telemetry sink (replaces any prior sink)."""
     global _sink
