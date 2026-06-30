@@ -1,0 +1,76 @@
+"""Acceptance test for cld.status.render_status — the --status digest the lead agent reads.
+
+Pure function: a telemetry event stream (list of dicts) in -> a compact ASCII digest out.
+Deterministic `now` so elapsed is exact. cp1252-safe (the console-crash discipline).
+"""
+import datetime
+
+from cld.status import render_status
+
+_BASE = datetime.datetime(2026, 6, 30, 12, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+def _ts(offset_s):
+    return (_BASE + datetime.timedelta(seconds=offset_s)).isoformat()
+
+
+_NOW = _BASE + datetime.timedelta(seconds=60)
+
+
+def _events():
+    return [
+        {"type": "run_start", "run_id": "a1b2", "plan": "p.md", "ts": _ts(0)},
+        {"type": "layer_start", "layer": 0, "slice_ids": ["T1", "T2", "T3", "T4"],
+         "total": 3, "run_id": "a1b2", "ts": _ts(0)},
+        # T1 done (completed)
+        {"type": "slice_start", "slice_id": "T1", "run_id": "a1b2", "ts": _ts(1)},
+        {"type": "dispatch_start", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+         "rung": "workhorse", "attempt": 1, "source": "default", "run_id": "a1b2", "ts": _ts(1)},
+        {"type": "dispatch_end", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+         "rc": 0, "tokens": {"total": 1000}, "ms": 1200, "run_id": "a1b2", "ts": _ts(3)},
+        {"type": "judge_verdict", "slice_id": "T1", "passed": True, "attempt": 1,
+         "run_id": "a1b2", "ts": _ts(3)},
+        {"type": "slice_done", "slice_id": "T1", "status": "completed", "run_id": "a1b2", "ts": _ts(3)},
+        # T2 done (completed)
+        {"type": "slice_start", "slice_id": "T2", "run_id": "a1b2", "ts": _ts(3)},
+        {"type": "dispatch_start", "slice_id": "T2", "model": "antigravity:Gemini 3.1 Pro (High)",
+         "rung": "workhorse", "attempt": 1, "source": "default", "run_id": "a1b2", "ts": _ts(3)},
+        {"type": "dispatch_end", "slice_id": "T2", "model": "antigravity:Gemini 3.1 Pro (High)",
+         "rc": 0, "tokens": {"total": 2000}, "ms": 900, "run_id": "a1b2", "ts": _ts(5)},
+        {"type": "slice_done", "slice_id": "T2", "status": "completed", "run_id": "a1b2", "ts": _ts(5)},
+        # T3 RUNNING: dispatch_start at +13s, _NOW is +60s -> elapsed 47s. No slice_done.
+        {"type": "slice_start", "slice_id": "T3", "run_id": "a1b2", "ts": _ts(13)},
+        {"type": "dispatch_start", "slice_id": "T3", "model": "opencode:opencode/glm-5.2",
+         "rung": "workhorse", "attempt": 1, "source": "tag", "run_id": "a1b2", "ts": _ts(13)},
+        # T4 PENDING: in slice_ids, never started.
+    ]
+
+
+def test_render_status_reconstructs_build_state():
+    out = render_status(_events(), now=_NOW)
+    assert "a1b2" in out                         # run id
+    assert "1/3" in out                          # layer position (index 0 of 3)
+    assert "T3" in out                           # the in-flight slice
+    assert "opencode:opencode/glm-5.2" in out    # its model
+    assert "47s" in out                          # its elapsed (now - dispatch_start)
+    assert "2" in out                            # 2 slices done
+    assert ("3000" in out) or ("3k" in out)      # cumulative tokens (1000 + 2000)
+    assert "gate" in out.lower()                 # gate shown
+    out.encode("cp1252")                         # cp1252-safe: must not raise
+
+
+def test_render_status_pending_slice_counted():
+    out = render_status(_events(), now=_NOW)
+    # T4 is in the layer but never started -> surfaced as pending (1 pending)
+    assert "pending" in out.lower()
+
+
+def test_render_status_gate_from_run_done():
+    events = _events() + [{"type": "run_done", "gate": "passed", "run_id": "a1b2", "ts": _ts(70)}]
+    out = render_status(events, now=_NOW)
+    assert "passed" in out.lower()
+
+
+def test_render_status_empty_is_graceful():
+    out = render_status([])
+    assert out and "no events" in out.lower()  # degrades, never crashes

@@ -481,7 +481,7 @@ def main(argv=None) -> int:
             return 3
         idx, layer_ids, total = sel
         layer_slices = [s for s in slices if s.id in layer_ids]
-        telemetry.emit("layer_start", layer=idx, slice_ids=list(layer_ids))
+        telemetry.emit("layer_start", layer=idx, slice_ids=list(layer_ids), total=total)
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(
             layer_slices, ledger,
