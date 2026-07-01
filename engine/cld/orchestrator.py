@@ -10,7 +10,6 @@ from cld.executors.base import SliceTask
 from cld.judge import JudgeResult
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
 from cld.telemetry import emit
-from cld.tracing import record_dispatch
 from cld.worktree import worktree
 
 
@@ -107,7 +106,6 @@ def deliver_slice(
     max_retries: int = 2,
     workdir: str | None = None,
     model: str = "gemini-3.1-pro-preview",
-    tracer=None,
     test_runner: Callable[[str], str] | None = None,
     source: str | None = None,
     rung: str | None = None,
@@ -171,18 +169,6 @@ def deliver_slice(
         emit("judge_verdict", slice_id=task.id, passed=judge_result.passed,
              reason=("; ".join(_verdict_failing) if _verdict_failing else ""),
              attempt=attempt)
-
-        # Observability: record one span per dispatch (best-effort, never raises).
-        record_dispatch(
-            slice_id=task.id,
-            model=model,
-            token_usage=getattr(result, "token_usage", {}) or {},
-            accepted=judge_result.passed,
-            attempts=attempt,
-            diff_len=len(getattr(result, "diff", "") or ""),
-            failing_tests=getattr(judge_result, "failing_tests", []) or [],
-            tracer=tracer,
-        )
 
         if judge_result.passed:
             return DeliverResult(
