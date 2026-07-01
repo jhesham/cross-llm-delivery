@@ -58,7 +58,7 @@ export LANGFUSE_SECRET_KEY=sk-lf-...
 
 (Equivalent explicit form: `OTEL_EXPORTER_OTLP_ENDPOINT=$LANGFUSE_HOST/api/public/otel/v1/traces`
 plus `OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <base64(pk:sk)>"`.) This replaces the old
-bespoke Langfuse SDK setup (`langfuse-setup.md`) — one OTel path for every backend.
+bespoke Langfuse Python-SDK path — there is now one OTel path for every backend.
 
 ### Self-host (Grafana Tempo / Jaeger) and hosted (Honeycomb / Grafana Cloud)
 

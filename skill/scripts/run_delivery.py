@@ -67,19 +67,6 @@ def _default_provider() -> str:
     return spec.split(":", 1)[0] if ":" in spec else spec
 
 
-def _tracing_status() -> str:
-    """One-line ON/OFF status for Langfuse tracing, so the lead agent isn't told tracing is
-    'available' while it's silently inert. Tracing is live only when the langfuse package is
-    importable AND the LANGFUSE_* keys are set (record_dispatch no-ops otherwise)."""
-    from cld.tracing import Langfuse  # None when langfuse isn't installed
-    if Langfuse is None:
-        return "tracing: OFF (langfuse not installed)"
-    if os.environ.get("LANGFUSE_PUBLIC_KEY") and os.environ.get("LANGFUSE_SECRET_KEY"):
-        host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
-        return f"tracing: ON (langfuse -> {host})"
-    return "tracing: OFF (set LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY to enable; see references/langfuse-setup.md)"
-
-
 def _events_path(repo_dir: str) -> str:
     """The build's local event stream: <repo>/.cld/events.jsonl (gitignored scratch)."""
     return os.path.join(os.path.abspath(repo_dir), ".cld", "events.jsonl")
@@ -569,10 +556,6 @@ def main(argv=None) -> int:
                 args.executor = _default_spec()
         else:
             args.executor = _default_spec()
-
-    # Loud observability signal: tell the lead agent whether executor tracing is actually
-    # live (it's off-by-default and was silently inert when LANGFUSE_* keys are unset).
-    print(_tracing_status())
 
     if args.dry_run:
         from cld.dag import parallel_batches

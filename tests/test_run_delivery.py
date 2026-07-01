@@ -107,28 +107,6 @@ def test_pytest_test_runner_splits_test_selector(monkeypatch):
     assert "merge" in argv  # quotes stripped by shlex, expression is its own token
 
 
-def test_tracing_status_reports_on_off(monkeypatch):
-    import cld.tracing as tr
-    # langfuse not installed -> OFF, says so
-    monkeypatch.setattr(tr, "Langfuse", None, raising=False)
-    s = run_delivery._tracing_status()
-    assert "OFF" in s and "not installed" in s
-
-    # installed but no keys -> OFF, tells you which keys
-    monkeypatch.setattr(tr, "Langfuse", object, raising=False)
-    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
-    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
-    s = run_delivery._tracing_status()
-    assert "OFF" in s and "LANGFUSE_PUBLIC_KEY" in s
-
-    # installed + keys -> ON, shows host
-    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-x")
-    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-x")
-    monkeypatch.setenv("LANGFUSE_HOST", "https://h.example")
-    s = run_delivery._tracing_status()
-    assert "ON" in s and "h.example" in s
-
-
 def test_default_executor_resolves_to_a_registered_provider():
     # gemini was removed; a defaulted/empty executor spec must NOT resolve to a deleted
     # provider (the non-interactive --step fallback used to hardcode "gemini").

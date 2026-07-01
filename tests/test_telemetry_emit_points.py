@@ -84,6 +84,49 @@ def test_failing_slice_emits_retry_then_failed(tmp_path):
     assert sd["status"] == "failed"
 
 
+def test_status_is_fresh_mid_run(tmp_path):
+    """Spec P2: while a build is genuinely in-flight, polling the on-disk stream (as
+    `--status` does) shows the slice as RUNNING -- proving per-event flush + running-slice
+    reconstruction compose live, not just in isolation."""
+    import threading
+    from cld.telemetry import JsonlSink
+    from cld.status import render_status
+    import skill.scripts.run_delivery as rd
+
+    events_path = tmp_path / ".cld" / "events.jsonl"
+    events_path.parent.mkdir(parents=True)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    class _BlockingExec:
+        def run(self, task, workdir, feedback=None):
+            started.set()               # dispatch_start is already emitted + flushed by now
+            release.wait(timeout=5)      # hold the slice in-flight while the test polls
+            return ExecutorResult(ok=True, diff="+x", files_changed=[f"src/{task.id}.py"],
+                                  raw_log="1 passed", token_usage={"total": 10})
+
+    telemetry.set_sink(JsonlSink(str(events_path)))
+    telemetry.set_run_id("live1")
+    try:
+        led = Ledger(str(tmp_path / "l.json"))
+        task = SliceTask(id="T1", brief="b", files=["src/T1.py"], acceptance_test_path="t.py")
+        th = threading.Thread(target=lambda: run_plan_parallel(
+            [task], led, executor=_BlockingExec(), judge_fn=_judge,
+            test_runner=lambda *a: "1 passed", max_workers=1))
+        th.start()
+        try:
+            assert started.wait(timeout=5), "executor never started"
+            out = render_status(rd._read_event_stream(str(tmp_path)))  # exactly what --status reads
+            assert "T1" in out and "running" in out.lower()
+        finally:
+            release.set()
+            th.join(timeout=5)
+    finally:
+        telemetry.set_sink(None)
+        telemetry.set_run_id(None)
+
+
 def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
     """run_delivery --step installs the JsonlSink, writes .cld/events.jsonl with a stable
     run_id, and brackets the layer with run_start/layer_start/layer_done/run_done."""
