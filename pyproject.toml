@@ -5,10 +5,14 @@ description = "Route bulk implementation of large builds to a cheap executor LLM
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-dependencies = ["langfuse>=2.0"]
+dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "deepeval>=1.0"]
+# Dashboards (traces -> any OTLP backend: Phoenix / Langfuse / Honeycomb / Grafana).
+# Optional + guarded: absent SDK => OtelSink no-ops, the local JSONL stream is unaffected.
+otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+dev = ["pytest>=8", "deepeval>=1.0",
+       "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]

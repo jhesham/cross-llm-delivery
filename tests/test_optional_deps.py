@@ -1,7 +1,7 @@
 """The engine must import + run on a fresh machine WITHOUT the optional third-party
-deps (langfuse, deepeval). SKILL.md promises both "degrade to a no-op when absent" —
-this pins that contract by importing the engine in a subprocess where those packages
-are un-importable (simulating a clean install with only stdlib + an executor CLI).
+deps (deepeval for behavioral judging, opentelemetry for dashboards). Both "degrade to a
+no-op when absent" — this pins that contract by importing the engine in a subprocess where
+those packages are un-importable (simulating a clean install with only stdlib + an executor CLI).
 """
 import os
 import subprocess
@@ -16,7 +16,7 @@ def _run_blocked(probe: str):
         "import sys\n"
         "class _Block:\n"
         "    def find_spec(self, name, path=None, target=None):\n"
-        "        if name.split('.')[0] in ('langfuse', 'deepeval'):\n"
+        "        if name.split('.')[0] in ('langfuse', 'deepeval', 'opentelemetry'):\n"
         "            raise ImportError('blocked for test: ' + name)\n"
         "        return None\n"
         "sys.meta_path.insert(0, _Block())\n"
@@ -30,17 +30,17 @@ def _run_blocked(probe: str):
     )
 
 
-def test_orchestrator_imports_without_langfuse():
-    # orchestrator imports cld.tracing, which must not hard-require langfuse
+def test_orchestrator_imports_without_optional_deps():
+    # the engine must import cleanly with no third-party packages present
     r = _run_blocked("import cld.orchestrator; print('OK')\n")
     assert "OK" in r.stdout, (r.stdout + r.stderr)
 
 
-def test_record_dispatch_is_noop_without_langfuse():
+def test_telemetry_otel_sink_is_noop_without_opentelemetry():
+    # OtelSink must degrade to a no-op when opentelemetry isn't installed (guarded).
     probe = (
-        "from cld.tracing import record_dispatch\n"
-        "record_dispatch(slice_id='T', model='m', token_usage={}, accepted=True,\n"
-        "                attempts=1, diff_len=0, failing_tests=[])\n"   # must not raise
+        "from cld.telemetry import OtelSink\n"
+        "OtelSink(tracer=None).emit({'type': 'dispatch_start', 'slice_id': 'T'})\n"  # must not raise
         "print('OK')\n"
     )
     r = _run_blocked(probe)

@@ -119,7 +119,7 @@ The synchronous foreground `--step` stays the simple default.
 
 Per slice inside a layer: isolate (git worktree `slice-<id>`) -> executor implements -> the
 deterministic judge runs the REAL acceptance tests + diff-rule (failures feed back into a
-retry) -> accepted work is committed to its `slice-<id>` branch -> ledger updated + Langfuse span.
+retry) -> accepted work is committed to its `slice-<id>` branch -> ledger updated + telemetry event emitted.
 
 **Why batch-step:** running the whole loop in one unbroken context burns large amounts of the
 lead agent's tokens (every turn re-reads a growing context). Stepping one layer at a time keeps

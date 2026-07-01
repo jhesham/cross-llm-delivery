@@ -29,7 +29,8 @@ diffs are captured uniformly via `cld.executors._capture.capture_diff`.
 | `cld.dag` | `parallel_batches` / `topo_layers` / `has_cycle` — DAG layering |
 | `cld.integration_gate` | `integration_gate` — full-suite check after a batch merges |
 | `cld.behavioral` | `evaluate_compliance` — Claude-as-judge G-Eval (behavioral regime, no OpenAI) |
-| `cld.tracing` | `record_dispatch` — Langfuse span per dispatch (best-effort no-op) |
+| `cld.telemetry` | `emit`/`Sink`/`JsonlSink`/`OtelSink` — one structured event per lifecycle moment (local JSONL always; OTLP export opt-in) |
+| `cld.status` | `render_status` — the compact `--status` digest (layer/slices/tokens/cost/by-model/gate) |
 
 ## Two verification regimes
 
