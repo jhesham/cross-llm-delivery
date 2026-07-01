@@ -71,6 +71,24 @@ def test_render_status_gate_from_run_done():
     assert "passed" in out.lower()
 
 
+def test_render_status_defaults_now_for_real_elapsed():
+    # The CLI calls render_status(events) with NO `now`; elapsed must reflect wall-clock,
+    # not collapse to 0. Regression: a live --status showed `elapsed: 0s` while the slice
+    # had really been running 212s, because now=None flowed into the elapsed calc as 0.
+    import re
+    start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=60)
+    events = [
+        {"type": "layer_start", "layer": 0, "slice_ids": ["T1"], "total": 1, "ts": start.isoformat()},
+        {"type": "slice_start", "slice_id": "T1", "ts": start.isoformat()},
+        {"type": "dispatch_start", "slice_id": "T1", "model": "m", "rung": "workhorse",
+         "source": "default", "ts": start.isoformat()},
+    ]
+    out = render_status(events)  # no now= -> must default to wall clock
+    m = re.search(r"elapsed:\s*(\d+)s", out)
+    assert m, out
+    assert int(m.group(1)) >= 55  # ~60s; crucially NOT 0
+
+
 def test_render_status_empty_is_graceful():
     out = render_status([])
     assert out and "no events" in out.lower()  # degrades, never crashes

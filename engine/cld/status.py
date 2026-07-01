@@ -55,6 +55,10 @@ def render_status(
     events = list(events)
     if not events:
         return "no events"
+    # Default to wall-clock now so the CLI (`--status`, which passes no `now`) shows real
+    # elapsed for in-flight slices — without this, _elapsed_seconds sees now=None and returns 0.
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone.utc)
 
     run_id: "str | None" = None
     plan: "str | None" = None
