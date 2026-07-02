@@ -568,13 +568,19 @@ def plan_rungs(
     evidence: dict,
     available_ids: list[str],
     max_retries: int = 2,
+    entry_spec: str | None = None,
 ) -> list[tuple[str, str, int]]:
     """Return the ordered list of cheap executor rungs for a slice to climb.
 
     Each element is (rung_name, spec, budget).
     - Tagged slice (task.executor set): single pinned rung ("workhorse", spec, max_retries).
     - Untagged: build the chain from COMPLEXITY_ROUTING[task.complexity], de-dupe specs.
-    - Fallback: if nothing resolves, return [("workhorse", DEFAULT_WORKHORSE_ID, max_retries)].
+    - `entry_spec`: when the build's --executor names an EXPLICIT model (not a bare provider),
+      honor that model as the ENTRY rung instead of the tier-router's catalogued pick — so
+      `--executor opencode:opencode/kimi-k2.7-code` runs kimi, not a substituted workhorse.
+      Higher (escalation) rungs still tier-route. A bare-provider --executor (entry_spec=None)
+      keeps full complexity-routing.
+    - Fallback: if nothing resolves, return [("workhorse", entry_spec or DEFAULT_WORKHORSE_ID, ...)].
     """
     from cld.providers_api import load_providers, default_workhorse
     load_providers()
@@ -592,7 +598,11 @@ def plan_rungs(
     seen_specs: set[str] = set()
 
     for i, tier in enumerate(chain):
-        spec = resolve_tier_model(provider, tier, evidence=evidence, available_ids=available_ids)
+        # Entry rung honors the explicit --executor model; higher rungs tier-route for escalation.
+        if i == 0 and entry_spec:
+            spec = entry_spec
+        else:
+            spec = resolve_tier_model(provider, tier, evidence=evidence, available_ids=available_ids)
         if spec is None or spec in seen_specs:
             continue
         seen_specs.add(spec)
@@ -601,7 +611,7 @@ def plan_rungs(
         rungs.append((tier, spec, budget))
 
     if not rungs:
-        return [("workhorse", _default_workhorse_id, max_retries)]
+        return [("workhorse", entry_spec or _default_workhorse_id, max_retries)]
 
     return rungs
 
