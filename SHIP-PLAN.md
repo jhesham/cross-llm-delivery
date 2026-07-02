@@ -196,6 +196,31 @@
 
 ---
 
+## Reference: positioning (competitive research 2026-07-03 — bake into A1 README rewrite)
+
+Live ecosystem scan (two web-research sweeps) concluded: **publish — partially novel; the
+composition is differentiated, the ingredients are commodity.**
+- **Headline positioning:** "not another model router, not an AI council — a delivery pipeline
+  where COMMITTED FAILING TESTS, not an LLM, decide whether the cheap model's work merges."
+  Across ~30 tools surveyed, verification is LLM-judges-LLM / human review / post-hoc checks;
+  nobody commits the red acceptance test first and makes its exit code the merge gate.
+- **Unique combination to state:** TDD dispatch contract + allowed-files diff rule + judge-feedback
+  retries + model escalation ladder + per-model cost/OTel telemetry + flat-rate-subscription CLI
+  executors, packaged as a serverless Claude Code skill (no MCP server / tmux / proxy).
+- **Prior art to cite honestly in the README** (a comparison section builds credibility):
+  - aider architect/editor mode — the canonical two-model split; single session, API-billed, no
+    test-judge/worktrees/DAG. https://aider.chat/2024/09/26/architect.html
+  - Bernstein (~621★) — closest technical prior art: deterministic scheduler, worktrees, 44 CLI
+    adapters, real test gates, cost ladder. Differs: post-hoc verification (no committed-failing-test
+    contract), one-shot decomposition (no persistent architect/judge feedback), no allowed-files
+    rule. https://github.com/sipyourdrink-ltd/bernstein
+  - oh-my-claudecode (~37k★) — closest popular tool; has cursor-executors + Claude-verdict roles,
+    but LLM-driven verification, worktrees WIP, heavyweight tmux/npm runtime.
+  - claude-code-router (~35k★) — model swapper (cheap model replaces Claude), no architect/judge.
+  - Zen→PAL MCP — consultation/second-opinion architecture; dormant since Dec 2025.
+- **Expectation:** this is a quality-niche repo (Bernstein-scale traction), not a router-scale one.
+  Ship sooner rather than later — oh-my-claudecode is one release away from absorbing the pattern.
+
 ## Reference: review evidence (for the working agent — no need to re-audit)
 
 - Hygiene sweep (2026-07-03): NO secrets/keys/.env in tracked files; LICENSE (MIT, generic holder)
