@@ -212,6 +212,44 @@ def _otel_status_line() -> str:
                 "pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
 
 
+def _warn_unmerged_deps(repo_dir: str, slices: list, ledger: Ledger, next_layer_ids: list) -> None:
+    """Loud preflight for the caller-merge contract. Worktrees branch from HEAD; accepted slice
+    work lands on `slice-<id>` branches that the CALLER must merge before dependents run. If a
+    pending slice depends on a DONE slice whose branch is NOT merged into HEAD, that dependent's
+    worktree is dep-blind (missing the dep's code) -> it fails or rewrites the deps and gets
+    diff-rejected. Detect + warn (best-effort; never blocks the build)."""
+    try:
+        by_id = {s.id: s for s in slices}
+        needed = set()
+        for sid in next_layer_ids:
+            t = by_id.get(sid)
+            if t:
+                needed.update(getattr(t, "deps", None) or [])
+        unmerged = []
+        for dep in sorted(needed):
+            if not ledger.is_done(dep):
+                continue
+            br = f"slice-{dep}"
+            rc, _ = git_runner(["git", "rev-parse", "--verify", "--quiet", br], repo_dir)
+            if rc != 0:
+                continue  # branch gone (merged+deleted, or never created) -> can't flag it
+            rc, _ = git_runner(["git", "merge-base", "--is-ancestor", br, "HEAD"], repo_dir)
+            if rc != 0:  # not an ancestor of HEAD == accepted but unmerged
+                unmerged.append(dep)
+        if unmerged:
+            bar = "!" * 68
+            print(bar)
+            print(f"WARNING: {len(unmerged)} accepted slice(s) are NOT merged into your base "
+                  f"(HEAD): {', '.join(unmerged)}")
+            print("This layer's worktrees branch from HEAD and will be DEP-BLIND (missing that")
+            print("code) -> slices depending on them will fail or rewrite deps and be rejected.")
+            print("Merge the accepted branches into your base first, e.g.:")
+            print("   " + " && ".join(f"git merge slice-{d}" for d in unmerged))
+            print(bar)
+    except Exception:
+        pass
+
+
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Run a git command; return (returncode, combined output)."""
     proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
@@ -420,6 +458,12 @@ def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2
     to skip the store lookup (e.g. in tests).
     """
     provider = _provider_of_spec(default_spec)
+    # An EXPLICIT --executor model (e.g. opencode:opencode/kimi-k2.7-code) is a deliberate
+    # choice: honor it as the entry rung instead of letting complexity-routing swap in a
+    # catalogued workhorse (the silent-fallback bug). A bare-provider --executor names no
+    # model -> entry_spec stays None -> full tier-routing as before.
+    _name, _kw = parse_executor_spec(default_spec)
+    entry_spec = default_spec if _kw.get("model") else None
     if evidence is None:
         from cld.evidence import EvidenceStore
         evidence = EvidenceStore().statuses()
@@ -428,7 +472,7 @@ def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2
     def planner(task):
         from cld.models import plan_rungs
         return plan_rungs(task, provider=provider, evidence=evidence,
-                          available_ids=available, max_retries=max_retries)
+                          available_ids=available, max_retries=max_retries, entry_spec=entry_spec)
 
     return planner
 
@@ -581,6 +625,7 @@ def main(argv=None) -> int:
             return 3
         idx, layer_ids, total = sel
         layer_slices = [s for s in slices if s.id in layer_ids]
+        _warn_unmerged_deps(args.repo, slices, ledger, layer_ids)  # caller-merge preflight
         telemetry.emit("layer_start", layer=idx, slice_ids=list(layer_ids), total=total)
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(

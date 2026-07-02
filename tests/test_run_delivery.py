@@ -241,6 +241,18 @@ def test_build_rung_planner_untagged_uses_provider_workhorse():
     assert rungs == [("workhorse", "antigravity:Gemini 3.1 Pro (High)", 2)]
 
 
+def test_build_rung_planner_honors_explicit_model_at_entry():
+    # REGRESSION (asx-agent field report 2026-07-02): --executor with an EXPLICIT model must
+    # NOT be silently swapped for the catalogued workhorse. `opencode:opencode/kimi-k2.7-code`
+    # must run kimi, not deepseek-v4-pro. The entry rung carries the exact spec.
+    import skill.scripts.run_delivery as rd
+    from cld.executors.base import SliceTask
+    planner = rd.build_rung_planner("opencode:opencode/kimi-k2.7-code", evidence={})
+    rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
+                              complexity="standard"))
+    assert rungs[0][1] == "opencode:opencode/kimi-k2.7-code"
+
+
 def test_build_rung_planner_tagged_pins():
     import skill.scripts.run_delivery as rd
     from cld.executors.base import SliceTask
@@ -248,6 +260,47 @@ def test_build_rung_planner_tagged_pins():
     rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
                               executor="opencode:opencode/claude-opus-4-8"))
     assert rungs == [("workhorse", "opencode:opencode/claude-opus-4-8", 2)]
+
+
+def test_warn_unmerged_deps_flags_unmerged_accepted_slice(capsys, monkeypatch):
+    # Caller-merge preflight: a pending slice (T5) depends on a DONE slice (T2) whose
+    # slice-T2 branch exists but is NOT merged into HEAD -> warn loudly (dep-blind worktree).
+    import skill.scripts.run_delivery as rd
+    from cld.executors.base import SliceTask
+    from cld.ledger import Ledger
+
+    def fake_git(args, cwd):
+        if "rev-parse" in args:
+            return (0, "")   # slice-T2 branch exists
+        if "merge-base" in args:
+            return (1, "")   # NOT an ancestor of HEAD -> unmerged
+        return (0, "")
+
+    monkeypatch.setattr(rd, "git_runner", fake_git)
+    led = Ledger("x")
+    led.set("T2", status="done")
+    slices = [SliceTask(id="T2", brief="b", files=["a"], acceptance_test_path="t.py"),
+              SliceTask(id="T5", brief="b", files=["b"], acceptance_test_path="t.py", deps=["T2"])]
+    rd._warn_unmerged_deps(".", slices, led, ["T5"])
+    out = capsys.readouterr().out
+    assert "NOT merged" in out and "T2" in out and "git merge slice-T2" in out
+
+
+def test_warn_unmerged_deps_silent_when_merged(capsys, monkeypatch):
+    import skill.scripts.run_delivery as rd
+    from cld.executors.base import SliceTask
+    from cld.ledger import Ledger
+
+    def fake_git(args, cwd):
+        return (0, "")  # branch exists AND is an ancestor of HEAD -> merged
+
+    monkeypatch.setattr(rd, "git_runner", fake_git)
+    led = Ledger("x")
+    led.set("T2", status="done")
+    slices = [SliceTask(id="T2", brief="b", files=["a"], acceptance_test_path="t.py"),
+              SliceTask(id="T5", brief="b", files=["b"], acceptance_test_path="t.py", deps=["T2"])]
+    rd._warn_unmerged_deps(".", slices, led, ["T5"])
+    assert "NOT merged" not in capsys.readouterr().out
 
 
 def test_mark_repaired_marks_slice_done(tmp_path):

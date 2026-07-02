@@ -102,6 +102,21 @@ and act on the gate (the exit code):
 Re-invoking `--step` advances automatically (the ledger is the state). A partially-done layer
 re-runs only its non-`done` slices, so "fix T3 then continue" works by editing + re-`--step`.
 
+**IMPORTANT — merge accepted slices before the next `--step`.** Each slice runs in a worktree
+branched from your base branch's **HEAD**; accepted work is committed to a `slice-<id>` branch and is
+**NOT auto-merged**. You (the caller) must merge accepted `slice-*` branches into your base before
+running a later layer whose slices depend on them — otherwise those worktrees branch from a HEAD
+missing the deps' code, and the executor will fail on the missing imports (or rewrite the deps and be
+correctly diff-rejected for editing files outside its allowance). After a layer passes, merge its
+accepted slices, then re-`--step`:
+
+```bash
+git merge slice-T2 slice-T3 slice-T5   # the accepted slice branches from the layer
+```
+
+`--step` prints a **loud preflight warning** if it detects a pending slice depending on an accepted
+-but-unmerged slice, so a missed merge is caught before the wasted dispatch.
+
 **Live monitoring (optional -- background dispatch + poll).** To watch a multi-minute layer land
 slice-by-slice instead of blocking on it, dispatch in the BACKGROUND and poll the digest between
 turns:

@@ -93,7 +93,7 @@ def test_assembled_catalog_has_expected_ids():
     # the 16 catalogued models (opencode 7 + cursor 1 + antigravity 8; gemini + composer removed)
     assert "cursor:composer-2.5" in ids
     assert {"opencode/deepseek-v4-pro", "opencode/claude-opus-4-8",
-            "opencode/kimi-k2.7"} <= ids
+            "opencode/kimi-k2.7-code"} <= ids
     assert "antigravity:Gemini 3.1 Pro (High)" in ids
     assert "gemini:gemini-3.1-pro-preview" not in ids
     assert len(ids) == 16

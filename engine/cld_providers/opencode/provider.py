@@ -313,13 +313,14 @@ _OPENCODE_CATALOG = (
         tier="workhorse",
     ),
     ModelInfo(
-        id="opencode/kimi-k2.7",
+        id="opencode/kimi-k2.7-code",
         provider="opencode",
         cost_class="cheap-metered",
         capability_class="heavy",
         headless_status="untested",
         rework_risk="medium",
-        note="newer Kimi via OpenCode; validate before trusting headless",
+        note="Kimi K2.7 (code) via OpenCode/Zen gateway; the plain 'kimi-k2.7' id is stale. "
+             "Validate before trusting headless (evidence store carries live status).",
         tier="workhorse",
     ),
     ModelInfo(
