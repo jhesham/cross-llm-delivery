@@ -285,7 +285,7 @@ def test_catalog_has_kimi_and_sonnet_shortlist_entries():
 
 
 def test_catalog_has_kimi_k27_entry_mirroring_k26():
-    k27 = MODEL_METADATA["opencode/kimi-k2.7"]
+    k27 = MODEL_METADATA["opencode/kimi-k2.7-code"]
     assert k27.capability_class == "heavy"
     assert k27.cost_class == "cheap-metered"
     assert k27.headless_status == "untested"   # validate-first until proven
@@ -303,16 +303,16 @@ def test_recommend_surfaces_kimi_and_sonnet():
 
 def test_recommend_surfaces_kimi_k27_when_available():
     # When opencode reports k2.7 available, it appears in the shortlist (HEAVY bucket).
-    recs = recommend(available_ids=["opencode/kimi-k2.7", "opencode/kimi-k2.6"])
+    recs = recommend(available_ids=["opencode/kimi-k2.7-code", "opencode/kimi-k2.6"])
     by_id = {r.id: r for r in recs}
-    assert "opencode/kimi-k2.7" in by_id
-    assert by_id["opencode/kimi-k2.7"].bucket == "heavy"
+    assert "opencode/kimi-k2.7-code" in by_id
+    assert by_id["opencode/kimi-k2.7-code"].bucket == "heavy"
 
 
 def test_kimi_k27_hidden_until_available():
     # Catalogued but NOT in available_ids -> must not surface (no phantom shortlist row).
     recs = recommend(available_ids=["opencode/kimi-k2.6"])
-    assert "opencode/kimi-k2.7" not in [r.id for r in recs]
+    assert "opencode/kimi-k2.7-code" not in [r.id for r in recs]
 
 
 def test_cursor_composer_now_in_shortlist_after_validation():
@@ -407,9 +407,9 @@ def test_resolve_tier_model_untested_only_when_nothing_better():
     # kimi-k2.7 is untested workhorse; with no verified/likely available it's returned
     spec = resolve_tier_model(
         "opencode", "workhorse", evidence={},
-        available_ids=["opencode/kimi-k2.7"],
+        available_ids=["opencode/kimi-k2.7-code"],
     )
-    assert spec == "opencode:opencode/kimi-k2.7"
+    assert spec == "opencode:opencode/kimi-k2.7-code"
 
 
 # ---- T3: COMPLEXITY_ROUTING + plan_rungs ----
