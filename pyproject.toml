@@ -1,7 +1,7 @@
 [project]
 name = "cld"
 version = "0.1.0"
-description = "Route bulk implementation of large builds to a cheap executor LLM (Gemini) with Claude as architect + judge."
+description = "Route bulk implementation of large builds to cheap headless executor LLMs (opencode/antigravity/cursor) with Claude as architect + judge; committed failing tests are the merge gate."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"

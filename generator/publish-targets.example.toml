@@ -2,11 +2,10 @@
 # Copy this file to publish-targets.toml and fill in your real git remote URLs.
 # This file is NOT version-controlled; the real config is gitignored.
 
-# Provider-specific git remotes (one per executor model)
-gemini = "git@github.com:anthropic-ai/cross-llm-gemini.git"
-# cursor = "git@github.com:anthropic-ai/cross-llm-cursor.git"
-# opencode = "git@github.com:anthropic-ai/cross-llm-opencode.git"
-# composer = "git@github.com:anthropic-ai/cross-llm-composer.git"
+# Provider-specific git remotes (one per executor backend)
+antigravity = "git@github.com:you/cross-llm-antigravity.git"
+# opencode = "git@github.com:you/cross-llm-opencode.git"
+# cursor = "git@github.com:you/cross-llm-cursor.git"
 
 # Umbrella repository (published output aggregates all providers)
-all = "git@github.com:anthropic-ai/cross-llm-all.git"
+all = "git@github.com:you/cross-llm-all.git"

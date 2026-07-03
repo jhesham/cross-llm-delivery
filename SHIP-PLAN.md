@@ -19,16 +19,13 @@
 
 ## DECISIONS needed from the human (blockers for the tasks that reference them)
 
-- [ ] **D1 — Git history:** publish full history (exposes `jhesham@hotmail.com` on all 34 commits +
-      internal churn) **or squash to a clean initial commit**? *Recommendation: squash* (orphan
-      branch, single initial commit, noreply author identity). A8 is blocked until decided.
-- [ ] **D2 — Platform claim:** (a) validate antigravity+cursor on POSIX before shipping, or (b) ship
-      with an honest scope statement ("Windows-validated; opencode is the proven cross-platform
-      path; antigravity/cursor POSIX experimental")? *Recommendation: (b)* — (a) needs a mac/linux
-      machine and real accounts. A1/B3 wording depends on this.
-- [ ] **D3 — `docs/superpowers/` (535KB specs+plans history):** prune entirely, or sanitize and keep
-      a curated subset (e.g. the main design doc) as public design docs? *Recommendation: prune*
-      (lowest effort, zero leak risk; history survives in the private repo). A6 is blocked until decided.
+- [x] **D1 — Git history:** DECIDED 2026-07-03 (user delegated to recommendation): **squash** —
+      orphan branch, single initial commit, noreply author identity.
+- [x] **D2 — Platform claim:** DECIDED 2026-07-03 (delegated): **(b) honest scope statement** —
+      Windows-validated; opencode is the proven cross-platform path; antigravity/cursor POSIX
+      experimental.
+- [x] **D3 — `docs/superpowers/`:** DECIDED 2026-07-03 (delegated): **prune entirely** (history
+      survives in the private repo).
 
 ---
 
