@@ -129,7 +129,7 @@ def test_pick_executor_premium_requires_confirmation():
 
 def test_render_chat_picker_is_complete_dialog():
     # The agent-surface picker MUST be a single helper that emits the WHOLE dialog so
-    # the agent can't hand-assemble it wrong (the RAC-thread failure: shortlist + Other
+    # the agent can't hand-assemble it wrong (a live-build failure: shortlist + Other
     # but no 'Browse all models...'). render_chat_picker returns the verbatim shortlist
     # PLUS a numbered 'Browse all models...' PLUS a numbered 'Other' escape hatch.
     from cld.models import render_chat_picker, render_shortlist

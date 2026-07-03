@@ -1,12 +1,20 @@
 # cross-llm-delivery (`cld`)
 
-**Route the bulk implementation of a large software build to a cheap headless executor LLM
-(Gemini 3.1 Pro), while Claude acts as architect and judge.**
+**Route the bulk implementation of a large software build to a cheap headless executor LLM,
+while Claude acts as architect and judge — and let committed failing tests, not an LLM,
+decide whether the cheap model's work merges.**
 
 The expensive model does the *thinking* — decompose a build into vertical slices, fix the
 interface contracts, write the acceptance tests, judge each result. A cheap headless executor
-does the *typing* — implement each slice to make its tests pass. On a flat-rate executor plan
-the typing is effectively free, so you pay only for the high-leverage spec + judge work.
+CLI does the *typing* — implement each slice to make its tests pass. On a flat-rate executor
+plan the typing is effectively free, so you pay only for the high-leverage spec + judge work.
+
+This is **not another model router** (the smart model stays in charge) and **not an AI
+council** (no LLM votes on whether code is correct). Each slice ships with a
+**committed, failing acceptance test**; the judge runs the real test suite in an isolated
+git worktree and trusts the **exit code**. A diff rule rejects work that touches files
+outside the slice's allowance. Failures retry with structured judge feedback, then escalate
+up a model-cost ladder.
 
 > **For large builds only.** The per-dispatch overhead (workspace scan + spec) means
 > orchestration is a net loss on small fixes. Small work stays with the expensive model directly.
@@ -16,63 +24,117 @@ the typing is effectively free, so you pay only for the high-leverage spec + jud
 ## How it works
 
 ```
-plan (slices + contracts + acceptance tests + dependency DAG)
+plan (slices + contracts + committed failing acceptance tests + dependency DAG)
         │
         ▼
-  for each slice:  isolate (git worktree) → dispatch to executor → run pytest
-                   → judge against acceptance tests → record to ledger
+  for each slice:  isolate (git worktree) → dispatch to executor CLI → run pytest
+                   → judge on the REAL exit code + allowed-files diff rule
+                   → retry with judge feedback / escalate up the model ladder → ledger
         │
   independent slices (per the DAG) run in PARALLEL in separate worktrees
         │
-  after a batch merges → integration gate (full suite on the merged tree)
+  after a layer merges → integration gate (full suite on the merged tree)
 ```
 
 - **Vertical slices**, each independently testable, with stable contracts so a bad slice's
-  rework stays local. A slice may carry one level of `## SUBSLICE:` children, each independently
-  routed to its own executor/model/effort and run as ordered children of the parent.
-- **Two verification regimes:** deterministic (pytest pass/fail + a diff rule) and behavioral
-  (Claude-as-judge G-Eval, for quality that `==` can't capture).
-- **Resumable:** progress is persisted to a JSON ledger, so a stopped build resumes where it left off.
-- **Observable:** each dispatch emits a Langfuse span (best-effort; no-op without keys).
-- **Pluggable executor + model picker:** the proven Gemini workhorse is the default; an **OpenCode**
-  adapter exposes a catalog of additional models (deepseek, kimi, claude, gpt, …). An interactive
-  picker (or the `--executor name:model` flag) chooses per build, with cost-confirmation on metered
-  models and a validate-before-trust step for untested ones.
+  rework stays local. A slice may carry `## SUBSLICE:` children, each independently routed.
+- **Deterministic judging:** the acceptance tests are authored and committed (failing) *before*
+  dispatch. The judge runs them for real; pass/fail is the pytest exit code, never the
+  executor's self-report and never another LLM's opinion. A second, optional behavioral regime
+  (Claude-as-judge G-Eval) exists for qualities `==` can't capture.
+- **Allowed-files enforcement:** a slice that edits outside its declared files is rejected,
+  even if its tests pass — this is what stops a confused executor from rewriting your deps.
+- **Escalation ladder:** untagged slices route by complexity to the cheapest viable model and
+  climb (cheap → workhorse → heavy) on failure; every switch is recorded with its reason.
+- **Resumable:** progress persists to a JSON ledger; a stopped build resumes where it left off.
+- **Observable:** every lifecycle moment emits a structured event to `.cld/events.jsonl`;
+  `--status` prints a compact digest (layer position, in-flight slices + elapsed, tokens,
+  **cost by model**, gate) and `--watch` repaints it live. Opt-in OpenTelemetry export sends
+  the same events to any OTLP backend (Phoenix, Langfuse, Grafana, Honeycomb) — see
+  [skill/references/observability.md](skill/references/observability.md).
+
+## How it compares
+
+| Tool | Pattern | Verification |
+|---|---|---|
+| **cld** (this) | Claude architects + judges; cheap executor CLIs implement slices in worktrees | **Committed failing tests; real exit code; diff rule** |
+| aider architect/editor | two-model split inside one interactive session | post-edit fix loop, no test contract |
+| claude-code-router | swaps Claude Code's backend for a cheap model | none — the smart model is *replaced*, not supervising |
+| Zen/PAL MCP, CLI-bridge MCPs | Claude consults/dispatches other models | LLM review / none |
+| swarm frameworks (claude-flow etc.) | many agents, consensus voting | LLM-judges-LLM |
+| Bernstein | deterministic scheduler + CLI adapters + worktrees | post-hoc signals — no pre-agreed test contract, no persistent judge feedback |
+
+If you want the smart model *out* of the loop, use a router. If you want opinions, use a
+council. If you want cheap implementation your test suite can hold accountable, use this.
 
 ---
 
 ## Prerequisites
 
-1. **Python ≥ 3.11.**
-2. **The Gemini CLI**, installed and authenticated:
-   ```bash
-   npm install -g @google/gemini-cli
-   gemini -p "say hello"   # should return output, confirming auth
-   ```
-   The executor runs headless and needs the workspace trusted — `cld` sets
-   `GEMINI_CLI_TRUST_WORKSPACE=true` and passes `--yolo --skip-trust` for you.
-3. **Git** (worktree isolation runs `git worktree add/remove`).
-4. *Optional:* `ANTHROPIC_API_KEY` to enable behavioral (G-Eval) judging; `LANGFUSE_PUBLIC_KEY` /
-   `LANGFUSE_SECRET_KEY` (+ optional `LANGFUSE_HOST`) to enable trace emission. Both degrade to
-   no-ops when absent — nothing breaks without them.
+1. **Python ≥ 3.11** and **git** (worktree isolation runs `git worktree add/remove`).
+2. **[Claude Code](https://claude.com/claude-code)** — the output of this repo is a Claude Code
+   *skill*; Claude is the architect/judge that drives it.
+3. **At least one executor CLI** (Node/npm-based; install the one whose plan you already pay for):
+   - **OpenCode** (`npm install -g opencode-ai`) — model catalog incl. free-tier models for $0
+     runs; the proven **cross-platform** path.
+   - **Antigravity** (`agy`) — Google's agentic CLI; flat-rate with a Google AI subscription.
+   - **cursor-agent** — Cursor's CLI; flat-rate with a Cursor subscription.
+4. *Optional:* `ANTHROPIC_API_KEY` for behavioral (G-Eval) judging; an OTLP endpoint or
+   `LANGFUSE_*` keys for dashboard traces. Everything degrades to a no-op when absent.
+
+## Platform support
+
+- **Windows: validated.** All three providers have run real multi-slice builds headless
+  (including the Windows-specific fixes that made that true: shim-bypass, stdin detachment,
+  console-encoding safety).
+- **macOS / Linux: engine, generator, and test suite are portable** (plain Python; CI runs
+  both OSes). The **opencode** provider has a clean POSIX dispatch path and is the
+  recommended non-Windows executor. **antigravity and cursor on POSIX are experimental** —
+  their dispatch handling was engineered against Windows CLI behavior and hasn't been
+  live-validated elsewhere. Reports welcome.
 
 ---
 
 ## Install
 
 ```bash
-git clone <your-fork-url> cross-llm-delivery
+git clone <this-repo-url> cross-llm-delivery
 cd cross-llm-delivery
-python -m pip install -e ".[dev]"   # runtime + test deps
-python -m pytest                     # should pass
+python -m pip install -e ".[dev]"   # engine + test deps (otel extras included in dev)
+python -m pytest                     # should pass; no API keys or executor CLIs needed
 ```
+
+## Generate + install a provider skill
+
+The monorepo ships a **generator** that produces self-contained, per-provider Claude Code
+skills — `cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`. Each generated
+skill needs **no pip install** (the engine is vendored into `scripts/cld/`).
+
+```bash
+python generator/build_skill.py --all        # or: build_skill.py opencode
+```
+
+(Windows convenience wrapper for a clean rebuild: `pwsh ./rebuild-skills.ps1`.)
+
+Then copy the one you want into your Claude Code skills directory:
+
+```bash
+# macOS / Linux
+cp -r dist/cross-llm-opencode ~/.claude/skills/cross-llm-opencode
+
+# Windows (PowerShell)
+Copy-Item -Recurse dist\cross-llm-opencode "$env:USERPROFILE\.claude\skills\cross-llm-opencode"
+```
+
+`dist/` is gitignored build output — always regenerate; never rely on a stale copy. Full
+fresh-machine steps: [INSTALL.md](INSTALL.md).
 
 ---
 
 ## Quickstart
 
-1. **Write a plan.** A markdown file with one block per slice (see
-   `skill/examples/demo-plan.md` for a worked example):
+1. **Write a plan.** One markdown block per slice (worked example:
+   [skill/examples/demo-plan.md](skill/examples/demo-plan.md)):
 
    ```
    ## SLICE: T1
@@ -88,46 +150,45 @@ python -m pytest                     # should pass
    deps: T1
    ```
 
-   Author the acceptance tests first (committed, failing) — they are the objective contract the
-   executor is judged against. See `skill/references/authoring-plans.md` for how to write good slices.
+   **Author the acceptance tests first (committed, failing).** They are the objective contract
+   the executor is judged against. See
+   [skill/references/authoring-plans.md](skill/references/authoring-plans.md).
 
-2. **Preview the schedule** (no dispatch):
+2. **Preview the schedule** (no dispatch): `python skill/scripts/run_delivery.py plan.md --dry-run`
 
-   ```bash
-   python skill/scripts/run_delivery.py path/to/plan.md --dry-run
-   ```
-
-3. **Run it — one DAG layer at a time (recommended):**
+3. **Run one DAG layer at a time (recommended):**
 
    ```bash
-   python skill/scripts/run_delivery.py path/to/plan.md --repo . --step
+   python skill/scripts/run_delivery.py plan.md --repo . --step --workers 4
    ```
 
-   `--step` runs only the next pending layer (independent slices fan out concurrently in
-   isolated worktrees), then exits with a gate code: **0** = layer all-passed (re-invoke for
-   the next), **2** = some slices failed/deferred (inspect / retry / edit / skip), **3** =
-   build complete. Re-invoking advances automatically — the ledger is the state — so this is
-   resumable and keeps the orchestrator's context small between layers.
+   Exit codes gate the loop: **0** layer passed (merge the accepted `slice-<id>` branches, then
+   re-invoke), **2** some slices failed, **3** build complete, **4** a slice needs orchestrator
+   repair. The ledger is the state — re-running resumes automatically.
 
-   To run the whole plan in one shot instead, drop `--step` and pass `--workers N`.
+   > **Merge before the next layer:** accepted work lands on `slice-<id>` branches; worktrees
+   > branch from HEAD, so merge accepted slices into your base before running a dependent
+   > layer. `--step` warns loudly if you forget.
 
-   Re-run either form to resume — already-done slices are skipped via the ledger.
+4. **Watch it live:**
 
-   **Choosing the executor/model.** Omit `--executor` and (on a TTY) you get an interactive
-   picker — the proven Gemini workhorse is the default; `Browse all models…` opens a unified
-   drill-down index across executors (executor → provider → model → effort, with search and a
-   headless-only filter). Or pass it explicitly: `--executor gemini`, `--executor gemini:<model-id>`,
-   `--executor opencode:<provider/model>`, or `--executor cursor:<model>` (optionally with an
-   `@effort` suffix). A per-slice `executor:` tag in the plan overrides the build default for that
-   one slice. `--per-slice-pick` re-prompts at each slice (default is pick-once-and-stick).
-   `--usage` prints a combined usage table (this build's ledger + OpenCode/Cursor account info)
-   and exits.
+   ```bash
+   python skill/scripts/run_delivery.py --status --repo .   # one-shot digest (agents poll this)
+   python skill/scripts/run_delivery.py --watch --repo .    # repainting terminal view
+   ```
+
+**Choosing the executor/model.** Omit `--executor` on a TTY for the interactive picker, or pass
+it explicitly: `--executor opencode:<provider/model>`, `--executor antigravity:<model>`,
+`--executor cursor:<model>` (optional `@effort` suffix). An explicit model is honored verbatim;
+a per-slice `executor:` tag overrides the build default for that slice. Metered models get a
+cost confirmation; uncatalogued ones get a validate-before-trust probe. `--usage` prints a
+combined cost/usage table.
 
 ### As a Claude Code skill
 
-The `skill/` directory is a self-contained Claude Code skill. Point Claude Code at it (or package
-it with `skill-creator`) and trigger it with a plan — Claude handles decomposition and judging,
-the skill drives the executor.
+Install a generated `dist/cross-llm-<provider>/` skill (above) and ask Claude Code to run a
+build with it — Claude authors the plan + acceptance tests, drives `--step`, reads `--status`,
+and handles gate-4 repairs. The skill's `SKILL.md` carries the full workflow.
 
 ---
 
@@ -135,121 +196,43 @@ the skill drives the executor.
 
 | Knob | Where | Default |
 |---|---|---|
-| Executor / model | `--executor` (`gemini`, `gemini:<model>`, `opencode:<provider/model>`, `cursor:<model>`, optional `@effort`); interactive picker if omitted on a TTY | proven Gemini workhorse |
-| Per-slice executor | `executor:` tag on a `## SLICE:` or `## SUBSLICE:` block (overrides the build default for that slice) | inherits build default |
-| Re-pick each slice | `--per-slice-pick` | off (pick once, stick) |
-| Workflow | `--step` (one DAG layer at a time) vs. whole-plan (`--workers N`) | — |
-| Judge model (behavioral) | `cld.behavioral.make_compliance_metric(judge_model=...)` | `claude-sonnet-4-6` |
-| Parallelism | `--workers` on `run_delivery.py` | 4 |
-| Quota throttle | `run_plan_parallel(quota_check=, quota_threshold=)` | off / 95 |
+| Executor / model | `--executor <name>[:<model>][@effort]`; interactive picker if omitted on a TTY | provider default workhorse |
+| Per-slice executor | `executor:` tag on a `## SLICE:`/`## SUBSLICE:` block | inherits build default |
+| Workflow | `--step` (one DAG layer at a time) vs. whole-plan | — |
+| Parallelism | `--workers` | 4 |
 | Ledger path | `--ledger` | `.cld-ledger.json` |
-| Usage report | `--usage` (ledger + OpenCode account stats; no dispatch) | — |
-
----
-
-## Cross-platform notes
-
-- The engine is **plain Python** (threads, dataclasses, subprocess) and runs on macOS, Linux, and
-  Windows. The Gemini CLI is Node-based and also cross-platform (no WSL needed on Windows).
-- `verify.ps1` is a PowerShell convenience wrapper for Windows. On macOS/Linux, run the equivalent
-  directly: `python -m pytest`.
-- Paths in examples are relative; nothing is tied to a specific machine.
+| Telemetry stream | always on → `<repo>/.cld/events.jsonl` | local JSONL |
+| Dashboards | `OTEL_EXPORTER_OTLP_ENDPOINT` or `LANGFUSE_PUBLIC_KEY`+`LANGFUSE_SECRET_KEY` | off |
+| Status / watch | `--status`, `--watch [--interval N]` | — |
+| Usage report | `--usage` | — |
+| Judge model (behavioral) | `cld.behavioral.make_compliance_metric(judge_model=...)` | `claude-sonnet-4-6` |
 
 ---
 
 ## Project layout
 
 ```
-src/cld/            the engine (executor, judge, orchestrator, ledger, dag, gate, ...)
-skill/              the Claude Code skill (SKILL.md, scripts, references, examples)
-tests/              the test suite
-docs/superpowers/   design doc + master build plan
+engine/cld/             the engine (orchestrator, judge, ledger, dag, telemetry, status, ...)
+engine/cld_providers/   one package per executor backend (antigravity, opencode, cursor)
+generator/              builds self-contained per-provider skills into dist/
+skill/                  skill template, scripts (run_delivery.py), references, examples
+tests/                  the test suite (default run needs no API keys or CLIs)
 ```
 
-## Status
+The provider registry takes further drop-in adapters — one `cld_providers/<name>/` package
+each (catalog + executor + skill fragment).
 
-The engine and skill are complete and tested. The behavioral-eval judge uses Claude (no OpenAI
-dependency). Three executors ship today, all live-validated headless:
-- **Antigravity** (`antigravity:<model>`) — the default workhorse (`antigravity:Gemini 3.1 Pro (High)`,
-  flat-rate); also exposes Claude + GPT-OSS models.
-- **OpenCode** (`opencode:<provider/model>`) — catalog + picker for deepseek/kimi/claude/gpt/… ;
-  has free-tier models for $0 runs.
-- **Cursor** (`cursor:<model>`, including Composer via `cursor:composer-2.5`) — wired end-to-end;
-  long-prompt headless dispatch works via direct-node on Windows.
+## Publishing your own mirrors (optional)
 
-The executor registry takes further drop-in adapters (one `cld_providers/<name>/` package each).
-
----
-
-## Per-provider skills
-
-This monorepo is the single source for the engine and all provider adapters. It ships a
-**generator** that produces self-contained, per-provider Claude Code skills — one skill per
-executor backend (`cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`, …). Each
-generated skill requires no `pip install` and carries only the provider code it needs.
-
-> The old unified multi-provider skill (`skill/`) is **superseded** by the per-provider skills
-> described here. New installs should use the per-provider workflow below.
-
-### Generate a skill
-
-Live providers: **antigravity** (default workhorse), **opencode**, **cursor**.
-
-```bash
-# one provider
-python generator/build_skill.py antigravity
-
-# all providers at once
-python generator/build_skill.py --all
-```
-
-Each run writes a self-contained skill to `dist/cross-llm-<provider>/` (vendored engine +
-provider adapter + references + composed `SKILL.md`). No pip install is needed inside the
-generated skill — the engine is vendored into `scripts/cld/`.
-
-**`dist/` is gitignored build output — always regenerate it; never rely on a checked-out copy.**
-The one-shot clean rebuild is `pwsh ./rebuild-skills.ps1` (wipes `dist/` then runs `--all`).
-For install steps on a fresh machine, see [INSTALL.md](INSTALL.md).
-
-### Install a provider skill
-
-Copy the generated folder into your Claude Code skills directory:
-
-```bash
-# macOS / Linux
-cp -r dist/cross-llm-antigravity ~/.claude/skills/cross-llm-antigravity
-
-# Windows (PowerShell)
-Copy-Item -Recurse dist\cross-llm-antigravity "$env:USERPROFILE\.claude\skills\cross-llm-antigravity"
-```
-
-Alternatively, install directly from a published mirror repo (one repo per provider, tagged
-`v<VERSION>`) or from the `cross-llm-all` umbrella (bundles every provider as subdirectories).
-
-### Publish to mirror repos
-
-`generator/publish.py` pushes each generated skill to its own remote mirror repo and tags the
-commit. Dry-run by default; pass `--execute` to push for real.
-
-```bash
-# preview what would be pushed (no network)
-python generator/publish.py
-
-# push to all mirrors + the umbrella (requires publish-targets.toml)
-python generator/publish.py --execute
-```
-
+`generator/publish.py` can push each generated skill to its own mirror repo and tag it.
 Configure targets in `publish-targets.toml` (gitignored; copy from
-`generator/publish-targets.example.toml`):
+`generator/publish-targets.example.toml`), preview with `python generator/publish.py`,
+push with `--execute`.
 
-```toml
-gemini  = "git@github.com:you/cross-llm-gemini.git"
-opencode = "git@github.com:you/cross-llm-opencode.git"
-cursor  = "git@github.com:you/cross-llm-cursor.git"
-all     = "git@github.com:you/cross-llm-all.git"
-```
+## Known issues
 
----
+See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for current limitations (per-provider cost reporting
+scope, cursor upstream long-prompt defect, telemetry stream lifecycle).
 
 ## License
 
