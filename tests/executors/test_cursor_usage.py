@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cld.executors.cursor import parse_cursor_usage
 
-_SAMPLE = Path(__file__).resolve().parents[2] / "docs" / "notes" / "cursor-run-sample.json"
+_SAMPLE = Path(__file__).resolve().parents[1] / "fixtures" / "cursor-run-sample.json"
 
 
 def test_parses_real_sample_tokens():

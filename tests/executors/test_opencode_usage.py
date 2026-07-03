@@ -2,7 +2,7 @@
 
 OpenCode `--format json` is JSONL: one event per line. Tokens live on the
 step_finish event at part.tokens {total,input,output,reasoning,cache}. Multiple
-step_finish events (multi-step runs) must be summed. See docs/notes/opencode-cli-notes.md.
+step_finish events (multi-step runs) must be summed. Fixture captured from a real multi-step opencode run.
 """
 
 from pathlib import Path
@@ -10,8 +10,7 @@ from pathlib import Path
 from cld.executors.opencode import parse_opencode_usage
 
 # tests/executors/test_opencode_usage.py -> repo root is parents[2]
-_SAMPLE = (Path(__file__).resolve().parents[2] / "docs" / "notes" /
-           "opencode-run-sample.json")
+_SAMPLE = (Path(__file__).resolve().parents[1] / "fixtures" / "opencode-run-sample.json")
 
 
 def test_parses_real_sample_tokens():
