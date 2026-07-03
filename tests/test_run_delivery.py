@@ -242,7 +242,7 @@ def test_build_rung_planner_untagged_uses_provider_workhorse():
 
 
 def test_build_rung_planner_honors_explicit_model_at_entry():
-    # REGRESSION (asx-agent field report 2026-07-02): --executor with an EXPLICIT model must
+    # REGRESSION (live-build field report): --executor with an EXPLICIT model must
     # NOT be silently swapped for the catalogued workhorse. `opencode:opencode/kimi-k2.7-code`
     # must run kimi, not deepseek-v4-pro. The entry rung carries the exact spec.
     import skill.scripts.run_delivery as rd
