@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "cld"
 version = "0.1.0"
@@ -13,6 +17,9 @@ dependencies = []
 otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
 dev = ["pytest>=8", "deepeval>=1.0",
        "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+
+[tool.setuptools.packages.find]
+where = ["engine"]  # the importable packages (cld, cld_providers) live under engine/
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]
