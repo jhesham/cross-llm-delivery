@@ -24,6 +24,7 @@ Exit code 0 if all slices accepted (or already done), 1 otherwise.
 import argparse
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -400,6 +401,63 @@ def build_executor_factory():
     return factory
 
 
+def _resolve_cli(cmd: str) -> str | None:
+    """Return a usable CLI path/name if cmd exists on this machine, else None."""
+    if not cmd:
+        return None
+    if os.path.isfile(cmd):
+        return cmd
+    found = shutil.which(cmd)
+    return found if found else None
+
+
+def _executor_cli_status() -> dict[str, str | None]:
+    """Machine-independent contract: resolved CLI command per provider, or None if absent."""
+    from cld_providers.antigravity.provider import _agy_cmd
+    from cld_providers.cursor.provider import _cursor_invocation
+    from cld_providers.opencode.provider import _oc_cmd
+
+    status: dict[str, str | None] = {}
+    status["antigravity"] = _resolve_cli(_agy_cmd())
+    status["opencode"] = _resolve_cli(_oc_cmd())
+
+    inv = _cursor_invocation()
+    if len(inv) == 1:
+        status["cursor"] = _resolve_cli(inv[0])
+    else:
+        node, script = inv[0], inv[1]
+        node_ok = _resolve_cli(node) if not os.path.isabs(node) else (node if os.path.isfile(node) else None)
+        status["cursor"] = script if node_ok and os.path.isfile(script) else None
+
+    return status
+
+
+def _install_hint(provider: str) -> str:
+    """One-line install guidance for a missing executor CLI."""
+    hints = {
+        "antigravity": "Install Antigravity and ensure `agy` is on PATH (or set AGY_CMD).",
+        "opencode": "Install OpenCode: npm install -g opencode-ai (or set OPENCODE_CLI_CMD).",
+        "cursor": "Install Cursor and ensure `cursor-agent` is on PATH (or set CURSOR_AGENT_CMD).",
+    }
+    return hints.get(provider, f"Install the {provider} CLI.")
+
+
+def _preflight_executor(spec: str) -> str | None:
+    """Return None if the spec's provider CLI is present; else a human-readable error message."""
+    provider = _provider_of_spec(spec)
+    status = _executor_cli_status()
+    if status.get(provider):
+        return None
+
+    msg = (f"Executor CLI not found for provider '{provider}'. "
+           f"{_install_hint(provider)}")
+    installed = [p for p, cmd in status.items() if cmd]
+    if installed:
+        alt = installed[0]
+        msg += f" Alternatively, use an installed provider: --executor {alt}"
+    return msg
+
+
 def _provider_of_spec(spec: str) -> str:
     """Extract the executor provider name from an --executor spec.
 
@@ -608,6 +666,11 @@ def main(argv=None) -> int:
         for i, layer in enumerate(parallel_batches(deps)):
             print(f"  layer {i}: {', '.join(layer)}")
         return 0
+
+    preflight_err = _preflight_executor(args.executor or _default_spec())
+    if preflight_err:
+        print(preflight_err)
+        return 2
 
     # Install the local telemetry stream (zero-config) + emit run_start on a fresh build.
     ledger = Ledger.load(args.ledger)
