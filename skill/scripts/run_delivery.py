@@ -35,6 +35,13 @@ from pathlib import Path
 # NO pip install. Harmless in the monorepo (where `cld` is already importable via
 # the engine pythonpath) -- it just prepends this dir, which has no `cld` there.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Monorepo shim: when run from a fresh clone (skill/scripts/run_delivery.py) without
+# `pip install -e .`, the engine lives at <repo>/engine — put it on sys.path too so the
+# documented `python skill/scripts/run_delivery.py ... --dry-run` works out of the box.
+_engine_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "engine")
+if os.path.isdir(os.path.join(_engine_dir, "cld")):
+    sys.path.insert(1, _engine_dir)
 
 from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
