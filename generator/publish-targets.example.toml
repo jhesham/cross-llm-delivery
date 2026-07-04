@@ -1,0 +1,11 @@
+# Publish targets configuration
+# Copy this file to publish-targets.toml and fill in your real git remote URLs.
+# This file is NOT version-controlled; the real config is gitignored.
+
+# Provider-specific git remotes (one per executor backend)
+antigravity = "git@github.com:you/cross-llm-antigravity.git"
+# opencode = "git@github.com:you/cross-llm-opencode.git"
+# cursor = "git@github.com:you/cross-llm-cursor.git"
+
+# Umbrella repository (published output aggregates all providers)
+all = "git@github.com:you/cross-llm-all.git"

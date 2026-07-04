@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cld"
+version = "0.1.0"
+description = "Route bulk implementation of large builds to cheap headless executor LLMs (opencode/antigravity/cursor) with Claude as architect + judge; committed failing tests are the merge gate."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Dashboards (traces -> any OTLP backend: Phoenix / Langfuse / Honeycomb / Grafana).
+# Optional + guarded: absent SDK => OtelSink no-ops, the local JSONL stream is unaffected.
+otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+dev = ["pytest>=8", "deepeval>=1.0",
+       "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+
+[tool.setuptools.packages.find]
+where = ["engine"]  # the importable packages (cld, cld_providers) live under engine/
+
+[tool.pytest.ini_options]
+pythonpath = ["engine"]
+# Default run is fast/offline/deterministic: deselect behavioral evals (which call
+# a live LLM). Run them explicitly with `pytest -m eval` (needs OPENAI_API_KEY).
+addopts = "-q -m 'not eval'"
+markers = [
+    "eval: behavioral eval that calls a live LLM judge (deepeval); needs an API key. Excluded from default run.",
+    "integration: exercises REAL git/subprocess (temp repo + real runner) — the coverage fake-runner unit tests miss. Fast; runs by default. Deselect with -m 'not integration' if git is unavailable.",
+]
+# Scope root collection to the cld package's own tests. The Phase-0 `smoketest/`
+# tree is a self-contained sandbox (its own pyproject + a deliberately-unfinished
+# slice) and must not be collected by the root verify run.
+testpaths = ["tests"]
