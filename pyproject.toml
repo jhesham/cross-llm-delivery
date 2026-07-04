@@ -15,7 +15,7 @@ dependencies = []
 # Dashboards (traces -> any OTLP backend: Phoenix / Langfuse / Honeycomb / Grafana).
 # Optional + guarded: absent SDK => OtelSink no-ops, the local JSONL stream is unaffected.
 otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
-dev = ["pytest>=8", "deepeval>=1.0",
+dev = ["pytest>=8", "deepeval>=1.0", "anthropic>=0.30",
        "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
 
 [tool.setuptools.packages.find]
