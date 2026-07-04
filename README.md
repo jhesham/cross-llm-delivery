@@ -1,5 +1,9 @@
 # cross-llm-delivery (`cld`)
 
+[![CI](https://github.com/jhesham/cross-llm-delivery/actions/workflows/ci.yml/badge.svg)](https://github.com/jhesham/cross-llm-delivery/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jhesham/cross-llm-delivery)](https://github.com/jhesham/cross-llm-delivery/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Route the bulk implementation of a large software build to a cheap headless executor LLM,
 while Claude acts as architect and judge — and let committed failing tests, not an LLM,
 decide whether the cheap model's work merges.**
@@ -15,6 +19,10 @@ council** (no LLM votes on whether code is correct). Each slice ships with a
 git worktree and trusts the **exit code**. A diff rule rejects work that touches files
 outside the slice's allowance. Failures retry with structured judge feedback, then escalate
 up a model-cost ladder.
+
+`cld` builds parts of itself this way: its telemetry subsystem and its executor preflight were
+implemented by the cheap executors it orchestrates, each slice gated by acceptance tests written
+and committed (failing) first — verifiable in this repo's history.
 
 > **For large builds only.** The per-dispatch overhead (workspace scan + spec) means
 > orchestration is a net loss on small fixes. Small work stays with the expensive model directly.
@@ -53,6 +61,31 @@ plan (slices + contracts + committed failing acceptance tests + dependency DAG)
   the same events to any OTLP backend (Phoenix, Langfuse, Grafana, Honeycomb) — see
   [skill/references/observability.md](skill/references/observability.md).
 
+## What driving it looks like
+
+Real output, unedited, from builds of this repo and a 16-slice application build. Each `--step`
+runs one DAG layer and exits with a gate code the orchestrator (or you) acts on:
+
+```
+LAYER 1 of 2  --  done
+  S1  + pass   1 file (+75)   attempt 1
+GATE: 1 passed, 0 failed, 0 need repair.
+NEXT: layer 2 -> [S2]
+```
+
+At any point, `--status` reconstructs live build state from the telemetry stream — including
+**which model ran which slice, why, and what it cost** (flat-rate rows show $0.00; the metered
+detour is attributed exactly):
+
+```
+cld status - run cc695749  (CLD_PLAN.md)
+layer 2/6  done: 1  pending: 0  running: 0  tokens: 1271830  cost: $0.24
+by model:
+  cursor:composer-2.5  slices: T5,T2,T8,T3,T4,T10,T15,T17,T11,T9,T7,T6  tokens: 678694  cost: $0.00  source: default
+  opencode:opencode/deepseek-v4-pro  slices: T15  tokens: 593136  cost: $0.24  source: default
+gate: --
+```
+
 ## The design stance
 
 There are many good ways to combine models — routers that swap the assistant's backend for a
@@ -70,6 +103,59 @@ that coordinate whole swarms. `cld` makes four narrower choices:
 - **Narrow on purpose.** `cld` is a delivery pipeline, not a platform — one pattern
   (plan → dispatch → judge → merge), done deterministically, designed to slot into whatever
   workflow you already run.
+
+## Safety rails (what happens when the cheap model goes wrong)
+
+Delegation is only as good as its guardrails. These all exist because something went wrong in a
+real build and the rail caught it:
+
+- **Allowed-files rejection.** A slice that edits files outside its declared allowance is
+  rejected *even if its tests pass*. (Live case: an executor hit missing dependencies in its
+  isolated worktree and "helpfully" rewrote 12 dependency files — tests green, diff rejected.)
+- **Nothing is lost on rejection.** A rejected slice's full diff is preserved to
+  `.cld/<slice>/<slice>.patch` before its worktree is removed — recoverable with `git apply`.
+- **Judge verdicts are auditable.** Every attempt's raw pytest output is saved to
+  `.cld/<slice>/judge-output.txt`, so a rejection is never a mystery.
+- **Preflights, not tracebacks.** Before dispatching, `cld` checks the executor CLI actually
+  resolves (friendly message + installed alternatives if not) and warns loudly if a pending
+  layer depends on accepted-but-unmerged slice branches (the dep-blind-worktree trap).
+- **Escalation is bounded and visible.** A failing slice retries with judge feedback, then
+  climbs the model ladder; every switch is a telemetry event with its reason (`source`).
+
+## Providers & models
+
+Three executor providers ship today. Each carries a vendored catalog with a **cost class** and a
+**validation status** — `cld` won't quietly trust an unproven model: uncatalogued or untested
+models get a **validate-before-trust probe** (one trivial slice, judged for real) before a build
+commits to them, with outcomes recorded in a local evidence store
+(`~/.cld/validation-evidence.json`).
+
+| Provider | Cost model | Catalog highlights | Proven in real builds¹ |
+|---|---|---|---|
+| **antigravity** (`agy`) | flat-rate (Google AI sub) | Gemini 3.1 Pro (default workhorse), Gemini 3.5 Flash tiers, Claude Sonnet/Opus (Thinking), GPT-OSS 120B | Gemini 3.1 Pro (High) |
+| **opencode** | free tier + cheap/premium metered | deepseek-v4 (incl. a **free** tier), kimi-k2.7-code, GLM-5.x², Gemini 3.1 Pro, Claude Sonnet/Opus | kimi-k2.7-code, deepseek-v4-pro, gemini-3.1-pro, GLM-5.2 |
+| **cursor** | subscription | composer-2.5 | composer-2.5 (16-slice application build) |
+
+¹ *"Proven" = accepted real slices in live builds during this tool's development (real pytest
+gates, worktree isolation) — including the dogfood builds where these executors implemented parts
+of `cld` itself. Validation statuses live in a machine-local evidence store; on your machine, the
+validate-before-trust probe re-establishes them automatically.*
+² *Uncatalogued models (e.g. `opencode/glm-5.2`) are usable via an explicit per-slice `executor:`
+tag; the probe covers them too.*
+
+New providers are drop-in: one `cld_providers/<name>/` package (catalog + executor + skill
+fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Is this for you?
+
+- ✅ **Yes** — if your build is big enough to decompose into vertical slices whose acceptance
+  can be expressed as committed tests, and you're paying for (or can get) one of the executor
+  CLIs anyway.
+- ❌ **No** — for small fixes and one-file changes: the per-dispatch overhead outweighs the
+  savings. Keep those with your main assistant.
+- ❌ **No** — if the work's acceptance can't be captured in tests (pure exploration, visual
+  polish, "make it feel nicer"): the deterministic judge would have nothing to hold, and the
+  optional Claude-as-judge behavioral regime is a complement, not a substitute.
 
 ---
 
@@ -224,7 +310,8 @@ tests/                  the test suite (default run needs no API keys or CLIs)
 ```
 
 The provider registry takes further drop-in adapters — one `cld_providers/<name>/` package
-each (catalog + executor + skill fragment).
+each (catalog + executor + skill fragment). For the module-by-module map, see
+[skill/references/architecture.md](skill/references/architecture.md).
 
 ## Publishing your own mirrors (optional)
 
