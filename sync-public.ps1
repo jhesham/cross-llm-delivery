@@ -34,6 +34,20 @@ if ($dirty) { Write-Host "ABORT: working tree has uncommitted changes - commit t
 $branch = git branch --show-current
 if ($branch -ne "master") { Write-Host "ABORT: run from master (currently on '$branch')."; exit 1 }
 
+# --- 0.5 refresh committed plugin skills (repo doubles as a plugin marketplace) --------------
+# Regenerate dist -> plugins/ so the committed plugin content never drifts from the engine.
+# build_plugins.py normalizes the sha banner, so this is a no-op unless real content changed.
+Write-Host "[0/5] refreshing plugins/ from the engine..."
+python generator/build_skill.py --all *> $null
+if ($LASTEXITCODE -ne 0) { Write-Host "ABORT: generator failed."; exit 1 }
+python generator/build_plugins.py
+if ($LASTEXITCODE -ne 0) { Write-Host "ABORT: build_plugins failed."; exit 1 }
+if (git status --porcelain -- plugins) {
+    git add plugins
+    git commit -q -m "chore: refresh committed plugin skills from engine"
+    Write-Host "      plugins/ changed - auto-committed refresh."
+}
+
 # --- 1. local test gate ---------------------------------------------------------------------
 if (-not $SkipTests) {
     Write-Host "[1/5] pytest gate..."
