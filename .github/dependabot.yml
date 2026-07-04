@@ -8,3 +8,5 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # our >= constraints are intentional MINIMUMS - only propose bumps a resolver actually needs
+    versioning-strategy: increase-if-necessary
