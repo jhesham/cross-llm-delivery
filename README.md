@@ -53,19 +53,34 @@ plan (slices + contracts + committed failing acceptance tests + dependency DAG)
   the same events to any OTLP backend (Phoenix, Langfuse, Grafana, Honeycomb) — see
   [skill/references/observability.md](skill/references/observability.md).
 
-## How it compares
+## Where this fits (and what it pairs well with)
 
-| Tool | Pattern | Verification |
-|---|---|---|
-| **cld** (this) | Claude architects + judges; cheap executor CLIs implement slices in worktrees | **Committed failing tests; real exit code; diff rule** |
-| aider architect/editor | two-model split inside one interactive session | post-edit fix loop, no test contract |
-| claude-code-router | swaps Claude Code's backend for a cheap model | none — the smart model is *replaced*, not supervising |
-| Zen/PAL MCP, CLI-bridge MCPs | Claude consults/dispatches other models | LLM review / none |
-| swarm frameworks (claude-flow etc.) | many agents, consensus voting | LLM-judges-LLM |
-| Bernstein | deterministic scheduler + CLI adapters + worktrees | post-hoc signals — no pre-agreed test contract, no persistent judge feedback |
+Multi-model development is a rich space, and several excellent tools solve adjacent problems.
+`cld` occupies one deliberately narrow niche — **batch implementation you can hold accountable
+with tests you wrote first** — and it composes happily with the rest:
 
-If you want the smart model *out* of the loop, use a router. If you want opinions, use a
-council. If you want cheap implementation your test suite can hold accountable, use this.
+- **[aider](https://aider.chat)** pioneered the architect/editor split for interactive pairing —
+  the same philosophy `cld` applies to planned batch builds. Many people will want both: aider
+  for hands-on sessions, `cld` when a build is big enough to decompose and delegate.
+- **[claude-code-router](https://github.com/musistudio/claude-code-router)** pulls a different
+  cost lever: it makes *the assistant's own turns* cheaper by routing them to other models.
+  `cld` keeps Claude in the driver's seat and makes *the implementation* cheap instead — the
+  two approaches are independent and can even be used together.
+- **[PAL MCP](https://github.com/BeehiveInnovations/pal-mcp-server)** and the CLI-bridge MCP
+  servers excel at multi-model *consultation* — second opinions, cross-model reviews, debate.
+  A natural pairing: consult before you plan, then hand the agreed plan to `cld` to deliver.
+- **Swarm/orchestration platforms** (e.g. [ruflo](https://github.com/ruvnet/ruflo),
+  [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)) offer broad multi-agent
+  workflow suites, of which executor delegation is one feature among many. `cld` is the
+  opposite trade: a single-purpose delivery pipeline you can drop into any workflow.
+- **[Bernstein](https://github.com/sipyourdrink-ltd/bernstein)** shares `cld`'s conviction that
+  agent output should be gated on real signals rather than opinions, with its own emphasis
+  (deterministic scheduling, a wide CLI-adapter catalog, audit trails). If that framing
+  resonates, it's well worth a look too.
+
+What `cld` itself brings to that table: the **acceptance tests are committed, failing, before
+dispatch** — so the merge gate is a pytest exit code plus an allowed-files diff rule, with
+judge feedback carried into retries and an escalation ladder when the cheap model isn't enough.
 
 ---
 
