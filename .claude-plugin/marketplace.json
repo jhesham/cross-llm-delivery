@@ -1,0 +1,24 @@
+{
+  "name": "cross-llm-delivery",
+  "owner": {
+    "name": "jhesham"
+  },
+  "description": "Delegate bulk implementation to cheap executor CLIs with Claude as architect + judge - committed failing tests are the merge gate.",
+  "plugins": [
+    {
+      "name": "cross-llm-opencode",
+      "source": "./plugins/cross-llm-opencode",
+      "description": "OpenCode CLI executor (free/cheap-metered models: deepseek, kimi, GLM, ...). The proven cross-platform provider."
+    },
+    {
+      "name": "cross-llm-antigravity",
+      "source": "./plugins/cross-llm-antigravity",
+      "description": "Antigravity (agy) executor - flat-rate Gemini/Claude models with a Google AI subscription. Windows-validated."
+    },
+    {
+      "name": "cross-llm-cursor",
+      "source": "./plugins/cross-llm-cursor",
+      "description": "Cursor cursor-agent executor (composer-2.5) with a Cursor subscription. Windows-validated."
+    }
+  ]
+}

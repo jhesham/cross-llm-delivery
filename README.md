@@ -187,14 +187,28 @@ fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Install
 
+### Easiest: as a Claude Code plugin (two commands)
+
+This repo doubles as a plugin marketplace. In Claude Code:
+
+```
+/plugin marketplace add jhesham/cross-llm-delivery
+/plugin install cross-llm-opencode@cross-llm-delivery     # or -antigravity / -cursor
+```
+
+Install the plugin matching the executor CLI you use (see Providers & models above). Updates
+flow with `/plugin marketplace update` — every push to this repo is a new installable version.
+
+### From source (for development, or to generate skills yourself)
+
 ```bash
-git clone <this-repo-url> cross-llm-delivery
+git clone https://github.com/jhesham/cross-llm-delivery
 cd cross-llm-delivery
 python -m pip install -e ".[dev]"   # engine + test deps (otel extras included in dev)
 python -m pytest                     # should pass; no API keys or executor CLIs needed
 ```
 
-## Generate + install a provider skill
+## Generate + install a provider skill (source route)
 
 The monorepo ships a **generator** that produces self-contained, per-provider Claude Code
 skills — `cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`. Each generated
