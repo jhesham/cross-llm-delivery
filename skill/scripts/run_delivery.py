@@ -449,6 +449,23 @@ def _install_hint(provider: str) -> str:
     return hints.get(provider, f"Install the {provider} CLI.")
 
 
+def _is_git_repo(repo: str) -> bool:
+    """Return True if repo is inside a git work tree."""
+    rc, _ = git_runner(["git", "rev-parse", "--is-inside-work-tree"], repo)
+    return rc == 0
+
+
+def _preflight_git(repo: str) -> str | None:
+    """Return None if git is on PATH and repo is a git repository; else an actionable message."""
+    if not shutil.which("git"):
+        return ("Git is not installed or not on PATH. Install git to use worktree isolation "
+                "(https://git-scm.com/downloads).")
+    if not _is_git_repo(repo):
+        return (f"Not a git repository: {os.path.abspath(repo)}. "
+                "Run `git init` in the target --repo directory first.")
+    return None
+
+
 def _preflight_executor(spec: str) -> str | None:
     """Return None if the spec's provider CLI is present; else a human-readable error message."""
     provider = _provider_of_spec(spec)
@@ -677,6 +694,11 @@ def main(argv=None) -> int:
     preflight_err = _preflight_executor(args.executor or _default_spec())
     if preflight_err:
         print(preflight_err)
+        return 2
+
+    git_err = _preflight_git(args.repo)
+    if git_err:
+        print(git_err)
         return 2
 
     # Install the local telemetry stream (zero-config) + emit run_start on a fresh build.
