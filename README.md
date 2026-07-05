@@ -161,7 +161,10 @@ fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Prerequisites
 
-1. **Python ≥ 3.11** and **git** (worktree isolation runs `git worktree add/remove`).
+1. **Python ≥ 3.11** and **git** (any modern git — worktree isolation runs `git worktree
+   add/remove`, built into git since 2.5; nothing extra to install). The target you build in
+   must be a git repo — run `git init` first if it isn't. `cld` checks both at startup and tells
+   you if either is missing.
 2. **[Claude Code](https://claude.com/claude-code)** — the output of this repo is a Claude Code
    *skill*; Claude is the architect/judge that drives it.
 3. **At least one executor CLI** (Node/npm-based; install the one whose plan you already pay for):

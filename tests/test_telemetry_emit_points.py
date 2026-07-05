@@ -148,9 +148,10 @@ def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
         return r
 
     monkeypatch.setattr(rd, "run_plan_parallel", fake_rpp)
-    # Neutralize the executor-CLI preflight: this test is about the event stream, and must
-    # pass on machines (e.g. CI) where no executor CLI is installed.
+    # Neutralize the preflights: this test is about the event stream, and must pass on machines
+    # (e.g. CI, tmp dirs) with no executor CLI installed and no git repo at the target path.
     monkeypatch.setattr(rd, "_preflight_executor", lambda spec: None)
+    monkeypatch.setattr(rd, "_preflight_git", lambda repo: None)
     try:
         rc = rd.main([str(plan), "--repo", str(tmp_path), "--ledger", str(tmp_path / "l.json"),
                       "--executor", "antigravity", "--step", "--workers", "1"])
