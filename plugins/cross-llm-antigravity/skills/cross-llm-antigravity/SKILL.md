@@ -1,4 +1,4 @@
-<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.1.0) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.2.0) - do not edit here; edit the monorepo source. -->
 ---
 name: cross-llm-antigravity
 description: >-

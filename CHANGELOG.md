@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.2.0 — 2026-07-06
+
 ### Added
 - **Self-hosted plugin marketplace** — the repo now doubles as a Claude Code marketplace:
   `/plugin marketplace add jhesham/cross-llm-delivery` then `/plugin install
