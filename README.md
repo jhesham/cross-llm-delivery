@@ -189,15 +189,24 @@ fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Easiest: as a Claude Code plugin (two commands)
 
-This repo doubles as a plugin marketplace. In Claude Code:
+This repo doubles as a plugin marketplace. In Claude Code, add it once:
 
 ```
 /plugin marketplace add jhesham/cross-llm-delivery
-/plugin install cross-llm-opencode@cross-llm-delivery     # or -antigravity / -cursor
 ```
 
-Install the plugin matching the executor CLI you use (see Providers & models above). Updates
-flow with `/plugin marketplace update` — every push to this repo is a new installable version.
+then install **the provider(s) whose CLI you have** — there are three, pick any:
+
+```
+/plugin install cross-llm-opencode@cross-llm-delivery       # free/cheap models, works everywhere
+/plugin install cross-llm-antigravity@cross-llm-delivery    # flat-rate, needs a Google AI sub
+/plugin install cross-llm-cursor@cross-llm-delivery         # Composer, needs a Cursor sub
+```
+
+(First time? Install just **cross-llm-opencode** — it has free models and is the proven
+cross-platform path.) You still need that provider's CLI installed + logged in — see
+[Prerequisites](#prerequisites). Updates flow with `/plugin marketplace update`; every push to
+this repo is a new installable version.
 
 ### From source (for development, or to generate skills yourself)
 
@@ -232,6 +241,39 @@ Copy-Item -Recurse dist\cross-llm-opencode "$env:USERPROFILE\.claude\skills\cros
 
 `dist/` is gitignored build output — always regenerate; never rely on a stale copy. Full
 fresh-machine steps: [INSTALL.md](INSTALL.md).
+
+---
+
+## Using it — "it's installed, now what?"
+
+`cld` is a **skill**, not a slash command that runs a build. You don't type a magic command —
+you **talk to Claude Code** and it drives the pipeline. The skill is knowledge Claude loads so
+it knows *how* to plan, dispatch, and judge.
+
+The whole flow is one conversation:
+
+1. **Plan** — describe what you want; let Claude (the architect) design it as vertical slices
+   with committed acceptance tests. For example:
+   > *"I want to build a CSV-import module with validation and tests. Help me plan it as slices
+   > with acceptance tests I can commit."*
+
+2. **Delegate** — once the plan and its (failing) tests are committed, hand the build to the
+   skill by naming it:
+   > *"Now use **cross-llm-opencode** to run this plan."*
+   > *(or `cross-llm-antigravity` / `cross-llm-cursor` — whichever you installed.)*
+
+   Claude loads that skill and drives the build: each slice runs on the cheap executor in an
+   isolated worktree, the real tests decide pass/fail, failures retry and escalate — and Claude
+   reports the gate after each layer so you can steer.
+
+3. **Watch (optional)** — for a long build, ask Claude to run it in the background and poll
+   `--status`, or run it yourself:
+   ```bash
+   python skill/scripts/run_delivery.py --status --repo .
+   ```
+
+That's it: **plan with Claude → say "use cross-llm-\<provider\> to run it" → Claude delivers and
+judges.** Everything below is the detail behind those three steps.
 
 ---
 
@@ -288,11 +330,9 @@ a per-slice `executor:` tag overrides the build default for that slice. Metered 
 cost confirmation; uncatalogued ones get a validate-before-trust probe. `--usage` prints a
 combined cost/usage table.
 
-### As a Claude Code skill
-
-Install a generated `dist/cross-llm-<provider>/` skill (above) and ask Claude Code to run a
-build with it — Claude authors the plan + acceptance tests, drives `--step`, reads `--status`,
-and handles gate-4 repairs. The skill's `SKILL.md` carries the full workflow.
+The commands above are what the skill runs under the hood — when you [use it as a
+skill](#using-it--its-installed-now-what), Claude issues them for you and interprets the gate
+codes. Run them by hand for a source checkout or to drive a build yourself.
 
 ---
 
