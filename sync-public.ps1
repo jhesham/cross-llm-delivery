@@ -48,6 +48,20 @@ if (git status --porcelain -- plugins) {
     Write-Host "      plugins/ changed - auto-committed refresh."
 }
 
+# --- 0.9 changelog nudge (non-blocking) -----------------------------------------------------
+# Release notes are built by keeping CHANGELOG.md [Unreleased] current as changes land.
+# Warn (don't block) if user-facing files changed but CHANGELOG didn't, so it doesn't drift.
+$sinceTag = git describe --tags --abbrev=0 2>$null
+if ($sinceTag) {
+    $touched = git diff --name-only "$sinceTag..HEAD"
+    $userFacing = $touched | Where-Object { $_ -match '^(engine/|skill/|generator/|README|INSTALL|\.claude-plugin/)' }
+    $changelogTouched = $touched | Where-Object { $_ -eq 'CHANGELOG.md' }
+    if ($userFacing -and -not $changelogTouched) {
+        Write-Host "NOTE: user-facing changes since $sinceTag but CHANGELOG.md [Unreleased] not updated." -ForegroundColor Yellow
+        Write-Host "      (non-blocking - add a line so the next release note writes itself.)"
+    }
+}
+
 # --- 1. local test gate ---------------------------------------------------------------------
 if (-not $SkipTests) {
     Write-Host "[1/5] pytest gate..."
