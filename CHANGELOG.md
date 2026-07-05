@@ -1,5 +1,36 @@
 # Changelog
 
+Format: [Keep a Changelog](https://keepachangelog.com). Add lines under **Unreleased** as
+changes land; on a release, rename that section to the version + date. Plugin installs track
+`main` per-commit; release tags are human milestones.
+
+## [Unreleased]
+
+### Added
+- **Self-hosted plugin marketplace** — the repo now doubles as a Claude Code marketplace:
+  `/plugin marketplace add jhesham/cross-llm-delivery` then `/plugin install
+  cross-llm-<provider>@cross-llm-delivery`. Three per-provider plugins; every push is a new
+  installable version.
+- **"Using it" guide** in the README — the conversational flow (plan with Claude → "use
+  cross-llm-<provider> to run this plan" → Claude delivers + judges).
+- **Git preflight** — a missing `git` or a non-git target now aborts with a clear message
+  (install hint / `git init`) instead of a raw traceback on the first slice.
+
+### Changed
+- README depth pass: badges, real `--status`/gate output samples, a "Safety rails" section, a
+  providers/models table with validation status, an honest "Is this for you?" filter, and a
+  neutral design-stance section (no comparative claims about other projects).
+
+### Fixed
+- `--status` elapsed time was always `0s` from the CLI (now defaults to wall-clock).
+- `--executor <provider>:<model>` with an explicit model is honored verbatim instead of being
+  silently routed to a catalogued workhorse; stale `kimi-k2.7` catalog id → `kimi-k2.7-code`.
+- First CodeQL scan findings (read-only CI workflow token); clean-machine CI failures.
+
+### Security
+- Enabled repo secret scanning + push protection, private vulnerability reporting, CodeQL,
+  Dependabot; neutral commit identity enforced.
+
 ## 0.1.0 — 2026-07-03 (initial public release)
 
 - **Provider-blind engine** (`engine/cld/`): orchestrator with DAG layering + parallel dispatch,
