@@ -23,7 +23,7 @@ $ErrorActionPreference = "Stop"
 $RepoDir  = $PSScriptRoot
 $Remote   = "public"                       # git remote for github.com/jhesham/cross-llm-delivery
 $PublicBr = "public"                       # local public branch (pushed as main)
-$Excludes = @("SHIP-PLAN.md", "sync-public.ps1")   # internal files: never on the public tree
+$Excludes = @("SHIP-PLAN.md", "sync-public.ps1", "release.ps1")   # internal files: never on the public tree
 $Identity = @{ n = "cross-llm-delivery"; e = "cross-llm-delivery@users.noreply.github.com" }
 
 Set-Location $RepoDir
