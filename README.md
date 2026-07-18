@@ -143,8 +143,14 @@ validate-before-trust probe re-establishes them automatically.*
 ² *Uncatalogued models (e.g. `opencode/glm-5.2`) are usable via an explicit per-slice `executor:`
 tag; the probe covers them too.*
 
-New providers are drop-in: one `cld_providers/<name>/` package (catalog + executor + skill
-fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+**New models need no code changes.** Any model your executor CLI exposes works today — run the
+CLI's own model listing (e.g. `opencode models`) and pass the exact id via
+`--executor provider:model` or a per-slice `executor:` tag; the validate-before-trust probe
+covers models `cld` hasn't seen. The catalog above is curated recommendations, not a gate — so
+when a provider ships a new model, you don't wait for this repo to catch up.
+
+New **provider CLIs** are drop-in: one `cld_providers/<name>/` package (catalog + executor +
+skill fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Is this for you?
 

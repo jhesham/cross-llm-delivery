@@ -16,6 +16,10 @@ python -m pytest            # default run: no API keys or executor CLIs needed
 - `engine/cld/` — the provider-blind engine (orchestrator, judge, ledger, dag, telemetry, status).
 - `engine/cld_providers/<name>/` — one package per executor backend (catalog + executor +
   skill fragment). Adding a provider = adding one package that registers via `providers_api`.
+  - **Adding a model** usually needs no code at all: any id the CLI exposes works via
+    `--executor provider:model` / a slice `executor:` tag. A catalog `ModelInfo(...)` line is
+    only for models worth recommending in the picker/routing — a fine one-line first PR, ideally
+    after you've validated the model in a real build (the note field should say what you saw).
 - `generator/` — builds self-contained per-provider skills into `dist/` (**generated — never
   edit `dist/` by hand**).
 - `skill/` — the skill template (`SKILL.template.md`), driver script (`run_delivery.py`),

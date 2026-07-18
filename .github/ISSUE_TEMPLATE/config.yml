@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / idea / show-and-tell
+    url: https://github.com/jhesham/cross-llm-delivery/discussions
+    about: For usage questions, ideas, and sharing what you built — Discussions is the right place.
+  - name: "Want a new model? You probably don't need an issue"
+    url: https://github.com/jhesham/cross-llm-delivery#providers--models
+    about: Any model your executor CLI exposes already works via `--executor provider:model` or a per-slice `executor:` tag — the catalog is just curated recommendations. New provider CLIs do need an adapter (see issue #13).
