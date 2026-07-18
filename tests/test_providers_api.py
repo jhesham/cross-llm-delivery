@@ -90,13 +90,13 @@ def test_assembled_catalog_has_expected_ids():
     from cld.providers_api import load_providers, _REGISTRY, catalog
     _REGISTRY.clear(); load_providers()
     ids = set(catalog())
-    # the 16 catalogued models (opencode 7 + cursor 1 + antigravity 8; gemini + composer removed)
+    # the 17 catalogued models (opencode 8 + cursor 1 + antigravity 8)
     assert "cursor:composer-2.5" in ids
     assert {"opencode/deepseek-v4-pro", "opencode/claude-opus-4-8",
-            "opencode/kimi-k2.7-code"} <= ids
+            "opencode/kimi-k2.7-code", "opencode/glm-5.2"} <= ids
     assert "antigravity:Gemini 3.1 Pro (High)" in ids
     assert "gemini:gemini-3.1-pro-preview" not in ids
-    assert len(ids) == 16
+    assert len(ids) == 17
 
 
 def test_default_workhorse_prefers_antigravity():

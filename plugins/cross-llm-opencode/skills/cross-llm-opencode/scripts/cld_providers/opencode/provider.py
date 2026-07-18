@@ -313,6 +313,17 @@ _OPENCODE_CATALOG = (
         tier="workhorse",
     ),
     ModelInfo(
+        id="opencode/glm-5.2",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="workhorse",
+        headless_status="verified",
+        rework_risk="low",
+        note="validated in real builds (telemetry subsystem dogfood: 5+ slices, all attempt-1); "
+             "strong docstrings/defensive code. Windows-validated.",
+        tier="workhorse",
+    ),
+    ModelInfo(
         id="opencode/kimi-k2.7-code",
         provider="opencode",
         cost_class="cheap-metered",

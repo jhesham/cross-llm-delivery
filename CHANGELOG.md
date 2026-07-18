@@ -12,6 +12,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
   failing-test-first convention, and issue links routing questions to Discussions.
 
 ### Changed
+- Catalogued `opencode/glm-5.2` (validated in real dogfood builds: 5+ slices, all attempt-1) —
+  it now appears in the picker and routing instead of requiring a manual tag.
 - README/CONTRIBUTING now state explicitly that **new models need no code changes** — any id the
   executor CLI exposes works via `--executor`/slice tags with the validate-before-trust probe;
   the catalog is curated recommendations only.
