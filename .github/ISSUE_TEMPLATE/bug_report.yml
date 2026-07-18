@@ -1,0 +1,31 @@
+name: Bug report
+description: Something didn't work — a dispatch failed, a judge verdict looks wrong, a preflight misfired.
+labels: ["bug"]
+body:
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Python version, provider + model spec used
+      placeholder: "Windows 11 / Python 3.12 / opencode:opencode/deepseek-v4-pro"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran and what went wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: --status output
+      description: Run `python skill/scripts/run_delivery.py --status --repo <dir>` and paste the digest (it names the run, slice, model, and gate).
+      render: text
+  - type: textarea
+    id: judge
+    attributes:
+      label: Judge output (if a verdict looks wrong)
+      description: Paste the tail of `.cld/<slice>/judge-output.txt` — it contains the raw pytest output the judge actually saw.
+      render: text
