@@ -6,6 +6,16 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Added
+- Community scaffolding: SECURITY.md (private vulnerability reporting + threat-model notes),
+  bug-report issue form (asks for `--status` + judge output up front), PR template carrying the
+  failing-test-first convention, and issue links routing questions to Discussions.
+
+### Changed
+- README/CONTRIBUTING now state explicitly that **new models need no code changes** — any id the
+  executor CLI exposes works via `--executor`/slice tags with the validate-before-trust probe;
+  the catalog is curated recommendations only.
+
 ## 0.2.0 — 2026-07-06
 
 ### Added
