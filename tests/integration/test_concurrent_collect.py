@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors._capture import capture_diff
 from cld.ledger import Ledger
 from cld.orchestrator import run_plan_parallel
 from tests.integration.harness import init_repo, real_git_runner
@@ -34,10 +35,8 @@ class RealFileExecutor:
             dest = Path(workdir) / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(f"# {task.id}\nVALUE = '{task.id}'\n", encoding="utf-8")
-        real_git_runner(["git", "add", "--intent-to-add", "-A"], str(workdir))
-        _, names = real_git_runner(["git", "diff", "HEAD", "--name-only"], str(workdir))
-        files = [ln.strip() for ln in names.splitlines() if ln.strip()]
-        return ExecutorResult(ok=True, diff="d", files_changed=files,
+        diff, files = capture_diff(real_git_runner, str(workdir))
+        return ExecutorResult(ok=True, diff=diff, files_changed=files,
                               token_usage={}, raw_log="")
 
 
@@ -72,7 +71,7 @@ def test_concurrent_slices_isolated_and_collected(git_repo):
         test_runner=_always_pass_runner,
     )
 
-    assert sorted(result.completed) == ["A", "B"]
+    assert sorted(result.completed) == ["A", "B"], result.details
 
     files_a = _branch_file_list(repo, "slice-A")
     files_b = _branch_file_list(repo, "slice-B")

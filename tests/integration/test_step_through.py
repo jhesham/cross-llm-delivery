@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors._capture import capture_diff
 from cld.ledger import Ledger
 from cld.orchestrator import next_pending_layer, run_plan_parallel
 from cld.summary import summarize_layer
@@ -20,10 +21,8 @@ class RealFileExecutor:
             p = Path(workdir) / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(f"# {task.id}\n", encoding="utf-8")
-        real_git_runner(["git", "add", "--intent-to-add", "-A"], str(workdir))
-        _, names = real_git_runner(["git", "diff", "HEAD", "--name-only"], str(workdir))
-        files = [ln.strip() for ln in names.splitlines() if ln.strip()]
-        return ExecutorResult(ok=True, diff="+x\n", files_changed=files,
+        diff, files = capture_diff(real_git_runner, str(workdir))
+        return ExecutorResult(ok=True, diff=diff, files_changed=files,
                               token_usage={}, raw_log="")
 
 
