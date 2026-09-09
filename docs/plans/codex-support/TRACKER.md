@@ -1,0 +1,78 @@
+# Progress tracker
+
+Status: planning complete; implementation not started. Next: **T01**. Updated: 2026-09-09.
+
+User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
+
+Tick a task only after its detailed checkboxes and acceptance gate pass. Add evidence and a commit SHA, or explicitly record that the verified changes are still uncommitted. `blocked`, `in progress`, and `deferred` belong in the evidence column; an unchecked box must not be treated as completed. Update the matching milestone in [the overview](../../../IMPLEMENTATION_PLAN.md).
+
+**Task completion checklist**
+
+- [ ] T01 — Baseline and real regressions
+- [ ] T02 — Independent candidate verification
+- [ ] T03 — Checked collection and preservation
+- [ ] T04 — Resumable attempts and worktrees
+- [ ] T05 — Build identity and ledger migration
+- [ ] T06 — Dependency and integration lifecycle
+- [ ] T07 — Validated plans and gate protocol
+- [ ] T08 — Bounded subprocess execution
+- [ ] T09 — Model validation and preflight
+- [ ] T10 — Usage and admission budgets
+- [ ] T11 — Host-neutral CLI interface
+- [ ] T12 — Host-aware skill generation
+- [ ] T13 — Codex installation and discovery
+- [ ] T14 — Cross-host acceptance
+- [ ] T15 — Optional Codex executor contract (deferred)
+- [ ] T16 — Optional Codex executor implementation (deferred)
+- [ ] T17 — Wheel, bundle, and CI coverage
+- [ ] T18 — Checked release automation
+- [ ] T19 — Migration and interruption rehearsal
+- [ ] T20 — Documentation and release candidate
+
+The checklist above is the task-level completion record. The table below holds its dependencies, estimates, and evidence. Budgets are estimated **lead-agent input + output tokens per sitting**, excluding separately reported executor/model usage. They are neither context-window sizes nor a hard runtime limit. See [session rules](SESSION-GUIDE.md).
+
+| Task / suggested sitting | Depends on | Estimate | Evidence / commit |
+|---|---|---|---|
+| [T01 — baseline and real regressions](01-ACCEPTANCE-RECOVERY.md#t01--baseline-and-regression-harness) | — | 6–10k | Ready |
+| [T02 — independent candidate verification](01-ACCEPTANCE-RECOVERY.md#t02--independent-candidate-verification) | T01 | 12–18k | Not started |
+| [T03 — checked collection and preservation](01-ACCEPTANCE-RECOVERY.md#t03--checked-collection-and-preservation) | T02 | 10–16k | Not started |
+| [T04 — resumable attempts and worktrees](01-ACCEPTANCE-RECOVERY.md#t04--resumable-attempts-and-worktrees) | T03 | 10–16k | Not started |
+| [T05 — build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration) | T04 | 12–18k | Not started |
+| [T06 — dependency and integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle) | T05 | 10–16k | Not started |
+| [T07 — validated plans and gate protocol](02-STATE-ORCHESTRATION.md#t07--validated-plans-and-gate-protocol) | T06 | 10–16k | Not started |
+| [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | Not started |
+| [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Not started |
+| [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Not started |
+| [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Not started |
+| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | Not started |
+| [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Not started |
+| [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
+| [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |
+| [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Deferred by default |
+| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Not started |
+| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Not started |
+| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
+| [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | 6–10k | Not started |
+
+Default sitting order: **T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T17 → T14 → T18 → T19 → T20**. Optional T15/T16 can follow M5 or be inserted after T13 if the user wants the fourth provider in the same release. Do not let optional provider work defer review fixes.
+
+The dependency graph permits some independent work, but does not authorize spawning agents. One implementer is the default. Any separately authorized parallel implementation must own disjoint files, and generated bundles should be regenerated by one owner after source changes settle.
+
+**Completion record template**
+
+```text
+Date / task:
+Changed files:
+Checks and results:
+Evidence path / commit:
+Lead token usage: measured / estimated / unavailable
+Executor usage and cost: measured / unknown / no dispatch
+Remaining limitation:
+Next task:
+```
+
+**Progress log**
+
+- 2026-09-09 — Planning files created from the full-build review and verified Codex documentation; local CLI reports 0.153.4. No implementation tasks completed and no live model calls made.
+- 2026-09-09 — User selected Kimi K3 via OpenCode for dogfooding. Codex retains lead/test/review responsibilities. Exact model ID remains to be verified; no automatic model substitution. The 20 task units have not yet been converted to executable acceptance-test-backed CLD slices.
+- 2026-09-09 — Prepared the 13-file planning baseline for commit before T01. User requires verification/commit and an explicit token-availability checkpoint after every slice; no implementation task started.
