@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01–R13 match the numbered findings from the 2026-09-09 review. All are open. Ticking a fix requires the regression evidence and closing commit, not only a code edit.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01–R13 match the numbered findings from the 2026-09-09 review and remain open. T01 adds regression evidence and closes harness observation A04 only. Ticking a fix requires the regression evidence and closing commit, not only a code edit.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01–R13 m
 | [ ] | A01: unsupported SUBSLICE overwrites parent fields | Reject obsolete blocks with source location; remove unsupported examples; parent data must not silently change. | T07, T20 |
 | [ ] | A02: invalid DAG/plan inputs | Reject duplicate IDs, missing dependencies, empty selectors, invalid complexity, unsafe IDs/paths; no phantom endless pending layer. | T07 |
 | [ ] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
-| [ ] | A04: test harness duplicates old capture | Reuse production capture at an injected boundary; retain independent outcome assertions against actual Git trees. | T01, T02 |
+| [x] | A04: test harness duplicates old capture | Harness, concurrent and step-through executors now reuse production capture; real file/Git-tree assertions retained. [T01 evidence](T01-EVIDENCE.md). | T01 complete; T02 maintains coverage |
 | [ ] | A05: platform claims exceed CI evidence | Publish explicit host/provider/OS coverage; add intended CI coverage or narrow claims. | T17, T19, T20 |
 | [ ] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
 | [ ] | A07: evidence store concurrent writes | Atomic replace plus synchronization; distinct records survive concurrent validation; corruption surfaced. | T09 |

@@ -6,13 +6,15 @@ Outcome: the engine can be trusted to retain and verify candidate code. No live 
 
 Dependencies: none. Estimate: 6–10k lead tokens. Start with `tests/integration/harness.py`, `_capture.py`, `worktree.py`, and the acceptance branches in `orchestrator.py`. Scope: test infrastructure and small portable regression fixtures.
 
-- [ ] Record current HEAD, Python/Git versions, selected test count, and a clean baseline test result. Preserve unrelated user edits.
-- [ ] Replace or adapt duplicated harness capture so providers and integration tests use the production helper; keep outcome assertions independent by inspecting Git objects/files.
-- [ ] Add minimal real-Git regressions for executor commits, nonzero dispatch after writes, rejecting commit hooks, escalation collision, and dependent code visibility.
-- [ ] Add fault injection for judge, ledger-save, diff-capture, and cleanup failure. All test repositories stay in test-owned directories; no global Git settings or paid CLIs.
-- [ ] Document which new cases intentionally fail on baseline and which task closes each. If retained as strict temporary xfails, include defect IDs; never allow unexpected passes or ship with those xfails still masking defects.
+- [x] Record current HEAD, Python/Git versions, selected test count, and a clean baseline test result. Preserve unrelated user edits.
+- [x] Replace or adapt duplicated harness capture so providers and integration tests use the production helper; keep outcome assertions independent by inspecting Git objects/files.
+- [x] Add minimal real-Git regressions for executor commits, nonzero dispatch after writes, rejecting commit hooks, escalation collision, and dependent code visibility.
+- [x] Add fault injection for judge, ledger-save, diff-capture, and cleanup failure. All test repositories stay in test-owned directories; no global Git settings or paid CLIs.
+- [x] Document which new cases intentionally fail on baseline and which task closes each. If retained as strict temporary xfails, include defect IDs; never allow unexpected passes or ship with those xfails still masking defects.
 
 **Gate:** Existing selected tests still pass; each new failure demonstrates a review defect and is reproducible offline. Handoff lists the exact targeted pytest commands. Run `python -m pytest tests/integration -q` plus the baseline suite once, saving bounded summaries.
+
+Completed 2026-09-10. [Evidence and closure owners](T01-EVIDENCE.md): baseline 419 passed; final suite 421 passed / 9 strict expected failures / 1 deselected. Unmasked regressions: 9 intended contract failures and 2 passing fault controls. Production defects remain open for their owning tasks.
 
 ## T02 — Independent candidate verification
 
