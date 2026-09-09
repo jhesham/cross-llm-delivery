@@ -1,20 +1,7 @@
-"""B1.1 — Real-git integration test harness.
+"""Offline integration helpers: real Git, test-owned repos, simulated file writers.
 
-All other cld tests use FAKE git_runners and FAKE executors, so they can never
-observe the behaviors that only emerge against real git (e.g. `git diff HEAD`
-silently omitting untracked new files — BUG 1, Defect 1). This harness supplies
-the missing realism:
-
-- `real_git_runner`: the actual subprocess git runner (same shape as
-  run_delivery.py's git_runner).
-- `init_repo(path)`: create a real git repo with one initial commit (so HEAD exists).
-- `FileCreatingExecutor`: a fake Executor that, on .run(task, workdir), ACTUALLY
-  writes the slice's files into `workdir` (simulating what Gemini does — creating
-  new files) and then captures the diff via the SAME real-git logic GeminiExecutor
-  uses. This lets tests observe the real capture path deterministically, offline.
-
-These run real `git` subprocesses on tiny temp repos — fast (sub-second), but
-marked `integration` so they can be deselected where git is unavailable.
+FileCreatingExecutor uses the production capture helper. Assertions should inspect
+Git trees and actual files independently, rather than duplicating capture logic.
 """
 
 from __future__ import annotations
@@ -23,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors._capture import capture_diff
 
 
 def real_git_runner(args: list[str], cwd: str) -> tuple[int, str]:
@@ -66,10 +54,8 @@ def init_repo(path: str | Path) -> str:
 class FileCreatingExecutor:
     """Fake Executor that REALLY creates the slice's files in the workdir.
 
-    Simulates Gemini's observable effect (new files appear in the worktree) without
-    any network/LLM. It then captures the diff with the SAME real-git logic as
-    GeminiExecutor (`git diff HEAD` + `--name-only`), so a test can assert what the
-    real capture path actually reports — including the untracked-file blind spot.
+    Writes files without any network/LLM and delegates capture to the shared
+    production helper used by the providers.
 
     `contents` maps a file path (relative to workdir) -> file text. Defaults to a
     trivial body for each of task.files.
@@ -81,17 +67,14 @@ class FileCreatingExecutor:
 
     def run(self, task: SliceTask, workdir, feedback: str | None = None) -> ExecutorResult:
         cwd = str(workdir)
-        # 1) actually create the slice's files (this is what Gemini does)
+        # Simulate the implementation process's filesystem effects.
         for rel in task.files:
             body = (self._contents or {}).get(rel, f"# {rel} created by FileCreatingExecutor\n")
             dest = Path(cwd) / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(body, encoding="utf-8")
 
-        # 2) capture exactly as GeminiExecutor does (the path under test)
-        _, diff = self._runner(["git", "diff", "HEAD"], cwd)
-        _, names = self._runner(["git", "diff", "HEAD", "--name-only"], cwd)
-        files_changed = [ln.strip() for ln in names.splitlines() if ln.strip()]
+        diff, files_changed = capture_diff(self._runner, cwd)
 
         return ExecutorResult(
             ok=True,
