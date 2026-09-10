@@ -76,8 +76,8 @@ def test_concurrent_slices_isolated_and_collected(git_repo):
 
     assert sorted(result.completed) == ["A", "B"], result.details
 
-    files_a = _branch_file_list(repo, "slice-A")
-    files_b = _branch_file_list(repo, "slice-B")
+    files_a = _branch_file_list(repo, ledger.get("A").commit)
+    files_b = _branch_file_list(repo, ledger.get("B").commit)
 
     # (2) COLLECT: each slice's code survives on its branch
     assert "pkg/a.py" in files_a, "slice-A's code must persist on its branch"

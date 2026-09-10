@@ -49,7 +49,7 @@ def test_success_records_reachable_tested_tree_before_cleanup(delivery_repo):
     assert record["state"] == "collected"
     assert not Path(entry.worktree_path).exists()
     # Accepted ref is independent of the old slice branch lifetime.
-    checked_git(["update-ref", "-d", "refs/heads/slice-A"], delivery_repo)
+    checked_git(["update-ref", "-d", f'refs/heads/{record["branch"]}'], delivery_repo)
     assert checked_git(["show", f'{entry.collection["ref"]}:implementation.py'], delivery_repo) == BODY
     assert_original_unchanged(delivery_repo, base)
 

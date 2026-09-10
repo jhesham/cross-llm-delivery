@@ -237,7 +237,7 @@ def _warn_unmerged_deps(repo_dir: str, slices: list, ledger: Ledger, next_layer_
         for dep in sorted(needed):
             if not ledger.is_done(dep):
                 continue
-            br = f"slice-{dep}"
+            br = ledger.get(dep).commit or f"slice-{dep}"
             rc, _ = git_runner(["git", "rev-parse", "--verify", "--quiet", br], repo_dir)
             if rc != 0:
                 continue  # branch gone (merged+deleted, or never created) -> can't flag it
@@ -252,7 +252,7 @@ def _warn_unmerged_deps(repo_dir: str, slices: list, ledger: Ledger, next_layer_
             print("This layer's worktrees branch from HEAD and will be DEP-BLIND (missing that")
             print("code) -> slices depending on them will fail or rewrite deps and be rejected.")
             print("Merge the accepted branches into your base first, e.g.:")
-            print("   " + " && ".join(f"git merge slice-{d}" for d in unmerged))
+            print("   " + " && ".join(f"git merge {ledger.get(d).commit or ('slice-' + d)}" for d in unmerged))
             print(bar)
     except Exception:
         pass
@@ -598,6 +598,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
+    p.add_argument("--worktree-root", help="Writable worktree root (relative to --repo); default .cld/worktrees")
     p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
@@ -728,7 +729,7 @@ def main(argv=None) -> int:
             rung_planner=build_rung_planner(args.executor or _default_spec()),
             judge_fn=judge_fn,
             max_workers=args.workers,
-            repo_dir=args.repo, git_runner=git_runner,
+            repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
             test_runner=pytest_test_runner,
         )
         write_artifacts(result, repo_dir=args.repo)
@@ -750,7 +751,7 @@ def main(argv=None) -> int:
         rung_planner=build_rung_planner(args.executor or _default_spec()),
         judge_fn=judge_fn,
         max_workers=args.workers,
-        repo_dir=args.repo, git_runner=git_runner,
+        repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
         test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
     )
     from cld import telemetry as _tel

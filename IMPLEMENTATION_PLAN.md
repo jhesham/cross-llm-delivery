@@ -4,7 +4,7 @@ Created: 2026-09-09. Baseline: `c3ced8a5fbbb964019352f04da8d509858644ee8`, v0.2.
 
 **Outcome:** Codex and Claude Code can both plan, drive, inspect, integrate, and resume deliveries through the same reliable engine. The first release must close all 13 review findings and the associated plan/documentation gaps.
 
-Implementation is in progress: **T01 through T03 completed on 2026-09-10** ([T03 evidence](docs/plans/codex-support/T03-EVIDENCE.md)). **T04 awaits the user's token-availability confirmation.** The checkboxes in the linked task files are the detailed source of progress; the tracker records task-level completion and evidence.
+Implementation is in progress: **T01 through T04 and M1 completed by 2026-09-11** ([T04 evidence](docs/plans/codex-support/T04-EVIDENCE.md)). **T05 awaits the user's token-availability confirmation.** The checkboxes in the linked task files are the detailed source of progress; the tracker records task-level completion and evidence.
 
 **User-required token checkpoint.** After each slice, finish verification, commit its coherent changes and progress/handoff updates, then stop and ask the user to confirm token availability before starting the next slice. Treat each Txx task as one checkpoint until it is split into executable slices; if split, stop after every child slice as well. Do not auto-advance, queue another dispatch, or treat silence as confirmation. Report usage as measured, estimated, or unavailable.
 
@@ -31,7 +31,7 @@ Implementation is in progress: **T01 through T03 completed on 2026-09-10** ([T03
 
 **Milestones and release gates**
 
-- [ ] M1 — T01–T04: acceptance cannot hide forbidden changes or lose accepted work; failed/interrupted attempts can resume.
+- [x] M1 — T01–T04: acceptance cannot hide forbidden changes or lose accepted work; failed/interrupted attempts can resume.
 - [ ] M2 — T05–T07: durable build identity, validated plans, correct dependency/integration behavior, truthful exit codes.
 - [ ] M3 — T08–T10: bounded processes, validation before dispatch, cumulative usage and admission budgets.
 - [ ] M4 — T11–T14: Codex host support and Claude compatibility demonstrated with isolated installs.

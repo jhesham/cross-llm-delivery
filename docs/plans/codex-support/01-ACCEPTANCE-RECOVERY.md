@@ -50,11 +50,16 @@ Completed 2026-09-10. [Evidence and recovery instructions](T03-EVIDENCE.md): 501
 
 Dependencies: T03. Estimate: 10–16k. Files: `worktree.py`, `orchestrator.py`, attempt metadata/ledger, recovery fixtures.
 
-- [ ] Introduce run/slice/attempt-specific refs and configurable worktree roots; canonicalize and verify boundaries before create/remove operations.
-- [ ] Support escalation without branch collision; record the chosen fresh-base or prior-candidate retry policy. Pass bounded diagnostics and preserved-candidate paths to the next attempt.
-- [ ] Recover interrupted attempts from recorded refs/worktrees; distinguish an active owner from stale state. Never reset an accepted or unrelated branch.
-- [ ] Reserve unique attempt IDs under synchronization; avoid duplicate worktree creation in concurrent or restarted runs.
-- [ ] Preserve compatibility by reading old `slice-<id>` refs rather than assuming they can be removed. Document migration handoff for T05.
-- [ ] Test fail→retry→pass, fail→escalate→pass, stop→restart, orphaned worktree/ref, two independent slices, and configured writable root inside a restricted workspace.
+- [x] Introduce run/slice/attempt-specific refs and configurable worktree roots; canonicalize and verify boundaries before create/remove operations.
+- [x] Support escalation without branch collision; record the chosen fresh-base or prior-candidate retry policy. Pass bounded diagnostics and preserved-candidate paths to the next attempt.
+- [x] Recover interrupted attempts from recorded refs/worktrees; distinguish an active owner from stale state. Never reset an accepted or unrelated branch.
+- [x] Reserve unique attempt IDs under synchronization; avoid duplicate worktree creation in concurrent or restarted runs.
+- [x] Preserve compatibility by reading old `slice-<id>` refs rather than assuming they can be removed. Document migration handoff for T05.
+- [x] Test fail→retry→pass, fail→escalate→pass, stop→restart, orphaned worktree/ref, two independent slices, and configured writable root inside a restricted workspace.
 
 **Gate:** R04 passes with actual Git. Both rungs really dispatch and interrupted work can resume without branch deletion. Run the full offline suite at **M1**; record any intentional migrations before beginning T05.
+
+Completed 2026-09-11. [Evidence and migration handoff](T04-EVIDENCE.md): final M1
+suite 513 passed, 2 strict expected failures (T06), 1 live evaluation deselected.
+R04 is closed. Unique reserved worktrees, bounded recovery context and OS-held slice
+ownership pass real-Git and process-exit tests. T05 requires the next token checkpoint.
