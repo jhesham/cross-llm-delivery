@@ -159,7 +159,6 @@ def test_rejecting_commit_hook_preserves_candidate(delivery_repo, ladder):
            "R03: commit rejection accepted and/or discarded the candidate")
 
 
-@pending("R04 / T04: second escalation rung must really dispatch")
 def test_escalation_dispatches_second_rung(delivery_repo):
     calls = []
 

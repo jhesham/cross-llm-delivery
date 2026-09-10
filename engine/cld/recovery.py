@@ -53,17 +53,22 @@ class CollectionResult:
 
 
 class RecoverySession:
-    def __init__(self, repo, cwd, task, ledger_path, runner):
+    def __init__(self, repo, cwd, task, ledger_path, runner, *, session_id=None,
+                 base=None, metadata=None):
         self.repo, self.cwd, self.task, self.runner = repo, cwd, task, runner
-        self.id = uuid4().hex
+        self.id = session_id or uuid4().hex
         self.directory = slice_directory(repo, task.id) / self.id
-        self.base = checked(runner, cwd, "rev-parse", "HEAD^{commit}").strip()
+        # Exclusive reservation while the caller holds slice ownership. Never
+        # overwrite an existing session, including after a restart.
+        self.directory.mkdir(parents=True, exist_ok=False)
+        self.base = base or checked(runner, cwd, "rev-parse", "HEAD^{commit}").strip()
         self.attempt = 0
         self.test_run = 0
         self.record = dict(schema_version=1, session_id=self.id, slice_id=task.id,
                            repo=os.path.realpath(repo), ledger=os.path.realpath(ledger_path),
                            task_fingerprint=task_fingerprint(task), base=self.base,
-                           worktree=os.path.abspath(cwd), state="running")
+                           worktree=os.path.abspath(cwd), state="reserved" if base else "running",
+                           **(metadata or {}))
         self.save()
 
     def save(self, **values):
@@ -74,7 +79,7 @@ class RecoverySession:
     def start_attempt(self, attempt):
         self.attempt = attempt
         self.test_run = 0
-        self.save(attempts=attempt)
+        self.save(attempts=attempt, retry_policy="prior-candidate-in-place" if attempt > 1 else "fresh-base")
 
     def write(self, name, text):
         path = self.directory / f"attempt-{self.attempt}" / name
@@ -171,7 +176,7 @@ class RecoverySession:
 def recover_collected(repo, ledger_path, task, runner):
     """Reconcile a checked collection whose final ledger write was interrupted.
 
-    Other interrupted attempts remain for T04. Never infer acceptance from an
+    Uncollected attempts resume separately. Never infer acceptance from an
     arbitrary branch or an unverified recovery snapshot.
     """
     directory = slice_directory(repo, task.id)

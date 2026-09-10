@@ -116,4 +116,4 @@ def test_completed_still_correct_with_worktrees(tmp_path):
         [_slice("A"), _slice("B")], led, executor=ex, judge_fn=_judge,
         repo_dir=_repo(tmp_path), git_runner=git, test_runner=acceptance,
     )
-    assert sorted(res.completed) == ["A", "B"]
+    assert sorted(res.completed) == ["A", "B"], res.details

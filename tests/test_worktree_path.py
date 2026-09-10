@@ -1,8 +1,11 @@
 """Bug A regression: the worktree path must be a clean SIBLING of the repo, never
 a malformed dir like '.-wt-<branch>' INSIDE the repo (which `--repo .` produced)."""
 import os
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from uuid import uuid4
 
-from cld.worktree import worktree
+from cld.worktree import worktree, managed_location
 
 
 class _Recorder:
@@ -45,3 +48,17 @@ def test_absolute_repo_path_still_works():
     abs_repo = os.path.abspath(os.path.join("some", "repo"))
     path, _ = _yielded_path(abs_repo)
     assert path == abs_repo + "-wt-slice-S7"
+
+
+def test_concurrent_root_preparation_stabilizes_canonical_paths(tmp_path):
+    def reserve(index):
+        repo = tmp_path / f"repo-{index // 4}"
+        path, root, branch = managed_location(repo, None, uuid4().hex, str(index),
+                                              uuid4().hex, create_root=True)
+        assert Path(root).is_dir()
+        assert Path(path).resolve().parent == Path(root)
+        return path, branch
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        reservations = list(pool.map(reserve, range(80)))
+    assert len(set(reservations)) == 80
