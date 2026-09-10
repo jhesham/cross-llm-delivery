@@ -12,6 +12,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
   failing-test-first convention, and issue links routing questions to Discussions.
 
 ### Changed
+- T03 source engine: check collection commit/tree and durable refs before marking a slice
+  done. Commit-hook changes are rejected; valid no-op and executor-created commits are
+  reused. Worktree cleanup follows the final ledger save; failures retain their paths.
+- Per-attempt recovery evidence replaces overwritten slice-level patches/judge logs.
+  Binary patches are reconstructed against the original base for verification. A saved
+  collected outcome can repair an interrupted final ledger write without redispatching.
 - T02 source engine: real delivery now requires a Git runner and independent acceptance
   runner. Report-only Python test doubles must opt into `simulation=True`; serial
   `run_plan` uses the same verified worktree path as parallel delivery.

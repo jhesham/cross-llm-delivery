@@ -3,6 +3,16 @@ import os
 from typing import Any, List
 
 
+def recovery_lines(slice_id, detail):
+    warning = getattr(detail, "cleanup_warning", None)
+    if warning:
+        return [f"  {slice_id}  ! {warning}"]
+    if getattr(detail, "status", None) in ("failed", "needs_repair") and getattr(detail, "worktree_path", None):
+        return [f"  {slice_id}  worktree retained: {detail.worktree_path}",
+                f"  {slice_id}  recovery evidence: {getattr(detail, 'recovery_path', None)}"]
+    return []
+
+
 def write_artifacts(result: Any, *, repo_dir: str) -> None:
     """Persist raw per-slice detail under <repo_dir>/.cld/<slice-id>/ so the agent can
     inspect on request WITHOUT it entering context. Best-effort; never raises."""
@@ -16,6 +26,10 @@ def write_artifacts(result: Any, *, repo_dir: str) -> None:
                     "slice_id": d.slice_id, "status": d.status,
                     "files_changed": d.files_changed, "attempts": d.attempts,
                     "diff_lines": d.diff_lines, "failing_tests": d.failing_tests,
+                    "commit": getattr(d, "commit", None),
+                    "recovery_path": getattr(d, "recovery_path", None),
+                    "worktree_path": getattr(d, "worktree_path", None),
+                    "cleanup_warning": getattr(d, "cleanup_warning", None),
                 }, f, indent=2)
         except Exception:
             continue
@@ -57,6 +71,7 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
                 lines.append(f"  {slice_id}  ! NEEDS REPAIR   {first_failing_test}")
             else:
                 lines.append(f"  {slice_id}  - {status}")
+            lines.extend(recovery_lines(slice_id, detail))
 
     # Also catch needs_repair slices listed on result but missing from details
     result_repair = getattr(result, "needs_repair", [])

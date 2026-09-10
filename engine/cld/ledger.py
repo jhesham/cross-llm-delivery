@@ -22,6 +22,9 @@ class LedgerEntry:
     chosen_by: str | None = None
     final_rung: str | None = None
     intervened: bool = False
+    collection: dict = field(default_factory=dict)
+    recovery_path: str | None = None
+    worktree_path: str | None = None
 
 class Ledger:
     def __init__(self, path: str):
@@ -48,6 +51,9 @@ class Ledger:
                     chosen_by=entry_data.get("chosen_by"),
                     final_rung=entry_data.get("final_rung"),
                     intervened=entry_data.get("intervened", False),
+                    collection=entry_data.get("collection", {}),
+                    recovery_path=entry_data.get("recovery_path"),
+                    worktree_path=entry_data.get("worktree_path"),
                 )
         except Exception:
             pass
@@ -62,7 +68,8 @@ class Ledger:
 
     def set(self, slice_id: str, *, status=None, commit=None, attempts=None,
             model=None, effort=None, token_usage=None, cost=None,
-            complexity=None, chosen_by=None, final_rung=None, intervened=None):
+            complexity=None, chosen_by=None, final_rung=None, intervened=None,
+            collection=None, recovery_path=None, worktree_path=None):
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
         entry = self._entries[slice_id]
@@ -88,6 +95,12 @@ class Ledger:
             entry.final_rung = final_rung
         if intervened is not None:
             entry.intervened = intervened
+        if collection is not None:
+            entry.collection = collection
+        if recovery_path is not None:
+            entry.recovery_path = recovery_path
+        if worktree_path is not None:
+            entry.worktree_path = worktree_path
 
     def mark_attempt(self, slice_id: str):
         if slice_id not in self._entries:
@@ -125,12 +138,17 @@ class Ledger:
                 "chosen_by": entry.chosen_by,
                 "final_rung": entry.final_rung,
                 "intervened": entry.intervened,
+                "collection": entry.collection,
+                "recovery_path": entry.recovery_path,
+                "worktree_path": entry.worktree_path,
             }
             for slice_id, entry in self._entries.items()
         }
 
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=directory, delete=False) as f:
             json.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
             temp_path = f.name
 
         try:
