@@ -12,6 +12,14 @@ changes land; on a release, rename that section to the version + date. Plugin in
   failing-test-first convention, and issue links routing questions to Discussions.
 
 ### Changed
+- T02 source engine: real delivery now requires a Git runner and independent acceptance
+  runner. Report-only Python test doubles must opt into `simulation=True`; serial
+  `run_plan` uses the same verified worktree path as parallel delivery.
+- Acceptance inputs must be committed before dispatch. The engine checks the baseline,
+  captures changes against its original commit, and judges an isolated Git snapshot.
+  Tests, pytest configuration and declared `protected_inputs` cannot be executor edits.
+  No-change success requires `allow_already_satisfied: true` and a passing baseline.
+  See [T02 evidence](docs/plans/codex-support/T02-EVIDENCE.md) for compatibility limits.
 - Catalogued `opencode/glm-5.2` (validated in real dogfood builds: 5+ slices, all attempt-1) —
   it now appears in the picker and routing instead of requiring a manual tag.
 - README/CONTRIBUTING now state explicitly that **new models need no code changes** — any id the

@@ -2,30 +2,56 @@
 
 Updated: 2026-09-10. Initiative: Codex support and review remediation.
 
-**State:** T01 complete; T02 has not started. Paused for explicit user confirmation of token availability. T01 changes are tests and documentation only. Source baseline: `c3ced8a5fbbb964019352f04da8d509858644ee8`; planning baseline: `7cdc31e`. Resolve the T01 commit with `git log -1 --format=%h -- tests/integration/test_review_regressions.py`.
+**State:** T01 and T02 complete. Paused before T03 for explicit user confirmation of
+token availability. Branch: `refactor/codex-support`, remote: `public` on GitHub.
+T01 checkpoint `ddd4333` was already online. Resolve T02's closing commit with
+`git log -1 --format=%h -- engine/cld/candidate.py`; this sitting commits/pushes its
+verified changes before stopping.
 
-**Mandatory checkpoint:** The user requires a stop after every slice to confirm token availability. Verify and commit each slice with its progress updates, then wait for an explicit user reply before starting another. Each Txx task is a checkpoint until split; child slices each require their own checkpoint. No automatic next-slice dispatch.
+**Mandatory checkpoint:** Verify and commit each slice with progress updates, then
+wait for explicit user confirmation of token availability before starting another.
+No automatic next-slice dispatch. T03 has not started.
 
-**Next after confirmation:** [T02: independent candidate verification](01-ACCEPTANCE-RECOVERY.md#t02--independent-candidate-verification). Budget 12–18k estimated lead tokens. Read capture/delivery/judge boundaries and T01 tests. Record immutable dispatch base and independently verify all edits, including committed changes and failed dispatch writes. Remove only the strict xfail markers whose contracts T02 actually fixes.
+**Next after confirmation:** [T03: checked collection and preservation](01-ACCEPTANCE-RECOVERY.md#t03--checked-collection-and-preservation).
+Estimate 10–16k lead tokens. Read `candidate.py`, the two collection branches in
+`orchestrator.py`, `worktree.py`, and T01's remaining preservation regressions.
+Replace unchecked commits with verified commit/tree/reachability and durable outcome
+recording before acceptance/cleanup. Preserve work on every exception; retain the
+worktree when a recovery artifact cannot be verified. T04 owns attempt/ref collisions.
 
-**Decisions:** Codex lead-agent support is required; a Codex executor is optional. Keep one engine and existing Claude bundles. Safety/recovery fixes precede live dogfooding. Full plan: [overview](../../../IMPLEMENTATION_PLAN.md); status: [tracker](TRACKER.md).
+**T02 result:** [Evidence](T02-EVIDENCE.md). 479 passed, 6 strict xfailed, 1 deselected;
+2 existing dependency warnings. A separately tightened post-dispatch diff-error
+regression passed. R01/R02 acceptance closed; R03–R13 still open. Remaining xfails:
+commit-hook preservation (single/ladder), judge-exception preservation, escalation
+collision, dependency visibility and failure blocking. Log: `.cld/t02-verification/full-suite.log`.
 
-**Executor selection:** The user selected Kimi K3 via OpenCode for dogfooding. Preserve that choice; resolve its exact available model ID before first dispatch, without substituting another model. Bootstrap T01–T07 directly and finish T08/T09's bounded execution/validation before live delegation. Convert later tasks into executable slices only after their contracts and acceptance tests are prepared.
-
-**T01 evidence:** [Full record](T01-EVIDENCE.md). Baseline: 419 passed, 1 deselected. Final: 421 passed, 9 strict xfailed, 1 deselected, 2 existing dependency warnings. Unmasked regressions: exactly 9 intended contract failures and 2 passing preservation controls. Shared production capture replaces duplicated integration-harness implementations. R01–R13 remain open; A04 is closed.
+**New contracts:** Immutable dispatch base and `Candidate` tree/test fingerprints;
+engine capture ignores provider file reports. Baseline tests must be committed and
+pass or fail only assertions. Protected tests/config/declared `protected_inputs`
+cannot change. Judging uses a Git-materialized temporary snapshot and detects
+persistent file mutations; collection rechecks and loads the tested tree. Commit-hook
+and durable-save guarantees remain T03. No-op needs `allow_already_satisfied: true`
+plus passing baseline/candidate tests. Real Python calls require Git and acceptance
+runners; report-only doubles must explicitly set `simulation=True`. No CLI simulation.
+Symlinks/junctions/submodules are rejected. Snapshots have no Git metadata or ignored
+environment. Details: [architecture A02](ARCHITECTURE.md), [evidence](T02-EVIDENCE.md).
 
 **Commands** (repository root):
 
 ```text
 python -m pytest tests/integration/test_review_regressions.py -o addopts="" -q --runxfail --tb=short
-python -m pytest tests/integration -o addopts="" -q -rx --tb=short
+python -m pytest tests/integration/test_candidate_verification.py -o addopts="" -q --tb=short
 python -m pytest -o addopts="-m 'not eval'" -q --tb=short
 ```
 
-The unmasked command intentionally fails until defects are fixed. Local logs: `.cld/t01-verification/`. One preexisting concurrent-worktree test failed intermittently before passing in the next integration run and final suite; its assertion now prints details. No concurrency fix claimed; investigate recurrence under T04.
+The unmasked command still intentionally fails for defects owned by later tasks.
+Committed marketplace plugin copies were not refreshed; generator smoke/import tests
+pass for source-built bundles. Distribution refresh remains T12/T17.
 
-**Codex compatibility:** Local `codex --version` reports 0.153.4. `exec --help` exposes JSONL output, stdin prompts, working-root and sandbox options; no live invocation tested. Official docs and version caveats: [SOURCES.md](SOURCES.md).
+**Dogfooding:** Kimi K3 via OpenCode remains selected; resolve its exact available model
+ID before the first live dispatch, without substitution. Bootstrap through T09 before
+live delegation. Codex remains lead for contracts, review and integration.
 
-**Pending:** T02 onward and all live compatibility gates. Kimi K3/OpenCode selection persists; no live dispatch has occurred. Exact model availability and account cost remain to be checked.
-
-**Environment/usage:** Windows, Python 3.13.13, Git 2.54.0.windows.1. No paid/provider calls, installs, global Git changes, or publication in T01. Lead token counters unavailable; executor usage zero.
+**Usage/environment:** Lead token counters unavailable; executor usage zero, no paid
+provider calls. Windows, Python 3.13.13, Git 2.54.0.windows.1. Native POSIX cases have
+not been executed. No release or merge; this is a refactoring-branch checkpoint.

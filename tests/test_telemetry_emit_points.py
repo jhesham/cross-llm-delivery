@@ -46,7 +46,7 @@ def test_passing_slice_emits_ordered_sequence(tmp_path):
         led = Ledger(str(tmp_path / "l.json"))
         task = SliceTask(id="T1", brief="b", files=["src/T1.py"], acceptance_test_path="t.py")
         run_plan_parallel([task], led, executor=_PassExec(), judge_fn=_judge,
-                          test_runner=lambda *a: "1 passed in 0.1s", max_workers=1)
+                          test_runner=lambda *a: "1 passed in 0.1s", max_workers=1, simulation=True)
     finally:
         telemetry.set_run_id(None)
 
@@ -72,7 +72,7 @@ def test_failing_slice_emits_retry_then_failed(tmp_path):
         task = SliceTask(id="T9", brief="b", files=["src/T9.py"], acceptance_test_path="t.py")
         # max_retries=1 -> 2 attempts, both fail (disallowed edit)
         run_plan_parallel([task], led, executor=_FailExec(), judge_fn=_judge,
-                          test_runner=lambda *a: "1 passed in 0.1s", max_workers=1, max_retries=1)
+                          test_runner=lambda *a: "1 passed in 0.1s", max_workers=1, max_retries=1, simulation=True)
     finally:
         telemetry.set_run_id(None)
 
@@ -113,7 +113,7 @@ def test_status_is_fresh_mid_run(tmp_path):
         task = SliceTask(id="T1", brief="b", files=["src/T1.py"], acceptance_test_path="t.py")
         th = threading.Thread(target=lambda: run_plan_parallel(
             [task], led, executor=_BlockingExec(), judge_fn=_judge,
-            test_runner=lambda *a: "1 passed", max_workers=1))
+            test_runner=lambda *a: "1 passed", max_workers=1, simulation=True))
         th.start()
         try:
             assert started.wait(timeout=5), "executor never started"

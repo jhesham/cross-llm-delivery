@@ -32,7 +32,7 @@ def _judge(files_changed, allowed, run_tests):
 
 
 def _pass(workdir):
-    return "1 passed in 0.0s"
+    return "__CLD_PYTEST_RC__=0\n1 passed in 0.0s"
 
 
 def _slices():
@@ -59,6 +59,9 @@ def _run_one_layer(slices, ledger, repo):
 
 def test_step_through_two_layers(git_repo):
     repo = git_repo
+    Path(repo, "t.py").write_text("def test_ok(): assert True\n")
+    assert real_git_runner(["git", "add", "t.py"], repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance input"], repo)[0] == 0
     slices = _slices()
     ledger = Ledger(str(Path(repo) / ".cld-ledger.json"))
 

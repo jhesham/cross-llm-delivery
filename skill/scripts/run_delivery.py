@@ -23,7 +23,6 @@ Exit code 0 if all slices accepted (or already done), 1 otherwise.
 
 import argparse
 import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -46,6 +45,7 @@ if os.path.isdir(os.path.join(_engine_dir, "cld")):
 from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
 from cld.judge import judge
+from cld.candidate import acceptance_args
 from cld.ledger import Ledger, DONE
 from cld.orchestrator import run_plan_parallel
 from cld.plan.slice import load_slices
@@ -260,9 +260,10 @@ def _warn_unmerged_deps(repo_dir: str, slices: list, ledger: Ledger, next_layer_
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
     """Run a git command; return (returncode, combined output)."""
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
-    return (proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+    # Decode explicitly: universal-newline translation would corrupt CR/LF in
+    # NUL-delimited Git filenames. Undecodable paths fail rather than be renamed.
+    proc = subprocess.run(args, cwd=cwd, capture_output=True)
+    return (proc.returncode, (proc.stdout + proc.stderr).decode("utf-8"))
 
 
 def make_judge_fn(repo_dir: str):
@@ -292,11 +293,11 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     TEST SELECTOR: `acceptance_test_path` may carry a pytest selector beyond a bare
     file — a `::node` id or a `-k "expr"` — to scope to JUST the slice's own tests
     inside a SHARED accumulating test file (where sibling tests are legitimately red
-    until later slices land). We shlex.split it so the selector tokens reach pytest
-    as separate args. Use forward slashes in paths (POSIX split); a bare path with
-    no spaces/`::`/`-k` is unaffected.
+    until later slices land). The shared selector parser accepts one literal path/node and an optional -k
+    filter. Paths containing spaces stay one argument; quote a path when using
+    -k. Extra pytest flags and paths are rejected by candidate preflight.
     """
-    target = shlex.split(acceptance_test_path) if acceptance_test_path else []
+    target = acceptance_args(acceptance_test_path) if acceptance_test_path else []
 
     # BUG B fix: when the project lives in a SUBDIR of the repo/worktree, the test's
     # imports (e.g. `from schemas import base`) need that subdir on sys.path. pytest's

@@ -117,7 +117,6 @@ class GitFault:
         return real_git_runner(args, cwd)
 
 
-@pending("R01 / T02: committed forbidden edits must be rejected")
 def test_executor_commit_cannot_hide_forbidden_file(delivery_repo):
     class Committer(FileCreatingExecutor):
         def run(self, t, wd, feedback=None):
@@ -131,7 +130,6 @@ def test_executor_commit_cannot_hide_forbidden_file(delivery_repo):
     expect("A" not in result.completed, "R01: executor commit hid forbidden.py")
 
 
-@pending("R02 / T02: failed dispatch must not be accepted")
 def test_failed_dispatch_after_writes_is_rejected(delivery_repo):
     class FailedWriter:
         def run(self, t, wd):
@@ -222,14 +220,22 @@ def test_judge_exception_preserves_candidate(delivery_repo):
            "R03: judge exception discarded the only candidate")
 
 
-@pending("R01 / T02: diff command errors must not become empty valid diffs")
 def test_diff_capture_error_cannot_accept_candidate(delivery_repo):
     # Empty captured output is not evidence that the command succeeded. Nonempty
     # error text would accidentally be interpreted as a disallowed filename.
     fault = GitFault(["git", "diff"], output="")
-    result = run(delivery_repo, git_runner=fault, executor=FileCreatingExecutor(
-        runner=fault, contents={"implementation.py": BODY}))
-    assert fault.hits > 0
+    dispatched = []
+    class Writer:
+        def run(self, t, wd):
+            (Path(wd) / "implementation.py").write_text(BODY)
+            dispatched.append(wd)
+            return ExecutorResult(True, "", [])
+
+    def after_dispatch(args, cwd):
+        return fault(args, cwd) if dispatched else real_git_runner(args, cwd)
+
+    result = run(delivery_repo, git_runner=after_dispatch, executor=Writer())
+    assert len(dispatched) == 1 and fault.hits > 0
     expect("A" not in result.completed, "R01: failed diff capture was accepted")
 
 

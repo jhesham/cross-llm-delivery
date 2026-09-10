@@ -46,7 +46,7 @@ def test_run_plan_runs_all_when_ledger_empty(tmp_path):
     led = Ledger(str(tmp_path / "l.json"))
     slices = [_slice("A"), _slice("B")]
     ex = _passing_setup(["A", "B"])
-    res = run_plan(slices, led, executor=ex, judge_fn=_real_judge)
+    res = run_plan(slices, led, executor=ex, judge_fn=_real_judge, simulation=True)
     assert isinstance(res, PlanResult)
     assert res.completed == ["A", "B"]
     assert res.skipped == []
@@ -59,7 +59,7 @@ def test_run_plan_skips_done_slices(tmp_path):
     led.set("A", status=DONE)  # pre-marked done
     slices = [_slice("A"), _slice("B")]
     ex = _passing_setup(["A", "B"])
-    res = run_plan(slices, led, executor=ex, judge_fn=_real_judge)
+    res = run_plan(slices, led, executor=ex, judge_fn=_real_judge, simulation=True)
     assert res.skipped == ["A"]
     assert res.completed == ["B"]
     assert ex.dispatched == ["B"]  # A never dispatched
@@ -72,7 +72,7 @@ def test_run_plan_records_failures(tmp_path):
         files_by_id={"B": ["src/B.py"], "C": ["src/C.py"]},
         log_by_id={"B": "1 passed in 0.1s", "C": "FAILED t.py::x\n1 failed in 0.1s"},
     )
-    res = run_plan([_slice("B"), _slice("C")], led, executor=ex, judge_fn=_real_judge)
+    res = run_plan([_slice("B"), _slice("C")], led, executor=ex, judge_fn=_real_judge, simulation=True)
     assert res.completed == ["B"]
     assert res.failed == ["C"]
     assert led.is_done("B")
@@ -84,7 +84,7 @@ def test_run_plan_persists_after_each(tmp_path):
     p = str(tmp_path / "l.json")
     led = Ledger(p)
     ex = _passing_setup(["A"])
-    run_plan([_slice("A")], led, executor=ex, judge_fn=_real_judge)
+    run_plan([_slice("A")], led, executor=ex, judge_fn=_real_judge, simulation=True)
     # fresh load from disk sees the persisted state
     reloaded = Ledger.load(p)
     assert reloaded.is_done("A")
@@ -95,12 +95,12 @@ def test_resume_from_simulated_stop(tmp_path):
     p = str(tmp_path / "l.json")
     led1 = Ledger(p)
     ex1 = _passing_setup(["A"])
-    run_plan([_slice("A")], led1, executor=ex1, judge_fn=_real_judge)
+    run_plan([_slice("A")], led1, executor=ex1, judge_fn=_real_judge, simulation=True)
 
     # Run 2: fresh ledger loaded from disk, full plan [A, B]. A must be skipped.
     led2 = Ledger.load(p)
     ex2 = _passing_setup(["A", "B"])
-    res = run_plan([_slice("A"), _slice("B")], led2, executor=ex2, judge_fn=_real_judge)
+    res = run_plan([_slice("A"), _slice("B")], led2, executor=ex2, judge_fn=_real_judge, simulation=True)
     assert res.skipped == ["A"]
     assert res.completed == ["B"]
     assert ex2.dispatched == ["B"]  # A not re-run after resume
@@ -120,7 +120,7 @@ def test_run_plan_persists_usage_to_ledger(tmp_path):
     led = Ledger(p)
     run_plan([SliceTask(id="A", brief="b", files=["x"], acceptance_test_path="t.py")],
              led, executor=_Exec(),
-             judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})())
+             judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(), simulation=True)
     e = Ledger.load(p).get("A")
     assert e.status == "done"
     assert e.token_usage == {"total": 7}

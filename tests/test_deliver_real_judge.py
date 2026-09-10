@@ -39,7 +39,7 @@ def test_judge_uses_real_test_runner_not_executor_log():
 
     res = deliver_slice(_slice(), executor=LyingExecutor(), judge_fn=_real_judge,
                         max_retries=0, workdir="/wt/slice-A",
-                        test_runner=real_test_runner)
+                        test_runner=real_test_runner, simulation=True)
     assert res.accepted is False  # NOT fooled by the executor's "999 passed"
     assert seen["workdir"] == "/wt/slice-A"  # ran in the worktree
 
@@ -50,13 +50,13 @@ def test_judge_passes_when_real_runner_passes():
 
     res = deliver_slice(_slice(), executor=LyingExecutor(), judge_fn=_real_judge,
                         max_retries=0, workdir="/wt/slice-A",
-                        test_runner=real_test_runner)
+                        test_runner=real_test_runner, simulation=True)
     assert res.accepted is True
 
 
 def test_backward_compatible_without_test_runner():
     # No test_runner -> falls back to the executor's raw_log (prior behavior).
     res = deliver_slice(_slice(), executor=LyingExecutor(), judge_fn=_real_judge,
-                        max_retries=0)
+                        max_retries=0, simulation=True)
     # with the lie "999 passed" and no real runner, it accepts (legacy behavior)
     assert res.accepted is True
