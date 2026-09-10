@@ -54,7 +54,7 @@ def test_parallel_runs_independent_slices_concurrently(tmp_path):
     # A, B, C all independent -> one layer, should run concurrently
     slices = [_slice("A"), _slice("B"), _slice("C")]
     ex = FakeExecutor()
-    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=3)
+    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=3, simulation=True)
     assert isinstance(res, PlanResult)
     assert sorted(res.completed) == ["A", "B", "C"]
     assert ex.max_concurrent >= 2  # genuinely ran in parallel
@@ -65,7 +65,7 @@ def test_parallel_respects_dependency_layers(tmp_path):
     # B depends on A: A must be dispatched (and complete) before B
     slices = [_slice("A"), _slice("B", deps=["A"])]
     ex = FakeExecutor()
-    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=4)
+    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=4, simulation=True)
     assert sorted(res.completed) == ["A", "B"]
     assert ex.dispatched.index("A") < ex.dispatched.index("B")
 
@@ -75,7 +75,7 @@ def test_parallel_skips_ledger_done(tmp_path):
     led.set("A", status=DONE)
     slices = [_slice("A"), _slice("B")]
     ex = FakeExecutor()
-    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=2)
+    res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=2, simulation=True)
     assert res.skipped == ["A"]
     assert res.completed == ["B"]
     assert "A" not in ex.dispatched
@@ -86,7 +86,7 @@ def test_parallel_persists_to_ledger(tmp_path):
     led = Ledger(p)
     ex = FakeExecutor()
     run_plan_parallel([_slice("A"), _slice("B")], led, executor=ex, judge_fn=_judge,
-                      max_workers=2)
+                      max_workers=2, simulation=True)
     reloaded = Ledger.load(p)
     assert reloaded.is_done("A") and reloaded.is_done("B")
 
@@ -104,6 +104,7 @@ def test_quota_check_throttles_dispatch(tmp_path):
     res = run_plan_parallel(
         [_slice("A"), _slice("B")], led, executor=ex, judge_fn=_judge,
         max_workers=2, quota_check=over_quota, quota_threshold=95,
+        simulation=True,
     )
     # nothing dispatched while over quota
     assert ex.dispatched == []
@@ -117,6 +118,7 @@ def test_quota_under_threshold_runs_normally(tmp_path):
     res = run_plan_parallel(
         [_slice("A")], led, executor=ex, judge_fn=_judge,
         max_workers=1, quota_check=lambda: 10, quota_threshold=95,
+        simulation=True,
     )
     assert res.completed == ["A"]
     assert res.deferred == []
@@ -141,6 +143,7 @@ def test_run_plan_parallel_accepts_executor_factory(tmp_path):
         default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     assert "T1" in res.completed
 
@@ -170,6 +173,7 @@ def test_each_slice_uses_its_own_tagged_executor(tmp_path):
         default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     assert ran["T1"] == "gemini"
     assert ran["T2"] == "opencode:opencode/claude-sonnet-4-6"
@@ -201,6 +205,7 @@ def test_unknown_per_slice_executor_fails_only_that_slice(tmp_path):
         executor_factory=factory, default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     assert "T1" in res.completed          # the good slice still ran
     assert "T2" in res.failed             # the bad slice failed
@@ -225,6 +230,7 @@ def test_usage_written_to_ledger_on_completion(tmp_path):
         slices, ledger, executor=_Exec(),
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     e = Ledger.load(p).get("T1")
     assert e.status == "done"
@@ -246,7 +252,7 @@ def test_no_slice_pick_fn_is_current_behavior(tmp_path):
         Ledger(str(tmp_path / "l.json")),
         executor_factory=lambda s: _Rec(s), default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "1 passed")
+        test_runner=lambda *a, **k: "1 passed", simulation=True)
     assert seen == ["gemini"]   # no pick_fn -> build default (S1b preserved)
 
 
@@ -271,6 +277,7 @@ def test_resolved_spec_recorded_in_ledger_per_slice(tmp_path):
         executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     assert ledger.get("T1").model == "gemini"              # untagged -> default spec recorded
     assert ledger.get("T2").model == "cursor:composer-2.5"  # tag spec recorded
@@ -296,6 +303,7 @@ def test_effort_recorded_from_spec_suffix(tmp_path):
         executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
         test_runner=lambda *a, **k: "1 passed",
+        simulation=True,
     )
     assert ledger.get("T1").effort == "medium"
     assert ledger.get("T2").effort is None
@@ -316,7 +324,7 @@ def test_leaf_slice_unchanged_no_subslice_ledger_keys(tmp_path):
         [SliceTask(id="L", brief="b", files=["x"], acceptance_test_path="t.py")],
         ledger, executor=_Ok(),
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "1 passed")
+        test_runner=lambda *a, **k: "1 passed", simulation=True)
     keys = list(Ledger.load(p).entries.keys())
     assert keys == ["L"]   # no child keys
 
@@ -345,7 +353,7 @@ def test_ladder_climbs_quick_to_workhorse(tmp_path):
     res = run_plan_parallel(
         [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py", complexity="easy")],
         ledger, executor_factory=lambda spec: _Rec(spec), default_spec="gemini",
-        rung_planner=planner, judge_fn=judge, test_runner=tr)
+        rung_planner=planner, judge_fn=judge, test_runner=tr, simulation=True)
     assert used == ["qk", "wh"]                 # climbed
     assert "S" in res.completed
     assert ledger.get("S").final_rung == "workhorse"
@@ -366,7 +374,7 @@ def test_ladder_all_cheap_fail_yields_needs_repair(tmp_path):
     res = run_plan_parallel(
         [SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py", complexity="complex")],
         ledger, executor_factory=lambda s: _Fail(s), default_spec="gemini",
-        rung_planner=planner, judge_fn=judge, test_runner=lambda *a, **k: "no")
+        rung_planner=planner, judge_fn=judge, test_runner=lambda *a, **k: "no", simulation=True)
     assert "S" in res.needs_repair and "S" not in res.failed and "S" not in res.completed
     assert ledger.get("S").status == "needs_repair"
     assert ledger.get("S").final_rung == "orchestrator"
@@ -386,7 +394,7 @@ def test_no_rung_planner_is_current_behavior(tmp_path):
         Ledger(str(tmp_path / "l.json")),
         executor_factory=lambda s: _Ok(s), default_spec="gemini",
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "1 passed")
+        test_runner=lambda *a, **k: "1 passed", simulation=True)
     assert seen == ["gemini"] and "S" in res.completed   # unchanged single-dispatch path
 
 
@@ -412,7 +420,7 @@ def test_chosen_by_recorded(tmp_path):
         executor_factory=lambda s: _Ok(s), default_spec="gemini",
         rung_planner=lambda task: [("workhorse", task.executor or "gemini", 2)],
         judge_fn=lambda **kw: type("J", (), {"passed": True, "failing_tests": []})(),
-        test_runner=lambda *a, **k: "ok")
+        test_runner=lambda *a, **k: "ok", simulation=True)
 
     assert ledger.get("A").chosen_by == "rec"
     assert ledger.get("B").chosen_by == "you"

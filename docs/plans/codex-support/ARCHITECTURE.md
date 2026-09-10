@@ -19,6 +19,30 @@ The lead-authored acceptance tests must exist at the baseline and remain unchang
 
 Run judging on a frozen candidate snapshot with the trusted test inputs. Detect and reject test-time changes to candidate source; never stage unverified files created after the earlier diff check. Verification records a tree hash; collection must persist exactly that tree, not a later `git add -A` of arbitrary content. A worktree is Git isolation, not an OS security sandbox: provider execution must respect the actual host permission boundary.
 
+T02 implementation decisions (2026-09-10): `CandidateVerifier` records the base before
+dispatch and retains it across retries. Checked NUL-delimited Git capture supplies the
+candidate tree and filenames; provider reports remain diagnostics. Judging materializes
+the frozen index tree in a temporary directory and compares filesystem fingerprints
+before/after execution, then recaptures the executor worktree. Collection rechecks that
+tree and loads it into the index; T03 still owns commit-hook effects, checked commit
+results, durable records and recovery. Tests run against Git content with trusted
+environment dependencies, without the executor's ignored files or Git working metadata.
+
+The baseline must run at least one passing test or have only assertion failures; missing
+tests, collection/configuration/runtime errors and missing process RC are rejected before
+dispatch. Standard test files, `tests/` contents, pytest configuration and `.gitattributes`
+are protected automatically, including forbidden additions. `protected_inputs` declares
+other committed fixture/data files. `allow_already_satisfied: true` permits a no-change
+candidate only after a passing baseline. Both fields round-trip in slice Markdown.
+
+Symlinks, junctions and submodules are conservatively rejected until portable safe
+materialization is implemented. New bytecode/pytest cache artifacts are excluded from
+the candidate; tracked cache-looking paths remain subject to ordinary checks. Git
+assume-unchanged/skip-worktree flags cannot conceal edits. Python report-only callers must
+explicitly select `simulation=True`, which cannot be combined with a Git boundary; the
+CLI never enables simulation. Existing one-argument runners and executors without a
+feedback parameter are adapted by inspecting signatures, never by retrying a TypeError.
+
 **A03 — Persist first, report acceptance second.** Proposed lifecycle:
 
 ```text

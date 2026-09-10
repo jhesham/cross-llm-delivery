@@ -20,14 +20,16 @@ Completed 2026-09-10. [Evidence and closure owners](T01-EVIDENCE.md): baseline 4
 
 Dependencies: T01. Estimate: 12–18k; split candidate capture and frozen judging if needed. Files: `engine/cld/executors/_capture.py`, `executors/base.py`, `orchestrator.py`, `judge.py`, corresponding provider boundaries/tests. Suggested new module: `engine/cld/candidate.py`.
 
-- [ ] Introduce immutable dispatch base and candidate metadata, captured before the executor can change HEAD. Extend injected contracts explicitly instead of catching arbitrary TypeError as a signature fallback.
-- [ ] Capture the complete tree difference against that base, with NUL-delimited names and checked Git RCs; cover staged/untracked/binary/rename/delete/mode changes and committed changes.
-- [ ] Reject `ok=False`, malformed completion, interrupted capture, and forbidden paths before acceptance. Independently inspect the filesystem/Git state rather than trust `ExecutorResult.files_changed`.
-- [ ] Protect committed acceptance inputs and disallow path escape. Check baseline tests exist; distinguish expected assertion failure from collection/configuration failure.
-- [ ] Judge a frozen candidate with trusted acceptance inputs. Detect test-time source changes, include candidate/test fingerprints, and reject any collection that differs from the verified tree.
-- [ ] Cover executor-committed test tampering, filenames with spaces/Unicode/newlines where the OS permits, symlink/path behavior, and executor report spoofing. Preserve no-change success only under an explicit valid already-satisfied policy.
+- [x] Introduce immutable dispatch base and candidate metadata, captured before the executor can change HEAD. Extend injected contracts explicitly instead of catching arbitrary TypeError as a signature fallback.
+- [x] Capture the complete tree difference against that base, with NUL-delimited names and checked Git RCs; cover staged/untracked/binary/rename/delete/mode changes and committed changes.
+- [x] Reject `ok=False`, malformed completion, interrupted capture, and forbidden paths before acceptance. Independently inspect the filesystem/Git state rather than trust `ExecutorResult.files_changed`.
+- [x] Protect committed acceptance inputs and disallow path escape. Check baseline tests exist; distinguish expected assertion failure from collection/configuration failure.
+- [x] Judge a frozen candidate with trusted acceptance inputs. Detect test-time source changes, include candidate/test fingerprints, and reject any collection that differs from the verified tree.
+- [x] Cover executor-committed test tampering, filenames with spaces/Unicode/newlines where the OS permits, symlink/path behavior, and executor report spoofing. Preserve no-change success only under an explicit valid already-satisfied policy.
 
 **Gate:** R01/R02 regressions pass with real Git. Forbidden edits cannot be accepted by committing them, returning an empty report, failing dispatch, or mutating files during tests. Run capture/judge/delivery/integration tests; inspect API compatibility with all three providers.
+
+Completed 2026-09-10. [Evidence and compatibility notes](T02-EVIDENCE.md): 479 passed, 6 strict expected failures, 1 live evaluation deselected. R01 and R02 acceptance regressions pass without xfail. Commit/recovery defects remain assigned to T03; T03 requires the next user token checkpoint.
 
 ## T03 — Checked collection and preservation
 

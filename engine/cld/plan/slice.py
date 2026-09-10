@@ -31,7 +31,11 @@ def load_slices(markdown: str) -> list[SliceTask]:
                 current_slice["complexity"] = val
             elif key == "acceptance_test_path":
                 current_slice["acceptance_test_path"] = val
-            elif key in ("files", "deps"):
+            elif key == "allow_already_satisfied":
+                if val not in ("true", "false"):
+                    raise ValueError("allow_already_satisfied must be true or false")
+                current_slice[key] = val == "true"
+            elif key in ("files", "deps", "protected_inputs"):
                 if val:
                     current_slice[key] = [v.strip() for v in val.split(",") if v.strip()]
                 else:
@@ -51,6 +55,8 @@ def _dict_to_slice(d: dict) -> SliceTask:
         deps=d.get("deps", []),
         executor=d.get("executor"),
         complexity=d.get("complexity", "standard"),
+        protected_inputs=d.get("protected_inputs", []),
+        allow_already_satisfied=d.get("allow_already_satisfied", False),
     )
 
 def slices_to_markdown(slices: list[SliceTask]) -> str:
@@ -67,6 +73,10 @@ def _append_slice_fields(lines: list[str], s: SliceTask):
     lines.append(f"brief: {s.brief}")
     lines.append(f"files: {', '.join(s.files)}")
     lines.append(f"acceptance_test_path: {s.acceptance_test_path}")
+    if s.protected_inputs:
+        lines.append(f"protected_inputs: {', '.join(s.protected_inputs)}")
+    if s.allow_already_satisfied:
+        lines.append("allow_already_satisfied: true")
     if s.executor:
         lines.append(f"executor: {s.executor}")
     if s.complexity != "standard":

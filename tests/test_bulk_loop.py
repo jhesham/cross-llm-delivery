@@ -132,7 +132,7 @@ def _real_judge_fn(files_changed, allowed, run_tests):
 def test_deliver_slice_accepts_on_clean_pass():
     task = SliceTask(id="T1", brief="b", files=["src/a.py"], acceptance_test_path="t.py")
     ex = FakeExecutor(files_changed=["src/a.py"], raw_log="3 passed in 0.1s")
-    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=2)
+    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=2, simulation=True)
     assert isinstance(res, DeliverResult)
     assert res.accepted is True
     assert res.attempts == 1
@@ -145,7 +145,7 @@ def test_deliver_slice_fails_after_retries():
     ex = FakeExecutor(
         files_changed=["src/b.py"], raw_log="FAILED t.py::test_x\n1 failed in 0.1s"
     )
-    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=2)
+    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=2, simulation=True)
     assert res.accepted is False
     assert res.attempts == 3  # max_retries + 1
     assert len(res.history) == 3
@@ -157,7 +157,7 @@ def test_deliver_slice_rejects_disallowed_edit():
     ex = FakeExecutor(
         files_changed=["src/c.py", "secret.py"], raw_log="2 passed in 0.1s"
     )
-    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=1)
+    res = deliver_slice(task, executor=ex, judge_fn=_real_judge_fn, max_retries=1, simulation=True)
     assert res.accepted is False
     assert res.final.disallowed_edits == ["secret.py"]
 

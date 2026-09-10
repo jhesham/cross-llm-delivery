@@ -27,7 +27,7 @@ class RecordingRunner:
 def _ok_runner(diff="--- a\n+++ b\n+x\n"):
     return RecordingRunner([
         ("opencode", 0, '{"type":"step_finish","part":{"tokens":{"input":10,"output":5,"total":15}}}'),
-        ("--name-only", 0, "src/x.py\n"),
+        ("--name-only", 0, "src/x.py\0"),
         ("diff", 0, diff),
     ])
 

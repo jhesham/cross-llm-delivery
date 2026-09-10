@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 complete; paused pending user token-availability confirmation for **T02**. Updated: 2026-09-10.
+Status: T01 and T02 complete; paused pending user token-availability confirmation for **T03**. Updated: 2026-09-10.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -9,7 +9,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 **Task completion checklist**
 
 - [x] T01 — Baseline and real regressions
-- [ ] T02 — Independent candidate verification
+- [x] T02 — Independent candidate verification
 - [ ] T03 — Checked collection and preservation
 - [ ] T04 — Resumable attempts and worktrees
 - [ ] T05 — Build identity and ledger migration
@@ -34,7 +34,7 @@ The checklist above is the task-level completion record. The table below holds i
 | Task / suggested sitting | Depends on | Estimate | Evidence / commit |
 |---|---|---|---|
 | [T01 — baseline and real regressions](01-ACCEPTANCE-RECOVERY.md#t01--baseline-and-regression-harness) | — | 6–10k | Complete: [evidence](T01-EVIDENCE.md); 421 passed, 9 xfailed, 1 deselected; committed with T01 tests |
-| [T02 — independent candidate verification](01-ACCEPTANCE-RECOVERY.md#t02--independent-candidate-verification) | T01 | 12–18k | Not started |
+| [T02 — independent candidate verification](01-ACCEPTANCE-RECOVERY.md#t02--independent-candidate-verification) | T01 | 12–18k | Complete: [evidence](T02-EVIDENCE.md); 479 passed, 6 xfailed, 1 deselected; closing commit recorded by candidate module history |
 | [T03 — checked collection and preservation](01-ACCEPTANCE-RECOVERY.md#t03--checked-collection-and-preservation) | T02 | 10–16k | Not started |
 | [T04 — resumable attempts and worktrees](01-ACCEPTANCE-RECOVERY.md#t04--resumable-attempts-and-worktrees) | T03 | 10–16k | Not started |
 | [T05 — build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration) | T04 | 12–18k | Not started |
@@ -77,3 +77,5 @@ Next task:
 - 2026-09-09 — User selected Kimi K3 via OpenCode for dogfooding. Codex retains lead/test/review responsibilities. Exact model ID remains to be verified; no automatic model substitution. The 20 task units have not yet been converted to executable acceptance-test-backed CLD slices.
 - 2026-09-09 — Prepared the 13-file planning baseline for commit before T01. User requires verification/commit and an explicit token-availability checkpoint after every slice; no implementation task started.
 - 2026-09-10 — T01 complete: shared production capture in integration harnesses; 11 portable regressions/control cases, including 9 strict expected failures verified with `--runxfail`. Final suite 421 passed, 9 xfailed, 1 deselected. No live model use; lead usage unavailable. Next T02 requires explicit user confirmation. Identify this task's commit with `git log -1 --format=%h -- tests/integration/test_review_regressions.py`.
+
+- 2026-09-10 — T02 complete: immutable base/candidate capture, protected acceptance preflight, isolated snapshot judging, rechecked collection tree and explicit simulation boundary. R01/R02 acceptance defects closed. Final suite 479 passed, 6 xfailed, 1 deselected; targeted post-dispatch capture fault passed separately. No live model dispatch; lead usage unavailable. Refactoring branch checkpoint is committed/pushed before pausing for T03.

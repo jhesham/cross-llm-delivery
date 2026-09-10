@@ -56,7 +56,7 @@ from cld_providers.antigravity.provider import AntigravityExecutor
 class _Runner:
     """Injected runner. Writes the agy --log-file as a side effect (simulating agy),
     and answers git capture_diff calls."""
-    def __init__(self, conv_id, *, dispatch_rc=0, diff="--- a\n+++ b\n+x\n", names="src/x.py\n"):
+    def __init__(self, conv_id, *, dispatch_rc=0, diff="--- a\n+++ b\n+x\n", names="src/x.py\0"):
         self.conv_id = conv_id; self.dispatch_rc = dispatch_rc
         self.diff = diff; self.names = names; self.calls = []
 
