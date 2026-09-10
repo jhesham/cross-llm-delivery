@@ -1,4 +1,6 @@
 import os
+import inspect
+from copy import deepcopy
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -6,8 +8,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from cld.dag import parallel_batches
-from cld.executors.base import SliceTask
-from cld.judge import JudgeResult
+from cld.executors.base import ExecutorResult, SliceTask
+from cld.candidate import Candidate, CandidateVerifier
+from cld.executors._capture import CaptureError
+from cld.judge import JudgeResult, judge, _extract_rc
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
 from cld.telemetry import emit
 from cld.worktree import worktree
@@ -97,6 +101,16 @@ class DeliverResult:
     token_usage: dict = field(default_factory=dict)
     final_rung: str | None = None
     needs_repair: bool = False
+    candidate: Candidate | None = None
+
+
+def _accepts(fn, *args, **kwargs):
+    """Adapt legacy injected signatures BEFORE calling; never retry a body error."""
+    try:
+        inspect.signature(fn).bind(*args, **kwargs)
+    except TypeError:
+        return False
+    return True
 
 def deliver_slice(
     task: SliceTask,
@@ -109,7 +123,13 @@ def deliver_slice(
     test_runner: Callable[[str], str] | None = None,
     source: str | None = None,
     rung: str | None = None,
+    git_runner: Callable | None = None,
+    simulation: bool = False,
 ) -> DeliverResult:
+    if git_runner is None and not simulation:
+        raise CaptureError("Delivery requires git_runner; report-only test doubles must opt into simulation=True")
+    if git_runner is not None and simulation:
+        raise CaptureError("Simulation cannot be combined with a real Git boundary")
     # workdir defaults to task.id (prior behavior); callers wiring real worktrees
     # pass the worktree path so the executor operates in an isolated directory.
     effective_workdir = workdir if workdir is not None else task.id
@@ -117,6 +137,21 @@ def deliver_slice(
     final_judge_result = None
     total_attempts = max_retries + 1
     feedback = None  # set after a failed attempt, fed to the next dispatch
+    verifier = None
+    candidate = None
+    files_changed, diff = [], ""
+    acceptance_selector = task.acceptance_test_path
+
+    def run_at(directory):
+        if _accepts(test_runner, directory, acceptance_selector):
+            return test_runner(directory, acceptance_selector)
+        return test_runner(directory)
+
+    if git_runner is not None:
+        if test_runner is None:
+            raise CaptureError("Verified delivery requires an independent acceptance runner")
+        verifier = CandidateVerifier(git_runner, effective_workdir, task)
+        verifier.preflight(run_at)
 
     for attempt in range(1, total_attempts + 1):
         # Telemetry: one dispatch_start per attempt (best-effort, never raises).
@@ -125,16 +160,15 @@ def deliver_slice(
         _t0 = time.monotonic()
         # Pass judge feedback into the retry so the executor can self-correct.
         # Executors that don't accept a `feedback` kwarg (legacy) keep working.
-        if feedback is None:
-            result = executor.run(task, effective_workdir)
+        if feedback is None or not _accepts(executor.run, task, effective_workdir, feedback=feedback):
+            result = executor.run(deepcopy(task), effective_workdir)
         else:
-            try:
-                result = executor.run(task, effective_workdir, feedback=feedback)
-            except TypeError:
-                result = executor.run(task, effective_workdir)
-        _tok = getattr(result, "token_usage", {}) or {}
+            result = executor.run(deepcopy(task), effective_workdir, feedback=feedback)
+        _tok = getattr(result, "token_usage", {})
+        if not isinstance(_tok, dict):
+            _tok = {}
         emit("dispatch_end", slice_id=task.id, model=model,
-             rc=0 if getattr(result, "ok", True) else 1,
+             rc=0 if getattr(result, "ok", False) is True else 1,
              tokens=_tok, cost=_tok.get("cost"),
              ms=int((time.monotonic() - _t0) * 1000))
 
@@ -147,20 +181,50 @@ def deliver_slice(
         # pytest to JUST that test, NOT the whole repo suite (Bug B: running the
         # whole suite billed a paid LLM if the target repo's tests call one, and a
         # hang anywhere froze the build). New runners take (workdir, path); legacy
-        # one-arg runners (workdir) keep working via the TypeError fallback.
-        if test_runner is not None:
-            def run_tests():
-                try:
-                    return test_runner(effective_workdir, task.acceptance_test_path)
-                except TypeError:
-                    return test_runner(effective_workdir)
-        else:
-            run_tests = lambda: result.raw_log  # noqa: E731
-        judge_result = judge_fn(
-            files_changed=result.files_changed,
-            allowed=task.files,
-            run_tests=run_tests,
-        )
+        # one-arg runners (workdir) are adapted by signature inspection.
+        try:
+            if verifier is not None:
+                candidate = verifier.capture()
+                files_changed, diff = list(candidate.files_changed), candidate.diff
+            if (not isinstance(result, ExecutorResult) or type(result.ok) is not bool
+                    or not isinstance(result.raw_log, str) or not isinstance(result.diff, str)
+                    or not isinstance(result.files_changed, list)
+                    or not all(isinstance(p, str) for p in result.files_changed)
+                    or not isinstance(result.token_usage, dict)):
+                raise CaptureError("Malformed executor completion")
+            if not result.ok:
+                raise CaptureError("Executor dispatch failed: " + result.raw_log[-500:])
+            if verifier is None:
+                # Compatibility for synthetic callers with no Git boundary.
+                files_changed, diff = result.files_changed, result.diff
+                judge_result = judge_fn(files_changed=files_changed, allowed=task.files,
+                    run_tests=(lambda: run_at(effective_workdir)) if test_runner else lambda: result.raw_log)
+            else:
+                if not candidate.files_changed and not (verifier.allow_already_satisfied
+                                                        and verifier.baseline_passed):
+                    raise CaptureError("No-change acceptance requires allow_already_satisfied and a passing baseline")
+                with verifier.snapshot(candidate) as directory:
+                    outputs = []
+                    def run_frozen_tests():
+                        output = run_at(directory)
+                        if not isinstance(output, str) or _extract_rc(output) is None:
+                            raise CaptureError("Acceptance runner must return an authoritative exit code")
+                        outputs.append(output)
+                        return output
+                    judge_result = judge_fn(files_changed=files_changed, allowed=list(verifier.allowed),
+                                            run_tests=run_frozen_tests)
+                    if not isinstance(judge_result, JudgeResult) or type(judge_result.passed) is not bool:
+                        raise CaptureError("Malformed judge completion")
+                    if len(outputs) != 1:
+                        raise CaptureError("Judge must run the frozen acceptance inputs exactly once")
+                    authoritative = judge(files_changed, list(verifier.allowed), run_tests=lambda: outputs[0])
+                    if authoritative.passed and (authoritative.tests_passed < 1 or authoritative.tests_failed):
+                        raise CaptureError("Acceptance requires at least one passing test and no failures")
+                    if not authoritative.passed:
+                        judge_result = authoritative
+                verifier.verify_unchanged(candidate)
+        except CaptureError as exc:
+            judge_result = JudgeResult(False, 0, 0, failing_tests=[str(exc)])
 
         history.append(judge_result)
         final_judge_result = judge_result
@@ -176,11 +240,12 @@ def deliver_slice(
                 attempts=attempt,
                 final=final_judge_result,
                 history=history,
-                files_changed=list(result.files_changed or []),
-                diff_lines=_count_diff_lines(result.diff),
+                files_changed=list(files_changed),
+                diff_lines=_count_diff_lines(diff),
                 model=model,
                 effort=_effort_of(model),
-                token_usage=getattr(result, "token_usage", {}) or {},
+                token_usage=_tok,
+                candidate=candidate,
             )
 
         # Failed: build feedback for the next attempt from the judge result.
@@ -206,11 +271,12 @@ def deliver_slice(
         attempts=total_attempts,
         final=final_judge_result,
         history=history,
-        files_changed=list(result.files_changed or []),
-        diff_lines=_count_diff_lines(result.diff),
+        files_changed=list(files_changed),
+        diff_lines=_count_diff_lines(diff),
         model=model,
         effort=_effort_of(model),
-        token_usage=getattr(result, "token_usage", {}) or {},
+        token_usage=_tok,
+        candidate=candidate,
     )
 
 
@@ -242,7 +308,16 @@ def run_plan(
     judge_fn: Callable,
     max_retries: int = 2,
     test_runner: Callable[[str], str] | None = None,
+    repo_dir: str | None = None,
+    git_runner: Callable | None = None,
+    simulation: bool = False,
 ) -> PlanResult:
+    if not simulation:
+        return run_plan_parallel(slices, ledger, executor=executor, judge_fn=judge_fn,
+                                 max_retries=max_retries, max_workers=1, repo_dir=repo_dir,
+                                 git_runner=git_runner, test_runner=test_runner)
+    if repo_dir is not None or git_runner is not None:
+        raise CaptureError("Simulation cannot be combined with a real Git boundary")
     result = PlanResult()
     for task in slices:
         if ledger.is_done(task.id):
@@ -258,6 +333,7 @@ def run_plan(
             judge_fn=judge_fn,
             max_retries=max_retries,
             test_runner=test_runner,
+            simulation=True,
         )
         
         if deliver_res.accepted:
@@ -290,6 +366,7 @@ def run_plan_parallel(
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
     rung_planner: Callable | None = None,
+    simulation: bool = False,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -302,14 +379,19 @@ def run_plan_parallel(
     Multi-agent isolation: if `repo_dir` (and `git_runner`) are provided, each slice
     runs inside its OWN git worktree (`worktree(repo_dir, "slice-<id>", ...)`) and the
     executor receives that worktree's path as its workdir — so concurrent Gemini agents
-    never share a directory. Without `repo_dir`, the workdir falls back to `task.id`
-    (the prior behavior; fine for fakes/tests and single-agent use).
+    never share a directory. Report-only test doubles must explicitly select
+    `simulation=True`; that mode uses task.id and cannot take a Git boundary.
 
     Quota-awareness: if `quota_check` is provided and returns a percentage >=
     `quota_threshold`, slices are NOT dispatched — they are recorded in
     `result.deferred` so a later run (after the quota window resets) picks them up.
     This protects the flat-rate executor's quota bucket during large fan-outs.
     """
+    if simulation:
+        if repo_dir is not None or git_runner is not None:
+            raise CaptureError("Simulation cannot be combined with a real Git boundary")
+    elif repo_dir is None or git_runner is None:
+        raise CaptureError("Plan delivery requires repo_dir and git_runner; use simulation=True only for test doubles")
     result = PlanResult()
 
     def _resolve_spec(task):
@@ -344,7 +426,7 @@ def run_plan_parallel(
         if all rungs fail, return with needs_repair=True and final_rung="orchestrator".
         """
         if rung_planner is None:
-            # UNCHANGED existing body — single _executor_for dispatch with max_retries
+            # Single executor dispatch with bounded retry count.
             slice_executor, resolved_spec = _executor_for(task)
             _src = "tag" if task.executor else "default"
             if repo_dir is not None and git_runner is not None:
@@ -354,10 +436,11 @@ def run_plan_parallel(
                         max_retries=max_retries, workdir=wt_path,
                         test_runner=test_runner, model=resolved_spec,
                         source=_src, rung="workhorse",
+                        git_runner=git_runner,
                     )
                     _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
-                        git_runner(["git", "add", "-A"], wt_path)
+                        CandidateVerifier(git_runner, wt_path, task, base=res.candidate.base).prepare_collection(res.candidate)
                         git_runner(
                             ["git", "commit", "-m", f"slice {task.id}: accepted by cld"],
                             wt_path,
@@ -369,6 +452,7 @@ def run_plan_parallel(
                 task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
                 test_runner=test_runner, model=resolved_spec,
                 source=_src, rung="workhorse",
+                simulation=simulation,
             )
 
         # Escalation ladder: walk each rung, first acceptance wins.
@@ -385,17 +469,17 @@ def run_plan_parallel(
                     res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
                                         max_retries=max(budget - 1, 0), workdir=wt,
                                         test_runner=test_runner, model=spec,
-                                        source=_src, rung=rung_name)
+                                        source=_src, rung=rung_name, git_runner=git_runner)
                     _save_judge_output(repo_dir, task.id, res)
                     if res.accepted:
-                        git_runner(["git", "add", "-A"], wt)
+                        CandidateVerifier(git_runner, wt, task, base=res.candidate.base).prepare_collection(res.candidate)
                         git_runner(["git", "commit", "-m", f"slice {task.id}: accepted by cld"], wt)
                     else:
                         _save_failed_diff(git_runner, wt, repo_dir, task.id)
             else:
                 res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
                                     max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec,
-                                    source=_src, rung=rung_name)
+                                    source=_src, rung=rung_name, simulation=simulation)
             last = res
             if res.accepted:
                 res.final_rung = rung_name

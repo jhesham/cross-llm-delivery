@@ -11,6 +11,8 @@ class SliceTask:
     deps: list[str] = field(default_factory=list)
     executor: str | None = None  # optional per-slice executor spec; None -> build default
     complexity: str = "standard"  # easy / standard / complex; default standard
+    protected_inputs: list[str] = field(default_factory=list)
+    allow_already_satisfied: bool = False
 
 @dataclass
 class ExecutorResult:
@@ -22,5 +24,5 @@ class ExecutorResult:
 
 @runtime_checkable
 class Executor(Protocol):
-    def run(self, task: SliceTask, workdir: Path) -> ExecutorResult:
+    def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         ...

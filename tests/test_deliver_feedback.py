@@ -7,6 +7,7 @@ don't accept it keep working (backward-compatible).
 
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.orchestrator import deliver_slice
+import pytest
 
 
 def _judge(files_changed, allowed, run_tests):
@@ -46,7 +47,7 @@ def _slice():
 
 def test_feedback_passed_to_retry():
     ex = FeedbackAwareExecutor()
-    res = deliver_slice(_slice(), executor=ex, judge_fn=_judge, max_retries=2)
+    res = deliver_slice(_slice(), executor=ex, judge_fn=_judge, max_retries=2, simulation=True)
     assert res.accepted is True
     assert res.attempts == 2
     # first attempt: no feedback; second attempt: feedback present mentioning the failure
@@ -58,6 +59,29 @@ def test_feedback_passed_to_retry():
 def test_legacy_executor_without_feedback_kwarg_still_works():
     # Must not raise even though LegacyExecutor.run has no feedback param.
     ex = LegacyExecutor()
-    res = deliver_slice(_slice(), executor=ex, judge_fn=_judge, max_retries=1)
+    res = deliver_slice(_slice(), executor=ex, judge_fn=_judge, max_retries=1, simulation=True)
     assert res.accepted is True
     assert res.attempts == 1
+
+
+def test_executor_body_typeerror_is_not_redispatched():
+    class Broken(FeedbackAwareExecutor):
+        def run(self, task, workdir, feedback=None):
+            if feedback is not None:
+                self._calls += 1
+                raise TypeError("inside executor")
+            return super().run(task, workdir, feedback)
+    ex = Broken()
+    with pytest.raises(TypeError, match="inside executor"):
+        deliver_slice(_slice(), executor=ex, judge_fn=_judge, max_retries=2, simulation=True)
+    assert ex._calls == 2
+
+
+def test_test_runner_body_typeerror_is_not_rerun():
+    calls = []
+    def broken(wd, path=None):
+        calls.append(wd)
+        raise TypeError("inside runner")
+    with pytest.raises(TypeError, match="inside runner"):
+        deliver_slice(_slice(), executor=LegacyExecutor(), judge_fn=_judge, test_runner=broken, simulation=True)
+    assert len(calls) == 1

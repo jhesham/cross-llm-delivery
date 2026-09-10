@@ -22,6 +22,14 @@ pytestmark = pytest.mark.integration
 
 
 def test_failed_slice_preserves_executor_diff(git_repo):
+    Path(git_repo, "tests").mkdir()
+    Path(git_repo, "tests/test_new.py").write_text("def test_new(): assert False\n")
+    assert real_git_runner(["git", "add", "-A"], git_repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance input"], git_repo)[0] == 0
+    calls = []
+    def runner(wd, p):
+        calls.append(wd)
+        return "__CLD_PYTEST_RC__=1\nFAILED tests/test_new.py::test_new - assert False\n1 failed" if len(calls) == 1 else "__CLD_PYTEST_RC__=5\nno tests ran"
     task = SliceTask(id="T9", brief="make src/new.py", files=["src/new.py"],
                      acceptance_test_path="tests/test_new.py")
     ledger = Ledger(os.path.join(git_repo, ".cld-ledger.json"))
@@ -32,7 +40,7 @@ def test_failed_slice_preserves_executor_diff(git_repo):
         [task], ledger,
         executor=FileCreatingExecutor(contents={"src/new.py": "x = 42\n"}),
         judge_fn=judge,
-        test_runner=lambda wd, p=None: "no tests ran",  # 0 passed -> not accepted
+        test_runner=runner,  # 0 passed -> not accepted
         repo_dir=git_repo, git_runner=real_git_runner, max_workers=1,
     )
 

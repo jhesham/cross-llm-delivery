@@ -19,9 +19,8 @@ def real_git_runner(args: list[str], cwd: str) -> tuple[int, str]:
     Mirrors run_delivery.py::git_runner so integration tests exercise exactly the
     runner the live pipeline uses.
     """
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
-    return (proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+    proc = subprocess.run(args, cwd=cwd, capture_output=True)
+    return (proc.returncode, (proc.stdout + proc.stderr).decode("utf-8"))
 
 
 def init_repo(path: str | Path) -> str:

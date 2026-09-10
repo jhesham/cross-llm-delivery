@@ -46,7 +46,7 @@ def _judge(files_changed, allowed, run_tests):
 
 
 def _always_pass_runner(workdir):
-    return "1 passed in 0.0s"
+    return "__CLD_PYTEST_RC__=0\n1 passed in 0.0s"
 
 
 def _branch_file_list(repo, branch):
@@ -57,6 +57,9 @@ def _branch_file_list(repo, branch):
 
 def test_concurrent_slices_isolated_and_collected(git_repo):
     repo = git_repo
+    Path(repo, "t.py").write_text("def test_ok(): assert True\n")
+    assert real_git_runner(["git", "add", "t.py"], repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance input"], repo)[0] == 0
     slices = [
         SliceTask(id="A", brief="b", files=["pkg/a.py"], acceptance_test_path="t.py"),
         SliceTask(id="B", brief="b", files=["pkg/b.py"], acceptance_test_path="t.py"),

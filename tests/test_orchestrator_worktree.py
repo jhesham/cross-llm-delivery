@@ -7,6 +7,9 @@ unchanged (workdir falls back to task.id).
 """
 
 import threading
+from pathlib import Path
+from tests.integration.harness import init_repo, real_git_runner
+from tests.integration.test_review_regressions import acceptance
 
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.ledger import Ledger
@@ -28,6 +31,10 @@ class WorkdirRecordingExecutor:
     def run(self, task, workdir):
         with self._lock:
             self.workdirs[task.id] = workdir
+        if Path(workdir).is_dir():
+            path = Path(workdir) / task.files[0]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("VALUE = 42\n")
         return ExecutorResult(ok=True, diff="", files_changed=[f"src/{task.id}.py"],
                               raw_log="1 passed in 0.1s")
 
@@ -38,7 +45,7 @@ def _judge(files_changed, allowed, run_tests):
 
 
 class FakeGitRunner:
-    """Records git worktree commands; always succeeds."""
+    """Records commands while exercising the real verification boundary."""
 
     def __init__(self):
         self.calls = []
@@ -47,7 +54,15 @@ class FakeGitRunner:
     def __call__(self, args, cwd):
         with self._lock:
             self.calls.append(args)
-        return (0, "")
+        return real_git_runner(args, cwd)
+
+
+def _repo(tmp_path):
+    repo = init_repo(tmp_path / "repo")
+    Path(repo, "t.py").write_text("def test_ok(): assert True\n")
+    assert real_git_runner(["git", "add", "t.py"], repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance"], repo)[0] == 0
+    return repo
 
 
 def test_each_slice_runs_in_distinct_worktree(tmp_path):
@@ -58,7 +73,7 @@ def test_each_slice_runs_in_distinct_worktree(tmp_path):
 
     run_plan_parallel(
         slices, led, executor=ex, judge_fn=_judge, max_workers=3,
-        repo_dir="/repo", git_runner=git,
+        repo_dir=_repo(tmp_path), git_runner=git, test_runner=acceptance,
     )
 
     # Each slice got a DISTINCT workdir (not "/repo" and not each other's).
@@ -77,7 +92,7 @@ def test_worktree_add_and_remove_issued_per_slice(tmp_path):
 
     run_plan_parallel(
         [_slice("A")], led, executor=ex, judge_fn=_judge,
-        repo_dir="/repo", git_runner=git,
+        repo_dir=_repo(tmp_path), git_runner=git, test_runner=acceptance,
     )
 
     flat = [" ".join(c) for c in git.calls]
@@ -89,7 +104,7 @@ def test_fallback_without_repo_dir_uses_task_id(tmp_path):
     led = Ledger(str(tmp_path / "l.json"))
     ex = WorkdirRecordingExecutor()
     # no repo_dir / git_runner -> old behavior: workdir == task.id
-    run_plan_parallel([_slice("A")], led, executor=ex, judge_fn=_judge)
+    run_plan_parallel([_slice("A")], led, executor=ex, judge_fn=_judge, simulation=True)
     assert ex.workdirs["A"] == "A"
 
 
@@ -99,6 +114,6 @@ def test_completed_still_correct_with_worktrees(tmp_path):
     git = FakeGitRunner()
     res = run_plan_parallel(
         [_slice("A"), _slice("B")], led, executor=ex, judge_fn=_judge,
-        repo_dir="/repo", git_runner=git,
+        repo_dir=_repo(tmp_path), git_runner=git, test_runner=acceptance,
     )
     assert sorted(res.completed) == ["A", "B"]

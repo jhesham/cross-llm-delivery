@@ -18,7 +18,7 @@ class RecordingRunner:
 def _ok_runner(diff="--- a\n+++ b\n+x\n"):
     return RecordingRunner([
         ("cursor", 0, '{"type":"result","is_error":false,"usage":{"inputTokens":10,"outputTokens":5}}'),
-        ("--name-only", 0, "src/x.py\n"),
+        ("--name-only", 0, "src/x.py\0"),
         ("diff", 0, diff),
     ])
 
