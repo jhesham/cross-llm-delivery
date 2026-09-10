@@ -2,7 +2,7 @@
 
 Date: 2026-09-10. Starting commit: `ddd4333`, branch `refactor/codex-support`.
 The T01/planning checkpoint was already pushed before this sitting.
-Resolve the closing commit with `git log -1 --format=%h -- engine/cld/candidate.py`.
+Closing commit: `a6b1b68`.
 
 ## Implemented contract
 

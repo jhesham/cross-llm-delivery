@@ -53,6 +53,29 @@ accepted_pending_integration -> integrated
 
 An accepted slice has a verified reachable commit and durable attempt record. Build completion requires integrated slices and a passing integration gate. Save recovery artifacts before cleanup, including on dispatch, judge, commit, and ledger exceptions. Preserve the worktree if a complete recovery artifact cannot be verified. Ordinary cleanup never deletes the only copy of a candidate or accepted commit.
 
+T03 implementation (2026-09-10): `RecoverySession` creates UUID-scoped evidence under
+`.cld/<slice>/<session>/`. Dispatch/judge checkpoints save raw diagnostics, checked
+binary patches, tree hashes and independent `refs/cld/recovery/<session>/...` refs.
+Patch reconstruction uses a temporary bare repository/index referencing the original
+object store. It never stages or resets the user's checkout. The tested tree gets its
+own `verified` recovery ref before collection invokes hooks.
+
+Collection checks every Git result, reuses an existing matching commit/no-op, rejects
+hook mutations, and pins the verified commit at `refs/cld/accepted/<session>`.
+An atomic, flushed/read-back `outcome.json` records `collected` before the ledger writes
+DONE with commit/tree/ref/base/test fingerprints and recovery/worktree paths. The final
+ledger save is flushed and atomic; an exception rolls back the in-memory status and
+retains the worktree. Cleanup then rechecks the physical candidate; failures or later
+edits retain that directory and surface a warning without changing the accepted commit.
+
+All failed worktrees are retained, even with a verified recovery patch. This deliberately
+keeps recovery simple until T04 introduces attempt naming/resume and cleanup policies.
+For the narrow commit-success/ledger-save-failure case, restart verifies the collected
+journal against the same repository, ledger, task fingerprint, original base and durable
+accepted ref, then saves the ledger without another provider call. Other interrupted
+states are not promoted to acceptance. T04 owns branch/worktree recovery; T05 owns the
+versioned build ledger, corruption handling, locking and general identity/migration.
+
 **A04 — Attempts have identities.** Use run-scoped unique branches/paths (for example `cld/<run>/<slice>/<attempt>`), rather than creating `slice-A` repeatedly. Store actual refs and worktree paths in the ledger; host instructions must use those recorded refs. Retain existing accepted branches during migration. Detect interrupted attempts and stale worktrees, inspect their state, and resume/retry explicitly without assuming that an existing branch is disposable. One active CLI writer per build is enforced with a recoverable lock.
 
 **A05 — Build state is scoped and versioned.** Keep the default ledger at `<repo>/.cld-ledger.json` for continuity, but introduce a versioned envelope containing repository identity, canonical plan hash/path, initial base, run ID, integrated ref/SHA, slice fingerprints, attempt history, budgets, and integration results. Resolve explicit relative `--ledger` paths relative to the invocation directory; show the resolved path. Default path behavior changes to the target repo and must be documented.
