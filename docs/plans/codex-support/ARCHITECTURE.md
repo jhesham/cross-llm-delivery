@@ -78,6 +78,32 @@ versioned build ledger, corruption handling, locking and general identity/migrat
 
 **A04 — Attempts have identities.** Use run-scoped unique branches/paths (for example `cld/<run>/<slice>/<attempt>`), rather than creating `slice-A` repeatedly. Store actual refs and worktree paths in the ledger; host instructions must use those recorded refs. Retain existing accepted branches during migration. Detect interrupted attempts and stale worktrees, inspect their state, and resume/retry explicitly without assuming that an existing branch is disposable. One active CLI writer per build is enforced with a recoverable lock.
 
+T04 implementation (2026-09-11): each invocation fixes a base SHA and a run UUID;
+each rung/session exclusively reserves a UUID journal before creating
+`cld/<run>/<slice-slug>/<session>` and its worktree. Retry ordinals retain separate
+recovery refs and artifacts within that session. The default root is
+`<repo>/.cld/worktrees`; `--worktree-root` accepts an absolute directory or a path
+relative to `--repo`. Roots and leaves are canonicalized and rechecked before
+creation/cleanup; cleanup also verifies the recorded branch and Git common directory.
+
+Retries within a session keep the prior candidate. Escalation and restart use a
+fresh base, with bounded diagnostics and pointers to preserved refs/worktrees and
+journal evidence. No automatic reset, cherry-pick or acceptance of failed work.
+A hard stop before a snapshot still leaves the reserved branch/worktree discoverable.
+Missing worktrees or refs are reported in the next journal without deleting remaining
+artifacts. Legacy `slice-<id>` refs are inspected read-only; legacy collected worktrees
+are retained for manual cleanup. Collected outcomes still reconcile without dispatch.
+
+An OS-held, nonblocking lock per slice in the Git common directory prevents duplicate
+active owners across processes/checkouts. Process exit releases ownership; PID metadata
+is diagnostic, never the basis for stealing a lock. Keep lock files on disk. T05 must
+add the build-wide ledger writer lock and versioned migration: this slice lock does
+not prevent two separate processes delivering different slices from overwriting a
+shared legacy ledger. Schema-1 journals gain `run_id`, `branch`, `worktree_root`,
+`owner_pid`, `retry_policy`, and `previous`; retain these and existing accepted/recovery
+refs when migrating. A configured worktree root does not relocate Python/Git test
+temporary directories or provide executor sandbox enforcement (T08/T13).
+
 **A05 — Build state is scoped and versioned.** Keep the default ledger at `<repo>/.cld-ledger.json` for continuity, but introduce a versioned envelope containing repository identity, canonical plan hash/path, initial base, run ID, integrated ref/SHA, slice fingerprints, attempt history, budgets, and integration results. Resolve explicit relative `--ledger` paths relative to the invocation directory; show the resolved path. Default path behavior changes to the target repo and must be documented.
 
 Provide an explicit legacy migration with a backup; old DONE entries without verifiable commits do not automatically become integrated. Distinguish missing from corrupt/unreadable ledgers. Changing the plan invalidates affected slices and downstream dependencies through an explicit reconcile operation, never a silent reset. New builds get new IDs and preserve earlier evidence.

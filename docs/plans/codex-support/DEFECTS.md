@@ -1,13 +1,13 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R03 are closed by T02/T03; R02 process interruption/timeout follow-up remains in T08. R04 through R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R05 through R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
 | [x] | R01 P1: executor commits hide forbidden changes | `engine/cld/executors/_capture.py:34` | Commit a forbidden file inside the worktree; capture currently reports no files and accepts it. Reject relative to immutable dispatch base, including changed tests. | T02 |
 | [x] | R02 P1: failed dispatch accepted | `engine/cld/orchestrator.py:132` | Return `ok=False` after writing code; passing tests currently allow acceptance using an empty reported diff. Error must fail and preserve actual edits/logs. | T02, T08 |
 | [x] | R03 P1: commit failure loses accepted work | `engine/cld/recovery.py`, `engine/cld/orchestrator.py` | Reject commit via local hook or injected nonzero RC; current result is complete after worktree removal. No acceptance until commit/tree verified and durable; recovery remains. | T03 |
-| [ ] | R04 P1: escalation/resume branch collision | `engine/cld/worktree.py:11` | Fail first rung, enter second; `slice-A` already exists. Verify second dispatch and restart after interruption with real Git. | T04 |
+| [x] | R04 P1: escalation/resume branch collision | `engine/cld/worktree.py:11` | Fail first rung, enter second; `slice-A` already exists. Verify second dispatch and restart after interruption with real Git. | T04 |
 | [ ] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
 | [ ] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
 | [ ] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Build wheel and import `load_providers` outside checkout/editable paths. Current wheel lacks `.md` and raises FileNotFoundError. | T17 |
@@ -48,3 +48,5 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T02 closing evidence (2026-09-10):** [T02-EVIDENCE.md](T02-EVIDENCE.md) records the real-Git regressions, 479-pass final suite, and compatibility limits. Closing commit: `a6b1b68`. Only R01/R02 acceptance markers were removed; six expected failures retain their T03/T04/T06 owners.
 
 **T03 closing evidence (2026-09-10):** [T03-EVIDENCE.md](T03-EVIDENCE.md) records rejecting-hook, judge-exception, disk/Git/save and recovery regressions. Final suite: 501 passed, 3 xfailed, 1 deselected. Resolve the closing commit with `git log -1 --format=%h --grep='^fix: T03 '`. The three remaining expected failures belong to T04/T06.
+
+**T04 closing evidence (2026-09-11):** [T04-EVIDENCE.md](T04-EVIDENCE.md) records unique attempts, actual two-rung dispatch, hard-stop restart, active ownership, orphan/legacy preservation and configured-root checks. Final M1 suite: 513 passed, 2 xfailed, 1 deselected. Resolve the closing commit with `git log -1 --format=%h --grep='^fix: T04 '`. Only the two T06 dependency regressions remain expected failures.

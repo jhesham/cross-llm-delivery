@@ -25,6 +25,8 @@ These are adjustable planning bands, not an API quota. At about 70–75% of the 
 
 The 18 required task ranges total approximately **162–262k lead-agent tokens** before contingency. With a 25% allowance, plan around **203–328k**. Optional T15/T16 add **18–30k**, before contingency. Re-estimate after T04 using observed usage. Repeated context, reasoning accounting, caching, host reporting, and tool output differ, so these numbers are scheduling guidance rather than billing predictions.
 
+**Codex sub-agent preference (2026-09-11):** If sub-agents are used, select `gpt-5.6-luna` with `max` reasoning and narrowly bounded briefs. Avoid duplicating lead context or delegating merely to increase concurrency. This is separate from the selected Kimi K3 via OpenCode dogfooding executor and does not remove the bootstrap gate through T09.
+
 **Keep runtime token use small**
 
 - Use one provider/model per bounded slice unless the approved escalation policy calls for a switch. Do not assume subscription usage is free or unlimited.

@@ -85,5 +85,5 @@ def test_step_through_two_layers(git_repo):
     def files_on(branch):
         _, out = real_git_runner(["git", "ls-tree", "-r", "--name-only", branch], repo)
         return set(x.strip() for x in out.splitlines() if x.strip())
-    assert "pkg/a.py" in files_on("slice-A")
-    assert "pkg/b.py" in files_on("slice-B")
+    assert "pkg/a.py" in files_on(ledger.get("A").commit)
+    assert "pkg/b.py" in files_on(ledger.get("B").commit)

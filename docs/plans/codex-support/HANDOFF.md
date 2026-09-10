@@ -1,59 +1,57 @@
 # Current handoff
 
-Updated: 2026-09-10. Initiative: Codex support and review remediation.
+Updated: 2026-09-11. Initiative: Codex support and review remediation.
 
-**State:** T01 through T03 complete; paused before T04 for explicit user confirmation
-of token availability. Branch `refactor/codex-support`, remote `public` on GitHub.
-T03 starts from `a6b1b68`; resolve its closing commit with
-`git log -1 --format=%h --grep='^fix: T03 '`. Commit/push verification precedes
-this sitting's final pause.
+**State:** T01 through T04 and M1 complete; paused before T05 pending explicit
+confirmation of token availability. Branch `refactor/codex-support`, remote `public` on GitHub.
+T04 starts from `24b8d85`; resolve its closing commit with
+`git log -1 --format=%h --grep='^fix: T04 '`. Verify commit/push before final pause.
 
-**Mandatory checkpoint:** Verify and commit each slice with its progress updates, then
-wait for explicit confirmation of token availability before starting another. No
-next-slice dispatch. T04 has not started.
+**Mandatory checkpoint:** Verify and commit each slice with progress updates, then
+wait for explicit confirmation of token availability before starting another.
+T05 has not started. The user's push authorization remains in effect for these
+refactoring branch checkpoints; this is not a release or merge.
 
-**Next after confirmation:** [T04: resumable attempts/worktrees](01-ACCEPTANCE-RECOVERY.md#t04--resumable-attempts-and-worktrees).
-Estimate 10–16k lead tokens. Read `worktree.py`, `recovery.py`, the worktree/cleanup
-branches in `orchestrator.py`, and the remaining escalation regression. Add unique
-attempt branch/path identities and safe configured roots, stale/active ownership and
-resume behavior. Replace the hardcoded expected cleanup path when introducing new
-roots. Preserve old `slice-<id>` branches and existing `refs/cld/accepted/` and recovery
-refs. Do not delete failed candidates merely to avoid collisions.
+**Next after confirmation:** [T05: build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration).
+Estimate 12–18k lead tokens. Read that contract, `ledger.py`, `attempts.py`,
+`recovery.py`, and CLI ledger loading. Add a build-wide writer lock, versioned build
+identity, corruption handling and explicit backed-up migration. Preserve actual
+accepted/recovery refs and all old candidates. The T04 per-slice lock does not
+serialize different slices writing one legacy ledger from separate processes.
 
-**T03 evidence:** [Full record](T03-EVIDENCE.md). 501 passed, 3 strict xfailed, 1 live
-evaluation deselected, 2 existing warnings. CLI/summary follow-up: 34 passed.
-R01 through R03 closed; remaining xfails are escalation collision (T04) and dependency
-visibility/failure blocking (T06). Log: `.cld/t03-verification/full-suite.log`.
+**T04 evidence:** [T04-EVIDENCE.md](T04-EVIDENCE.md). Focused existing tests:
+71 passed, 2 strict xfailed; post-fix Git/ownership checks: 15 passed, path checks:
+4 passed. Final M1 suite: **513 passed, 2 strict xfailed, 1 deselected, 2 existing
+warnings**, 454.60 seconds. Log: `.cld/t04-verification/full-suite-final.log`.
+The initial full run found a Windows parent-creation/path-resolution race, now fixed. R04's escalation xfail was removed;
+only the two T06 dependency regressions remain expected failures.
 
-**Implemented boundary:** `RecoverySession` writes per-attempt patches and raw logs,
-checks binary patch reconstruction in an isolated index, and pins recovery trees.
-`collect` checks commit/tree/ref and preserves the tested tree before hooks. A durable
-`collected` journal precedes the final ledger DONE write. Save failures roll back the
-in-memory entry and keep the worktree; success cleanup rechecks it. Failed worktrees
-are always retained. Cleanup warnings/paths appear in both CLI modes and detail JSON.
-The user's tracked checkout is unchanged.
+**Implemented boundary:** [A04](ARCHITECTURE.md) records unique run/session refs,
+pre-creation reservation journals, OS-held slice ownership, safe configured roots,
+bounded recovery context and legacy compatibility. Within-session retries reuse
+the prior candidate; escalation/restart use a fresh base with preserved paths/refs.
+Hard process exit releases ownership without deleting lock files or old branches.
+Collected journal reconciliation still avoids redispatch. Default worktree root is
+`<repo>/.cld/worktrees`; `--worktree-root` is absolute or relative to `--repo`.
+Test temporary directories still use normal Python/Git temp locations.
 
-**Restart:** The narrow collected-commit/final-ledger-save-failure case can reconcile
-without provider redispatch after verifying repo/ledger/task/base/ref/tree/fingerprint.
-Other interrupted states remain T04. Journal format is version 1; additive ledger fields
-are `collection`, `recovery_path`, `worktree_path` plus existing `commit`. T05 still owns
-full ledger versioning, corruption handling, build identity and locking.
+**Migration:** Schema-1 journals add `run_id`, `branch`, `worktree_root`, `owner_pid`,
+`retry_policy` and `previous`. The ledger retains `commit`, `collection`,
+`recovery_path`, `worktree_path`. Legacy `slice-<id>` refs are read-only input;
+legacy collected worktrees require manual cleanup. No automatic branch deletion.
 
-**Commands** (repository root):
+**Verification commands:**
 
 ```text
-python -m pytest tests/integration/test_review_regressions.py -o addopts="" -q --runxfail --tb=short
-python -m pytest tests/integration/test_collection_recovery.py -o addopts="" -q --tb=short
+python -m pytest tests/integration/test_attempt_resume.py -o addopts="" -q --tb=short
 python -m pytest -o addopts="-m 'not eval'" -q --tb=short
 ```
 
-The unmasked command intentionally fails only for remaining T04/T06 defects. Source
-bundle smoke/import tests pass. Committed plugin copies remain unchanged for T12/T17.
-T02 restrictions still apply: committed protected acceptance, explicit simulation for
-report-only doubles, no symlinks/junctions/submodules, and snapshots without Git metadata.
+Committed plugin copies remain unchanged for T12/T17. Existing protected acceptance
+and explicit simulation rules remain. Windows execution only; no new POSIX run.
 
-**Dogfooding/usage:** Kimi K3 via OpenCode remains selected; resolve its exact model ID
-before the first live dispatch, without substitution. Bootstrap through T09 before
-live delegation. No provider calls this sitting; executor usage zero, lead counters
-unavailable. Windows, Python 3.13.13, Git 2.54.0.windows.1; no new POSIX execution.
-This is a refactoring-branch checkpoint, not a release or merge.
+**Dogfooding/usage:** No sub-agents or provider calls in T04; executor usage zero,
+lead counters unavailable. User preference: any Codex sub-agents must use
+`gpt-5.6-luna` with `max` reasoning and bounded briefs. Kimi K3 via OpenCode remains
+the later cross-LLM executor; resolve its exact model ID before live dispatch,
+without substitution. Bootstrap through T09 before live dogfooding.

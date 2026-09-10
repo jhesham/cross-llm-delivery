@@ -3,6 +3,7 @@ import inspect
 from copy import deepcopy
 import threading
 import time
+from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
@@ -10,11 +11,12 @@ from typing import Any, Callable
 from cld.dag import parallel_batches
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.candidate import Candidate, CandidateVerifier
-from cld.executors._capture import CaptureError
+from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge, _extract_rc
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
 from cld.telemetry import emit
-from cld.worktree import worktree, remove_worktree
+from cld.worktree import worktree, remove_worktree, managed_location, validate_location, verify_worktree
+from cld.attempts import ActiveAttempt, slice_owner, previous_attempt, recovery_feedback
 from cld.recovery import RecoverySession, recover_collected
 
 
@@ -61,6 +63,8 @@ class DeliverResult:
     collection: dict = field(default_factory=dict)
     recovery_path: str | None = None
     worktree_path: str | None = None
+    worktree_root: str | None = None
+    branch: str | None = None
 
 
 def _accepts(fn, *args, **kwargs):
@@ -85,6 +89,7 @@ def deliver_slice(
     git_runner: Callable | None = None,
     simulation: bool = False,
     evidence: RecoverySession | None = None,
+    initial_feedback: str | None = None,
 ) -> DeliverResult:
     if git_runner is None and not simulation:
         raise CaptureError("Delivery requires git_runner; report-only test doubles must opt into simulation=True")
@@ -96,7 +101,7 @@ def deliver_slice(
     history = []
     final_judge_result = None
     total_attempts = max_retries + 1
-    feedback = None  # set after a failed attempt, fed to the next dispatch
+    feedback = initial_feedback
     verifier = None
     candidate = None
     files_changed, diff = [], ""
@@ -232,6 +237,9 @@ def deliver_slice(
             + " Fix these and try again."
         ) if parts else "Your previous attempt did not pass. Fix the failures and try again."
 
+        feedback = feedback[:4000]
+        if evidence is not None:
+            feedback += f"\nRetry policy: prior-candidate-in-place. Evidence: {evidence.directory}; candidate: {effective_workdir}"
         if attempt < total_attempts:
             emit("retry", slice_id=task.id, attempt=attempt + 1,
                  reason=("; ".join(failing) if failing else ""))
@@ -283,13 +291,14 @@ def run_plan(
     max_retries: int = 2,
     test_runner: Callable[[str], str] | None = None,
     repo_dir: str | None = None,
+    worktree_root: str | None = None,
     git_runner: Callable | None = None,
     simulation: bool = False,
 ) -> PlanResult:
     if not simulation:
         return run_plan_parallel(slices, ledger, executor=executor, judge_fn=judge_fn,
                                  max_retries=max_retries, max_workers=1, repo_dir=repo_dir,
-                                 git_runner=git_runner, test_runner=test_runner)
+                                 git_runner=git_runner, test_runner=test_runner, worktree_root=worktree_root)
     if repo_dir is not None or git_runner is not None:
         raise CaptureError("Simulation cannot be combined with a real Git boundary")
     result = PlanResult()
@@ -337,6 +346,7 @@ def run_plan_parallel(
     quota_check: Callable[[], int] | None = None,
     quota_threshold: int = 95,
     repo_dir: str | None = None,
+    worktree_root: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
     rung_planner: Callable | None = None,
@@ -351,7 +361,7 @@ def run_plan_parallel(
     not thread-safe).
 
     Multi-agent isolation: if `repo_dir` (and `git_runner`) are provided, each slice
-    runs inside its OWN git worktree (`worktree(repo_dir, "slice-<id>", ...)`) and the
+    runs inside a uniquely reserved Git worktree and the
     executor receives that worktree's path as its workdir — so concurrent Gemini agents
     never share a directory. Report-only test doubles must explicitly select
     `simulation=True`; that mode uses task.id and cannot take a Git boundary.
@@ -386,17 +396,29 @@ def run_plan_parallel(
     by_id = {s.id: s for s in slices}
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
+    run_id = uuid4().hex
+    run_base = checked(git_runner, repo_dir, "rev-parse", "HEAD^{commit}").strip() if not simulation else None
 
     def _worktree_delivery(task, ex, spec, retries, source, rung):
-        # Cleanup is explicitly delayed until the durable ledger write below.
-        with worktree(repo_dir, f"slice-{task.id}", runner=git_runner, cleanup=False) as wt:
-            session = None
-            res = None
-            try:
-                session = RecoverySession(repo_dir, wt, task, ledger.path, git_runner)
+        previous = previous_attempt(repo_dir, ledger.path, task, git_runner)
+        session_id = uuid4().hex
+        wt, root, branch = managed_location(repo_dir, worktree_root, run_id, task.id, session_id,
+                                           create_root=True)
+        session = RecoverySession(repo_dir, wt, task, ledger.path, git_runner,
+            session_id=session_id, base=run_base,
+            metadata=dict(run_id=run_id, branch=branch, worktree_root=root,
+                          owner_pid=os.getpid(), retry_policy="fresh-base", previous=previous))
+        res = None
+        created = False
+        try:
+            with worktree(repo_dir, branch, runner=git_runner, cleanup=False,
+                          path=wt, root=root, base=run_base):
+                created = True
+                session.save(state="running")
                 res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
                     max_retries=retries, workdir=wt, test_runner=test_runner,
-                    model=spec, source=source, rung=rung, git_runner=git_runner, evidence=session)
+                    model=spec, source=source, rung=rung, git_runner=git_runner, evidence=session,
+                    initial_feedback=recovery_feedback(previous))
                 if res.accepted:
                     session.save(delivery=dict(attempts=res.attempts, model=res.model,
                         effort=res.effort, token_usage=res.token_usage, final_rung=rung,
@@ -407,33 +429,40 @@ def run_plan_parallel(
                     res.collection = {**asdict(collected), "base": res.candidate.base,
                                       "tests_fingerprint": res.candidate.tests_fingerprint}
                 else:
-                    session.save(state="failed")
-            except BaseException as exc:
-                detail = f"{exc}; worktree retained at {wt}"
-                if session is not None:
-                    try:
-                        session.failure(exc)
-                    except Exception as preservation_error:
-                        detail += f"; recovery incomplete: {preservation_error}"
-                    detail += f"; evidence: {session.directory}"
-                if not isinstance(exc, Exception):
-                    exc.add_note(detail)
-                    raise
-                if res is None:
-                    res = DeliverResult(False, session.attempt if session else 0, None, model=spec)
-                res.accepted = False
-                res.final = JudgeResult(False, 0, 0, failing_tests=[detail])
-            res.worktree_path = wt
-            res.recovery_path = str(session.directory) if session is not None else None
-            if not res.accepted and res.final is not None:
-                res.final.failing_tests.append(f"Worktree retained at {wt}; evidence: {res.recovery_path}")
-            return res
+                    session.save(state="failed", error="; ".join(res.final.failing_tests)[:4000])
+        except BaseException as exc:
+            detail = f"{exc}; worktree retained at {wt}"
+            try:
+                if created:
+                    session.failure(exc)
+                else:
+                    session.save(state="failed", error=str(exc))
+            except Exception as preservation_error:
+                detail += f"; recovery incomplete: {preservation_error}"
+            detail += f"; evidence: {session.directory}"
+            if not isinstance(exc, Exception):
+                exc.add_note(detail)
+                raise
+            if res is None:
+                res = DeliverResult(False, session.attempt, None, model=spec)
+            res.accepted = False
+            res.final = JudgeResult(False, 0, 0, failing_tests=[detail])
+        res.worktree_path, res.worktree_root, res.branch = wt, root, branch
+        res.recovery_path = str(session.directory)
+        if not res.accepted and res.final is not None:
+            res.final.failing_tests.append(f"Worktree retained at {wt}; evidence: {res.recovery_path}")
+        return res
 
     def _run_one(task: SliceTask):
         if not simulation:
             recovered = recover_collected(repo_dir, ledger.path, task, git_runner)
             if recovered is not None:
                 record, directory = recovered
+                if record.get("worktree_root") is not None:
+                    expected, root, branch = managed_location(repo_dir, record["worktree_root"],
+                        record["run_id"], task.id, record["session_id"])
+                    if expected != record["worktree"] or branch != record["branch"]:
+                        raise CaptureError(f"Recovery worktree identity mismatch: {directory}")
                 candidate_data = {**record["candidate"]}
                 candidate_data["files_changed"] = tuple(candidate_data["files_changed"])
                 candidate = Candidate(**candidate_data)
@@ -445,7 +474,8 @@ def run_plan_parallel(
                     final_rung=delivery["final_rung"], candidate=candidate,
                     collection={**record["collection"], "base": candidate.base,
                                 "tests_fingerprint": candidate.tests_fingerprint},
-                    recovery_path=directory, worktree_path=record["worktree"])
+                    recovery_path=directory, worktree_path=record["worktree"],
+                    worktree_root=record.get("worktree_root"), branch=record.get("branch"))
         if rung_planner is None:
             ex, spec = _executor_for(task)
             source = "tag" if task.executor else "default"
@@ -476,7 +506,7 @@ def run_plan_parallel(
         last.needs_repair = True
         return last
 
-    def _process(task: SliceTask) -> None:
+    def _process_owned(task: SliceTask) -> None:
         # Quota gate (checked per slice so a window can fill mid-run).
         if quota_check is not None and quota_check() >= quota_threshold:
             with ledger_lock:
@@ -540,18 +570,32 @@ def run_plan_parallel(
             if deliver_res.accepted and not simulation:
                 try:
                     wt = deliver_res.worktree_path
-                    expected = f"{os.path.abspath(repo_dir)}-wt-slice-{task.id}"
-                    if os.path.abspath(wt) != expected:
-                        raise CaptureError(f"Unrecognized cleanup path: {wt}")
+                    if deliver_res.worktree_root is None:
+                        raise CaptureError("Legacy worktree retained for manual cleanup")
+                    validate_location(wt, deliver_res.worktree_root)
                     if os.path.exists(wt):
+                        verify_worktree(repo_dir, wt, deliver_res.worktree_root, deliver_res.branch, git_runner)
                         CandidateVerifier(git_runner, wt, task, base=deliver_res.candidate.base).verify_unchanged(deliver_res.candidate)
-                        remove_worktree(repo_dir, wt, runner=git_runner)
+                        remove_worktree(repo_dir, wt, runner=git_runner,
+                                        root=deliver_res.worktree_root, branch=deliver_res.branch)
                 except Exception as exc:
                     detail.cleanup_warning = f"Cleanup incomplete; worktree retained at {wt}: {exc}"
             {"completed": result.completed, "failed": result.failed,
              "needs_repair": result.needs_repair}[status].append(task.id)
             result.details[task.id] = detail
             emit("slice_done", slice_id=task.id, status=status)
+
+    def _process(task):
+        if simulation:
+            return _process_owned(task)
+        try:
+            with slice_owner(repo_dir, task.id, git_runner):
+                return _process_owned(task)
+        except ActiveAttempt as exc:
+            # Do not overwrite an active owner's ledger entry.
+            with ledger_lock:
+                result.deferred.append(task.id)
+                result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
 
     for layer in parallel_batches(deps):
         # A layer may include dep-only ids not in this plan — keep only real tasks
