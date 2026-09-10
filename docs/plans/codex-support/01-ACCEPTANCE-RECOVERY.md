@@ -35,14 +35,16 @@ Completed 2026-09-10. [Evidence and compatibility notes](T02-EVIDENCE.md): 479 p
 
 Dependencies: T02. Estimate: 10–16k. Files: `orchestrator.py`, `worktree.py`, candidate module, ledger persistence boundary, recovery tests.
 
-- [ ] Make collection return a verified commit/tree or a structured error. Check every staging/commit/reachability operation; support a valid no-op without inventing a commit failure.
-- [ ] Persist exactly the verified candidate; avoid blanket staging of post-judge files. Ensure accepted commits stay reachable through durable refs.
-- [ ] Record commit/tree/attempt outcome durably before any success report or cleanup. Simulate ledger-save failure after commit and recovery on restart.
-- [ ] Preserve candidate patches including binary/new files and executor commits relative to the original base, plus raw dispatch/judge diagnostics per attempt.
-- [ ] Preserve on every exceptional path. If writing/validating the recovery artifact fails, retain the worktree and report its path; never swallow loss of the only copy.
-- [ ] Add rejecting commit hook, failed add, disk/save error, judge exception, and cleanup error regressions. Verify original user checkout unchanged.
+- [x] Make collection return a verified commit/tree or a structured error. Check every staging/commit/reachability operation; support a valid no-op without inventing a commit failure.
+- [x] Persist exactly the verified candidate; avoid blanket staging of post-judge files. Ensure accepted commits stay reachable through durable refs.
+- [x] Record commit/tree/attempt outcome durably before any success report or cleanup. Simulate ledger-save failure after commit and recovery on restart.
+- [x] Preserve candidate patches including binary/new files and executor commits relative to the original base, plus raw dispatch/judge diagnostics per attempt.
+- [x] Preserve on every exceptional path. If writing/validating the recovery artifact fails, retain the worktree and report its path; never swallow loss of the only copy.
+- [x] Add rejecting commit hook, failed add, disk/save error, judge exception, and cleanup error regressions. Verify original user checkout unchanged.
 
 **Gate:** R03 passes: collection failure yields no accepted/DONE result and implementation remains recoverable. Recovery artifacts reconstruct the candidate; a successful path records the exact tested tree. Run collection/preservation and delivery suites.
+
+Completed 2026-09-10. [Evidence and recovery instructions](T03-EVIDENCE.md): 501 passed, 3 strict expected failures, 1 live evaluation deselected. R03 regressions pass without xfail. Retained failed worktrees and existing slice branch collisions are deliberately left for T04.
 
 ## T04 — Resumable attempts and worktrees
 

@@ -760,6 +760,11 @@ def main(argv=None) -> int:
     print(f"failed:    {result.failed}")
     print(f"skipped:   {result.skipped}")
     print(f"deferred:  {result.deferred}")
+    from cld.summary import recovery_lines, write_artifacts
+    write_artifacts(result, repo_dir=args.repo)
+    for sid, detail in getattr(result, "details", {}).items():
+        for line in recovery_lines(sid, detail):
+            print(line)
     return 0 if not result.failed and not result.deferred else 1
 
 

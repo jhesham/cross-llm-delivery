@@ -142,7 +142,6 @@ def test_failed_dispatch_after_writes_is_rejected(delivery_repo):
 
 
 @pytest.mark.parametrize("ladder", [False, True], ids=["single", "ladder"])
-@pending("R03 / T03: rejecting commit hook must preserve work without acceptance")
 def test_rejecting_commit_hook_preserves_candidate(delivery_repo, ladder):
     hooks = delivery_repo / ".git" / "review-hooks"
     hooks.mkdir()
@@ -206,7 +205,6 @@ def test_failed_dependency_blocks_dispatch(delivery_repo):
     expect(calls == ["A"], "R05: B dispatched despite failed A")
 
 
-@pending("R03 / T03: judge exception must preserve candidate")
 def test_judge_exception_preserves_candidate(delivery_repo):
     calls = []
 

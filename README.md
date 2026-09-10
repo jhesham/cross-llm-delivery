@@ -112,10 +112,16 @@ real build and the rail caught it:
 - **Allowed-files rejection.** A slice that edits files outside its declared allowance is
   rejected *even if its tests pass*. (Live case: an executor hit missing dependencies in its
   isolated worktree and "helpfully" rewrote 12 dependency files — tests green, diff rejected.)
-- **Nothing is lost on rejection.** A rejected slice's full diff is preserved to
-  `.cld/<slice>/<slice>.patch` before its worktree is removed — recoverable with `git apply`.
-- **Judge verdicts are auditable.** Every attempt's raw pytest output is saved to
-  `.cld/<slice>/judge-output.txt`, so a rejection is never a mystery.
+- **Source-engine collection is checked.** On the T03 refactoring branch, a passing
+  candidate must become a verified, reachable commit with a durable outcome and ledger
+  entry before cleanup. Failed attempts retain their worktrees; failures to save evidence
+  report the retained path. Committed plugin bundles will receive this change at the
+  distribution refresh.
+- **Recovery is recorded per attempt.** Source-engine runs save binary-capable patches,
+  provider output and pytest output under `.cld/<slice>/<session>/attempt-<n>/`.
+  `outcome.json` records the original base, recovery refs and any collected commit. Patches
+  are checked by reconstructing their tree in an isolated index. Apply a patch only to
+  a clean checkout of its recorded base. See [T03 recovery notes](docs/plans/codex-support/T03-EVIDENCE.md).
 - **Preflights, not tracebacks.** Before dispatching, `cld` checks the executor CLI actually
   resolves (friendly message + installed alternatives if not) and warns loudly if a pending
   layer depends on accepted-but-unmerged slice branches (the dep-blind-worktree trap).

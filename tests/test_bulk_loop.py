@@ -88,14 +88,14 @@ def test_worktree_adds_and_removes():
     assert "remove" in remove_args
 
 
-def test_worktree_removes_on_exception():
+def test_worktree_retains_on_exception():
     runner = FakeRunner()
     try:
         with worktree("/repo", "feat-y", runner=runner):
             raise ValueError("boom")
     except ValueError:
         pass
-    assert any("remove" in c[0] for c in runner.calls)
+    assert all("remove" not in c[0] for c in runner.calls)
 
 
 def test_worktree_raises_on_add_failure_without_remove():

@@ -75,6 +75,37 @@ class Candidate:
     tests_fingerprint: str
 
 
+def capture_tree(runner, cwd, base):
+    """Capture all source changes for verification or recovery, without path policy."""
+    baseline = tree_entries(runner, cwd, base)
+    # Include ignored source too; ignore ONLY new transient test artifacts.
+    # Tracked cache-looking files are ordinary protected/allowed input files.
+    for path in Path(cwd).rglob("*"):
+        if _is_link(path):
+            raise CaptureError(f"Symlink/junction in candidate: {path.name!r}")
+    tracked = nul_names(checked(runner, cwd, "ls-files", "-z"))
+    for start in range(0, len(tracked), 100):
+        # update-index selects one flag operation per invocation. Combining
+        # these options leaves skip-worktree set on supported Git versions.
+        for flag in ("--no-assume-unchanged", "--no-skip-worktree"):
+            checked(runner, cwd, "update-index", flag,
+                    "--", *tracked[start:start + 100])
+    checked(runner, cwd, "add", "-A")
+    ignored = nul_names(checked(runner, cwd, "ls-files", "--others", "--ignored",
+                                "--exclude-standard", "-z"))
+    for name in ignored:
+        safe_path(name)
+        if not _is_noise(name):
+            checked(runner, cwd, "--literal-pathspecs", "add", "--force", "--", name)
+    staged = nul_names(checked(runner, cwd, "ls-files", "-z"))
+    for name in staged:
+        safe_path(name)
+        if name not in baseline and _is_noise(name):
+            checked(runner, cwd, "--literal-pathspecs", "rm", "--cached", "--force", "--", name)
+    tree = checked(runner, cwd, "write-tree").strip()
+    return tree
+
+
 class CandidateVerifier:
     def __init__(self, runner: Runner, cwd: str, task, *, base: str | None = None):
         self.runner, self.cwd = runner, cwd
@@ -100,31 +131,7 @@ class CandidateVerifier:
         self.baseline_passed = False
 
     def capture(self) -> Candidate:
-        # Include ignored source too; ignore ONLY new transient test artifacts.
-        # Tracked cache-looking files are ordinary protected/allowed input files.
-        for path in Path(self.cwd).rglob("*"):
-            if _is_link(path):
-                raise CaptureError(f"Symlink/junction in candidate: {path.name!r}")
-        tracked = nul_names(checked(self.runner, self.cwd, "ls-files", "-z"))
-        for start in range(0, len(tracked), 100):
-            # update-index selects one flag operation per invocation. Combining
-            # these options leaves skip-worktree set on supported Git versions.
-            for flag in ("--no-assume-unchanged", "--no-skip-worktree"):
-                checked(self.runner, self.cwd, "update-index", flag,
-                        "--", *tracked[start:start + 100])
-        checked(self.runner, self.cwd, "add", "-A")
-        ignored = nul_names(checked(self.runner, self.cwd, "ls-files", "--others", "--ignored",
-                                    "--exclude-standard", "-z"))
-        for name in ignored:
-            safe_path(name)
-            if not _is_noise(name):
-                checked(self.runner, self.cwd, "--literal-pathspecs", "add", "--force", "--", name)
-        staged = nul_names(checked(self.runner, self.cwd, "ls-files", "-z"))
-        for name in staged:
-            safe_path(name)
-            if name not in self.entries and _is_noise(name):
-                checked(self.runner, self.cwd, "--literal-pathspecs", "rm", "--cached", "--force", "--", name)
-        tree = checked(self.runner, self.cwd, "write-tree").strip()
+        tree = capture_tree(self.runner, self.cwd, self.base)
         entries = tree_entries(self.runner, self.cwd, tree)
         if any(_protected_default(p) and p not in self.entries for p in entries):
             raise CaptureError("Executor added a protected acceptance/configuration input")

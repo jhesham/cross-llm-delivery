@@ -36,7 +36,7 @@ def test_failed_slice_preserves_executor_diff(git_repo):
 
     # judge always rejects (test_runner reports no pass) -> slice NOT accepted ->
     # the worktree is force-removed. The executor's diff must be preserved first.
-    run_plan_parallel(
+    result = run_plan_parallel(
         [task], ledger,
         executor=FileCreatingExecutor(contents={"src/new.py": "x = 42\n"}),
         judge_fn=judge,
@@ -44,13 +44,15 @@ def test_failed_slice_preserves_executor_diff(git_repo):
         repo_dir=git_repo, git_runner=real_git_runner, max_workers=1,
     )
 
-    patch = Path(git_repo) / ".cld" / "T9" / "T9.patch"
+    evidence = Path(result.details["T9"].recovery_path)
+    patch = evidence / "attempt-1" / "dispatch.patch"
     assert patch.is_file(), "executor diff was NOT preserved on non-accept (data loss)"
     body = patch.read_text(encoding="utf-8", errors="replace")
     assert "src/new.py" in body and "x = 42" in body, body
 
     # the raw judge output must be persisted for diagnosis (concurrency false-negative report)
-    judge_out = Path(git_repo) / ".cld" / "T9" / "judge-output.txt"
+    judge_out = evidence / "attempt-1" / "judge.txt"
     assert judge_out.is_file(), "raw judge output was not persisted (undiagnosable)"
     jo = judge_out.read_text(encoding="utf-8", errors="replace")
-    assert "no tests ran" in jo and "attempt 1" in jo, jo
+    assert "no tests ran" in jo, jo
+    assert Path(result.details["T9"].worktree_path).is_dir()

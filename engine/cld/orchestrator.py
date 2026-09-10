@@ -4,7 +4,7 @@ from copy import deepcopy
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from cld.dag import parallel_batches
@@ -14,53 +14,9 @@ from cld.executors._capture import CaptureError
 from cld.judge import JudgeResult, judge, _extract_rc
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
 from cld.telemetry import emit
-from cld.worktree import worktree
+from cld.worktree import worktree, remove_worktree
+from cld.recovery import RecoverySession, recover_collected
 
-
-def _save_failed_diff(git_runner, wt_path: str, repo_dir: str, slice_id: str) -> None:
-    """Non-destructive safeguard (BUG B-3): before a worktree is force-removed for a
-    slice that was NOT accepted, persist the executor's (uncommitted) diff to
-    `<repo>/.cld/<slice_id>/<slice_id>.patch`. Without this, a judge rejection (or a
-    judge that simply can't import the test) silently deletes correct executor code
-    along with the worktree. Best-effort: never raises, never blocks the build.
-    Recover with `git apply .cld/<slice_id>/<slice_id>.patch`.
-    """
-    try:
-        git_runner(["git", "add", "-A"], wt_path)
-        _, diff = git_runner(["git", "diff", "--cached", "HEAD"], wt_path)
-        if diff and diff.strip():
-            d = os.path.join(os.path.abspath(repo_dir), ".cld", slice_id)
-            os.makedirs(d, exist_ok=True)
-            with open(os.path.join(d, f"{slice_id}.patch"), "w", encoding="utf-8") as f:
-                f.write(diff)
-    except Exception:
-        pass
-
-
-def _save_judge_output(repo_dir: str, slice_id: str, deliver_res) -> None:
-    """Diagnostic (concurrency report): persist the RAW judge (pytest) output for every
-    attempt to `<repo>/.cld/<slice_id>/judge-output.txt`, on pass AND fail. Without this
-    a judge false-negative is undiagnosable after the run — `detail.json` only records the
-    parsed verdict, not what pytest actually printed. Best-effort; never raises.
-    """
-    try:
-        history = list(getattr(deliver_res, "history", []) or [])
-        if not history:
-            return
-        chunks = []
-        for i, jr in enumerate(history, 1):
-            chunks.append(
-                f"----- attempt {i}  (passed={getattr(jr, 'passed', None)}, "
-                f"tests_passed={getattr(jr, 'tests_passed', '?')}, "
-                f"tests_failed={getattr(jr, 'tests_failed', '?')}) -----\n"
-                f"{getattr(jr, 'raw_output', '') or ''}"
-            )
-        d = os.path.join(os.path.abspath(repo_dir), ".cld", slice_id)
-        os.makedirs(d, exist_ok=True)
-        with open(os.path.join(d, "judge-output.txt"), "w", encoding="utf-8") as f:
-            f.write("\n\n".join(chunks))
-    except Exception:
-        pass
 
 def _count_diff_lines(diff: str | None) -> int:
     """Count added/removed content lines in a unified diff (excludes +++/--- headers)."""
@@ -102,6 +58,9 @@ class DeliverResult:
     final_rung: str | None = None
     needs_repair: bool = False
     candidate: Candidate | None = None
+    collection: dict = field(default_factory=dict)
+    recovery_path: str | None = None
+    worktree_path: str | None = None
 
 
 def _accepts(fn, *args, **kwargs):
@@ -125,6 +84,7 @@ def deliver_slice(
     rung: str | None = None,
     git_runner: Callable | None = None,
     simulation: bool = False,
+    evidence: RecoverySession | None = None,
 ) -> DeliverResult:
     if git_runner is None and not simulation:
         raise CaptureError("Delivery requires git_runner; report-only test doubles must opt into simulation=True")
@@ -144,8 +104,12 @@ def deliver_slice(
 
     def run_at(directory):
         if _accepts(test_runner, directory, acceptance_selector):
-            return test_runner(directory, acceptance_selector)
-        return test_runner(directory)
+            output = test_runner(directory, acceptance_selector)
+        else:
+            output = test_runner(directory)
+        if evidence is not None:
+            evidence.tests(output)
+        return output
 
     if git_runner is not None:
         if test_runner is None:
@@ -154,6 +118,8 @@ def deliver_slice(
         verifier.preflight(run_at)
 
     for attempt in range(1, total_attempts + 1):
+        if evidence is not None:
+            evidence.start_attempt(attempt)
         # Telemetry: one dispatch_start per attempt (best-effort, never raises).
         emit("dispatch_start", slice_id=task.id, model=model, attempt=attempt,
              rung=rung, source=source)
@@ -164,6 +130,8 @@ def deliver_slice(
             result = executor.run(deepcopy(task), effective_workdir)
         else:
             result = executor.run(deepcopy(task), effective_workdir, feedback=feedback)
+        if evidence is not None:
+            evidence.dispatch(result)
         _tok = getattr(result, "token_usage", {})
         if not isinstance(_tok, dict):
             _tok = {}
@@ -228,6 +196,8 @@ def deliver_slice(
 
         history.append(judge_result)
         final_judge_result = judge_result
+        if evidence is not None:
+            evidence.verdict(judge_result)
 
         _verdict_failing = getattr(judge_result, "failing_tests", []) or []
         emit("judge_verdict", slice_id=task.id, passed=judge_result.passed,
@@ -288,6 +258,10 @@ class SliceDetail:
     attempts: int = 0
     diff_lines: int = 0    # count of added/removed lines in the diff (for the summary)
     failing_tests: list[str] = field(default_factory=list)
+    commit: str | None = None
+    recovery_path: str | None = None
+    worktree_path: str | None = None
+    cleanup_warning: str | None = None
 
 
 @dataclass
@@ -413,78 +387,90 @@ def run_plan_parallel(
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
 
+    def _worktree_delivery(task, ex, spec, retries, source, rung):
+        # Cleanup is explicitly delayed until the durable ledger write below.
+        with worktree(repo_dir, f"slice-{task.id}", runner=git_runner, cleanup=False) as wt:
+            session = None
+            res = None
+            try:
+                session = RecoverySession(repo_dir, wt, task, ledger.path, git_runner)
+                res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
+                    max_retries=retries, workdir=wt, test_runner=test_runner,
+                    model=spec, source=source, rung=rung, git_runner=git_runner, evidence=session)
+                if res.accepted:
+                    session.save(delivery=dict(attempts=res.attempts, model=res.model,
+                        effort=res.effort, token_usage=res.token_usage, final_rung=rung,
+                        final=asdict(res.final)))
+                    collected = session.collect(res.candidate)
+                    if not collected.ok:
+                        raise CaptureError(collected.error)
+                    res.collection = {**asdict(collected), "base": res.candidate.base,
+                                      "tests_fingerprint": res.candidate.tests_fingerprint}
+                else:
+                    session.save(state="failed")
+            except BaseException as exc:
+                detail = f"{exc}; worktree retained at {wt}"
+                if session is not None:
+                    try:
+                        session.failure(exc)
+                    except Exception as preservation_error:
+                        detail += f"; recovery incomplete: {preservation_error}"
+                    detail += f"; evidence: {session.directory}"
+                if not isinstance(exc, Exception):
+                    exc.add_note(detail)
+                    raise
+                if res is None:
+                    res = DeliverResult(False, session.attempt if session else 0, None, model=spec)
+                res.accepted = False
+                res.final = JudgeResult(False, 0, 0, failing_tests=[detail])
+            res.worktree_path = wt
+            res.recovery_path = str(session.directory) if session is not None else None
+            if not res.accepted and res.final is not None:
+                res.final.failing_tests.append(f"Worktree retained at {wt}; evidence: {res.recovery_path}")
+            return res
+
     def _run_one(task: SliceTask):
-        """Deliver a slice, isolated in its own worktree when repo_dir is set.
-
-        Collect step: when the slice is accepted, COMMIT its work inside the worktree
-        before the context manager removes the worktree dir — otherwise
-        `git worktree remove --force` discards the executor's uncommitted files (the
-        original "code lost" bug). The commit lands on branch `slice-<id>`, which the
-        caller can later merge.
-
-        When rung_planner is provided, walk the rungs in order: first acceptance wins;
-        if all rungs fail, return with needs_repair=True and final_rung="orchestrator".
-        """
+        if not simulation:
+            recovered = recover_collected(repo_dir, ledger.path, task, git_runner)
+            if recovered is not None:
+                record, directory = recovered
+                candidate_data = {**record["candidate"]}
+                candidate_data["files_changed"] = tuple(candidate_data["files_changed"])
+                candidate = Candidate(**candidate_data)
+                delivery = record["delivery"]
+                final = JudgeResult(**delivery["final"])
+                return DeliverResult(True, delivery["attempts"], final, history=[final],
+                    files_changed=list(candidate.files_changed), diff_lines=_count_diff_lines(candidate.diff),
+                    model=delivery["model"], effort=delivery["effort"], token_usage=delivery["token_usage"],
+                    final_rung=delivery["final_rung"], candidate=candidate,
+                    collection={**record["collection"], "base": candidate.base,
+                                "tests_fingerprint": candidate.tests_fingerprint},
+                    recovery_path=directory, worktree_path=record["worktree"])
         if rung_planner is None:
-            # Single executor dispatch with bounded retry count.
-            slice_executor, resolved_spec = _executor_for(task)
-            _src = "tag" if task.executor else "default"
-            if repo_dir is not None and git_runner is not None:
-                with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt_path:
-                    res = deliver_slice(
-                        task, executor=slice_executor, judge_fn=judge_fn,
-                        max_retries=max_retries, workdir=wt_path,
-                        test_runner=test_runner, model=resolved_spec,
-                        source=_src, rung="workhorse",
-                        git_runner=git_runner,
-                    )
-                    _save_judge_output(repo_dir, task.id, res)
-                    if res.accepted:
-                        CandidateVerifier(git_runner, wt_path, task, base=res.candidate.base).prepare_collection(res.candidate)
-                        git_runner(
-                            ["git", "commit", "-m", f"slice {task.id}: accepted by cld"],
-                            wt_path,
-                        )
-                    else:
-                        _save_failed_diff(git_runner, wt_path, repo_dir, task.id)
-                    return res
-            return deliver_slice(
-                task, executor=slice_executor, judge_fn=judge_fn, max_retries=max_retries,
-                test_runner=test_runner, model=resolved_spec,
-                source=_src, rung="workhorse",
-                simulation=simulation,
-            )
+            ex, spec = _executor_for(task)
+            source = "tag" if task.executor else "default"
+            if not simulation:
+                return _worktree_delivery(task, ex, spec, max_retries, source, "workhorse")
+            return deliver_slice(task, executor=ex, judge_fn=judge_fn, max_retries=max_retries,
+                test_runner=test_runner, model=spec, source=source, rung="workhorse", simulation=True)
 
-        # Escalation ladder: walk each rung, first acceptance wins.
         rungs = rung_planner(task) or [("workhorse", _resolve_spec(task), max_retries)]
         last = None
-        for _i, (rung_name, spec, budget) in enumerate(rungs):
-            if _i > 0:
-                emit("escalate", slice_id=task.id,
-                     from_rung=rungs[_i - 1][0], to_rung=rung_name)
-            _src = "tag" if task.executor else ("escalated" if _i > 0 else "default")
+        for i, (rung, spec, budget) in enumerate(rungs):
+            if i:
+                emit("escalate", slice_id=task.id, from_rung=rungs[i - 1][0], to_rung=rung)
+            source = "tag" if task.executor else ("escalated" if i else "default")
             ex = executor_factory(spec) if executor_factory is not None else executor
-            if repo_dir is not None and git_runner is not None:
-                with worktree(repo_dir, f"slice-{task.id}", runner=git_runner) as wt:
-                    res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
-                                        max_retries=max(budget - 1, 0), workdir=wt,
-                                        test_runner=test_runner, model=spec,
-                                        source=_src, rung=rung_name, git_runner=git_runner)
-                    _save_judge_output(repo_dir, task.id, res)
-                    if res.accepted:
-                        CandidateVerifier(git_runner, wt, task, base=res.candidate.base).prepare_collection(res.candidate)
-                        git_runner(["git", "commit", "-m", f"slice {task.id}: accepted by cld"], wt)
-                    else:
-                        _save_failed_diff(git_runner, wt, repo_dir, task.id)
+            if not simulation:
+                res = _worktree_delivery(task, ex, spec, max(budget - 1, 0), source, rung)
             else:
                 res = deliver_slice(task, executor=ex, judge_fn=judge_fn,
-                                    max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec,
-                                    source=_src, rung=rung_name, simulation=simulation)
+                    max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec,
+                    source=source, rung=rung, simulation=True)
             last = res
             if res.accepted:
-                res.final_rung = rung_name
+                res.final_rung = rung
                 return res
-        # All cheap rungs failed -> handoff for repair
         emit("needs_repair", slice_id=task.id)
         last.final_rung = "orchestrator"
         last.needs_repair = True
@@ -523,38 +509,48 @@ def run_plan_parallel(
             return
 
         with ledger_lock:
-            failing = list(getattr(deliver_res.final, "failing_tests", []) or []) \
-                if deliver_res.final is not None else []
-            if deliver_res.needs_repair:
-                ledger.set(task.id, status="needs_repair", attempts=deliver_res.attempts,
-                           model=deliver_res.model, effort=deliver_res.effort,
-                           token_usage=deliver_res.token_usage,
-                           complexity=task.complexity, final_rung="orchestrator",
-                           chosen_by=("you" if task.executor else "rec"))
-                result.needs_repair.append(task.id)
-                status = "needs_repair"
-            elif deliver_res.accepted:
-                ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
-                           model=deliver_res.model, effort=deliver_res.effort,
-                           token_usage=deliver_res.token_usage,
-                           complexity=task.complexity, final_rung=deliver_res.final_rung,
-                           chosen_by=("you" if task.executor else "rec"))
-                result.completed.append(task.id)
-                status = "completed"
-            else:
-                ledger.set(task.id, status=FAILED, attempts=deliver_res.attempts,
-                           model=deliver_res.model, effort=deliver_res.effort,
-                           token_usage=deliver_res.token_usage)
-                result.failed.append(task.id)
-                status = "failed"
-            result.details[task.id] = SliceDetail(
-                slice_id=task.id, status=status,
-                files_changed=list(deliver_res.files_changed or []),
-                attempts=deliver_res.attempts,
-                diff_lines=deliver_res.diff_lines,
-                failing_tests=failing,
-            )
-            ledger.save()
+            failing = list(deliver_res.final.failing_tests) if deliver_res.final is not None else []
+            status = "needs_repair" if deliver_res.needs_repair else (
+                "completed" if deliver_res.accepted else "failed")
+            persisted_status = DONE if status == "completed" else status
+            previous = deepcopy(ledger.get(task.id))
+            ledger.set(task.id, status=persisted_status, attempts=deliver_res.attempts,
+                       model=deliver_res.model, effort=deliver_res.effort,
+                       token_usage=deliver_res.token_usage, complexity=task.complexity,
+                       final_rung=deliver_res.final_rung,
+                       chosen_by=("you" if task.executor else "rec"),
+                       commit=deliver_res.collection.get("commit"), collection=deliver_res.collection,
+                       recovery_path=deliver_res.recovery_path, worktree_path=deliver_res.worktree_path)
+            try:
+                ledger.save()
+            except BaseException as exc:
+                # A failed save must not leave this in-memory ledger saying DONE.
+                if previous is None:
+                    ledger.entries.pop(task.id, None)
+                else:
+                    ledger.entries[task.id] = previous
+                exc.add_note(f"Ledger save failed; worktree retained at {deliver_res.worktree_path}; "
+                             f"collection {deliver_res.collection}; evidence {deliver_res.recovery_path}")
+                raise
+            detail = SliceDetail(slice_id=task.id, status=status,
+                files_changed=list(deliver_res.files_changed), attempts=deliver_res.attempts,
+                diff_lines=deliver_res.diff_lines, failing_tests=failing,
+                commit=deliver_res.collection.get("commit"), recovery_path=deliver_res.recovery_path,
+                worktree_path=deliver_res.worktree_path)
+            if deliver_res.accepted and not simulation:
+                try:
+                    wt = deliver_res.worktree_path
+                    expected = f"{os.path.abspath(repo_dir)}-wt-slice-{task.id}"
+                    if os.path.abspath(wt) != expected:
+                        raise CaptureError(f"Unrecognized cleanup path: {wt}")
+                    if os.path.exists(wt):
+                        CandidateVerifier(git_runner, wt, task, base=deliver_res.candidate.base).verify_unchanged(deliver_res.candidate)
+                        remove_worktree(repo_dir, wt, runner=git_runner)
+                except Exception as exc:
+                    detail.cleanup_warning = f"Cleanup incomplete; worktree retained at {wt}: {exc}"
+            {"completed": result.completed, "failed": result.failed,
+             "needs_repair": result.needs_repair}[status].append(task.id)
+            result.details[task.id] = detail
             emit("slice_done", slice_id=task.id, status=status)
 
     for layer in parallel_batches(deps):
