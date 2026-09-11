@@ -32,15 +32,26 @@ def task_fingerprint(task):
     return hashlib.sha256(json.dumps(asdict(task), sort_keys=True, ensure_ascii=True).encode()).hexdigest()
 
 
-def slice_directory(repo, sid):
+def slice_directory(repo, sid, run_id=None):
     safe_path(sid)
     if "/" in sid:
         raise CaptureError("Recovery requires a single-component slice ID")
     root = Path(repo).resolve()
-    directory = root / ".cld" / sid
+    if run_id is not None:
+        from cld.build_state import run_directory
+        directory = run_directory(repo, run_id) / sid
+    else:
+        directory = root / ".cld" / sid
     if not directory.resolve().is_relative_to(root):
         raise CaptureError("Recovery directory escapes repository")
     return directory
+
+
+def recovery_records(repo, sid, run_id=None, include_legacy=False):
+    paths = list(slice_directory(repo, sid, run_id).glob("*/outcome.json"))
+    if run_id is not None and include_legacy:
+        paths.extend(slice_directory(repo, sid).glob("*/outcome.json"))
+    return sorted(paths)
 
 
 @dataclass(frozen=True)
@@ -57,7 +68,7 @@ class RecoverySession:
                  base=None, metadata=None):
         self.repo, self.cwd, self.task, self.runner = repo, cwd, task, runner
         self.id = session_id or uuid4().hex
-        self.directory = slice_directory(repo, task.id) / self.id
+        self.directory = slice_directory(repo, task.id, (metadata or {}).get("run_id")) / self.id
         # Exclusive reservation while the caller holds slice ownership. Never
         # overwrite an existing session, including after a restart.
         self.directory.mkdir(parents=True, exist_ok=False)
@@ -173,14 +184,13 @@ class RecoverySession:
             return CollectionResult(False, error=f"Collection failed: {exc}")
 
 
-def recover_collected(repo, ledger_path, task, runner):
+def recover_collected(repo, ledger_path, task, runner, *, run_id=None, include_legacy=False):
     """Reconcile a checked collection whose final ledger write was interrupted.
 
     Uncollected attempts resume separately. Never infer acceptance from an
     arbitrary branch or an unverified recovery snapshot.
     """
-    directory = slice_directory(repo, task.id)
-    for path in sorted(directory.glob("*/outcome.json")):
+    for path in recovery_records(repo, task.id, run_id, include_legacy):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:

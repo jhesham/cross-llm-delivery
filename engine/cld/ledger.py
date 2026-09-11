@@ -1,6 +1,28 @@
 import json
 import os
-import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+from datetime import datetime, timezone
+import threading
+from dataclasses import asdict, fields
+
+from cld.locking import file_owner
+from cld.recovery import atomic_write
+
+SCHEMA_VERSION = 2
+
+
+class StateError(RuntimeError):
+    pass
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def resolve_ledger(repo, explicit=None):
+    return str(Path(explicit).resolve() if explicit is not None else Path(repo).resolve() / ".cld-ledger.json")
+
 from dataclasses import dataclass, field
 
 PENDING = "pending"
@@ -25,39 +47,96 @@ class LedgerEntry:
     collection: dict = field(default_factory=dict)
     recovery_path: str | None = None
     worktree_path: str | None = None
+    fingerprint: str | None = None
+    updated_at: str | None = None
+    history: list = field(default_factory=list)
 
 class Ledger:
     def __init__(self, path: str):
-        self.path = path
+        self.path = str(Path(path).resolve())
         self._entries: dict[str, LedgerEntry] = {}
+        self.build = None
+        self.legacy = False
+        self._expected = None
+        self._writing = False
+        self._writer_thread = None
 
     @classmethod
     def load(cls, path: str) -> "Ledger":
         ledger = cls(path)
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for slice_id, entry_data in data.items():
-                ledger._entries[slice_id] = LedgerEntry(
-                    slice_id=slice_id,
-                    status=entry_data.get("status", PENDING),
-                    commit=entry_data.get("commit", None),
-                    attempts=entry_data.get("attempts", 0),
-                    model=entry_data.get("model"),
-                    effort=entry_data.get("effort"),
-                    token_usage=entry_data.get("token_usage", {}) or {},
-                    cost=entry_data.get("cost"),
-                    complexity=entry_data.get("complexity"),
-                    chosen_by=entry_data.get("chosen_by"),
-                    final_rung=entry_data.get("final_rung"),
-                    intervened=entry_data.get("intervened", False),
-                    collection=entry_data.get("collection", {}),
-                    recovery_path=entry_data.get("recovery_path"),
-                    worktree_path=entry_data.get("worktree_path"),
-                )
-        except Exception:
-            pass
+            raw = Path(ledger.path).read_bytes()
+        except FileNotFoundError:
+            return ledger
+        except OSError as exc:
+            raise StateError(f"Cannot read ledger {ledger.path}: {exc}") from exc
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError("expected an object")
+            if "schema_version" in data:
+                if type(data["schema_version"]) is not int or data["schema_version"] != SCHEMA_VERSION:
+                    raise ValueError("unsupported ledger schema")
+                entries = data["entries"]
+                ledger.build = data["build"]
+                if ledger.build is not None:
+                    from cld.build_state import validate_build
+                    validate_build(ledger.build)
+                    if ledger.build["ledger_path"] != ledger.path:
+                        raise ValueError("ledger path identity mismatch; use the original ledger location")
+            else:
+                entries = data
+                ledger.legacy = True
+            if not isinstance(entries, dict):
+                raise ValueError("invalid entries")
+            names = {f.name for f in fields(LedgerEntry)} - {"slice_id"}
+            for sid, values in entries.items():
+                if not isinstance(sid, str) or not sid or not isinstance(values, dict):
+                    raise ValueError("invalid slice entry")
+                if set(values) - names:
+                    raise ValueError(f"unknown fields in slice {sid}")
+                entry = LedgerEntry(slice_id=sid, **values)
+                if (entry.status not in {PENDING, IN_PROGRESS, DONE, FAILED, "needs_repair", "deferred", "integrated"}
+                        or type(entry.attempts) is not int or entry.attempts < 0
+                        or not isinstance(entry.collection, dict) or not isinstance(entry.token_usage, dict)
+                        or not isinstance(entry.history, list)
+                        or not all(isinstance(item, dict) for item in entry.history)):
+                    raise ValueError(f"invalid slice state: {sid}")
+                ledger._entries[sid] = entry
+            ledger._expected = raw
+        except (ValueError, TypeError, KeyError) as exc:
+            raise StateError(f"Invalid ledger {ledger.path}: {exc}; original file retained") from exc
         return ledger
+
+    @contextmanager
+    def writer(self, *, refresh=False):
+        if self._writing:
+            if self._writer_thread != threading.get_ident():
+                raise StateError("Writer context belongs to another thread")
+            yield self
+            return
+        with file_owner(self.path + ".lock"):
+            if refresh:
+                disk = Ledger.load(self.path)
+                if self._expected != disk._expected:
+                    if self._entries or self.build is not None:
+                        raise StateError(f"Ledger changed since load; reload {self.path}")
+                    self._entries, self.build, self.legacy = disk.entries, disk.build, disk.legacy
+                    self._expected = disk._expected
+            self._writing, self._writer_thread = True, threading.get_ident()
+            try:
+                atomic_write(Path(self.path + ".owner.json"), json.dumps(
+                    dict(pid=os.getpid(), acquired_at=now(), ledger=self.path,
+                         run_id=(self.build or {}).get("run_id"))).encode("utf-8"))
+                yield self
+            finally:
+                self._writing, self._writer_thread = False, None
+
+    def bind(self, repo, tasks, runner, **options):
+        from cld.build_state import bind_build
+        if not self._writing:
+            raise StateError("Build binding requires writer ownership")
+        return bind_build(self, repo, tasks, runner, **options)
 
     @property
     def entries(self) -> dict[str, LedgerEntry]:
@@ -73,6 +152,7 @@ class Ledger:
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
         entry = self._entries[slice_id]
+        entry.updated_at = now()
         if status is not None:
             entry.status = status
         if commit is not None:
@@ -121,41 +201,21 @@ class Ledger:
         return entry.status == DONE
 
     def save(self):
-        directory = os.path.dirname(self.path)
-        if not directory:
-            directory = "."
-
-        data = {
-            slice_id: {
-                "status": entry.status,
-                "commit": entry.commit,
-                "attempts": entry.attempts,
-                "model": entry.model,
-                "effort": entry.effort,
-                "token_usage": entry.token_usage,
-                "cost": entry.cost,
-                "complexity": entry.complexity,
-                "chosen_by": entry.chosen_by,
-                "final_rung": entry.final_rung,
-                "intervened": entry.intervened,
-                "collection": entry.collection,
-                "recovery_path": entry.recovery_path,
-                "worktree_path": entry.worktree_path,
-            }
-            for slice_id, entry in self._entries.items()
-        }
-
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=directory, delete=False) as f:
-            json.dump(data, f)
-            f.flush()
-            os.fsync(f.fileno())
-            temp_path = f.name
-
+        if not self._writing:
+            with self.writer():
+                return self.save()
+        if self.legacy:
+            raise StateError(f"Legacy ledger requires explicit --migrate-ledger: {self.path}")
         try:
-            os.replace(temp_path, self.path)
-        except Exception:
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
-            raise
+            actual = Path(self.path).read_bytes()
+        except FileNotFoundError:
+            actual = None
+        if actual != self._expected:
+            raise StateError(f"Ledger changed since load; reload {self.path}")
+        build = {**self.build, "updated_at": now()} if self.build is not None else None
+        entries = {sid: {k: v for k, v in asdict(entry).items() if k != "slice_id"}
+                   for sid, entry in self.entries.items()}
+        raw = json.dumps(dict(schema_version=SCHEMA_VERSION, build=build, entries=entries),
+                         indent=2, ensure_ascii=True).encode("utf-8")
+        atomic_write(Path(self.path), raw)
+        self._expected, self.build = raw, build
