@@ -6,15 +6,17 @@ Outcome: a stopped build resumes accurately, and downstream work only sees verif
 
 Dependencies: T04. Estimate: 12–18k; split migration from locking if needed. Files: `engine/cld/ledger.py`, `orchestrator.py`, `skill/scripts/run_delivery.py`, telemetry/status, new migration fixtures.
 
-- [ ] Resolve the default ledger under `--repo`, preserve explicit relative-ledger semantics from A05, and include resolved paths in diagnostics.
-- [ ] Add a versioned envelope with run/repository/plan identity, initial and integrated SHAs, slice fingerprints, attempt refs, status, and timestamps. Keep schema reading separate from mutation.
-- [ ] Implement atomic updates and one active writer per build. Define stale-lock recovery with owner metadata and explicit checks; status readers must not require the writer lock.
-- [ ] Provide backed-up legacy migration. Verify old DONE entries against reachable commits/branches; ambiguous entries remain repair/reconcile work, not silently integrated.
-- [ ] Distinguish new/missing state from corrupt/unreadable/unsupported schema. Do not reset or truncate traces on load failure. Detect mismatched plan/repo and provide a deliberate reconciliation path that invalidates downstream work.
-- [ ] Store artifacts by run and attempt, with a current-run pointer. Preserve historical traces and failed-attempt output; do not overwrite earlier rung diagnostics.
-- [ ] Test two repos from one cwd, one repo from two cwds, changed plans, duplicate processes, unreadable/corrupt JSON, migration twice, and interruption during atomic replacement.
+- [x] Resolve the default ledger under `--repo`, preserve explicit relative-ledger semantics from A05, and include resolved paths in diagnostics.
+- [x] Add a versioned envelope with run/repository/plan identity, initial and integrated SHAs, slice fingerprints, attempt refs, status, and timestamps. Keep schema reading separate from mutation.
+- [x] Implement atomic updates and one active writer per build. Define stale-lock recovery with owner metadata and explicit checks; status readers must not require the writer lock.
+- [x] Provide backed-up legacy migration. Verify old DONE entries against reachable commits/branches; ambiguous entries remain repair/reconcile work, not silently integrated.
+- [x] Distinguish new/missing state from corrupt/unreadable/unsupported schema. Do not reset or truncate traces on load failure. Detect mismatched plan/repo and provide a deliberate reconciliation path that invalidates downstream work.
+- [x] Store artifacts by run and attempt, with a current-run pointer. Preserve historical traces and failed-attempt output; do not overwrite earlier rung diagnostics.
+- [x] Test two repos from one cwd, one repo from two cwds, changed plans, duplicate processes, unreadable/corrupt JSON, migration twice, and interruption during atomic replacement.
 
 **Gate:** R08 and A03/A09 pass; no unrelated build is skipped or overwritten. Existing state is either safely migrated with evidence or explicitly blocked. Handoff includes schema version and rollback limits.
+
+Completed 2026-09-11. [T05 evidence](T05-EVIDENCE.md) and [migration/rollback guide](T05-MIGRATION.md). Schema 2, explicit migration/reconciliation, full-operation writer ownership and run-scoped history are implemented. Verification covers 532 distinct passing offline tests across the full run and targeted fixture follow-up; only the two T06 xfails remain. T06 requires the next token checkpoint.
 
 ## T06 — Dependency and integration lifecycle
 

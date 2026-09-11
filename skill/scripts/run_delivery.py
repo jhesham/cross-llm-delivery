@@ -46,7 +46,9 @@ from cld.providers_api import load_providers, get_provider, all_providers, defau
 from cld.executors import get_executor
 from cld.judge import judge
 from cld.candidate import acceptance_args
-from cld.ledger import Ledger, DONE
+from cld.ledger import Ledger, DONE, StateError, resolve_ledger
+from cld.locking import OwnerBusy
+from cld.build_state import run_directory
 from cld.orchestrator import run_plan_parallel
 from cld.plan.slice import load_slices
 
@@ -75,17 +77,22 @@ def _default_provider() -> str:
     return spec.split(":", 1)[0] if ":" in spec else spec
 
 
-def _events_path(repo_dir: str) -> str:
-    """The build's local event stream: <repo>/.cld/events.jsonl (gitignored scratch)."""
+def _events_path(repo_dir: str, ledger=None) -> str:
+    """Run-scoped stream; legacy fallback is read-only."""
+    ledger = ledger or Ledger.load(resolve_ledger(repo_dir))
+    if ledger.build:
+        if ledger.build["repo"] != os.path.realpath(repo_dir):
+            raise StateError("Ledger belongs to another repository")
+        return str(run_directory(repo_dir, ledger.build["run_id"]) / "events.jsonl")
     return os.path.join(os.path.abspath(repo_dir), ".cld", "events.jsonl")
 
 
-def _read_event_stream(repo_dir: str) -> "list":
+def _read_event_stream(repo_dir: str, ledger=None) -> "list":
     """Load .cld/events.jsonl into a list of records (skips blank/torn lines). [] if absent."""
     import json
     events = []
     try:
-        with open(_events_path(repo_dir), "r", encoding="utf-8") as f:
+        with open(_events_path(repo_dir, ledger), "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -118,32 +125,21 @@ def _run_id_from_stream(events_path: str) -> "str | None":
 
 
 def _install_telemetry(repo_dir: str, ledger: Ledger, plan_path: str, default_spec: str) -> str:
-    """Install the JSONL telemetry sink + run_id for this build and emit run_start on a
-    fresh build. A build spans many --step invocations (each a fresh process) that all
-    APPEND to one stream; a brand-new build (ledger with no recorded slices) truncates the
-    prior stream first. Best-effort: never blocks the build. Returns the events.jsonl path.
-    """
-    import uuid
+    """Append to the bound run; a missing/corrupt ledger never truncates history."""
     from cld import telemetry
-    events_path = _events_path(repo_dir)
-    try:
-        os.makedirs(os.path.dirname(events_path), exist_ok=True)
-        fresh = not ledger.entries  # no recorded slices yet => brand-new build
-        if fresh:
-            open(events_path, "w", encoding="utf-8").close()  # new build = fresh stream
-            run_id = uuid.uuid4().hex[:8]
-        else:
-            run_id = _run_id_from_stream(events_path) or uuid.uuid4().hex[:8]
-        telemetry.set_run_id(run_id)
-        jsonl = telemetry.JsonlSink(events_path)
-        otel = _maybe_otel_sink()  # +OTLP export when configured (else None -> JSONL only)
-        telemetry.set_sink(telemetry.MultiSink([jsonl, otel]) if otel is not None else jsonl)
-        if fresh:
-            telemetry.emit("run_start", run_id=run_id,
-                           plan=os.path.basename(plan_path), executor_default=default_spec)
-    except Exception:
-        pass
+    if not ledger.build or not ledger._writing:
+        raise StateError("Telemetry setup requires a bound build and writer ownership")
+    events_path = _events_path(repo_dir, ledger)
+    os.makedirs(os.path.dirname(events_path), exist_ok=True)
+    fresh = not os.path.exists(events_path) or os.path.getsize(events_path) == 0
+    telemetry.set_run_id(ledger.build["run_id"])
+    jsonl = telemetry.JsonlSink(events_path)
+    otel = _maybe_otel_sink()
+    telemetry.set_sink(telemetry.MultiSink([jsonl, otel]) if otel is not None else jsonl)
+    if fresh:
+        telemetry.emit("run_start", plan=os.path.basename(plan_path), executor_default=default_spec)
     return events_path
+
 
 
 def _layer_gate(result) -> str:
@@ -583,7 +579,7 @@ def prompt_for_executor() -> str:
 
 
 
-def main(argv=None) -> int:
+def _main(argv=None) -> int:
     # BUG A fix: Windows consoles default to cp1252, which can't encode some glyphs
     # the renderers emit -> print() of the layer summary/gate would die with
     # UnicodeEncodeError AFTER slices ran but BEFORE the exit-code gate, losing the
@@ -599,7 +595,10 @@ def main(argv=None) -> int:
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--worktree-root", help="Writable worktree root (relative to --repo); default .cld/worktrees")
-    p.add_argument("--ledger", default=".cld-ledger.json", help="Ledger file path")
+    p.add_argument("--ledger", default=None, help="Ledger path; default <repo>/.cld-ledger.json; explicit relative paths use invocation cwd")
+    p.add_argument("--migrate-ledger", action="store_true", help="Back up and migrate legacy state with this plan; no dispatch")
+    p.add_argument("--reconcile-plan", action="store_true", help="Back up state and invalidate changed slices/dependents; no dispatch")
+    p.add_argument("--new-build", action="store_true", help="Back up state and start a fresh run; no dispatch")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
                    help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
@@ -628,12 +627,17 @@ def main(argv=None) -> int:
     p.add_argument("--interval", type=int, default=5,
                    help="Seconds between repaints for --watch (default 5).")
     args = p.parse_args(argv)
+    args.repo = os.path.realpath(args.repo)
+    args.ledger = resolve_ledger(args.repo, args.ledger)
 
     # Handle --mark-repaired early, before reading the plan (it must not require the plan to exist)
     if args.mark_repaired:
-        led = Ledger.load(args.ledger)
-        led.set(args.mark_repaired, status=DONE, intervened=True, final_rung="orchestrator")
-        led.save()
+        led = Ledger(args.ledger)
+        with led.writer(refresh=True):
+            if led.build and led.build["repo"] != args.repo:
+                raise StateError("Ledger belongs to another repository")
+            led.set(args.mark_repaired, status=DONE, intervened=True, final_rung="orchestrator")
+            led.save()
         print(f"marked {args.mark_repaired} repaired (done).")
         return 0
 
@@ -645,7 +649,7 @@ def main(argv=None) -> int:
 
     if args.status:
         from cld.status import render_status
-        print(render_status(_read_event_stream(args.repo)))
+        print(render_status(_read_event_stream(args.repo, Ledger.load(args.ledger))))
         return 0
 
     if args.watch:
@@ -653,7 +657,7 @@ def main(argv=None) -> int:
         from cld.status import render_status
         try:
             while True:
-                print(render_status(_read_event_stream(args.repo)))
+                print(render_status(_read_event_stream(args.repo, Ledger.load(args.ledger))))
                 print("-" * 48)
                 _time.sleep(args.interval)
         except KeyboardInterrupt:
@@ -675,7 +679,7 @@ def main(argv=None) -> int:
     # default workhorse so automation / --step loops never block on a prompt (and never
     # resolve to a removed provider).
     if args.executor is None:
-        if not args.dry_run and sys.stdin.isatty():
+        if not (args.dry_run or args.migrate_ledger or args.reconcile_plan or args.new_build) and sys.stdin.isatty():
             try:
                 args.executor = prompt_for_executor()
             except EOFError:
@@ -693,18 +697,35 @@ def main(argv=None) -> int:
             print(f"  layer {i}: {', '.join(layer)}")
         return 0
 
-    preflight_err = _preflight_executor(args.executor or _default_spec())
-    if preflight_err:
-        print(preflight_err)
-        return 2
-
     git_err = _preflight_git(args.repo)
     if git_err:
         print(git_err)
         return 2
+    ledger = Ledger(args.ledger)
+    print(f"state: repo={args.repo}; ledger={args.ledger}")
+    with ledger.writer(refresh=True):
+        ledger.bind(args.repo, slices, git_runner, plan_path=args.plan, plan_text=plan_md,
+                    migrate=args.migrate_ledger, reconcile=args.reconcile_plan, new_build=args.new_build)
+        if args.migrate_ledger or args.reconcile_plan or args.new_build:
+            print(f"state prepared: run={ledger.build['run_id']}; backup={ledger.build.get('backup')}")
+            pending = [sid for sid, entry in ledger.entries.items() if entry.status == "needs_repair"]
+            if pending:
+                print(f"reconciliation required: {', '.join(pending)}")
+            return 0
+        preflight_err = _preflight_executor(args.executor or _default_spec())
+        if preflight_err:
+            print(preflight_err)
+            return 2
+        from cld import telemetry
+        try:
+            return _execute(args, slices, ledger)
+        finally:
+            telemetry.set_sink(None)
+            telemetry.set_run_id(None)
 
+
+def _execute(args, slices, ledger):
     # Install the local telemetry stream (zero-config) + emit run_start on a fresh build.
-    ledger = Ledger.load(args.ledger)
     events_path = _install_telemetry(args.repo, ledger, args.plan, args.executor or _default_spec())
     print(f"telemetry: {os.path.relpath(events_path, os.path.abspath(args.repo))} (local)")
     print(_otel_status_line())
@@ -724,6 +745,7 @@ def main(argv=None) -> int:
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(
             layer_slices, ledger,
+            plan_slices=slices,
             executor_factory=build_executor_factory(),
             default_spec=args.executor or _default_spec(),
             rung_planner=build_rung_planner(args.executor or _default_spec()),
@@ -732,7 +754,7 @@ def main(argv=None) -> int:
             repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
             test_runner=pytest_test_runner,
         )
-        write_artifacts(result, repo_dir=args.repo)
+        write_artifacts(result, repo_dir=args.repo, run_id=ledger.build["run_id"])
         nxt = next_pending_layer(slices, ledger)
         telemetry.emit("layer_done", layer=idx, gate=_layer_gate(result))
         if nxt is None:
@@ -746,6 +768,7 @@ def main(argv=None) -> int:
 
     result = run_plan_parallel(
         slices, ledger,
+        plan_slices=slices,
         executor_factory=build_executor_factory(),
         default_spec=args.executor or _default_spec(),
         rung_planner=build_rung_planner(args.executor or _default_spec()),
@@ -762,11 +785,19 @@ def main(argv=None) -> int:
     print(f"skipped:   {result.skipped}")
     print(f"deferred:  {result.deferred}")
     from cld.summary import recovery_lines, write_artifacts
-    write_artifacts(result, repo_dir=args.repo)
+    write_artifacts(result, repo_dir=args.repo, run_id=ledger.build["run_id"])
     for sid, detail in getattr(result, "details", {}).items():
         for line in recovery_lines(sid, detail):
             print(line)
     return 0 if not result.failed and not result.deferred else 1
+
+
+def main(argv=None) -> int:
+    try:
+        return _main(argv)
+    except (StateError, OwnerBusy) as exc:
+        print(f"State blocked: {exc}", file=sys.stderr)
+        return 5
 
 
 if __name__ == "__main__":

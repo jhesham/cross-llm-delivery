@@ -3,6 +3,14 @@ from pathlib import Path
 import re
 
 from cld.executors._capture import CaptureError, checked
+from cld.locking import file_owner
+
+
+@contextlib.contextmanager
+def registry_owner(repo, runner):
+    common = checked(runner, repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    with file_owner(Path(common).resolve() / "cld-worktrees.lock", wait_seconds=10):
+        yield
 
 
 def managed_location(repo, root, run_id, sid, session_id, *, create_root=False):
@@ -57,7 +65,8 @@ def worktree(repo_dir: str, branch: str, *, runner, cleanup: bool = True,
         if Path(path).exists():
             raise CaptureError(f"Reserved worktree path already exists: {path}")
     add_args = ["git", "worktree", "add", "-b", branch, path, base]
-    rc, output = runner(add_args, repo_dir)
+    with registry_owner(repo_dir, runner) if root is not None else contextlib.nullcontext():
+        rc, output = runner(add_args, repo_dir)
     if rc != 0:
         raise RuntimeError(f"worktree creation failed at {path}: {output}")
     
@@ -89,6 +98,7 @@ def remove_worktree(repo_dir: str, path: str, *, runner, root=None, branch=None)
         validate_location(path, str(repo.parent))
         if not Path(path).name.startswith(repo.name + "-wt-"):
             raise CaptureError(f"Unrecognized legacy worktree path: {path}")
-    rc, output = runner(["git", "worktree", "remove", "--force", path], repo_dir)
+    with registry_owner(repo_dir, runner) if root is not None else contextlib.nullcontext():
+        rc, output = runner(["git", "worktree", "remove", "--force", path], repo_dir)
     if rc != 0:
         raise RuntimeError(f"Cleanup failed; worktree retained at {path}: {output}")

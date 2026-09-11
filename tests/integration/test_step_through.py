@@ -50,7 +50,7 @@ def _run_one_layer(slices, ledger, repo):
     layer = [s for s in slices if s.id in layer_ids]
     res = run_plan_parallel(layer, ledger, executor=RealFileExecutor(), judge_fn=_judge,
                             max_workers=2, repo_dir=repo, git_runner=real_git_runner,
-                            test_runner=_pass)
+                            test_runner=_pass, plan_slices=slices)
     nxt = next_pending_layer(slices, ledger)
     summary = summarize_layer(res, layer_index=idx, total_layers=total,
                               next_layer=(nxt[1] if nxt else []))

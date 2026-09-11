@@ -14,7 +14,7 @@ from cld.worktree import managed_location, validate_location
 from cld.executors._capture import CaptureError
 from tests.integration.harness import real_git_runner
 from tests.integration.test_collection_recovery import Writer, metadata
-from tests.integration.test_review_regressions import BODY, checked_git, delivery_repo, run
+from tests.integration.test_review_regressions import BODY, checked_git, delivery_repo, run, task
 
 pytestmark = pytest.mark.integration
 
@@ -62,7 +62,7 @@ run(Path(sys.argv[1]), executor=Stop())
     child = subprocess.run([sys.executable, "-c", code, str(delivery_repo)],
                            env=child_env(), capture_output=True, timeout=60)
     assert child.returncode == 17, child.stderr.decode(errors="replace")
-    record_path = next((delivery_repo / ".cld/A").glob("*/outcome.json"))
+    record_path = next((delivery_repo / ".cld").glob("runs/*/A/*/outcome.json"))
     old = json.loads(record_path.read_text(encoding="utf-8"))
     assert old["state"] == "running"
     old_head = checked_git(["rev-parse", old["branch"]], delivery_repo)
@@ -125,19 +125,22 @@ def test_configured_workspace_root_and_creation_boundary(delivery_repo):
 
 def test_active_owner_defers_without_touching_ledger_or_dispatch(delivery_repo):
     ledger_path = delivery_repo / ".cld-ledger.json"
-    ledger_path.write_text('{"sentinel": "untouched"}')
+    ledger = Ledger(str(ledger_path))
+    with ledger.writer():
+        ledger.bind(str(delivery_repo), [task()], real_git_runner)
+    original = ledger_path.read_bytes()
     ex = Writer()
     with slice_owner(str(delivery_repo), "A", real_git_runner):
         result = run(delivery_repo, executor=ex)
     assert result.deferred == ["A"] and not ex.calls
     assert "active owner" in result.details["A"].failing_tests[0]
-    assert ledger_path.read_text() == '{"sentinel": "untouched"}'
+    assert ledger_path.read_bytes() == original
 
 
 def test_creation_failure_has_durable_reservation_and_can_restart(delivery_repo):
     def runner(args, cwd):
         if args[:3] == ["git", "worktree", "add"]:
-            records = list((delivery_repo / ".cld/A").glob("*/outcome.json"))
+            records = list((delivery_repo / ".cld").glob("runs/*/A/*/outcome.json"))
             assert len(records) == 1
             assert json.loads(records[0].read_text(encoding="utf-8"))["state"] == "reserved"
             return 1, "injected creation failure"

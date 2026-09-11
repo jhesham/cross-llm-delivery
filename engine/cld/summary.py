@@ -13,10 +13,14 @@ def recovery_lines(slice_id, detail):
     return []
 
 
-def write_artifacts(result: Any, *, repo_dir: str) -> None:
+def write_artifacts(result: Any, *, repo_dir: str, run_id=None) -> None:
     """Persist raw per-slice detail under <repo_dir>/.cld/<slice-id>/ so the agent can
     inspect on request WITHOUT it entering context. Best-effort; never raises."""
     base = os.path.join(repo_dir, ".cld")
+    if run_id is not None:
+        from uuid import uuid4
+        from cld.build_state import run_directory
+        base = str(run_directory(repo_dir, run_id) / "summaries" / uuid4().hex)
     for sid, d in (getattr(result, "details", {}) or {}).items():
         try:
             sdir = os.path.join(base, sid)

@@ -133,6 +133,9 @@ def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
     import skill.scripts.run_delivery as rd
     from cld.orchestrator import PlanResult
 
+    from tests.integration.harness import init_repo
+    from pathlib import Path
+    tmp_path = Path(init_repo(tmp_path / "repo"))
     plan = tmp_path / "plan.md"
     plan.write_text("## SLICE: A\nbrief: b\nfiles: x.py\nacceptance_test_path: t.py\ndeps:\n",
                     encoding="utf-8")
@@ -159,7 +162,9 @@ def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
         telemetry.set_sink(None)
         telemetry.set_run_id(None)
 
-    lines = (tmp_path / ".cld" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    from cld.ledger import Ledger
+    events_path = rd._events_path(str(tmp_path), Ledger.load(str(tmp_path / "l.json")))
+    lines = Path(events_path).read_text(encoding="utf-8").splitlines()
     recs = [json.loads(ln) for ln in lines if ln.strip()]
     types = [r["type"] for r in recs]
     for expected in ("run_start", "layer_start", "slice_start", "slice_done", "layer_done", "run_done"):
