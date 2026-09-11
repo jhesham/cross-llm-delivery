@@ -108,6 +108,23 @@ temporary directories or provide executor sandbox enforcement (T08/T13).
 
 Provide an explicit legacy migration with a backup; old DONE entries without verifiable commits do not automatically become integrated. Distinguish missing from corrupt/unreadable ledgers. Changing the plan invalidates affected slices and downstream dependencies through an explicit reconcile operation, never a silent reset. New builds get new IDs and preserve earlier evidence.
 
+T05 implementation (2026-09-11): schema 2 adds the build envelope and stable run ID,
+canonical ledger-path identity as well as repo/Git/plan identity, task fingerprints,
+timestamps and outcome histories. The writer lock covers the complete CLI mutation
+operation; standalone saves also lock and reject stale snapshots. Read-only loads
+never migrate and never treat corrupt/unreadable data as empty. Migration,
+reconciliation and new-build operations are explicit, backed up and dispatch-free.
+Reachable legacy commits without a verified collected journal remain repair work;
+no migrated entry implies integration. See [T05-MIGRATION.md](T05-MIGRATION.md) for
+commands, schema/rollback limits and direct API use.
+
+Recovery/events/summaries now live under `.cld/runs/<run-id>` with an atomic current
+pointer; legacy evidence remains readable and is never truncated. New runs cannot
+reuse earlier accepted journals automatically. Git worktree registry mutations are
+serialized separately to avoid partially registered worktrees being read by other
+workers. T06 still owns integration transitions; T07 repair/gate semantics and T10
+usage aggregation/status indexing remain pending.
+
 **A06 — Integrate in a build-owned branch.** `--step` dispatches one ready layer and produces accepted commits. Proposed `--integrate` combines those exact commits in deterministic order into a build-owned integration worktree, runs the configured integration suite, and advances the recorded integration SHA only on success. Later slices branch from that SHA. The user's checkout/branch remains untouched until an explicit final merge action. A failed gate or conflict preserves its candidate and cannot unblock dependents.
 
 Keep manual integration as a compatibility path: inspect recorded accepted SHAs and prove ancestry plus suite success before advancing state. Do not merely warn about missing dependency commits. Whole-plan mode must use the same integration lifecycle; until that works, reject multi-layer unattended execution with an actionable message rather than silently running against stale HEAD. No destructive reset of the user's checkout is part of integration recovery.

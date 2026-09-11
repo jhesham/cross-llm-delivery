@@ -2,56 +2,56 @@
 
 Updated: 2026-09-11. Initiative: Codex support and review remediation.
 
-**State:** T01 through T04 and M1 complete; paused before T05 pending explicit
+**State:** T01 through T05 and M1 complete; paused before T06 pending explicit
 confirmation of token availability. Branch `refactor/codex-support`, remote `public` on GitHub.
-T04 starts from `24b8d85`; resolve its closing commit with
-`git log -1 --format=%h --grep='^fix: T04 '`. Verify commit/push before final pause.
+Starting commit `5d29be0`; resolve the T05 closing commit with
+`git log -1 --format=%h --grep='^fix: T05 '`. Verify commit/push before final pause.
 
-**Mandatory checkpoint:** Verify and commit each slice with progress updates, then
-wait for explicit confirmation of token availability before starting another.
-T05 has not started. The user's push authorization remains in effect for these
-refactoring branch checkpoints; this is not a release or merge.
+**Checkpoint:** Stop after verification, progress updates, commit and authorized
+push. Await explicit token availability before T06. T06 has not started. This is
+a refactoring checkpoint, not a release or merge.
 
-**Next after confirmation:** [T05: build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration).
-Estimate 12–18k lead tokens. Read that contract, `ledger.py`, `attempts.py`,
-`recovery.py`, and CLI ledger loading. Add a build-wide writer lock, versioned build
-identity, corruption handling and explicit backed-up migration. Preserve actual
-accepted/recovery refs and all old candidates. The T04 per-slice lock does not
-serialize different slices writing one legacy ledger from separate processes.
+**Next after confirmation:** [T06: dependency/integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle).
+Estimate 10–16k. Read that contract, `build_state.py`, `ledger.py`, `orchestrator.py`,
+`integration_gate.py`, and CLI `_execute`. Add build-owned integration state/ref,
+verified dependency bases, conflict/failure preservation, and idempotent integration.
+Both remaining strict xfails are T06 dependency regressions. T07 still owns the
+complete exit/gate protocol and verification of `--mark-repaired`.
 
-**T04 evidence:** [T04-EVIDENCE.md](T04-EVIDENCE.md). Focused existing tests:
-71 passed, 2 strict xfailed; post-fix Git/ownership checks: 15 passed, path checks:
-4 passed. Final M1 suite: **513 passed, 2 strict xfailed, 1 deselected, 2 existing
-warnings**, 454.60 seconds. Log: `.cld/t04-verification/full-suite-final.log`.
-The initial full run found a Windows parent-creation/path-resolution race, now fixed. R04's escalation xfail was removed;
-only the two T06 dependency regressions remain expected failures.
+**T05 evidence:** [T05-EVIDENCE.md](T05-EVIDENCE.md). Latest targeted checks:
+75 passed; post-registry-fix concurrency: 5 passed. Full run: 531 passed, one outdated
+preflight fixture corrected, 2 T06 xfails, 1 deselected. CLI follow-up: 41 passed;
+532 distinct offline tests verified. Production code unchanged after the full run.
+Logs: `.cld/t05-verification/full-suite.log` and `cli-followup.log`. An earlier compatibility selection found Git
+reading another worker's incomplete worktree registry entry; add/remove now take a
+short repository OS lock while executor work stays parallel.
 
-**Implemented boundary:** [A04](ARCHITECTURE.md) records unique run/session refs,
-pre-creation reservation journals, OS-held slice ownership, safe configured roots,
-bounded recovery context and legacy compatibility. Within-session retries reuse
-the prior candidate; escalation/restart use a fresh base with preserved paths/refs.
-Hard process exit releases ownership without deleting lock files or old branches.
-Collected journal reconciliation still avoids redispatch. Default worktree root is
-`<repo>/.cld/worktrees`; `--worktree-root` is absolute or relative to `--repo`.
-Test temporary directories still use normal Python/Git temp locations.
+**Schema/migration:** [T05-MIGRATION.md](T05-MIGRATION.md) is the operator/API guide.
+Schema 2 has `build` identity and `entries`; canonical repo/Git/ledger/plan identity,
+stable run ID, fingerprints, initial base, integration placeholders, timestamps and
+outcome histories. Default ledger is under `--repo`; explicit relative paths retain
+cwd semantics. `--migrate-ledger`, `--reconcile-plan` and `--new-build` back up state
+and do not dispatch. Reachability alone never validates legacy acceptance/integration.
+Ambiguous old DONE entries need repair/reconciliation. Never use a pre-T05 CLI on
+schema-2 state; backup rollback is safe only before further changes/dispatch.
 
-**Migration:** Schema-1 journals add `run_id`, `branch`, `worktree_root`, `owner_pid`,
-`retry_policy` and `previous`. The ledger retains `commit`, `collection`,
-`recovery_path`, `worktree_path`. Legacy `slice-<id>` refs are read-only input;
-legacy collected worktrees require manual cleanup. No automatic branch deletion.
-
-**Verification commands:**
+**Ownership/evidence:** The ledger OS lock covers the entire write operation;
+status readers remain unlocked, and stale snapshots cannot overwrite newer bytes.
+Process death releases the lock; do not delete lock files. New evidence and append-only
+events live under `.cld/runs/<run-id>`, with `.cld/current-run.json`. Old artifacts,
+branches and refs remain. Direct callers executing a subset must pass the complete
+`plan_slices`; raw loads never migrate. T10 still owns aggregate token accounting
+and bounded status indexing.
 
 ```text
-python -m pytest tests/integration/test_attempt_resume.py -o addopts="" -q --tb=short
+python -m pytest tests/integration/test_build_state.py -o addopts="" -q --tb=short
 python -m pytest -o addopts="-m 'not eval'" -q --tb=short
 ```
 
-Committed plugin copies remain unchanged for T12/T17. Existing protected acceptance
-and explicit simulation rules remain. Windows execution only; no new POSIX run.
+Committed plugin copies remain unchanged for T12/T17; the full suite checks generated
+source bundles. Windows tested; no new POSIX execution claimed.
 
-**Dogfooding/usage:** No sub-agents or provider calls in T04; executor usage zero,
-lead counters unavailable. User preference: any Codex sub-agents must use
-`gpt-5.6-luna` with `max` reasoning and bounded briefs. Kimi K3 via OpenCode remains
-the later cross-LLM executor; resolve its exact model ID before live dispatch,
-without substitution. Bootstrap through T09 before live dogfooding.
+**Usage:** No sub-agents or live provider calls in T05; executor usage zero, lead
+counters unavailable. Any Codex sub-agents must use `gpt-5.6-luna` at `max` with bounded
+briefs. Kimi K3 via OpenCode remains the later dogfooding route, gated through T09;
+resolve the exact model ID before live dispatch without substitution.

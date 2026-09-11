@@ -5,8 +5,9 @@ filesystem; verifies round-trip and corruption-safe load.
 """
 
 import json
+import pytest
 
-from cld.ledger import DONE, FAILED, IN_PROGRESS, PENDING, Ledger, LedgerEntry
+from cld.ledger import DONE, FAILED, IN_PROGRESS, PENDING, Ledger, LedgerEntry, StateError
 
 
 def test_entry_defaults():
@@ -81,8 +82,8 @@ def test_save_writes_valid_json(tmp_path):
     led.set("T1", status=DONE, commit="c1")
     led.save()
     data = json.loads((tmp_path / "l.json").read_text())
-    assert data["T1"]["status"] == "done"
-    assert data["T1"]["commit"] == "c1"
+    assert data["entries"]["T1"]["status"] == "done"
+    assert data["entries"]["T1"]["commit"] == "c1"
 
 
 def test_load_missing_file_returns_empty(tmp_path):
@@ -91,14 +92,13 @@ def test_load_missing_file_returns_empty(tmp_path):
     assert led.get("anything") is None
 
 
-def test_load_corrupt_file_returns_empty(tmp_path):
+def test_load_corrupt_file_preserves_original_and_blocks(tmp_path):
     p = tmp_path / "bad.json"
     p.write_text("{not valid json at all")
-    led = Ledger.load(str(p))
-    assert led.get("x") is None
-    # and it's usable afterwards
-    led.set("x", status=DONE)
-    assert led.is_done("x")
+    before = p.read_bytes()
+    with pytest.raises(StateError, match="Invalid ledger"):
+        Ledger.load(str(p))
+    assert p.read_bytes() == before
 
 
 def test_atomic_save_overwrites_existing(tmp_path):

@@ -43,6 +43,8 @@ def test_preflight_suggests_installed_alternative(monkeypatch):
 
 
 def test_step_aborts_before_dispatch_when_cli_missing(tmp_path, monkeypatch, capsys):
+    from tests.integration.harness import init_repo
+    repo = init_repo(tmp_path / "repo")
     plan = tmp_path / "plan.md"
     plan.write_text("## SLICE: A\nbrief: b\nfiles: x.py\nacceptance_test_path: t.py\ndeps:\n",
                     encoding="utf-8")
@@ -53,7 +55,7 @@ def test_step_aborts_before_dispatch_when_cli_missing(tmp_path, monkeypatch, cap
         raise AssertionError("must not dispatch when preflight fails")
 
     monkeypatch.setattr(rd, "run_plan_parallel", boom)
-    rc = rd.main([str(plan), "--repo", str(tmp_path), "--ledger", str(tmp_path / "l.json"),
+    rc = rd.main([str(plan), "--repo", repo, "--ledger", str(tmp_path / "l.json"),
                   "--executor", "opencode:opencode/glm-5.2", "--step"])
     out = capsys.readouterr().out
     assert rc == 2

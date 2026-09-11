@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from cld.executors._capture import CaptureError, checked
-from cld.recovery import slice_directory, task_fingerprint
+from cld.recovery import recovery_records, task_fingerprint
 
 
 class ActiveAttempt(CaptureError):
@@ -52,14 +52,14 @@ def slice_owner(repo, sid, runner):
                 fcntl.flock(stream, fcntl.LOCK_UN)
 
 
-def previous_attempt(repo, ledger, task, runner):
+def previous_attempt(repo, ledger, task, runner, *, run_id=None, include_legacy=False):
     """Called only with ownership. Never checkout/reset a prior candidate.
 
     Resume uses a fresh base with pointers to preserved work, even if a worktree
     or recovery ref was removed. An unjournaled legacy branch is read-only input.
     """
     records = []
-    for path in slice_directory(repo, task.id).glob("*/outcome.json"):
+    for path in recovery_records(repo, task.id, run_id, include_legacy):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:

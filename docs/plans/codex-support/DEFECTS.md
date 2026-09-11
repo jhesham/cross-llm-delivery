@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R05 through R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05–R07 and R09–R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [ ] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
 | [ ] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
 | [ ] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Build wheel and import `load_providers` outside checkout/editable paths. Current wheel lacks `.md` and raises FileNotFoundError. | T17 |
-| [ ] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
+| [x] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
 | [ ] | R09 P2: automatic validation unwired | `skill/scripts/run_delivery.py:723` | Unknown explicit/default/tag/escalated model must enter validation or return an explicit blocked policy outcome before real slice dispatch. | T09 |
 | [ ] | R10 P2: no executor timeout | All provider default runners; Cursor `_timeout` unused | Sleeping child and grandchild must terminate within deadline; preserve partial files and log timeout distinctly. | T08 |
 | [ ] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
@@ -24,13 +24,13 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 |---|---|---|---|
 | [ ] | A01: unsupported SUBSLICE overwrites parent fields | Reject obsolete blocks with source location; remove unsupported examples; parent data must not silently change. | T07, T20 |
 | [ ] | A02: invalid DAG/plan inputs | Reject duplicate IDs, missing dependencies, empty selectors, invalid complexity, unsafe IDs/paths; no phantom endless pending layer. | T07 |
-| [ ] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
+| [x] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
 | [x] | A04: test harness duplicates old capture | Harness, concurrent and step-through executors now reuse production capture; real file/Git-tree assertions retained. [T01 evidence](T01-EVIDENCE.md). | T01 complete; T02 maintains coverage |
 | [ ] | A05: platform claims exceed CI evidence | Publish explicit host/provider/OS coverage; add intended CI coverage or narrow claims. | T17, T19, T20 |
 | [ ] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
 | [ ] | A07: evidence store concurrent writes | Atomic replace plus synchronization; distinct records survive concurrent validation; corruption surfaced. | T09 |
 | [ ] | A08: skill frontmatter/install contradictions | Put frontmatter first; generated bundles must not require editable install or a source-relative driver path. | T12, T13 |
-| [ ] | A09: trace overwritten between runs | Per-run artifacts plus current-run pointer; retain history and bound status reads. | T05, T10 |
+| [x] | A09: trace overwritten between runs | T05 preserves per-run artifacts/current pointer and history. Bounded status indexing remains a T10 follow-up. | T05 complete; T10 follow-up |
 
 **Closing evidence template**
 
@@ -50,3 +50,5 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T03 closing evidence (2026-09-10):** [T03-EVIDENCE.md](T03-EVIDENCE.md) records rejecting-hook, judge-exception, disk/Git/save and recovery regressions. Final suite: 501 passed, 3 xfailed, 1 deselected. Resolve the closing commit with `git log -1 --format=%h --grep='^fix: T03 '`. The three remaining expected failures belong to T04/T06.
 
 **T04 closing evidence (2026-09-11):** [T04-EVIDENCE.md](T04-EVIDENCE.md) records unique attempts, actual two-rung dispatch, hard-stop restart, active ownership, orphan/legacy preservation and configured-root checks. Final M1 suite: 513 passed, 2 xfailed, 1 deselected. Resolve the closing commit with `git log -1 --format=%h --grep='^fix: T04 '`. Only the two T06 dependency regressions remain expected failures.
+
+**T05 closing evidence (2026-09-11):** [T05-EVIDENCE.md](T05-EVIDENCE.md) and [migration guide](T05-MIGRATION.md) close R08, A03 and A09 trace preservation. Full run: 531 passed and one stale fixture corrected; follow-up: 41 passed, covering 532 distinct tests overall. Two T06 xfails remain. T10 still owns bounded status reads. Closing subject starts `fix: T05`.

@@ -67,6 +67,11 @@ class JsonlSink(Sink):
             self._fh.flush()
 
 
+    def close(self):
+        with self._lock:
+            self._fh.close()
+
+
 class MultiSink(Sink):
     """Fan out records to many sinks, isolating failures.
 
@@ -85,6 +90,13 @@ class MultiSink(Sink):
             except Exception:
                 # A failing sink must not stop the others nor surface upward.
                 pass
+
+
+    def close(self):
+        for sink in self._sinks:
+            close = getattr(sink, "close", None)
+            if close is not None:
+                close()
 
 
 class OtelSink(Sink):
@@ -152,7 +164,11 @@ def set_sink(sink) -> None:
     """Install the process-global telemetry sink (replaces any prior sink)."""
     global _sink
     with _sink_lock:
-        _sink = sink
+        previous, _sink = _sink, sink
+    if previous is not None and previous is not sink:
+        close = getattr(previous, "close", None)
+        if close is not None:
+            close()
 
 
 def get_sink():

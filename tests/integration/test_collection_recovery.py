@@ -151,7 +151,7 @@ def test_ledger_failure_rolls_back_memory_and_recovers_without_dispatch(delivery
     assert not ledger.is_done("A")
     assert len(ex.calls) == 1 and Path(ex.calls[0]).exists()
     assert any(ex.calls[0] in note for note in error.value.__notes__)
-    records = list((delivery_repo / ".cld/A").glob("*/outcome.json"))
+    records = list((delivery_repo / ".cld").glob("runs/*/A/*/outcome.json"))
     record = json.loads(records[0].read_text(encoding="utf-8"))
     assert record["state"] == "collected"
     restarted = Ledger.load(ledger.path)
@@ -205,7 +205,7 @@ def test_dispatch_exception_preserves_files(delivery_repo, exception):
     else:
         assert run(delivery_repo, executor=ex).failed == ["A"]
     assert (Path(ex.calls[0]) / "implementation.py").read_text() == BODY
-    assert list((delivery_repo / ".cld/A").glob("*/attempt-1/error.txt"))
+    assert list((delivery_repo / ".cld").glob("runs/*/A/*/attempt-1/error.txt"))
 
 
 def test_valid_noop_does_not_invoke_commit(delivery_repo):
@@ -247,7 +247,7 @@ def test_restart_checks_refs_and_retains_later_worktree_edits(delivery_repo, cha
     ex = Writer()
     with pytest.raises(OSError):
         run(delivery_repo, executor=ex, ledger=ledger)
-    record_path = next((delivery_repo / ".cld/A").glob("*/outcome.json"))
+    record_path = next((delivery_repo / ".cld").glob("runs/*/A/*/outcome.json"))
     record = json.loads(record_path.read_text(encoding="utf-8"))
     if change == "ref":
         checked_git(["update-ref", record["collection"]["ref"], record["base"]], delivery_repo)

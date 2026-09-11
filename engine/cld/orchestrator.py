@@ -1,6 +1,7 @@
 import os
 import inspect
 from copy import deepcopy
+from functools import wraps
 import threading
 import time
 from uuid import uuid4
@@ -14,6 +15,7 @@ from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge, _extract_rc
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
+from cld.build_state import validate_tasks
 from cld.telemetry import emit
 from cld.worktree import worktree, remove_worktree, managed_location, validate_location, verify_worktree
 from cld.attempts import ActiveAttempt, slice_owner, previous_attempt, recovery_feedback
@@ -333,6 +335,20 @@ def run_plan(
     return result
 
 
+def _build_owned(fn):
+    @wraps(fn)
+    def wrapped(slices, ledger, **kwargs):
+        if kwargs.get("simulation", False) or kwargs.get("repo_dir") is None or kwargs.get("git_runner") is None:
+            return fn(slices, ledger, **kwargs)
+        with ledger.writer(refresh=True):
+            if ledger.build is None:
+                ledger.bind(kwargs["repo_dir"], kwargs.get("plan_slices") or slices, kwargs["git_runner"])
+            validate_tasks(ledger, kwargs["repo_dir"], kwargs.get("plan_slices") or slices)
+            return fn(slices, ledger, **kwargs)
+    return wrapped
+
+
+@_build_owned
 def run_plan_parallel(
     slices: list[SliceTask],
     ledger: Ledger,
@@ -349,6 +365,7 @@ def run_plan_parallel(
     worktree_root: str | None = None,
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
+    plan_slices: list[SliceTask] | None = None,
     rung_planner: Callable | None = None,
     simulation: bool = False,
 ) -> PlanResult:
@@ -396,11 +413,12 @@ def run_plan_parallel(
     by_id = {s.id: s for s in slices}
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
-    run_id = uuid4().hex
-    run_base = checked(git_runner, repo_dir, "rev-parse", "HEAD^{commit}").strip() if not simulation else None
+    run_id = ledger.build["run_id"] if not simulation else uuid4().hex
+    run_base = ledger.build["initial_base"] if not simulation else None
 
     def _worktree_delivery(task, ex, spec, retries, source, rung):
-        previous = previous_attempt(repo_dir, ledger.path, task, git_runner)
+        previous = previous_attempt(repo_dir, ledger.path, task, git_runner, run_id=run_id,
+                                    include_legacy=ledger.build.get("legacy_recovery", False))
         session_id = uuid4().hex
         wt, root, branch = managed_location(repo_dir, worktree_root, run_id, task.id, session_id,
                                            create_root=True)
@@ -449,13 +467,20 @@ def run_plan_parallel(
             res.final = JudgeResult(False, 0, 0, failing_tests=[detail])
         res.worktree_path, res.worktree_root, res.branch = wt, root, branch
         res.recovery_path = str(session.directory)
+        with ledger_lock:
+            entry = ledger.get(task.id)
+            entry.history.append(dict(session_id=session.id, run_id=run_id, branch=branch,
+                worktree=wt, recovery_path=res.recovery_path, state=session.record["state"],
+                recovery_ref=session.record.get("recovery_ref"), collection=res.collection))
+            ledger.save()
         if not res.accepted and res.final is not None:
             res.final.failing_tests.append(f"Worktree retained at {wt}; evidence: {res.recovery_path}")
         return res
 
     def _run_one(task: SliceTask):
         if not simulation:
-            recovered = recover_collected(repo_dir, ledger.path, task, git_runner)
+            recovered = recover_collected(repo_dir, ledger.path, task, git_runner, run_id=run_id,
+                                          include_legacy=ledger.build.get("legacy_recovery", False))
             if recovered is not None:
                 record, directory = recovered
                 if record.get("worktree_root") is not None:
