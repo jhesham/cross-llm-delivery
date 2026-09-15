@@ -14,7 +14,8 @@ from cld.executors.base import ExecutorResult, SliceTask
 from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge, _extract_rc
-from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS
+from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
+from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
 from cld.telemetry import emit
 from cld.worktree import worktree, remove_worktree, managed_location, validate_location, verify_worktree
@@ -282,6 +283,8 @@ class PlanResult:
     deferred: list[str] = field(default_factory=list)
     needs_repair: list[str] = field(default_factory=list)
     details: dict[str, "SliceDetail"] = field(default_factory=dict)
+    integration_required: list[str] = field(default_factory=list)
+    integration_error: str | None = None
 
 
 def run_plan(
@@ -296,11 +299,14 @@ def run_plan(
     worktree_root: str | None = None,
     git_runner: Callable | None = None,
     simulation: bool = False,
+    integration_test_path: str | None = None,
+    integration_test_runner: Callable | None = None,
 ) -> PlanResult:
     if not simulation:
         return run_plan_parallel(slices, ledger, executor=executor, judge_fn=judge_fn,
                                  max_retries=max_retries, max_workers=1, repo_dir=repo_dir,
-                                 git_runner=git_runner, test_runner=test_runner, worktree_root=worktree_root)
+                                 git_runner=git_runner, test_runner=test_runner, worktree_root=worktree_root,
+                                 integration_test_path=integration_test_path, integration_test_runner=integration_test_runner)
     if repo_dir is not None or git_runner is not None:
         raise CaptureError("Simulation cannot be combined with a real Git boundary")
     result = PlanResult()
@@ -366,6 +372,8 @@ def run_plan_parallel(
     git_runner: Callable[[list[str], str], tuple[int, str]] | None = None,
     test_runner: Callable[[str], str] | None = None,
     plan_slices: list[SliceTask] | None = None,
+    integration_test_path: str | None = None,
+    integration_test_runner: Callable | None = None,
     rung_planner: Callable | None = None,
     simulation: bool = False,
 ) -> PlanResult:
@@ -414,7 +422,12 @@ def run_plan_parallel(
     deps = {s.id: list(s.deps) for s in slices}
     ledger_lock = threading.Lock()
     run_id = ledger.build["run_id"] if not simulation else uuid4().hex
-    run_base = ledger.build["initial_base"] if not simulation else None
+    run_base = verified_base(ledger, git_runner) if not simulation else None
+    if not simulation and len([layer for layer in parallel_batches(deps) if any(sid in by_id for sid in layer)]) > 1 and not integration_test_path:
+        raise StateError("Multi-layer delivery requires integration_test_path; use step mode and explicit integration")
+
+    if not simulation and integration_test_path:
+        configure_suite(plan_slices or slices, ledger, git_runner, integration_test_path, run_base)
 
     def _worktree_delivery(task, ex, spec, retries, source, rung):
         previous = previous_attempt(repo_dir, ledger.path, task, git_runner, run_id=run_id,
@@ -479,7 +492,7 @@ def run_plan_parallel(
 
     def _run_one(task: SliceTask):
         if not simulation:
-            recovered = recover_collected(repo_dir, ledger.path, task, git_runner, run_id=run_id,
+            recovered = recover_collected(repo_dir, ledger.path, task, git_runner, run_id=run_id, expected_base=run_base,
                                           include_legacy=ledger.build.get("legacy_recovery", False))
             if recovered is not None:
                 record, directory = recovered
@@ -623,22 +636,37 @@ def run_plan_parallel(
                 result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
 
     for layer in parallel_batches(deps):
+        if not simulation:
+            run_base = verified_base(ledger, git_runner)
         # A layer may include dep-only ids not in this plan — keep only real tasks
         # that aren't already done in the ledger.
         runnable = []
-        for sid in layer:
+        for sid in sorted(layer):
             task = by_id.get(sid)
             if task is None:
                 continue
             if ledger.is_done(sid):
                 result.skipped.append(sid)
                 continue
+            if not simulation:
+                reason = dependency_block(task, ledger, git_runner, run_base)
+                if reason:
+                    result.deferred.append(sid)
+                    result.details[sid] = SliceDetail(sid, "deferred", failing_tests=[reason])
+                    continue
             runnable.append(task)
 
-        if not runnable:
-            continue
-
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            list(pool.map(_process, runnable))
+        if runnable:
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                list(pool.map(_process, runnable))
+        if not simulation and integration_test_path and pending_integration(ledger):
+            gate = integrate(plan_slices or slices, ledger, repo_dir=repo_dir,
+                git_runner=git_runner, test_runner=integration_test_runner or test_runner,
+                selector=integration_test_path, worktree_root=worktree_root)
+            if not gate.passed:
+                result.integration_error = f"{gate.error}; evidence: {gate.evidence}"
+                break
+    if not simulation:
+        result.integration_required = pending_integration(ledger)
 
     return result

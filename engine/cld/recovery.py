@@ -184,13 +184,20 @@ class RecoverySession:
             return CollectionResult(False, error=f"Collection failed: {exc}")
 
 
-def recover_collected(repo, ledger_path, task, runner, *, run_id=None, include_legacy=False):
+def recover_collected(repo, ledger_path, task, runner, *, run_id=None, include_legacy=False, expected_base=None, record_path=None):
     """Reconcile a checked collection whose final ledger write was interrupted.
 
     Uncollected attempts resume separately. Never infer acceptance from an
     arbitrary branch or an unverified recovery snapshot.
     """
-    for path in recovery_records(repo, task.id, run_id, include_legacy):
+    if record_path is not None:
+        path = Path(record_path).resolve()
+        if not path.is_relative_to((Path(repo).resolve() / ".cld").resolve()):
+            raise CaptureError("Collected evidence escapes the repository artifact root")
+        records = [path]
+    else:
+        records = recovery_records(repo, task.id, run_id, include_legacy)
+    for path in records:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
@@ -206,7 +213,7 @@ def recover_collected(repo, ledger_path, task, runner, *, run_id=None, include_l
         if (record.get("schema_version") != 1 or collection.get("ok") is not True
                 or record["delivery"]["final"]["passed"] is not True):
             raise CaptureError(f"Invalid collected outcome; inspect {path}")
-        if checked(runner, repo, "rev-parse", "HEAD^{commit}").strip() != record["base"]:
+        if (expected_base or checked(runner, repo, "rev-parse", "HEAD^{commit}").strip()) != record["base"]:
             raise CaptureError(f"Collected recovery base changed; inspect {path}")
         commit, tree, ref = collection["commit"], collection["tree"], collection["ref"]
         if ref != f'refs/cld/accepted/{record["session_id"]}':

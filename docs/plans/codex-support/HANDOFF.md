@@ -1,57 +1,61 @@
 # Current handoff
 
-Updated: 2026-09-11. Initiative: Codex support and review remediation.
+Updated: 2026-09-15. Initiative: Codex support and review remediation.
 
-**State:** T01 through T05 and M1 complete; paused before T06 pending explicit
-confirmation of token availability. Branch `refactor/codex-support`, remote `public` on GitHub.
-Starting commit `5d29be0`; resolve the T05 closing commit with
-`git log -1 --format=%h --grep='^fix: T05 '`. Verify commit/push before final pause.
+**State:** T01 through T06 and M1 complete; paused before T07 pending explicit
+confirmation of token availability. Branch `refactor/codex-support`, remote `public`
+on GitHub. Starting commit `08e6eff`; resolve the T06 closing commit with
+`git log -1 --format=%h --grep="^fix: T06 "`. Verify commit/push before final pause.
 
 **Checkpoint:** Stop after verification, progress updates, commit and authorized
-push. Await explicit token availability before T06. T06 has not started. This is
+push. Await explicit token availability before T07. T07 has not started. This is
 a refactoring checkpoint, not a release or merge.
 
-**Next after confirmation:** [T06: dependency/integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle).
-Estimate 10–16k. Read that contract, `build_state.py`, `ledger.py`, `orchestrator.py`,
-`integration_gate.py`, and CLI `_execute`. Add build-owned integration state/ref,
-verified dependency bases, conflict/failure preservation, and idempotent integration.
-Both remaining strict xfails are T06 dependency regressions. T07 still owns the
-complete exit/gate protocol and verification of `--mark-repaired`.
+**Next after confirmation:** [T07: validated plans and gate protocol](02-STATE-ORCHESTRATION.md#t07--validated-plans-and-gate-protocol).
+Estimate 10–16k. Read that contract, plan/slice.py, dag.py, judge.py,
+integration_gate.py, integration.py, summary.py and CLI. Finish structured test
+results, validation before dispatch, verified `--mark-repaired`, code 4 for
+integration repair and consistent gates/telemetry/status. Run M2's full offline suite.
 
-**T05 evidence:** [T05-EVIDENCE.md](T05-EVIDENCE.md). Latest targeted checks:
-75 passed; post-registry-fix concurrency: 5 passed. Full run: 531 passed, one outdated
-preflight fixture corrected, 2 T06 xfails, 1 deselected. CLI follow-up: 41 passed;
-532 distinct offline tests verified. Production code unchanged after the full run.
-Logs: `.cld/t05-verification/full-suite.log` and `cli-followup.log`. An earlier compatibility selection found Git
-reading another worker's incomplete worktree registry entry; add/remove now take a
-short repository OS lock while executor work stays parallel.
+**T06 evidence:** [T06-EVIDENCE.md](T06-EVIDENCE.md). Full run: **555 passed**,
+1 live eval deselected, no xfails, 2 existing deepeval warnings, 634.58 seconds.
+Final follow-up: **3 passed**, 19 deselected, 31.37 seconds; **556 distinct passing
+tests** verified overall. Logs: `.cld/t06-verification/full-suite.log` and
+`followup.log`. The full-run-startup follow-up is limited to an integration artifact
+path boundary guard; reconciliation and the no-provider CLI were rechecked too.
+Earlier focused run: 33 passes plus one test-variable typo fixed before full run.
 
-**Schema/migration:** [T05-MIGRATION.md](T05-MIGRATION.md) is the operator/API guide.
-Schema 2 has `build` identity and `entries`; canonical repo/Git/ledger/plan identity,
-stable run ID, fingerprints, initial base, integration placeholders, timestamps and
-outcome histories. Default ledger is under `--repo`; explicit relative paths retain
-cwd semantics. `--migrate-ledger`, `--reconcile-plan` and `--new-build` back up state
-and do not dispatch. Reachability alone never validates legacy acceptance/integration.
-Ambiguous old DONE entries need repair/reconciliation. Never use a pre-T05 CLI on
-schema-2 state; backup rollback is safe only before further changes/dispatch.
+**Integration contract:** [Operator/API guide](T06-INTEGRATION.md). DONE means
+accepted; integrated requires immutable merge ref plus a passed frozen suite and
+journal published with the ledger. `--step` reports 6 for acceptance awaiting
+integration. `--integrate --integration-tests <selector>` runs without a provider;
+selector persists. Whole-plan multi-layer dispatch requires that explicit option
+and integrates between layers. Failed/deferred/repair/interrupted dependencies
+block with reasons. Later worktrees use verified integration SHA; user HEAD may
+advance without changing an existing build's base.
 
-**Ownership/evidence:** The ledger OS lock covers the entire write operation;
-status readers remain unlocked, and stale snapshots cannot overwrite newer bytes.
-Process death releases the lock; do not delete lock files. New evidence and append-only
-events live under `.cld/runs/<run-id>`, with `.cld/current-run.json`. Old artifacts,
-branches and refs remain. Direct callers executing a subset must pass the complete
-`plan_slices`; raw loads never migrate. T10 still owns aggregate token accounting
-and bounded status indexing.
+**Recovery:** Integration journals/logs live under
+`.cld/runs/<run-id>/integration/<transaction-id>/`; refs under
+`refs/cld/integration/<run-id>/<transaction-id>`. Worktrees, including successful
+ones, are retained for inspection/manual cleanup. Interrupted incomplete attempts
+remain and retry creates a fresh attempt. Passed-journal/failed-ledger retries
+reuse and re-test the same commit; published integration is a no-op. Manual
+resolutions require `--manual-integration <commit>` ancestry/scope/test verification.
+Reconciliation preserves unaffected acceptance but never inherits integrated status.
 
-```text
-python -m pytest tests/integration/test_build_state.py -o addopts="" -q --tb=short
+**State compatibility:** Schema 2 remains. [T05 migration guide](T05-MIGRATION.md)
+applies with T06's stable-base update. Explicit reconciliation/new-build adopts
+current HEAD. Old artifacts/refs stay. Never use an older CLI to write this state.
+The ledger writer lock spans dispatch/integration/publication; process exit releases
+OS ownership, so do not delete lock files. Generated plugin copies remain for T12/T17.
+
+```powershell
+python -m pytest tests/integration/test_integration_lifecycle.py -o addopts="" -q --tb=short
 python -m pytest -o addopts="-m 'not eval'" -q --tb=short
 ```
 
-Committed plugin copies remain unchanged for T12/T17; the full suite checks generated
-source bundles. Windows tested; no new POSIX execution claimed.
-
-**Usage:** No sub-agents or live provider calls in T05; executor usage zero, lead
-counters unavailable. Any Codex sub-agents must use `gpt-5.6-luna` at `max` with bounded
-briefs. Kimi K3 via OpenCode remains the later dogfooding route, gated through T09;
-resolve the exact model ID before live dispatch without substitution.
+**Usage:** No sub-agents or live provider calls; executor usage zero, lead counters
+unavailable. Any explicitly requested Codex sub-agents must use `gpt-5.6-luna` at
+`max` with bounded briefs. Kimi K3 via OpenCode remains gated through T09; verify
+its exact model ID before live dispatch without substitution. Windows tested;
+no new POSIX execution claimed.

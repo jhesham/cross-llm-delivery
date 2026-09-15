@@ -90,7 +90,7 @@ def bind_build(ledger, repo, tasks, runner, *, plan_path=None, plan_text=None,
     if old and (old["repo"] != repo or old["git_common_dir"] != os.path.realpath(common)):
         raise StateError("Repository identity mismatch; reconciliation cannot retarget an existing ledger")
     mismatch = bool(old and (old["plan_hash"] != digest or old.get("plan_path") != plan_path
-                            or old.get("plan_source_hash") != source or old["initial_base"] != base))
+                            or old.get("plan_source_hash") != source))
     if mismatch and not (reconcile or new_build):
         raise StateError(f"Plan/base mismatch for {ledger.path}; inspect then use --reconcile-plan or --new-build")
     if ledger.legacy and not migrate:
@@ -125,6 +125,10 @@ def bind_build(ledger, repo, tasks, runner, *, plan_path=None, plan_text=None,
         entry = deepcopy(ledger.get(task.id)) or LedgerEntry(task.id)
         if old and task.id in affected:
             entry = LedgerEntry(task.id, history=[dict(reconciled_from=old["run_id"], outcome=asdict(entry))])
+        if entry.status == "integrated":
+            # A new run has no published gate. Preserve acceptance, never inherit
+            # integrated status without that run's own verified integration proof.
+            entry.status = DONE
         if ledger.legacy and entry.status == DONE:
             # Reachability is evidence to preserve, not proof of acceptance/integration.
             ref = entry.commit or f"refs/heads/slice-{task.id}"

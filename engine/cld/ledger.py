@@ -191,14 +191,14 @@ class Ledger:
         return [
             entry.slice_id
             for entry in self._entries.values()
-            if entry.status != DONE
+            if entry.status not in (DONE, "integrated")
         ]
 
     def is_done(self, slice_id: str) -> bool:
         entry = self.get(slice_id)
         if not entry:
             return False
-        return entry.status == DONE
+        return entry.status in (DONE, "integrated")
 
     def save(self):
         if not self._writing:

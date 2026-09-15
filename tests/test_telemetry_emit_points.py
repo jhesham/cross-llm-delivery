@@ -167,9 +167,10 @@ def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
     lines = Path(events_path).read_text(encoding="utf-8").splitlines()
     recs = [json.loads(ln) for ln in lines if ln.strip()]
     types = [r["type"] for r in recs]
-    for expected in ("run_start", "layer_start", "slice_start", "slice_done", "layer_done", "run_done"):
+    for expected in ("run_start", "layer_start", "slice_start", "slice_done", "layer_done"):
         assert expected in types, f"{expected} missing from {types}"
     # run_id present + stable across the whole stream
     rids = {r.get("run_id") for r in recs}
     assert len(rids) == 1 and None not in rids
-    assert rc == 3  # single layer done -> build complete (the --step "no further layers" code)
+    assert "run_done" not in types
+    assert rc == 6  # accepted work still requires verified integration

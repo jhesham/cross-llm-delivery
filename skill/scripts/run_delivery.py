@@ -18,7 +18,8 @@ The plan is markdown with one block per slice (see cld.plan.slice.load_slices):
     acceptance_test_path: tests/test_a.py
     deps:
 
-Exit code 0 if all slices accepted (or already done), 1 otherwise.
+Exit 3 means verified integration is complete; 6 means accepted work awaits integration.
+Exit 0 means more work remains; 2 is failure/defer, 4 repair, and 5 invalid state.
 """
 
 import argparse
@@ -46,6 +47,7 @@ from cld.providers_api import load_providers, get_provider, all_providers, defau
 from cld.executors import get_executor
 from cld.judge import judge
 from cld.candidate import acceptance_args
+from cld.executors._capture import CaptureError
 from cld.ledger import Ledger, DONE, StateError, resolve_ledger
 from cld.locking import OwnerBusy
 from cld.build_state import run_directory
@@ -599,6 +601,9 @@ def _main(argv=None) -> int:
     p.add_argument("--migrate-ledger", action="store_true", help="Back up and migrate legacy state with this plan; no dispatch")
     p.add_argument("--reconcile-plan", action="store_true", help="Back up state and invalidate changed slices/dependents; no dispatch")
     p.add_argument("--new-build", action="store_true", help="Back up state and start a fresh run; no dispatch")
+    p.add_argument("--integrate", action="store_true", help="Verify and integrate accepted commits; no provider dispatch")
+    p.add_argument("--integration-tests", help="Explicit committed pytest selector for integration (required for whole multi-layer runs)")
+    p.add_argument("--manual-integration", help="With --integrate, verify an existing merge commit/ref")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
                    help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
@@ -627,6 +632,10 @@ def _main(argv=None) -> int:
     p.add_argument("--interval", type=int, default=5,
                    help="Seconds between repaints for --watch (default 5).")
     args = p.parse_args(argv)
+    if args.manual_integration and not args.integrate:
+        raise StateError("--manual-integration requires --integrate")
+    if args.integrate and args.step:
+        raise StateError("Choose --integrate or --step")
     args.repo = os.path.realpath(args.repo)
     args.ledger = resolve_ledger(args.repo, args.ledger)
 
@@ -679,7 +688,7 @@ def _main(argv=None) -> int:
     # default workhorse so automation / --step loops never block on a prompt (and never
     # resolve to a removed provider).
     if args.executor is None:
-        if not (args.dry_run or args.migrate_ledger or args.reconcile_plan or args.new_build) and sys.stdin.isatty():
+        if not (args.dry_run or args.migrate_ledger or args.reconcile_plan or args.new_build or args.integrate) and sys.stdin.isatty():
             try:
                 args.executor = prompt_for_executor()
             except EOFError:
@@ -712,6 +721,20 @@ def _main(argv=None) -> int:
             if pending:
                 print(f"reconciliation required: {', '.join(pending)}")
             return 0
+        if args.integrate:
+            from cld.integration import integrate
+            gate = integrate(slices, ledger, repo_dir=args.repo, git_runner=git_runner,
+                test_runner=pytest_test_runner, selector=args.integration_tests or ledger.build.get("integration_selector"),
+                worktree_root=args.worktree_root, manual_ref=args.manual_integration)
+            if not gate.passed:
+                print(f"Integration failed: {gate.error}; evidence: {gate.evidence}")
+                return 2
+            print(f"Integrated: {list(gate.integrated)}; commit={gate.commit}; evidence={gate.evidence}")
+            return 3 if all(e.status == "integrated" for e in ledger.entries.values()) else 0
+        if not args.step:
+            from cld.dag import parallel_batches
+            if len(parallel_batches({s.id: s.deps for s in slices})) > 1 and not args.integration_tests:
+                raise StateError("Whole-plan multi-layer delivery requires --integration-tests; use --step then --integrate")
         preflight_err = _preflight_executor(args.executor or _default_spec())
         if preflight_err:
             print(preflight_err)
@@ -736,11 +759,15 @@ def _execute(args, slices, ledger):
         from cld import telemetry
         sel = next_pending_layer(slices, ledger)
         if sel is None:
-            print("BUILD COMPLETE — no pending layers.")
+            from cld.integration import pending_integration, verified_base
+            verified_base(ledger, git_runner)
+            if pending_integration(ledger):
+                print("INTEGRATION REQUIRED — run --integrate --integration-tests <selector>.")
+                return 6
+            print("BUILD COMPLETE — all slices integrated and verified.")
             return 3
         idx, layer_ids, total = sel
         layer_slices = [s for s in slices if s.id in layer_ids]
-        _warn_unmerged_deps(args.repo, slices, ledger, layer_ids)  # caller-merge preflight
         telemetry.emit("layer_start", layer=idx, slice_ids=list(layer_ids), total=total)
         judge_fn = make_judge_fn(args.repo)
         result = run_plan_parallel(
@@ -757,7 +784,9 @@ def _execute(args, slices, ledger):
         write_artifacts(result, repo_dir=args.repo, run_id=ledger.build["run_id"])
         nxt = next_pending_layer(slices, ledger)
         telemetry.emit("layer_done", layer=idx, gate=_layer_gate(result))
-        if nxt is None:
+        from cld.integration import pending_integration
+        result.integration_required = pending_integration(ledger)
+        if nxt is None and not result.integration_required:
             telemetry.emit("run_done", gate=_layer_gate(result))
         next_layer = nxt[1] if nxt else []
         print(summarize_layer(result, layer_index=idx, total_layers=total,
@@ -776,9 +805,11 @@ def _execute(args, slices, ledger):
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
         test_runner=pytest_test_runner,  # REAL pytest in the worktree = the judge signal
+        integration_test_path=args.integration_tests,
     )
     from cld import telemetry as _tel
-    _tel.emit("run_done", gate=_layer_gate(result))
+    if not result.integration_required and not result.integration_error:
+        _tel.emit("run_done", gate=_layer_gate(result))
 
     print(f"completed: {result.completed}")
     print(f"failed:    {result.failed}")
@@ -789,13 +820,18 @@ def _execute(args, slices, ledger):
     for sid, detail in getattr(result, "details", {}).items():
         for line in recovery_lines(sid, detail):
             print(line)
-    return 0 if not result.failed and not result.deferred else 1
+    if result.integration_error:
+        print(f"Integration failed: {result.integration_error}")
+    elif result.integration_required:
+        print("INTEGRATION REQUIRED — run --integrate --integration-tests <selector>.")
+    from cld.summary import classify_gate
+    return classify_gate(result, more_layers=False)
 
 
 def main(argv=None) -> int:
     try:
         return _main(argv)
-    except (StateError, OwnerBusy) as exc:
+    except (StateError, OwnerBusy, CaptureError) as exc:
         print(f"State blocked: {exc}", file=sys.stderr)
         return 5
 
