@@ -8,6 +8,8 @@ import pytest
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.executors._capture import capture_diff
 from cld.ledger import Ledger
+from cld.integration import integrate
+from tests.integration.test_review_regressions import acceptance
 from cld.orchestrator import next_pending_layer, run_plan_parallel
 from cld.summary import summarize_layer
 from tests.integration.harness import init_repo, real_git_runner
@@ -71,6 +73,9 @@ def test_step_through_two_layers(git_repo):
     assert "LAYER 1 of 2" in sum0
     assert "diff --git" not in sum0  # no raw output on the summary
     assert ledger.is_done("A") and not ledger.is_done("B")
+
+    assert integrate(slices, ledger, repo_dir=repo, git_runner=real_git_runner,
+                     test_runner=acceptance, selector="t.py").passed
 
     # layer 1: B (now unblocked)
     res1, sum1 = _run_one_layer(slices, ledger, repo)

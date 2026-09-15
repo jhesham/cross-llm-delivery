@@ -174,7 +174,6 @@ def test_escalation_dispatches_second_rung(delivery_repo):
            "R04: escalation did not dispatch twice and complete")
 
 
-@pending("R05 / T06: dependent work must see the accepted dependency")
 def test_dependent_dispatch_has_dependency_code(delivery_repo):
     seen = []
 
@@ -184,13 +183,14 @@ def test_dependent_dispatch_has_dependency_code(delivery_repo):
                 seen.append((Path(wd) / "implementation.py").read_text() == BODY)
             return super().run(t, wd, feedback)
 
+    dependent = task("B", ["A"])
+    dependent.allow_already_satisfied = True
     result = run(delivery_repo, executor=Observer(contents={"implementation.py": BODY}),
-                 slices=[task(), task("B", ["A"])])
+                 slices=[task(), dependent], integration_test_path="test_acceptance.py")
     expect(seen == [True] and "B" in result.completed,
            "R05: B ran against HEAD without A's implementation")
 
 
-@pending("R05 / T06: failed dependency must block dependent dispatch")
 def test_failed_dependency_blocks_dispatch(delivery_repo):
     calls = []
 
@@ -200,7 +200,7 @@ def test_failed_dependency_blocks_dispatch(delivery_repo):
             return super().run(t, wd, feedback)
 
     run(delivery_repo, executor=FailingWriter(contents={"implementation.py": "VALUE = 1\n"}),
-        slices=[task(), task("B", ["A"])])
+        slices=[task(), task("B", ["A"])], integration_test_path="test_acceptance.py")
     expect(calls == ["A"], "R05: B dispatched despite failed A")
 
 

@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05–R07 and R09–R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05 is closed by T06; R06/R07 and R09–R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | R02 P1: failed dispatch accepted | `engine/cld/orchestrator.py:132` | Return `ok=False` after writing code; passing tests currently allow acceptance using an empty reported diff. Error must fail and preserve actual edits/logs. | T02, T08 |
 | [x] | R03 P1: commit failure loses accepted work | `engine/cld/recovery.py`, `engine/cld/orchestrator.py` | Reject commit via local hook or injected nonzero RC; current result is complete after worktree removal. No acceptance until commit/tree verified and durable; recovery remains. | T03 |
 | [x] | R04 P1: escalation/resume branch collision | `engine/cld/worktree.py:11` | Fail first rung, enter second; `slice-A` already exists. Verify second dispatch and restart after interruption with real Git. | T04 |
-| [ ] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
+| [x] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
 | [ ] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
 | [ ] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Build wheel and import `load_providers` outside checkout/editable paths. Current wheel lacks `.md` and raises FileNotFoundError. | T17 |
 | [x] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
@@ -52,3 +52,5 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T04 closing evidence (2026-09-11):** [T04-EVIDENCE.md](T04-EVIDENCE.md) records unique attempts, actual two-rung dispatch, hard-stop restart, active ownership, orphan/legacy preservation and configured-root checks. Final M1 suite: 513 passed, 2 xfailed, 1 deselected. Resolve the closing commit with `git log -1 --format=%h --grep='^fix: T04 '`. Only the two T06 dependency regressions remain expected failures.
 
 **T05 closing evidence (2026-09-11):** [T05-EVIDENCE.md](T05-EVIDENCE.md) and [migration guide](T05-MIGRATION.md) close R08, A03 and A09 trace preservation. Full run: 531 passed and one stale fixture corrected; follow-up: 41 passed, covering 532 distinct tests overall. Two T06 xfails remain. T10 still owns bounded status reads. Closing subject starts `fix: T05`.
+
+**T06 closing evidence (2026-09-15):** [T06-EVIDENCE.md](T06-EVIDENCE.md) closes R05 with actual Git/pytest dependency visibility and blocking, isolated integration and interruption recovery. Full suite: 555 passed, no xfails, 1 deselected; final guard follow-up: 3 passed, 556 distinct verified tests. R11 remains open for T07's structured runner/legacy integration-gate protocol; the new production integration path already enforces authoritative RC. Closing subject starts `fix: T06`.

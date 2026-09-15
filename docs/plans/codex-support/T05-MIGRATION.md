@@ -40,7 +40,9 @@ Otherwise the entry becomes `needs_repair` and dispatch blocks. Inspect the back
 refs and migration history before explicitly reconciling to redeliver those slices.
 No migration sets an integrated SHA or claims that a build is integrated.
 
-A changed plan/base blocks normal dispatch. Reconciliation creates a new run and
+A changed plan blocks normal dispatch. From T06, advancing user HEAD does not
+change an existing build base; explicit reconciliation/new-build adopts current HEAD.
+Reconciliation creates a new run and
 invalidates changed slices and their downstream dependents, including dependencies
 removed from the new plan. Independent unchanged entries remain. A changed base or
 `--new-build` invalidates all current slices. Old entry outcomes, backups, refs and
@@ -81,7 +83,7 @@ state: older code can misread it as empty. After new work has run, automatic rol
 is not supported; retain both ledgers and reconcile their recorded refs/evidence.
 No Git branch reset/deletion or worktree deletion is part of migration/rollback.
 
-T06 adds integration state transitions. T07 still owns the complete gate/exit
+T06 adds integration state transitions; see [integration and resume guide](T06-INTEGRATION.md). T07 still owns the complete gate/exit
 protocol and verification of `--mark-repaired`; T10 adds aggregate usage and bounded
 status indexing. Token accounting is not completed by this migration.
 
