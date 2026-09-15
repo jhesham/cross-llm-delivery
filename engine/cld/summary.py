@@ -74,7 +74,8 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
                 first_failing_test = failing_tests[0] if failing_tests else "(no test id)"
                 lines.append(f"  {slice_id}  ! NEEDS REPAIR   {first_failing_test}")
             else:
-                lines.append(f"  {slice_id}  - {status}")
+                reasons = "; ".join(getattr(detail, "failing_tests", []))
+                lines.append(f"  {slice_id}  - {status} {reasons}")
             lines.extend(recovery_lines(slice_id, detail))
 
     # Also catch needs_repair slices listed on result but missing from details
@@ -91,7 +92,11 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
         gate_line += f" Inspect {failed_csv}?"
     lines.append(gate_line)
     
-    if next_layer:
+    if getattr(result, "integration_error", None):
+        lines.append(f"NEXT: integration failed: {result.integration_error}")
+    elif getattr(result, "integration_required", []):
+        lines.append("NEXT: integration required; run --integrate with an explicit suite.")
+    elif next_layer:
         next_csv = ", ".join(next_layer)
         lines.append(f"NEXT: layer {layer_index+2} -> [{next_csv}]")
     else:
@@ -103,8 +108,10 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
 def classify_gate(result: Any, *, more_layers: bool) -> int:
     if getattr(result, "needs_repair", []):
         return 4
-    if getattr(result, "failed", []) or getattr(result, "deferred", []):
+    if getattr(result, "failed", []) or getattr(result, "deferred", []) or getattr(result, "integration_error", None):
         return 2
+    elif getattr(result, "integration_required", []):
+        return 6
     elif more_layers:
         return 0
     else:
