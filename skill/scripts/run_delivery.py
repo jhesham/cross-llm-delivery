@@ -46,7 +46,8 @@ if os.path.isdir(os.path.join(_engine_dir, "cld")):
 from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
 from cld.judge import judge
-from cld.test_run import TestRun, process_failure
+from cld.test_run import TestRun
+from cld.process import run_process
 from cld.candidate import acceptance_args
 from cld.executors._capture import CaptureError
 from cld.ledger import Ledger, DONE, StateError, resolve_ledger
@@ -378,16 +379,11 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     # contend on writing `__pycache__`/`.pytest_cache` files. Cheap and side-effect-free.
     env["PYTHONDONTWRITEBYTECODE"] = "1"
 
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"],
-            cwd=workdir, env=env, capture_output=True, text=True, timeout=600,
-            encoding="utf-8", errors="replace",
-        )
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        return process_failure(exc)
-    # Process RC is authoritative; captured prose is diagnostic only.
-    return TestRun(proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+    proc = run_process(
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"],
+        workdir, env=env, timeout=600)
+    return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
+                   timed_out=proc.error == "timeout", error=proc.error)
 
 
 def _parse_name_model(spec: str) -> tuple[str, dict]:

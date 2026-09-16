@@ -5,7 +5,7 @@ from functools import wraps
 import threading
 import time
 from uuid import uuid4
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
@@ -15,6 +15,7 @@ from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge
 from cld.test_run import test_result, legacy_result
+from cld.process import process_scope
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
@@ -140,12 +141,18 @@ def deliver_slice(
         _t0 = time.monotonic()
         # Pass judge feedback into the retry so the executor can self-correct.
         # Executors that don't accept a `feedback` kwarg (legacy) keep working.
-        if feedback is None or not _accepts(executor.run, task, effective_workdir, feedback=feedback):
-            result = executor.run(deepcopy(task), effective_workdir)
-        else:
-            result = executor.run(deepcopy(task), effective_workdir, feedback=feedback)
+        artifacts = {"artifact_dir": evidence.directory / f"attempt-{attempt}" / "processes"} if evidence is not None else {}
+        with process_scope(**artifacts):
+            if feedback is None or not _accepts(executor.run, task, effective_workdir, feedback=feedback):
+                result = executor.run(deepcopy(task), effective_workdir)
+            else:
+                result = executor.run(deepcopy(task), effective_workdir, feedback=feedback)
         if evidence is not None:
             evidence.dispatch(result)
+        if isinstance(result, ExecutorResult) and result.process.get("error") == "cancelled":
+            # Cancellation is not a failed attempt to retry or escalate. The
+            # runner has stopped the tree; recovery has checkpointed its edits.
+            raise KeyboardInterrupt("Executor dispatch cancelled")
         _tok = getattr(result, "token_usage", {})
         if not isinstance(_tok, dict):
             _tok = {}
@@ -633,7 +640,15 @@ def run_plan_parallel(
             result.details[task.id] = detail
             emit("slice_done", slice_id=task.id, status=status)
 
+    cancellation = threading.Event()
+
     def _process(task):
+        if cancellation.is_set():
+            raise KeyboardInterrupt("Delivery cancelled")
+        with process_scope(cancel=cancellation):
+            return _process_with_scope(task)
+
+    def _process_with_scope(task):
         if simulation:
             return _process_owned(task)
         try:
@@ -674,7 +689,14 @@ def run_plan_parallel(
 
         if runnable:
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                list(pool.map(_process, runnable))
+                try:
+                    futures = [pool.submit(_process, task) for task in runnable]
+                    for future in as_completed(futures):
+                        future.result()
+                except BaseException:
+                    # Signal running providers before the pool waits for workers.
+                    cancellation.set()
+                    raise
         if not simulation and integration_test_path and pending_integration(ledger):
             gate = integrate(plan_slices or slices, ledger, repo_dir=repo_dir,
                 git_runner=git_runner, test_runner=integration_test_runner or test_runner,

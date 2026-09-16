@@ -107,7 +107,8 @@ class RecoverySession:
     def dispatch(self, result):
         self.write("dispatch.txt", str(getattr(result, "raw_log", "")))
         self.write("dispatch.json", json.dumps(dict(ok=getattr(result, "ok", None),
-                   token_usage=getattr(result, "token_usage", None)), default=repr))
+                   token_usage=getattr(result, "token_usage", None),
+                   process=getattr(result, "process", {})), default=repr))
         self.checkpoint("dispatch")
 
     def verdict(self, result):
@@ -158,6 +159,12 @@ class RecoverySession:
         # Each operation may itself fail (disk/Git). Caller retains the worktree
         # and includes the failure path in the outcome when evidence is incomplete.
         self.write("error.txt", f"{type(error).__name__}: {error}")
+        process = getattr(error, "process_result", None)
+        if process is not None:
+            metadata = process.metadata()
+            if getattr(error, "provider_log_path", None):
+                metadata["provider_log_path"] = error.provider_log_path
+            self.write("interrupted-process.json", json.dumps(metadata))
         self.checkpoint("failure")
         self.save(state="failed", error=str(error))
 
