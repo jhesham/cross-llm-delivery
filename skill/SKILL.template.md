@@ -94,28 +94,24 @@ python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N]
 This runs only the next pending layer (independent slices fan out concurrently in isolated
 worktrees), then EXITS, printing a ~10-line summary. Read the summary, relay it to the user,
 and act on the gate (the exit code):
-- **exit 0** (all passed): "Layer done, all green -- continue?" -> re-invoke `--step` for the next.
-- **exit 2** (some failed/deferred): surface the failed slice + its failing test; offer
-  inspect / retry / edit-the-slice / skip / abort.
-- **exit 3** (complete): no layers left -- review the final ledger, optionally run the integration gate.
+- **exit 0:** the operation succeeded; work remains.
+- **exit 2:** execution/test failure or dependency defer; inspect the named evidence.
+- **exit 3:** every slice is integrated and verified; review the recorded commit/ref.
+- **exit 4:** lead repair is required; follow the retained-worktree repair loop below.
+- **exit 5:** invalid plan/state, missing prerequisite, lock or policy block; resolve it first.
+- **exit 6:** accepted commits await integration before dependent dispatch.
 
-Re-invoking `--step` advances automatically (the ledger is the state). A partially-done layer
-re-runs only its non-`done` slices, so "fix T3 then continue" works by editing + re-`--step`.
-
-**IMPORTANT — merge accepted slices before the next `--step`.** Each slice runs in a worktree
-branched from your base branch's **HEAD**; accepted work is committed to a `slice-<id>` branch and is
-**NOT auto-merged**. You (the caller) must merge accepted `slice-*` branches into your base before
-running a later layer whose slices depend on them — otherwise those worktrees branch from a HEAD
-missing the deps' code, and the executor will fail on the missing imports (or rewrite the deps and be
-correctly diff-rejected for editing files outside its allowance). After a layer passes, merge its
-accepted slices, then re-`--step`:
+After acceptance, integrate the exact recorded commits with an explicit suite:
 
 ```bash
-git merge slice-T2 slice-T3 slice-T5   # the accepted slice branches from the layer
+python skill/scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector>
 ```
 
-`--step` prints a **loud preflight warning** if it detects a pending slice depending on an accepted
--but-unmerged slice, so a missed merge is caught before the wasted dispatch.
+The engine merges in an owned worktree, verifies the frozen candidate and records
+its integration SHA. Subsequent slices branch from that SHA; the user's checkout
+is untouched. Failed or unintegrated dependencies block dispatch. Repeating a
+published integration is a no-op. Normal step resumes skip accepted/integrated
+slices; needs_repair slices wait for verified lead repair.
 
 **Live monitoring (optional -- background dispatch + poll).** To watch a multi-minute layer land
 slice-by-slice instead of blocking on it, dispatch in the BACKGROUND and poll the digest between
@@ -129,12 +125,12 @@ python skill/scripts/run_delivery.py --status --repo <dir>                      
 `--status` is context-cheap -- one short digest (layer position, done/running/pending, in-flight
 model + elapsed, tokens + cost, a by-model rollup, gate). Read THAT, not the raw log. It is fresh
 mid-run (events flush live), so you see slices finish one-by-one and can react at the next decision
-point (escalate / repair / stop). Humans can `--watch [--interval N]` or `tail -f .cld/events.jsonl`.
+point (escalate / repair / stop). Humans can `--watch [--interval N]` or `tail -f .cld/runs/<run-id>/events.jsonl`.
 The synchronous foreground `--step` stays the simple default.
 
-Per slice inside a layer: isolate (git worktree `slice-<id>`) -> executor implements -> the
-deterministic judge runs the REAL acceptance tests + diff-rule (failures feed back into a
-retry) -> accepted work is committed to its `slice-<id>` branch -> ledger updated + telemetry event emitted.
+Per slice: reserve a unique owned worktree -> execute -> verify allowed/protected
+changes and frozen acceptance tests -> collect an exact accepted commit/ref -> save
+ledger and evidence. Acceptance remains separate from integration.
 
 **Why batch-step:** running the whole loop in one unbroken context burns large amounts of the
 lead agent's tokens (every turn re-reads a growing context). Stepping one layer at a time keeps
@@ -315,37 +311,31 @@ Only one mode is active at a time; the user changes it by saying so in chat.
 
 ##### The gate-4 repair loop
 
-When `--step` exits with code **4**, the summary lists one or more `! NEEDS REPAIR` slices
-(workhorse failed after exhausting its retries). This is NOT a terminal state -- the ledger
-marks the slice `needs_repair`, not `failed`; without an explicit repair action it will be
-re-dispatched unchanged on the next `--step`, which would fail again.
+Gate **4** means a slice needs lead repair or an integration candidate failed/conflicted.
+Inspect the worktree and recovery paths printed by the command; failed worktrees remain.
 
-The lead agent's repair procedure:
-
-1. **Advise mode:** summarize the failing slices and ask the user before touching anything.
-   Autonomous mode: proceed directly to step 2.
-2. **Diagnose:** read the failing test output from `.cld/<slice-id>/detail.json` (only on
-   explicit request or as part of repair; do not pull raw output into context otherwise).
-3. **Surgically fix** the failing source files in the repo (not in the worktree -- that is
-   gone). Commit the fix to the current branch.
-4. **Mark repaired** -- run this for each repaired slice:
+1. Read that attempt's diagnostics under `.cld/runs/<run-id>/`.
+2. Fix the permitted source files in the recorded retained worktree. Keep committed
+   acceptance tests and protected inputs unchanged.
+3. Verify a slice repair with its original plan:
    ```bash
-   python skill/scripts/run_delivery.py <plan.md> --mark-repaired <slice_id> --ledger <path>
+   python skill/scripts/run_delivery.py <plan.md> --repo <repo> --mark-repaired <slice_id> --ledger <path>
    ```
-   This closes out the `needs_repair` entry so the next `--step` does not re-dispatch it
-   from scratch. Without this step, the ledger would re-queue the slice and overwrite the fix.
-5. **Continue:** re-invoke `--step` as normal. The repaired slice is now `done`; the DAG
-   advances to the next pending layer.
+   This re-tests and collects a frozen repaired candidate in a new owned worktree.
+   Exit 6 means accepted and awaiting integration; it is not a status-only override.
+4. Integrate accepted work with `--integrate --integration-tests <selector>`.
+   For an integration conflict, resolve and commit in the retained integration
+   worktree, then use `--integrate --manual-integration <resolved-commit>`.
+   The engine verifies ancestry and the configured suite before advancing state.
+5. Continue with `--step` only after successful integration. Exit 3 means the build
+   is integrated and verified; exit 0 means the operation succeeded with work remaining.
 
-Cheap escalation (quick-model to workhorse) is fully automatic and never reaches gate 4.
-Gate 4 is triggered only when the workhorse itself exhausts retries -- a genuine hard case.
-The ONLY gated spend at gate 4 is the orchestrator's repair effort (Claude's tokens); the
-executor itself is not re-invoked until after the fix is committed and `--mark-repaired` has
-run. Cheap routing and cheap escalation are automatic and free; orchestrator repair is the
-only decision point.
+Repair verification and integration do not invoke a provider. They preserve evidence
+and never modify the user's checkout. Follow the host's active authorization policy
+for the lead's source edits; do not silently dispatch another paid attempt.
 
 **Inspecting on request:** raw diffs/logs/JSON are NOT on stdout -- per-slice detail is written
-to `<dir>/.cld/<slice-id>/detail.json`. Only when the user asks "show me T3", read that one
+under `<dir>/.cld/runs/<run-id>/`; use the exact evidence paths in the summary. Only when the user asks "show me T3", read that one
 file. Do not pull raw output into context otherwise.
 
 **Keep orchestration cache-cheap (your context is a cached prefix):**
@@ -355,9 +345,9 @@ file. Do not pull raw output into context otherwise.
 
 ### 3. Integrate and verify
 
-After a batch merges, run the **integration gate** (full suite on the merged tree --
-slice-green != system-green). Re-run `run_delivery.py` to resume: already-done slices
-are skipped via the ledger.
+Use `--integrate` with the configured scoped suite; accepted slices alone are not
+a verified build. Whole-plan multi-layer mode requires `--integration-tests` and
+uses the same lifecycle between layers. Never default to an unrelated paid/live suite.
 
 **Usage view:** run `run_delivery.py <plan> --usage` (or the `cross-llm-{{PROVIDER_NAME}}-usage`
 skill) for a combined per-build + account usage table (per-slice model/tokens/cost

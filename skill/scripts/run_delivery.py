@@ -46,13 +46,14 @@ if os.path.isdir(os.path.join(_engine_dir, "cld")):
 from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
 from cld.judge import judge
+from cld.test_run import TestRun, process_failure
 from cld.candidate import acceptance_args
 from cld.executors._capture import CaptureError
 from cld.ledger import Ledger, DONE, StateError, resolve_ledger
 from cld.locking import OwnerBusy
 from cld.build_state import run_directory
 from cld.orchestrator import run_plan_parallel
-from cld.plan.slice import load_slices
+from cld.plan.slice import load_slices, PlanError
 
 # Load all providers at startup so the registry is populated before any
 # call to get_executor / get_provider / KNOWN_EXECUTORS.
@@ -144,12 +145,55 @@ def _install_telemetry(repo_dir: str, ledger: Ledger, plan_path: str, default_sp
 
 
 
+def _dispatch_needed(slices, ledger):
+    return any(not ledger.is_done(s.id) and (ledger.get(s.id) is None or ledger.get(s.id).status != "needs_repair") for s in slices)
+
+
+def _record_operation(args, ledger, operation, code):
+    from cld import telemetry
+    labels = {0: "pending", 2: "failed", 3: "passed", 4: "needs_repair", 5: "blocked", 6: "integration_required"}
+    try:
+        _install_telemetry(args.repo, ledger, args.plan, args.executor or _default_spec())
+        telemetry.emit("operation_done", operation=operation, gate=labels[code], gate_code=code)
+        if code == 3:
+            telemetry.emit("run_done", gate="passed", gate_code=3)
+    finally:
+        telemetry.set_sink(None)
+        telemetry.set_run_id(None)
+
+
+def _render_build_status(repo, ledger):
+    from cld.status import render_status
+    events = _read_event_stream(repo, ledger)
+    if ledger.build is None:
+        return render_status(events)
+    from collections import Counter
+    from cld.integration import pending_integration
+    counts = Counter(e.status for e in ledger.entries.values())
+    if counts["needs_repair"] or ledger.build.get("integration_failure"):
+        gate = "needs_repair"
+    elif counts["failed"]:
+        gate = "failed"
+    elif pending_integration(ledger):
+        gate = "integration_required"
+    elif counts["integrated"] == len(ledger.entries) and ledger.build.get("integration_proof"):
+        gate = "passed"
+    else:
+        gate = "pending"
+    events = [*events, {"type": "build_state", "gate": gate}]
+    return render_status(events) + "\nRECORDED STATE: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+
+
 def _layer_gate(result) -> str:
     """Coarse gate label for a layer/run result, ASCII-safe."""
-    if getattr(result, "needs_repair", None):
+    if getattr(result, "blocked", None):
+        return "blocked"
+    if getattr(result, "needs_repair", None) or getattr(result, "integration_error", None):
         return "needs_repair"
-    if getattr(result, "failed", None):
+    if getattr(result, "failed", None) or getattr(result, "deferred", None):
         return "failed"
+    if getattr(result, "integration_required", None):
+        return "integration_required"
     return "passed"
 
 
@@ -275,7 +319,7 @@ def make_judge_fn(repo_dir: str):
     return judge_fn
 
 
-def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) -> str:
+def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) -> TestRun:
     """Run ONLY the slice's acceptance test in the worktree and return raw output.
 
     This is the authoritative judge signal (BUG1/Defect2 fix): the verdict comes
@@ -295,7 +339,7 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     filter. Paths containing spaces stay one argument; quote a path when using
     -k. Extra pytest flags and paths are rejected by candidate preflight.
     """
-    target = acceptance_args(acceptance_test_path) if acceptance_test_path else []
+    target = acceptance_args(acceptance_test_path or "")
 
     # BUG B fix: when the project lives in a SUBDIR of the repo/worktree, the test's
     # imports (e.g. `from schemas import base`) need that subdir on sys.path. pytest's
@@ -340,13 +384,10 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
             cwd=workdir, env=env, capture_output=True, text=True, timeout=600,
             encoding="utf-8", errors="replace",
         )
-    except subprocess.TimeoutExpired:
-        return "__CLD_PYTEST_RC__=1\n1 failed in 600s (timeout — acceptance test did not complete)"
-    # Prepend the pytest EXIT CODE as the authoritative pass/fail signal. The `-q` text
-    # summary ("N passed") is unreliable on Windows capture (it can be omitted even when
-    # pytest exits 0 — a real, deterministic case), so the judge must trust the rc, not
-    # scrape the summary. (0=passed, 1=failed, 2=usage, 5=no tests collected.)
-    return f"__CLD_PYTEST_RC__={proc.returncode}\n" + (proc.stdout or "") + (proc.stderr or "")
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return process_failure(exc)
+    # Process RC is authoritative; captured prose is diagnostic only.
+    return TestRun(proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
 
 
 def _parse_name_model(spec: str) -> tuple[str, dict]:
@@ -618,7 +659,7 @@ def _main(argv=None) -> int:
                         "2 some failed/deferred, 3 build complete, "
                         "4 a slice needs orchestrator repair (lead agent intervenes).")
     p.add_argument("--mark-repaired", default=None, metavar="SLICE_ID",
-                   help="Mark a needs_repair slice as repaired by the orchestrator (status=done, intervened) and exit. Use after fixing a gate-4 slice, before re-running --step.")
+                   help="Re-test and collect a repaired retained worktree using the original plan; acceptance still requires integration.")
     p.add_argument("--usage", action="store_true",
                    help="Print a combined LLM-usage table (this build's ledger + opencode "
                         "account stats) and exit. No dispatch.")
@@ -634,21 +675,14 @@ def _main(argv=None) -> int:
     args = p.parse_args(argv)
     if args.manual_integration and not args.integrate:
         raise StateError("--manual-integration requires --integrate")
+    if sum(bool(v) for v in (args.integrate, args.step, args.mark_repaired, args.migrate_ledger, args.reconcile_plan, args.new_build)) > 1:
+        raise StateError("Choose one delivery/state action")
     if args.integrate and args.step:
         raise StateError("Choose --integrate or --step")
+    if args.workers < 1 or args.interval < 1:
+        raise StateError("Workers and interval must be positive")
     args.repo = os.path.realpath(args.repo)
     args.ledger = resolve_ledger(args.repo, args.ledger)
-
-    # Handle --mark-repaired early, before reading the plan (it must not require the plan to exist)
-    if args.mark_repaired:
-        led = Ledger(args.ledger)
-        with led.writer(refresh=True):
-            if led.build and led.build["repo"] != args.repo:
-                raise StateError("Ledger belongs to another repository")
-            led.set(args.mark_repaired, status=DONE, intervened=True, final_rung="orchestrator")
-            led.save()
-        print(f"marked {args.mark_repaired} repaired (done).")
-        return 0
 
     if args.usage:
         from cld.usage import render_usage_table
@@ -658,7 +692,7 @@ def _main(argv=None) -> int:
 
     if args.status:
         from cld.status import render_status
-        print(render_status(_read_event_stream(args.repo, Ledger.load(args.ledger))))
+        print(_render_build_status(args.repo, Ledger.load(args.ledger)))
         return 0
 
     if args.watch:
@@ -666,7 +700,7 @@ def _main(argv=None) -> int:
         from cld.status import render_status
         try:
             while True:
-                print(render_status(_read_event_stream(args.repo, Ledger.load(args.ledger))))
+                print(_render_build_status(args.repo, Ledger.load(args.ledger)))
                 print("-" * 48)
                 _time.sleep(args.interval)
         except KeyboardInterrupt:
@@ -675,28 +709,16 @@ def _main(argv=None) -> int:
     if args.plan is None:
         print("A plan file is required for dispatch (or use --status/--usage/--mark-repaired).",
               file=sys.stderr)
-        return 2
+        return 5
 
-    plan_md = Path(args.plan).read_text(encoding="utf-8")
+    try:
+        plan_md = Path(args.plan).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise PlanError(f"Cannot read plan {args.plan}: {exc}") from exc
     slices = load_slices(plan_md)
     if not slices:
         print("No slices found in plan.", file=sys.stderr)
-        return 1
-
-    # Resolve the executor. If the user didn't pass --executor and we're attached to
-    # an interactive terminal, show the model picker. Otherwise default to the engine's
-    # default workhorse so automation / --step loops never block on a prompt (and never
-    # resolve to a removed provider).
-    if args.executor is None:
-        if not (args.dry_run or args.migrate_ledger or args.reconcile_plan or args.new_build or args.integrate) and sys.stdin.isatty():
-            try:
-                args.executor = prompt_for_executor()
-            except EOFError:
-                # non-interactive stdin that still reports isatty (e.g. a backgrounded
-                # run): fall back to the default instead of crashing the build.
-                args.executor = _default_spec()
-        else:
-            args.executor = _default_spec()
+        return 5
 
     if args.dry_run:
         from cld.dag import parallel_batches
@@ -709,7 +731,7 @@ def _main(argv=None) -> int:
     git_err = _preflight_git(args.repo)
     if git_err:
         print(git_err)
-        return 2
+        return 5
     ledger = Ledger(args.ledger)
     print(f"state: repo={args.repo}; ledger={args.ledger}")
     with ledger.writer(refresh=True):
@@ -721,24 +743,49 @@ def _main(argv=None) -> int:
             if pending:
                 print(f"reconciliation required: {', '.join(pending)}")
             return 0
+        if args.mark_repaired:
+            from cld.repair import verify_repair
+            gate = verify_repair(slices, ledger, args.mark_repaired, repo_dir=args.repo,
+                git_runner=git_runner, test_runner=pytest_test_runner, worktree_root=args.worktree_root)
+            if not gate.passed:
+                print(f"Repair required: {gate.error}; evidence: {gate.evidence}")
+                _record_operation(args, ledger, "repair", 4)
+                return 4
+            print(f"Repair accepted: {args.mark_repaired}; commit={gate.commit}; integration required; evidence={gate.evidence}")
+            _record_operation(args, ledger, "repair", 6)
+            return 6
         if args.integrate:
             from cld.integration import integrate
             gate = integrate(slices, ledger, repo_dir=args.repo, git_runner=git_runner,
                 test_runner=pytest_test_runner, selector=args.integration_tests or ledger.build.get("integration_selector"),
                 worktree_root=args.worktree_root, manual_ref=args.manual_integration)
             if not gate.passed:
-                print(f"Integration failed: {gate.error}; evidence: {gate.evidence}")
-                return 2
+                print(f"Integration repair required: {gate.error}; evidence: {gate.evidence}")
+                _record_operation(args, ledger, "integrate", 4)
+                return 4
             print(f"Integrated: {list(gate.integrated)}; commit={gate.commit}; evidence={gate.evidence}")
-            return 3 if all(e.status == "integrated" for e in ledger.entries.values()) else 0
+            code = 3 if all(e.status == "integrated" for e in ledger.entries.values()) else 0
+            _record_operation(args, ledger, "integrate", code)
+            return code
         if not args.step:
             from cld.dag import parallel_batches
             if len(parallel_batches({s.id: s.deps for s in slices})) > 1 and not args.integration_tests:
                 raise StateError("Whole-plan multi-layer delivery requires --integration-tests; use --step then --integrate")
-        preflight_err = _preflight_executor(args.executor or _default_spec())
-        if preflight_err:
-            print(preflight_err)
-            return 2
+        if args.step and ledger.build.get("integration_failure"):
+            failure = ledger.build["integration_failure"]
+            print(f"Integration repair required: {failure['error']}; evidence: {failure['evidence']}")
+            return 4
+        dispatch_needed = _dispatch_needed(slices, ledger)
+        if dispatch_needed:
+            if args.executor is None and sys.stdin.isatty():
+                try:
+                    args.executor = prompt_for_executor()
+                except EOFError:
+                    args.executor = _default_spec()
+            preflight_err = _preflight_executor(args.executor or _default_spec())
+            if preflight_err:
+                print(preflight_err)
+                return 5
         from cld import telemetry
         try:
             return _execute(args, slices, ledger)
@@ -773,9 +820,9 @@ def _execute(args, slices, ledger):
         result = run_plan_parallel(
             layer_slices, ledger,
             plan_slices=slices,
-            executor_factory=build_executor_factory(),
+            executor_factory=build_executor_factory() if _dispatch_needed(slices, ledger) else None,
             default_spec=args.executor or _default_spec(),
-            rung_planner=build_rung_planner(args.executor or _default_spec()),
+            rung_planner=build_rung_planner(args.executor or _default_spec()) if _dispatch_needed(layer_slices, ledger) else None,
             judge_fn=judge_fn,
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
@@ -783,24 +830,27 @@ def _execute(args, slices, ledger):
         )
         write_artifacts(result, repo_dir=args.repo, run_id=ledger.build["run_id"])
         nxt = next_pending_layer(slices, ledger)
-        telemetry.emit("layer_done", layer=idx, gate=_layer_gate(result))
         from cld.integration import pending_integration
         result.integration_required = pending_integration(ledger)
-        if nxt is None and not result.integration_required:
+        result.build_complete = bool(ledger.entries) and all(e.status == "integrated" for e in ledger.entries.values())
+        telemetry.emit("layer_done", layer=idx, gate=_layer_gate(result))
+        if result.build_complete:
             telemetry.emit("run_done", gate=_layer_gate(result))
         next_layer = nxt[1] if nxt else []
         print(summarize_layer(result, layer_index=idx, total_layers=total,
                               next_layer=next_layer))
-        return classify_gate(result, more_layers=bool(nxt))
+        code = classify_gate(result, more_layers=bool(nxt))
+        telemetry.emit("operation_done", operation="step", gate=_layer_gate(result), gate_code=code)
+        return code
 
     judge_fn = make_judge_fn(args.repo)
 
     result = run_plan_parallel(
         slices, ledger,
         plan_slices=slices,
-        executor_factory=build_executor_factory(),
+        executor_factory=build_executor_factory() if _dispatch_needed(slices, ledger) else None,
         default_spec=args.executor or _default_spec(),
-        rung_planner=build_rung_planner(args.executor or _default_spec()),
+        rung_planner=build_rung_planner(args.executor or _default_spec()) if _dispatch_needed(slices, ledger) else None,
         judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
@@ -808,13 +858,14 @@ def _execute(args, slices, ledger):
         integration_test_path=args.integration_tests,
     )
     from cld import telemetry as _tel
-    if not result.integration_required and not result.integration_error:
+    if result.build_complete:
         _tel.emit("run_done", gate=_layer_gate(result))
 
     print(f"completed: {result.completed}")
     print(f"failed:    {result.failed}")
     print(f"skipped:   {result.skipped}")
     print(f"deferred:  {result.deferred}")
+    print(f"needs repair: {result.needs_repair}")
     from cld.summary import recovery_lines, write_artifacts
     write_artifacts(result, repo_dir=args.repo, run_id=ledger.build["run_id"])
     for sid, detail in getattr(result, "details", {}).items():
@@ -825,13 +876,15 @@ def _execute(args, slices, ledger):
     elif result.integration_required:
         print("INTEGRATION REQUIRED — run --integrate --integration-tests <selector>.")
     from cld.summary import classify_gate
-    return classify_gate(result, more_layers=False)
+    code = classify_gate(result, more_layers=False)
+    _tel.emit("operation_done", operation="plan", gate=_layer_gate(result), gate_code=code)
+    return code
 
 
 def main(argv=None) -> int:
     try:
         return _main(argv)
-    except (StateError, OwnerBusy, CaptureError) as exc:
+    except (StateError, OwnerBusy, CaptureError, PlanError) as exc:
         print(f"State blocked: {exc}", file=sys.stderr)
         return 5
 

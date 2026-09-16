@@ -13,14 +13,15 @@ from cld.dag import parallel_batches
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
-from cld.judge import JudgeResult, judge, _extract_rc
+from cld.judge import JudgeResult, judge
+from cld.test_run import test_result, legacy_result
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
 from cld.telemetry import emit
 from cld.worktree import worktree, remove_worktree, managed_location, validate_location, verify_worktree
 from cld.attempts import ActiveAttempt, slice_owner, previous_attempt, recovery_feedback
-from cld.recovery import RecoverySession, recover_collected
+from cld.recovery import RecoverySession, recover_collected, task_fingerprint
 
 
 def _count_diff_lines(diff: str | None) -> int:
@@ -68,6 +69,7 @@ class DeliverResult:
     worktree_path: str | None = None
     worktree_root: str | None = None
     branch: str | None = None
+    intervened: bool = False
 
 
 def _accepts(fn, *args, **kwargs):
@@ -115,6 +117,10 @@ def deliver_slice(
             output = test_runner(directory, acceptance_selector)
         else:
             output = test_runner(directory)
+        if simulation and isinstance(output, str):
+            output = legacy_result(output, allow_prose=True)
+        if git_runner is not None:
+            output = test_result(output, candidate_id=checked(git_runner, effective_workdir, "write-tree").strip())
         if evidence is not None:
             evidence.tests(output)
         return output
@@ -174,7 +180,7 @@ def deliver_slice(
                 # Compatibility for synthetic callers with no Git boundary.
                 files_changed, diff = result.files_changed, result.diff
                 judge_result = judge_fn(files_changed=files_changed, allowed=task.files,
-                    run_tests=(lambda: run_at(effective_workdir)) if test_runner else lambda: result.raw_log)
+                    run_tests=(lambda: run_at(effective_workdir)) if test_runner else lambda: legacy_result(result.raw_log, allow_prose=True))
             else:
                 if not candidate.files_changed and not (verifier.allow_already_satisfied
                                                         and verifier.baseline_passed):
@@ -182,9 +188,7 @@ def deliver_slice(
                 with verifier.snapshot(candidate) as directory:
                     outputs = []
                     def run_frozen_tests():
-                        output = run_at(directory)
-                        if not isinstance(output, str) or _extract_rc(output) is None:
-                            raise CaptureError("Acceptance runner must return an authoritative exit code")
+                        output = test_result(run_at(directory), candidate_id=candidate.tree)
                         outputs.append(output)
                         return output
                     judge_result = judge_fn(files_changed=files_changed, allowed=list(verifier.allowed),
@@ -194,8 +198,6 @@ def deliver_slice(
                     if len(outputs) != 1:
                         raise CaptureError("Judge must run the frozen acceptance inputs exactly once")
                     authoritative = judge(files_changed, list(verifier.allowed), run_tests=lambda: outputs[0])
-                    if authoritative.passed and (authoritative.tests_passed < 1 or authoritative.tests_failed):
-                        raise CaptureError("Acceptance requires at least one passing test and no failures")
                     if not authoritative.passed:
                         judge_result = authoritative
                 verifier.verify_unchanged(candidate)
@@ -282,9 +284,11 @@ class PlanResult:
     skipped: list[str] = field(default_factory=list)
     deferred: list[str] = field(default_factory=list)
     needs_repair: list[str] = field(default_factory=list)
+    blocked: list[str] = field(default_factory=list)
     details: dict[str, "SliceDetail"] = field(default_factory=dict)
     integration_required: list[str] = field(default_factory=list)
     integration_error: str | None = None
+    build_complete: bool | None = None
 
 
 def run_plan(
@@ -350,6 +354,11 @@ def _build_owned(fn):
             if ledger.build is None:
                 ledger.bind(kwargs["repo_dir"], kwargs.get("plan_slices") or slices, kwargs["git_runner"])
             validate_tasks(ledger, kwargs["repo_dir"], kwargs.get("plan_slices") or slices)
+            if len({task.id for task in slices}) != len(slices):
+                raise StateError("Duplicate selected slice ID")
+            for task in slices:
+                if ledger.build["slices"].get(task.id, {}).get("fingerprint") != task_fingerprint(task):
+                    raise StateError(f"Selected slice {task.id} differs from the validated complete plan")
             return fn(slices, ledger, **kwargs)
     return wrapped
 
@@ -419,7 +428,7 @@ def run_plan_parallel(
         return executor, spec
 
     by_id = {s.id: s for s in slices}
-    deps = {s.id: list(s.deps) for s in slices}
+    deps = {s.id: [d for d in s.deps if d in by_id] for s in slices}
     ledger_lock = threading.Lock()
     run_id = ledger.build["run_id"] if not simulation else uuid4().hex
     run_base = verified_base(ledger, git_runner) if not simulation else None
@@ -513,7 +522,7 @@ def run_plan_parallel(
                     collection={**record["collection"], "base": candidate.base,
                                 "tests_fingerprint": candidate.tests_fingerprint},
                     recovery_path=directory, worktree_path=record["worktree"],
-                    worktree_root=record.get("worktree_root"), branch=record.get("branch"))
+                    worktree_root=record.get("worktree_root"), branch=record.get("branch"), intervened=bool(record.get("repair_of")))
         if rung_planner is None:
             ex, spec = _executor_for(task)
             source = "tag" if task.executor else "default"
@@ -549,7 +558,8 @@ def run_plan_parallel(
         if quota_check is not None and quota_check() >= quota_threshold:
             with ledger_lock:
                 result.deferred.append(task.id)
-                result.details[task.id] = SliceDetail(slice_id=task.id, status="deferred")
+                result.blocked.append(task.id)
+                result.details[task.id] = SliceDetail(slice_id=task.id, status="deferred", failing_tests=["Quota policy blocks dispatch; wait for availability before retrying"])
             return
 
         with ledger_lock:
@@ -585,7 +595,7 @@ def run_plan_parallel(
             ledger.set(task.id, status=persisted_status, attempts=deliver_res.attempts,
                        model=deliver_res.model, effort=deliver_res.effort,
                        token_usage=deliver_res.token_usage, complexity=task.complexity,
-                       final_rung=deliver_res.final_rung,
+                       final_rung=deliver_res.final_rung, intervened=deliver_res.intervened,
                        chosen_by=("you" if task.executor else "rec"),
                        commit=deliver_res.collection.get("commit"), collection=deliver_res.collection,
                        recovery_path=deliver_res.recovery_path, worktree_path=deliver_res.worktree_path)
@@ -633,6 +643,7 @@ def run_plan_parallel(
             # Do not overwrite an active owner's ledger entry.
             with ledger_lock:
                 result.deferred.append(task.id)
+                result.blocked.append(task.id)
                 result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
 
     for layer in parallel_batches(deps):
@@ -647,6 +658,11 @@ def run_plan_parallel(
                 continue
             if ledger.is_done(sid):
                 result.skipped.append(sid)
+                continue
+            if not simulation and ledger.get(sid) and ledger.get(sid).status == "needs_repair":
+                result.needs_repair.append(sid)
+                result.details[sid] = SliceDetail(sid, "needs_repair", failing_tests=["Verify the retained repair with --mark-repaired before dispatch"],
+                    recovery_path=ledger.get(sid).recovery_path, worktree_path=ledger.get(sid).worktree_path)
                 continue
             if not simulation:
                 reason = dependency_block(task, ledger, git_runner, run_base)
@@ -668,5 +684,6 @@ def run_plan_parallel(
                 break
     if not simulation:
         result.integration_required = pending_integration(ledger)
+        result.build_complete = bool(ledger.entries) and all(e.status == "integrated" for e in ledger.entries.values())
 
     return result

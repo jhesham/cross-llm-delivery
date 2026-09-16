@@ -75,7 +75,7 @@ def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
 
     monkeypatch.setattr(run_delivery.subprocess, "run", fake_run)
     out = run_delivery.pytest_test_runner("/wt", "tests/test_merge.py")
-    assert "1 passed" in out
+    assert out.returncode == 0 and "1 passed" in out.output
     # the acceptance path is in the argv; it is NOT a bare whole-suite run
     assert "tests/test_merge.py" in captured["argv"]
     assert captured["cwd"] == "/wt"
@@ -135,7 +135,10 @@ def test_pytest_test_runner_without_path_runs_default(monkeypatch):
         stderr = ""
 
     monkeypatch.setattr(run_delivery.subprocess, "run", lambda argv, **kw: _Proc())
-    assert "passed" in run_delivery.pytest_test_runner("/wt")
+    import pytest
+    from cld.executors._capture import CaptureError
+    with pytest.raises(CaptureError, match="selector"):
+        run_delivery.pytest_test_runner("/wt")
 
 
 def test_build_executor_factory_resolves_specs():
@@ -309,6 +312,6 @@ def test_mark_repaired_marks_slice_done(tmp_path):
     p = str(tmp_path / "l.json")
     led = Ledger(p); led.set("T1", status="needs_repair", complexity="complex"); led.save()
     rc = rd.main(["dummy-plan.md", "--ledger", p, "--mark-repaired", "T1"])
-    assert rc == 0
+    assert rc == 5
     e = Ledger.load(p).get("T1")
-    assert e.status == "done" and e.intervened is True and e.final_rung == "orchestrator"
+    assert e.status == "needs_repair" and not e.intervened

@@ -101,8 +101,15 @@ def test_invalid_acceptance_does_not_dispatch(delivery_repo, selector):
     t = task()
     t.acceptance_test_path = selector
     ex = Writer(lambda t, wd: None)
-    result = run(delivery_repo, executor=ex, slices=[t])
-    assert ex.calls == 0 and result.failed == ["A"]
+    if selector == "missing.py":
+        result = run(delivery_repo, executor=ex, slices=[t])
+        assert result.failed == ["A"]  # existence requires committed Git inputs
+    else:
+        from cld.plan.slice import PlanError
+        with pytest.raises(PlanError):
+            run(delivery_repo, executor=ex, slices=[t])
+        assert not (delivery_repo / ".cld-ledger.json").exists()
+    assert ex.calls == 0
 
 
 @pytest.mark.parametrize("body", ["import absent_t02_module\n", "def broken(:\n", "# no tests\n",

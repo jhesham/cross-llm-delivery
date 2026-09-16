@@ -98,8 +98,11 @@ class RecoverySession:
         return path
 
     def tests(self, output):
+        from cld.test_run import test_result
+        result = test_result(output)
         self.test_run += 1
-        self.write(f"tests-{self.test_run}.txt", output)
+        path = self.write(f"tests-{self.test_run}.txt", result.output)
+        self.write(f"tests-{self.test_run}.json", json.dumps({**asdict(result), "log_path": str(path)}))
 
     def dispatch(self, result):
         self.write("dispatch.txt", str(getattr(result, "raw_log", "")))

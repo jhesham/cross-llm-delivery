@@ -9,7 +9,8 @@ from cld.build_state import run_directory, validate_tasks
 from cld.candidate import CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.executors.base import SliceTask
-from cld.judge import judge, _extract_rc
+from cld.judge import judge
+from cld.test_run import test_result
 from cld.ledger import DONE, StateError
 from cld.recovery import atomic_write, recover_collected
 from cld.worktree import managed_location, worktree
@@ -159,11 +160,10 @@ def integrate(slices, ledger, *, repo_dir, git_runner, test_runner, selector,
             atomic_write(directory / "outcome.json", json.dumps(record, indent=2).encode("utf-8"))
 
         def tests(where, name):
-            output = test_runner(where, selector)
-            if not isinstance(output, str) or _extract_rc(output) is None:
-                raise CaptureError("Integration runner must return an authoritative exit code")
-            atomic_write(directory / name, output.encode("utf-8"))
-            return output
+            result = test_result(test_runner(where, selector), candidate_id=checked(git_runner, wt, "write-tree").strip())
+            atomic_write(directory / name, result.output.encode("utf-8"))
+            atomic_write(directory / (name + ".json"), json.dumps({**asdict(result), "log_path": str(directory / name)}).encode("utf-8"))
+            return result
 
         save()
         try:
@@ -189,7 +189,7 @@ def integrate(slices, ledger, *, repo_dir, git_runner, test_runner, selector,
                 with verifier.snapshot(candidate) as frozen:
                     verdict = judge(list(candidate.files_changed), task.files,
                                     run_tests=lambda: tests(frozen, "candidate.txt"))
-                    if not verdict.passed or verdict.tests_passed < 1 or verdict.tests_failed:
+                    if not verdict.passed:
                         kind = "layer regression" if verifier.baseline_passed else "baseline failure persists"
                         raise CaptureError(f"Integration {kind}: {'; '.join(verdict.failing_tests)}")
                 verifier.verify_unchanged(candidate)
@@ -200,11 +200,19 @@ def integrate(slices, ledger, *, repo_dir, git_runner, test_runner, selector,
                 save(state="passed", ref=ref)
         except Exception as exc:
             save(state="failed", error=str(exc))
+            old_build = deepcopy(ledger.build)
+            ledger.build["integration_failure"] = dict(error=str(exc), evidence=str(directory), worktree=wt)
+            try:
+                ledger.save()
+            except BaseException:
+                ledger.build = old_build
+                raise
             return IntegrationResult(False, evidence=str(directory), error=f"{exc}; worktree retained at {wt}")
         # The journal and immutable ref precede publication. Roll back memory on
         # save failure so a retry cannot silently treat this gate as published.
         old_build, old_entries = deepcopy(ledger.build), deepcopy(ledger.entries)
         try:
+            ledger.build.pop("integration_failure", None)
             ledger.build.update(integrated_sha=head, integrated_ref=ref, integration_proof=deepcopy(record))
             for sid in pending:
                 ledger.set(sid, status="integrated")

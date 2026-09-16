@@ -1,7 +1,7 @@
 # T06 integration and resume guide
 
 Implemented in the source engine and CLI; generated plugin copies are updated in T12/T17.
-T07 still owns the complete structured test-result and exit-code protocol.
+T07 implements the structured test-result and exit-code protocol; see [current contract](T07-CONTRACT.md).
 
 ## Step mode
 
@@ -29,9 +29,9 @@ it, unattended multi-layer execution is blocked before dispatch. A single-layer
 run without integration configuration leaves accepted commits awaiting integration.
 Direct callers pass `integration_test_path` and optionally `integration_test_runner`
 to `run_plan`/`run_plan_parallel`. Integration runners take `(directory, selector)`
-and must return output containing the authoritative `__CLD_PYTEST_RC__` marker.
-The production CLI supplies its scoped pytest runner. T07 replaces this transitional
-runner format with a structured result.
+and now return a structured TestRun. The authoritative `__CLD_PYTEST_RC__` marker
+remains a compatibility adapter for injected pre-T07 runners. The production CLI
+supplies a scoped pytest runner with an authoritative process return code.
 
 ## Evidence and isolation
 
@@ -81,7 +81,7 @@ CLD verifies accepted-commit ancestry, protected inputs, allowed file scope and 
 configured suite in another owned worktree before advancing state. An arbitrary
 manual branch or `--mark-repaired` status is insufficient proof of integration.
 
-T06 returns 2 for integration failure and 5 for invalid state/configuration; 3 is
+From T07, integration failure returns 4; invalid state/configuration returns 5; 3 is
 reserved for a fully integrated build, while 0 indicates more work remains after
-an integration action. T07 will finish A07, including integration repair code 4,
-verified repair marking, machine output and consistent telemetry/status reporting.
+an integration action. T07 adds verified repair marking and consistent exit,
+telemetry and status gates. Versioned JSON machine output remains T11 work.

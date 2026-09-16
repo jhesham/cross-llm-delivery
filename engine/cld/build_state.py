@@ -45,6 +45,8 @@ def run_directory(repo, run_id):
 
 
 def manifest(tasks):
+    from cld.plan.slice import validate_plan
+    validate_plan(tasks)
     result = {}
     for task in tasks:
         if not task.id or task.id in result:

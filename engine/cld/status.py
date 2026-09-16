@@ -124,7 +124,7 @@ def render_status(
             sid = ev.get("slice_id")
             if sid is not None:
                 done[sid] = ev.get("status", "") or ""
-        elif etype == "run_done":
+        elif etype in ("run_done", "operation_done", "build_state"):
             gate = ev.get("gate", gate)
 
         if run_id is None and ev.get("run_id") is not None:
