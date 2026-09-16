@@ -66,14 +66,17 @@ def test_pytest_test_runner_scopes_to_acceptance_path(monkeypatch):
         returncode = 0
         stdout = "1 passed in 0.0s"
         stderr = ""
+        output = stdout
+        error = None
+        stdout_path = "fixture"
 
-    def fake_run(argv, **kwargs):
+    def fake_run(argv, cwd, **kwargs):
         captured["argv"] = argv
-        captured["cwd"] = kwargs.get("cwd")
+        captured["cwd"] = cwd
         captured["timeout"] = kwargs.get("timeout")
         return _Proc()
 
-    monkeypatch.setattr(run_delivery.subprocess, "run", fake_run)
+    monkeypatch.setattr(run_delivery, "run_process", fake_run)
     out = run_delivery.pytest_test_runner("/wt", "tests/test_merge.py")
     assert out.returncode == 0 and "1 passed" in out.output
     # the acceptance path is in the argv; it is NOT a bare whole-suite run
@@ -92,9 +95,12 @@ def test_pytest_test_runner_splits_test_selector(monkeypatch):
         returncode = 0
         stdout = "1 passed"
         stderr = ""
+        output = stdout
+        error = None
+        stdout_path = "fixture"
 
-    monkeypatch.setattr(run_delivery.subprocess, "run",
-                        lambda argv, **kw: captured.update(argv=argv) or _Proc())
+    monkeypatch.setattr(run_delivery, "run_process",
+                        lambda argv, cwd, **kw: captured.update(argv=argv) or _Proc())
 
     run_delivery.pytest_test_runner("/wt", "tests/test_advisor_graph.py::test_merge_dict_reducer")
     assert "tests/test_advisor_graph.py::test_merge_dict_reducer" in captured["argv"]
@@ -133,8 +139,11 @@ def test_pytest_test_runner_without_path_runs_default(monkeypatch):
         returncode = 0
         stdout = "1 passed"
         stderr = ""
+        output = stdout
+        error = None
+        stdout_path = "fixture"
 
-    monkeypatch.setattr(run_delivery.subprocess, "run", lambda argv, **kw: _Proc())
+    monkeypatch.setattr(run_delivery, "run_process", lambda argv, cwd, **kw: _Proc())
     import pytest
     from cld.executors._capture import CaptureError
     with pytest.raises(CaptureError, match="selector"):

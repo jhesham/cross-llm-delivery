@@ -21,6 +21,7 @@ class ExecutorResult:
     files_changed: list[str] = field(default_factory=list)
     token_usage: dict[str, int] = field(default_factory=dict)
     raw_log: str = ""
+    process: dict = field(default_factory=dict)
 
 @runtime_checkable
 class Executor(Protocol):

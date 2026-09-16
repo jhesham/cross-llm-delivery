@@ -10,12 +10,12 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 from pathlib import Path
 from typing import Callable, List, Tuple
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback
 from cld.models import ModelInfo
 from cld.providers_api import Provider, register_provider
 
@@ -25,22 +25,10 @@ Runner = Callable[[list[str], str], tuple[int, str]]
 DEFAULT_MODEL = "opencode/deepseek-v4-flash-free"
 
 
-def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Real subprocess runner. stderr is merged into stdout on failure so the
-    error text is captured in raw_log. Decodes utf-8 with replacement: model
-    output can contain bytes invalid in the Windows locale codec (live kimi-k2.6
-    validation emitted 0x90 and crashed the cp1252 reader thread).
+def _default_runner(args: list[str], cwd: str, **options):
+    """Bounded probe by default; dispatch supplies its own deadline."""
+    return run_process(args, cwd, **options)
 
-    stdin=DEVNULL is REQUIRED, not cosmetic: opencode.exe invoked directly (the
-    long-prompt path, no .cmd shim) BLOCKS forever reading an inherited stdin and
-    emits zero output -- a live hang reproduced with gemini-3.1-pro (160s, nothing
-    written) that vanished the instant stdin was closed. Detaching stdin makes the
-    dispatch deterministic."""
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace",
-                          stdin=subprocess.DEVNULL)
-    out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
-    return (proc.returncode, out)
 
 
 def _oc_cmd() -> str:
@@ -116,7 +104,9 @@ class OpenCodeExecutor:
     """Executor implementation backed by the OpenCode CLI."""
 
     def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
-                 variant: str | None = None, effort: str | None = None):
+                 variant: str | None = None, effort: str | None = None,
+                 timeout: float | None = None, cancel=None, artifact_dir=None):
+        self._timeout, self._cancel, self._artifact_dir = timeout, cancel, artifact_dir
         self._runner = runner
         self._model = model
         self._variant = variant
@@ -168,20 +158,21 @@ class OpenCodeExecutor:
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
         dispatch = self._build_dispatch(prompt, cwd)
-        rc, raw = self._runner(dispatch, cwd)
+        rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, cwd,
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)
 
         if rc != 0:
-            return ExecutorResult(ok=False, diff="", raw_log=raw)
+            return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
         if not _has_step_finish(raw):
             # No step_finish event = the dispatch produced no valid JSONL result
             # (e.g. a permission-blocked run that wrote nothing, or a format
             # regression). Never trust it; never capture a diff from it.
             return ExecutorResult(
-                ok=False, diff="",
+                ok=False, diff="", process={**process, "error": "malformed_output"},
                 raw_log=("DISPATCH GUARD: no step_finish JSONL event in output -- "
                          "the dispatch produced no valid result (permission block, "
                          "no work done, or wrong output format); refusing it.\n"
-                         "--- original output ---\n" + raw),
+                         "--- original output ---\n" + process_feedback(raw, process, 3500)),
             )
 
         token_usage = parse_opencode_usage(raw)
@@ -192,7 +183,7 @@ class OpenCodeExecutor:
             diff=diff,
             files_changed=files_changed,
             token_usage=token_usage,
-            raw_log=raw,
+            raw_log=process_feedback(raw, process), process=process,
         )
 
 
@@ -228,9 +219,8 @@ def account_stats() -> str:
     """
     oc = os.environ.get("OPENCODE_CLI_CMD") or ("opencode.cmd" if os.name == "nt" else "opencode")
     try:
-        proc = subprocess.run([oc, "stats"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return proc.stdout or ""
+        proc = _default_runner([oc, "stats"], ".")
+        return proc.stdout if not proc.error else ""
     except Exception:
         return ""
 

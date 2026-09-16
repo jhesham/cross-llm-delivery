@@ -363,12 +363,22 @@ codes. Run them by hand for a source checkout or to drive a build yourself.
 | Per-slice executor | `executor:` tag on a `## SLICE:` block | inherits build default |
 | Workflow | `--step` (one DAG layer at a time) vs. whole-plan | — |
 | Parallelism | `--workers` | 4 |
+| Dispatch deadline (seconds) | `CLD_DISPATCH_TIMEOUT`; executor `timeout=` overrides it | 600 |
+| Model-listing/account probe deadline (seconds) | `CLD_PROBE_TIMEOUT` | 30 |
 | Ledger path | `--ledger` | `.cld-ledger.json` |
 | Telemetry stream | always on → `<repo>/.cld/events.jsonl` | local JSONL |
 | Dashboards | `OTEL_EXPORTER_OTLP_ENDPOINT` or `LANGFUSE_PUBLIC_KEY`+`LANGFUSE_SECRET_KEY` | off |
 | Status / watch | `--status`, `--watch [--interval N]` | — |
 | Usage report | `--usage` | — |
 | Judge model (behavioral) | `cld.behavioral.make_compliance_metric(judge_model=...)` | `claude-sonnet-4-6` |
+
+Source executors stop their owned process trees before returning or preserving
+partial edits. Ctrl-C cancels active delivery workers; cancelled dispatches do not
+retry. Both output streams are retained under the attempt's `processes/` directory
+and linked from `dispatch.json`; standalone probes use retained OS-temp artifacts.
+Deadlines must be finite positive seconds. See the [process contract](docs/plans/codex-support/T08-CONTRACT.md)
+for platform boundaries and the legacy injected-runner contract. Generated plugin
+copies receive these changes in the planned packaging slices.
 
 ---
 
