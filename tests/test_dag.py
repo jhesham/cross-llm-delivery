@@ -29,9 +29,8 @@ def test_layer_groups_independent_in_sorted_order():
 def test_dep_only_id_treated_as_layer0():
     # "A" appears only as a dependency, never a key
     deps = {"B": ["A"]}
-    layers = topo_layers(deps)
-    assert layers[0] == ["A"]
-    assert layers[1] == ["B"]
+    with pytest.raises(ValueError, match="Unknown dependency IDs"):
+        topo_layers(deps)
 
 
 def test_every_id_appears_once():

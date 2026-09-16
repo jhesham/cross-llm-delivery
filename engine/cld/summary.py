@@ -86,7 +86,8 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
             repair_ids.append(sid)
             lines.append(f"  {sid}  ! NEEDS REPAIR   (no test id)")
 
-    gate_line = f"GATE: {n_pass} passed, {n_fail} failed, {n_repair} need repair."
+    n_deferred = len(getattr(result, "deferred", []))
+    gate_line = f"GATE: {n_pass} passed, {n_fail} failed, {n_repair} need repair, {n_deferred} deferred."
     if n_fail > 0:
         failed_csv = ", ".join(failed_ids)
         gate_line += f" Inspect {failed_csv}?"
@@ -96,9 +97,15 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
         lines.append(f"NEXT: integration failed: {result.integration_error}")
     elif getattr(result, "integration_required", []):
         lines.append("NEXT: integration required; run --integrate with an explicit suite.")
+    elif getattr(result, "failed", []) or getattr(result, "needs_repair", []) or getattr(result, "deferred", []):
+        lines.append("NEXT: inspect failed, deferred or repair outcomes before continuing.")
+        if next_layer:
+            lines.append("PENDING: " + ", ".join(next_layer))
     elif next_layer:
         next_csv = ", ".join(next_layer)
         lines.append(f"NEXT: layer {layer_index+2} -> [{next_csv}]")
+    elif getattr(result, "build_complete", None) is False:
+        lines.append("NEXT: build has pending work; inspect recorded state.")
     else:
         lines.append(f"NEXT: build complete — no further layers.")
         
@@ -106,13 +113,17 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
 
 
 def classify_gate(result: Any, *, more_layers: bool) -> int:
-    if getattr(result, "needs_repair", []):
+    if getattr(result, "blocked", []):
+        return 5
+    if getattr(result, "needs_repair", []) or getattr(result, "integration_error", None):
         return 4
-    if getattr(result, "failed", []) or getattr(result, "deferred", []) or getattr(result, "integration_error", None):
+    if getattr(result, "failed", []) or getattr(result, "deferred", []):
         return 2
     elif getattr(result, "integration_required", []):
         return 6
     elif more_layers:
+        return 0
+    elif getattr(result, "build_complete", None) is False:
         return 0
     else:
         return 3

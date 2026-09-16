@@ -38,12 +38,14 @@ Completed 2026-09-15. [Evidence](T06-EVIDENCE.md) and [integration/resume guide]
 
 Dependencies: T06. Estimate: 10–16k. Files: `plan/slice.py`, `dag.py`, `judge.py`, `integration_gate.py`, `summary.py`, CLI, plan/gate tests.
 
-- [ ] Parse into a validated plan with source-line diagnostics. Reject duplicate/empty IDs, unsupported SUBSLICE blocks, unknown dependency IDs, cycles, invalid complexity, and missing acceptance selectors.
-- [ ] Define allowed-path/protected-test semantics and supported selector syntax. Handle spaces and platform paths; reject traversal/absolute target escapes and unsupported multiline brief syntax rather than silently dropping text.
-- [ ] Introduce a structured test-run result carrying return code, captured output/log path, timeout/error class, and candidate identity. Keep an explicit compatibility adapter for legacy injected runners; production never falls back to parsing prose for pass/fail.
-- [ ] Apply the same RC authority to slice judging, validation probes, and integration. Cover collection/teardown errors, interrupted runs, zero collected tests, and passing runs with no summary line.
-- [ ] Implement the A07 exit/gate table in both step and whole-plan commands. Include `needs_repair` everywhere; complete means integrated and verified. Update repair marking to verify evidence.
-- [ ] Return useful integration-required, budget/policy-blocked, invalid-plan, and lock outcomes; never conflate them with build success. Keep human summaries and machine gates consistent.
-- [ ] Exercise dry-run validation without provider execution, every exit code, old supported plans, obsolete block rejection, and no phantom pending nodes.
+- [x] Parse into a validated plan with source-line diagnostics. Reject duplicate/empty IDs, unsupported SUBSLICE blocks, unknown dependency IDs, cycles, invalid complexity, and missing acceptance selectors.
+- [x] Define allowed-path/protected-test semantics and supported selector syntax. Handle spaces and platform paths; reject traversal/absolute target escapes and unsupported multiline brief syntax rather than silently dropping text.
+- [x] Introduce a structured test-run result carrying return code, captured output/log path, timeout/error class, and candidate identity. Keep an explicit compatibility adapter for legacy injected runners; production never falls back to parsing prose for pass/fail.
+- [x] Apply the same RC authority to slice judging, validation probes, and integration. Cover collection/teardown errors, interrupted runs, zero collected tests, and passing runs with no summary line.
+- [x] Implement the A07 exit/gate table in both step and whole-plan commands. Include `needs_repair` everywhere; complete means integrated and verified. Update repair marking to verify evidence.
+- [x] Return useful integration-required, budget/policy-blocked, invalid-plan, and lock outcomes; never conflate them with build success. Keep human summaries and machine gates consistent.
+- [x] Exercise dry-run validation without provider execution, every exit code, old supported plans, obsolete block rejection, and no phantom pending nodes.
 
 **Gate:** R06/R11 and A01/A02 pass. Run the full offline suite at **M2**. Record final CLI/state contracts for T11 before host-specific work starts.
+
+Completed 2026-09-17; **M2 complete**. [Evidence](T07-EVIDENCE.md) and [CLI/API contract](T07-CONTRACT.md). Full run: 603 passed plus three obsolete expectations corrected. Final follow-up: 52 passed; selector follow-up: 68 passed. All 609 distinct current tests verified across runs; no xfails, one live evaluation excluded. T08 requires the next explicit token checkpoint.

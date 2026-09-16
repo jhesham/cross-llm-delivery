@@ -14,12 +14,24 @@ import shlex
 from tempfile import TemporaryDirectory
 
 from cld.executors._capture import CaptureError, Runner, _is_noise, checked, nul_names
-from cld.judge import _extract_rc, parse_pytest_output
+from cld.judge import parse_pytest_output
+from cld.test_run import test_result
 
 
 def acceptance_args(selector: str) -> list[str]:
     """One literal path/node selector, optionally a quoted path and/or -k filter."""
-    args = shlex.split(selector) if (selector.startswith(('"', "'")) or " -k " in selector) else [selector]
+    if not isinstance(selector, str) or not selector.strip():
+        raise CaptureError("Acceptance selector must be nonempty")
+    quoted = selector.startswith(('"', "'"))
+    raw_path = selector[1:selector.find(selector[0], 1)] if quoted else selector.split(" -k ", 1)[0]
+    if "\\" in raw_path:
+        raise CaptureError("Acceptance paths use forward slashes; backslashes are unsupported")
+    if not quoted and " -k " not in selector and re.search(r"\s--?[A-Za-z]", selector):
+        raise CaptureError("Unsupported acceptance selector flag; quote literal paths containing spaces and dashes")
+    try:
+        args = shlex.split(selector) if (selector.startswith(('"', "'")) or " -k " in selector) else [selector]
+    except ValueError as exc:
+        raise CaptureError(f"Invalid acceptance selector quoting: {exc}") from exc
     if (len(args) not in (1, 3) or (len(args) == 3 and args[1] != "-k")
             or not args[0] or args[0].startswith("-")):
         raise CaptureError("Acceptance selector must be one path, optionally followed by -k expression")
@@ -187,14 +199,14 @@ class CandidateVerifier:
         if candidate.tree != base_tree:
             raise CaptureError("Dispatch requires a clean committed baseline")
         with self.snapshot(candidate) as directory:
-            output = run_tests(directory)
-        rc = _extract_rc(output)
+            result = test_result(run_tests(directory), candidate_id=candidate.tree)
+        output, rc = result.output, result.returncode
         passed, failed, _ = parse_pytest_output(output)
         errors = re.search(r"\b[1-9]\d*\s+errors?\b", output)
         failures = re.findall(r"^FAILED .+$", output, re.MULTILINE)
-        if rc == 0 and passed > 0 and failed == 0 and not errors:
+        if result.passed:
             self.baseline_passed = True
-        elif (rc == 1 and failed > 0 and not errors and len(failures) == failed
+        elif (rc == 1 and not result.error and not result.timed_out and failed > 0 and not errors and len(failures) == failed
               and all(re.search(r" - (?:assert\b|AssertionError\b)", line) for line in failures)):
             self.baseline_passed = False
         else:

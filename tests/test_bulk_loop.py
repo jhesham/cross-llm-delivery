@@ -45,10 +45,10 @@ def test_load_slices_empty():
 
 def test_load_slices_tolerates_unknown_lines():
     md = "## SLICE: X\nbrief: hi\nrandom noise line\nfiles: a.py\nacceptance_test_path: t.py\ndeps:\n"
-    slices = load_slices(md)
-    assert len(slices) == 1
-    assert slices[0].id == "X"
-    assert slices[0].files == ["a.py"]
+    import pytest
+    from cld.plan.slice import PlanError
+    with pytest.raises(PlanError, match="line 3"):
+        load_slices(md)
 
 
 def test_slices_roundtrip():

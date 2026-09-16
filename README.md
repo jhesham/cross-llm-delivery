@@ -41,11 +41,11 @@ plan (slices + contracts + committed failing acceptance tests + dependency DAG)
         │
   independent slices (per the DAG) run in PARALLEL in separate worktrees
         │
-  after a layer merges → integration gate (full suite on the merged tree)
+  after a layer is accepted → integration gate (explicit scoped suite on the merged tree)
 ```
 
 - **Vertical slices**, each independently testable, with stable contracts so a bad slice's
-  rework stays local. A slice may carry `## SUBSLICE:` children, each independently routed.
+  rework stays local. Split larger work into top-level `## SLICE:` blocks linked by `deps`; `SUBSLICE` blocks are rejected.
 - **Deterministic judging:** the acceptance tests are authored and committed (failing) *before*
   dispatch. The judge runs them for real; pass/fail is the pytest exit code, never the
   executor's self-report and never another LLM's opinion. A second, optional behavioral regime
@@ -323,13 +323,17 @@ judges.** Everything below is the detail behind those three steps.
    python skill/scripts/run_delivery.py plan.md --repo . --step --workers 4
    ```
 
-   Exit codes gate the loop: **0** layer passed (merge the accepted `slice-<id>` branches, then
-   re-invoke), **2** some slices failed, **3** build complete, **4** a slice needs orchestrator
-   repair. The ledger is the state — re-running resumes automatically.
+   Exit codes: **0** operation succeeded with work remaining, **2** failure/defer,
+   **3** fully integrated build, **4** lead repair required, **5** invalid input/state,
+   lock or policy block, **6** accepted work awaits integration.
 
-   > **Merge before the next layer:** accepted work lands on `slice-<id>` branches; worktrees
-   > branch from HEAD, so merge accepted slices into your base before running a dependent
-   > layer. `--step` warns loudly if you forget.
+   Integrate the exact accepted commits using an explicit scoped suite:
+   ```bash
+   python skill/scripts/run_delivery.py plan.md --repo . --integrate --integration-tests tests/test_integration.py
+   ```
+   Later slices use that verified integration SHA. The user's checkout is untouched;
+   dependencies block until integration succeeds. See the [current CLI and plan
+   contract](docs/plans/codex-support/T07-CONTRACT.md) for source-engine behavior.
 
 4. **Watch it live:**
 
@@ -356,7 +360,7 @@ codes. Run them by hand for a source checkout or to drive a build yourself.
 | Knob | Where | Default |
 |---|---|---|
 | Executor / model | `--executor <name>[:<model>][@effort]`; interactive picker if omitted on a TTY | provider default workhorse |
-| Per-slice executor | `executor:` tag on a `## SLICE:`/`## SUBSLICE:` block | inherits build default |
+| Per-slice executor | `executor:` tag on a `## SLICE:` block | inherits build default |
 | Workflow | `--step` (one DAG layer at a time) vs. whole-plan | — |
 | Parallelism | `--workers` | 4 |
 | Ledger path | `--ledger` | `.cld-ledger.json` |
