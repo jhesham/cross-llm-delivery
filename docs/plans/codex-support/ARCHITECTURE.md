@@ -122,14 +122,13 @@ Recovery/events/summaries now live under `.cld/runs/<run-id>` with an atomic cur
 pointer; legacy evidence remains readable and is never truncated. New runs cannot
 reuse earlier accepted journals automatically. Git worktree registry mutations are
 serialized separately to avoid partially registered worktrees being read by other
-workers. T06 implements integration transitions; T07 repair/gate semantics and T10
-usage aggregation/status indexing remain pending.
+workers. T06 implements integration transitions and T07 implements verified repair/gate semantics. T10 usage aggregation/status indexing remain pending.
 
 **A06 — Integrate in a build-owned branch.** `--step` dispatches one ready layer and produces accepted commits. `--integrate` (implemented in T06) combines those exact commits in deterministic order into a build-owned integration worktree, runs the configured integration suite, and advances the recorded integration SHA only on success. Later slices branch from that SHA. The user's checkout/branch remains untouched until an explicit final merge action. A failed gate or conflict preserves its candidate and cannot unblock dependents.
 
 Keep manual integration as a compatibility path: inspect recorded accepted SHAs and prove ancestry plus suite success before advancing state. Do not merely warn about missing dependency commits. Whole-plan mode must use the same integration lifecycle; until that works, reject multi-layer unattended execution with an actionable message rather than silently running against stale HEAD. No destructive reset of the user's checkout is part of integration recovery.
 
-See [T06 integration guide](T06-INTEGRATION.md) for the implemented selector, immutable ref, journal, retry and manual-resolution contracts. T06 keeps successful integration worktrees as well as failure evidence; T07 finishes the protocol below.
+See [T06 integration guide](T06-INTEGRATION.md) for the implemented selector, immutable ref, journal, retry and manual-resolution contracts. T06 keeps successful integration worktrees as well as failure evidence; T07 implements the exit/gate table below; versioned JSON remains T11 work.
 
 **A07 — Versioned, host-neutral result protocol.** Proposed `--json` emits one JSON object on stdout for ordinary commands; human progress goes to stderr and logs stay in artifacts. Include `schema_version`, `run_id`, canonical repository/ledger, layer/slice status, `gate`, `next_action`, accepted refs, bounded failure summaries, artifact paths, usage, and budget status. Document schema and test that machine output has no banners/prompts mixed in. `--status --json` is a point-in-time snapshot; do not make hosts scrape terminal prose.
 
@@ -143,6 +142,8 @@ See [T06 integration guide](T06-INTEGRATION.md) for the implemented selector, im
 | 6 | Accepted work awaits integration before dispatch can continue | Run authorized integration action |
 
 Preserve current meanings of 0/2/3/4 where they were truthful; document new 5/6 and correct the old whole-plan success bug. Repeated status/step/integrate calls must be idempotent. `--mark-repaired` must verify a reachable candidate and tests rather than setting DONE blindly.
+
+**T07 implementation:** [The CLI/API contract](T07-CONTRACT.md) records validated plan syntax, structured TestRun results, explicit legacy adapters, verified retained-worktree repair and gates 0/2/3/4/5/6. Operation telemetry and recorded status share these outcomes. M2 evidence is in [T07-EVIDENCE.md](T07-EVIDENCE.md).
 
 **A08 — Host artifacts use shared source.** Add a `--host claude-code|codex` generator option; default remains Claude Code. Preserve `dist/cross-llm-<provider>` and existing Claude plugin paths. Put new Codex output under a separate root, such as `dist/codex/cross-llm-<provider>`. Generate metadata from source; never maintain copied engines by hand. YAML frontmatter is first in SKILL.md; provenance comments follow it. Keep primary skill instructions short and load references by need.
 

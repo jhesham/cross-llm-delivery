@@ -343,7 +343,7 @@ def test_ladder_climbs_quick_to_workhorse(tmp_path):
             return ExecutorResult(ok=ok, diff="", files_changed=["x"], raw_log="")
 
     def judge(**kw):
-        passed = kw["run_tests"]() == "ok"
+        passed = kw["run_tests"]().output == "ok"
         return type("J", (), {"passed": passed, "failing_tests": []})()
     def tr(workdir, path=None):
         return "ok" if used and used[-1] == "wh" else "no"

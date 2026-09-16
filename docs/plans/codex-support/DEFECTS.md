@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05 is closed by T06; R06/R07 and R09–R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; R07/R09/R10/R12/R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -9,12 +9,12 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | R03 P1: commit failure loses accepted work | `engine/cld/recovery.py`, `engine/cld/orchestrator.py` | Reject commit via local hook or injected nonzero RC; current result is complete after worktree removal. No acceptance until commit/tree verified and durable; recovery remains. | T03 |
 | [x] | R04 P1: escalation/resume branch collision | `engine/cld/worktree.py:11` | Fail first rung, enter second; `slice-A` already exists. Verify second dispatch and restart after interruption with real Git. | T04 |
 | [x] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
-| [ ] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
+| [x] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
 | [ ] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Build wheel and import `load_providers` outside checkout/editable paths. Current wheel lacks `.md` and raises FileNotFoundError. | T17 |
 | [x] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
 | [ ] | R09 P2: automatic validation unwired | `skill/scripts/run_delivery.py:723` | Unknown explicit/default/tag/escalated model must enter validation or return an explicit blocked policy outcome before real slice dispatch. | T09 |
 | [ ] | R10 P2: no executor timeout | All provider default runners; Cursor `_timeout` unused | Sleeping child and grandchild must terminate within deadline; preserve partial files and log timeout distinctly. | T08 |
-| [ ] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
+| [x] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
 | [ ] | R12 P2: retries/cost missing from usage | `engine/cld/orchestrator.py:183`, `engine/cld/usage.py:77` | Two attempts plus escalation and validation: cumulative totals survive resume, retain model attribution, cost unknown stays unknown. | T10 |
 | [ ] | R13 P2: release ignores failed native commands | `sync-public.ps1:100`, `release.ps1:73` | Fake Git push/tag/commit and gh failure stop later actions; CI result must match intended SHA/workflow. No remote needed. | T18 |
 
@@ -22,8 +22,8 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 
 | Fixed | ID | Required change and evidence | Owner |
 |---|---|---|---|
-| [ ] | A01: unsupported SUBSLICE overwrites parent fields | Reject obsolete blocks with source location; remove unsupported examples; parent data must not silently change. | T07, T20 |
-| [ ] | A02: invalid DAG/plan inputs | Reject duplicate IDs, missing dependencies, empty selectors, invalid complexity, unsafe IDs/paths; no phantom endless pending layer. | T07 |
+| [x] | A01: unsupported SUBSLICE overwrites parent fields | Reject obsolete blocks with source location; remove unsupported examples; parent data must not silently change. | T07, T20 |
+| [x] | A02: invalid DAG/plan inputs | Reject duplicate IDs, missing dependencies, empty selectors, invalid complexity, unsafe IDs/paths; no phantom endless pending layer. | T07 |
 | [x] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
 | [x] | A04: test harness duplicates old capture | Harness, concurrent and step-through executors now reuse production capture; real file/Git-tree assertions retained. [T01 evidence](T01-EVIDENCE.md). | T01 complete; T02 maintains coverage |
 | [ ] | A05: platform claims exceed CI evidence | Publish explicit host/provider/OS coverage; add intended CI coverage or narrow claims. | T17, T19, T20 |
@@ -54,3 +54,5 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T05 closing evidence (2026-09-11):** [T05-EVIDENCE.md](T05-EVIDENCE.md) and [migration guide](T05-MIGRATION.md) close R08, A03 and A09 trace preservation. Full run: 531 passed and one stale fixture corrected; follow-up: 41 passed, covering 532 distinct tests overall. Two T06 xfails remain. T10 still owns bounded status reads. Closing subject starts `fix: T05`.
 
 **T06 closing evidence (2026-09-15):** [T06-EVIDENCE.md](T06-EVIDENCE.md) closes R05 with actual Git/pytest dependency visibility and blocking, isolated integration and interruption recovery. Full suite: 555 passed, no xfails, 1 deselected; final guard follow-up: 3 passed, 556 distinct verified tests. R11 remains open for T07's structured runner/legacy integration-gate protocol; the new production integration path already enforces authoritative RC. Closing subject starts `fix: T06`.
+
+**T07/M2 closing evidence (2026-09-17):** [T07-EVIDENCE.md](T07-EVIDENCE.md) and [contract](T07-CONTRACT.md) close R06/R11/A01/A02. Full run: 603 passed; three outdated test expectations were corrected and verified in the 52-pass final follow-up. Selector follow-up: 68 passed. 609 distinct passing tests verified overall; no xfails, one live evaluation excluded. Generated host copies and versioned JSON remain T11/T12/T17 work. Closing subject starts `fix: T07`.

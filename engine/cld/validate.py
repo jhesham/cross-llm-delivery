@@ -8,7 +8,6 @@ the REAL acceptance test (scoped — the Bug B discipline) as the judge, and rep
 promotion: pass -> verified, fail -> revalidate, executor error -> untested.
 """
 
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -16,6 +15,8 @@ from pathlib import Path
 
 from cld.executors.base import SliceTask
 from cld.judge import judge
+from cld.test_run import TestRun, process_failure
+from cld.candidate import acceptance_args
 
 _TEST_SRC = (
     "from calc import add\n\n"
@@ -32,23 +33,23 @@ class ValidationResult:
     note: str = ""
 
 
-def _pytest(workdir: str, test_path: str) -> str:
+def _pytest(workdir: str, test_path: str) -> TestRun:
     """Run ONLY the slice's acceptance test in the repo (scoped — Bug B), with a
     timeout so a hung test cannot freeze validation.
 
     test_path may carry a pytest selector (`::node` id or `-k "expr"`) to scope to
     a slice's own tests inside a shared file; shlex.split passes it as separate args.
     """
-    target = shlex.split(test_path) if test_path else []
+    target = acceptance_args(test_path)
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", *target, "-q"],
             cwd=workdir, capture_output=True, text=True, timeout=120,
             encoding="utf-8", errors="replace",
         )
-        return (proc.stdout or "") + (proc.stderr or "")
-    except subprocess.TimeoutExpired:
-        return "1 failed in 120s (timeout)"
+        return TestRun(proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return process_failure(exc)
 
 
 def _init_repo(repo: str, git_runner) -> None:

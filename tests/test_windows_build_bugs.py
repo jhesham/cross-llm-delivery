@@ -57,8 +57,8 @@ def test_pytest_runner_resolves_subdir_package_imports(tmp_path):
         "from schemas import base\ndef test_v(): assert base.VALUE == 1\n", encoding="utf-8")
 
     out = run_delivery.pytest_test_runner(str(tmp_path), "pkgdir/tests/test_x.py")
-    assert "1 passed" in out, out
-    assert "No module named" not in out, out
+    assert out.returncode == 0 and "1 passed" in out.output, out
+    assert "No module named" not in out.output, out
 
 
 # ---------------------------------------------------------------- BUG B-2
@@ -112,7 +112,7 @@ def test_pytest_runner_writes_no_bytecode_or_cache(tmp_path):
     (pkg / "m.py").write_text("def f(): return 1\n", encoding="utf-8")
     (pkg / "test_m.py").write_text("from m import f\ndef test_f(): assert f() == 1\n", encoding="utf-8")
     out = run_delivery.pytest_test_runner(str(tmp_path), "p/test_m.py")
-    assert "1 passed" in out, out
+    assert out.returncode == 0 and "1 passed" in out.output, out
     assert not list(tmp_path.rglob("__pycache__")), "bytecode written despite PYTHONDONTWRITEBYTECODE"
     assert not list(tmp_path.rglob(".pytest_cache")), ".pytest_cache written despite no:cacheprovider"
 
@@ -125,7 +125,7 @@ def test_pytest_runner_prepends_exit_code(tmp_path):
     pkg.mkdir()
     (pkg / "test_ok.py").write_text("def test_a(): assert True\n", encoding="utf-8")
     out = run_delivery.pytest_test_runner(str(tmp_path), "p/test_ok.py")
-    assert out.startswith("__CLD_PYTEST_RC__=0"), out
+    assert out.returncode == 0, out
 
 
 def test_judge_trusts_exit_code_when_summary_missing():
@@ -155,9 +155,9 @@ def test_judge_exit_code_respects_diff_rule():
 
 def test_judge_text_fallback_without_exit_code():
     from cld.judge import judge
-    # legacy callers feed raw pytest text with no rc sentinel -> fall back to text scrape
+    # Unadapted prose cannot establish a passing production verdict.
     res = judge(files_changed=["a.py"], allowed=["a.py"], run_tests=lambda: "3 passed in 0.1s\n")
-    assert res.passed is True
+    assert res.passed is False
 
 # (BUG B-3 — non-destructive worktree preservation — needs a real git repo, so it
 #  lives in tests/integration/test_preserve_diff.py where the git_repo fixture is.)

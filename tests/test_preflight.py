@@ -58,7 +58,7 @@ def test_step_aborts_before_dispatch_when_cli_missing(tmp_path, monkeypatch, cap
     rc = rd.main([str(plan), "--repo", repo, "--ledger", str(tmp_path / "l.json"),
                   "--executor", "opencode:opencode/glm-5.2", "--step"])
     out = capsys.readouterr().out
-    assert rc == 2
+    assert rc == 5
     assert "opencode" in out.lower() and "install" in out.lower()
 
 
