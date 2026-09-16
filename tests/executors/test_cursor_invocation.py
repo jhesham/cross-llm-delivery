@@ -33,11 +33,11 @@ def _capture_env(monkeypatch):
         stdout = "{}"
         stderr = ""
 
-    def fake_run(args, **kw):
+    def fake_run(args, cwd, **kw):
         grabbed["env"] = kw.get("env")
         return _P()
 
-    monkeypatch.setattr(cursor_provider.subprocess, "run", fake_run)
+    monkeypatch.setattr(cursor_provider, "run_process", fake_run)
     return grabbed
 
 

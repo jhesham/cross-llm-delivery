@@ -56,12 +56,11 @@ def _extract_model_reply(transcript_text: str) -> str | None:
     return "\n".join(replies) if replies else None
 
 
-import subprocess
-import tempfile
 from typing import Callable
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback, artifact_file
 
 Runner = Callable[[list[str], str], tuple[int, str]]
 
@@ -80,20 +79,20 @@ def _agy_cmd() -> str:
     return "agy"
 
 
-def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Real subprocess runner: stdin closed (agy waits on a TTY otherwise), utf-8/replace."""
-    proc = subprocess.run(args, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True,
-                          text=True, encoding="utf-8", errors="replace")
-    out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
-    return (proc.returncode, out)
+def _default_runner(args: list[str], cwd: str, **options):
+    """Bounded probe by default; dispatch supplies its own deadline."""
+    return run_process(args, cwd, **options)
+
 
 
 class AntigravityExecutor:
     """Executor backed by the Antigravity CLI (`agy`)."""
 
     def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
-                 effort: str | None = None, home: str | None = None):
+                 effort: str | None = None, home: str | None = None, timeout: float | None = None,
+                 cancel=None, artifact_dir=None):
         # effort accepted for a uniform interface; antigravity bakes effort into the model label
+        self._timeout, self._cancel, self._artifact_dir = timeout, cancel, artifact_dir
         self._runner = runner
         self._model = model
         self._home = home or _dispatch_cwd()
@@ -114,48 +113,50 @@ class AntigravityExecutor:
 
     def run(self, task: SliceTask, workdir, feedback: str | None = None) -> ExecutorResult:
         prompt = self._build_prompt(task, feedback)
-        fd, log_file = tempfile.mkstemp(prefix="agy_", suffix=".log")
-        os.close(fd)
+        log_file = artifact_file(prefix="agy_", suffix=".log", artifact_dir=self._artifact_dir)
+        dispatch = [
+            _agy_cmd(), "-p", prompt, "--model", self._model,
+            "--add-dir", str(workdir), "--dangerously-skip-permissions",
+            "--log-file", log_file,
+        ]
         try:
-            dispatch = [
-                _agy_cmd(), "-p", prompt, "--model", self._model,
-                "--add-dir", str(workdir), "--dangerously-skip-permissions",
-                "--log-file", log_file,
-            ]
-            rc, raw = self._runner(dispatch, self._home)   # cwd = home on C:
-            if rc != 0:
-                return ExecutorResult(ok=False, diff="", raw_log=raw)
+            rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, self._home,
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)   # cwd = home on C:
+        except BaseException as exc:
+            exc.provider_log_path = log_file
+            raise
+        process["provider_log_path"] = log_file
+        if rc != 0:
+            return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
 
+        try:
+            log_text = Path(log_file).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            log_text = ""
+        log_text = (raw or "") + "\n" + log_text       # raw carries it in tests; log file in prod
+
+        reply = None
+        conv = _parse_conversation_id(log_text)
+        if conv:
             try:
-                log_text = Path(log_file).read_text(encoding="utf-8", errors="replace")
+                transcript = Path(_transcript_path(self._home, conv)).read_bytes()
+                retained = Path(log_file).with_suffix(".transcript.jsonl")
+                retained.write_bytes(transcript)
+                process["transcript_path"] = str(retained)
+                reply = _extract_model_reply(transcript.decode("utf-8", errors="replace"))
             except OSError:
-                log_text = ""
-            log_text = (raw or "") + "\n" + log_text       # raw carries it in tests; log file in prod
+                reply = None
+        if reply is None:
+            return ExecutorResult(
+                ok=False, diff="", process={**process, "error": "malformed_output"},
+                raw_log=process_feedback(raw or "", process, 3500) + "\n[antigravity] no MODEL transcript found; the agy "
+                        "dispatch must run with cwd on the C: drive (see "
+                        "docs/notes/antigravity-cli-notes.md)")
 
-            reply = None
-            conv = _parse_conversation_id(log_text)
-            if conv:
-                try:
-                    reply = _extract_model_reply(
-                        Path(_transcript_path(self._home, conv)).read_text(
-                            encoding="utf-8", errors="replace"))
-                except OSError:
-                    reply = None
-            if reply is None:
-                return ExecutorResult(
-                    ok=False, diff="",
-                    raw_log=(raw or "") + "\n[antigravity] no MODEL transcript found; the agy "
-                            "dispatch must run with cwd on the C: drive (see "
-                            "docs/notes/antigravity-cli-notes.md)")
+        diff, files_changed = capture_diff(self._runner, str(workdir))
+        return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
+                              token_usage={}, raw_log=process_feedback(reply, process), process=process)
 
-            diff, files_changed = capture_diff(self._runner, str(workdir))
-            return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
-                                  token_usage={}, raw_log=reply)
-        finally:
-            try:
-                os.unlink(log_file)
-            except OSError:
-                pass
 
 
 from cld.models import ModelInfo

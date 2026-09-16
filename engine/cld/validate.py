@@ -8,14 +8,14 @@ the REAL acceptance test (scoped — the Bug B discipline) as the judge, and rep
 promotion: pass -> verified, fail -> revalidate, executor error -> untested.
 """
 
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from cld.executors.base import SliceTask
 from cld.judge import judge
-from cld.test_run import TestRun, process_failure
+from cld.test_run import TestRun
+from cld.process import run_process
 from cld.candidate import acceptance_args
 
 _TEST_SRC = (
@@ -41,15 +41,9 @@ def _pytest(workdir: str, test_path: str) -> TestRun:
     a slice's own tests inside a shared file; shlex.split passes it as separate args.
     """
     target = acceptance_args(test_path)
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pytest", *target, "-q"],
-            cwd=workdir, capture_output=True, text=True, timeout=120,
-            encoding="utf-8", errors="replace",
-        )
-        return TestRun(proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        return process_failure(exc)
+    proc = run_process([sys.executable, "-m", "pytest", *target, "-q"], workdir, timeout=120)
+    return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
+                   timed_out=proc.error == "timeout", error=proc.error)
 
 
 def _init_repo(repo: str, git_runner) -> None:

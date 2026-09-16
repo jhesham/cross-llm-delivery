@@ -1,3 +1,15 @@
+# T08 verification checkpoint
+
+Updated 2026-09-17. User authorized T08. Implementation and focused Windows checks
+pass; local full offline suite and Ubuntu/Windows remote CI are pending. Read
+[T08-CONTRACT.md](T08-CONTRACT.md) and [T08-EVIDENCE.md](T08-EVIDENCE.md).
+Do not start T09. Finish verification, resolve failures, mark T08 only after its
+gate passes, commit/push closing docs, then pause for user token confirmation.
+The current implementation checkpoint enables CI on `refactor/codex-support`.
+No sub-agents/live providers; executor usage zero; lead counters unavailable.
+
+---
+
 # Current handoff
 
 Updated: 2026-09-17. Initiative: Codex support and review remediation.
