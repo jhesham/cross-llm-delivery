@@ -11,6 +11,8 @@ Windows Python 3.13 local runs:
 - Provider/process/CLI/validation focused suite: **106 passed**, 26.60s.
 - Provider wiring/recovery/T07 contracts: **58 passed**, 15.19s.
 - Final lifecycle suite including parallel cancellation: **32 passed**, 24.85s.
+- Provider log/transcript follow-up: **27 passed**, 20.76s.
+- Cleanup-failure/isolated-bootstrap follow-up: **34 passed**, 28.39s.
 - Full offline suite running; one live evaluation remains excluded by default.
 
 Logs: `.cld/t08-verification/{targeted,followup,lifecycle,full-suite}.log` (ignored).
@@ -25,5 +27,6 @@ must stop an earlier running worker, guarding against ordered-future waits.
 
 WSL is not installed locally. The existing Ubuntu/Windows CI matrix now also runs
 on pushes to `refactor/codex-support`; remote results are pending. No POSIX execution
-claim until that run is inspected. Antigravity log/transcript retention was refined
-after local full-suite startup and requires a final focused follow-up.
+claim until that run is inspected. Antigravity log/transcript retention and explicit
+cleanup-failure handling were refined after local full-suite startup; the focused
+follow-ups above cover those changes. Remote CI checks the committed source.

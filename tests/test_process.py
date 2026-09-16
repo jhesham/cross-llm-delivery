@@ -133,3 +133,19 @@ def test_job_assignment_failure_never_launches_target(tmp_path, monkeypatch):
     monkeypatch.setattr(Job, "assign", denied)
     result = run(tmp_path, "from pathlib import Path; Path('escaped').touch()")
     assert result.error == "access_denied" and not (tmp_path / "escaped").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows cleanup API failure")
+def test_cleanup_failure_is_not_an_ordinary_retryable_error(tmp_path, monkeypatch):
+    from cld._windows_job import Job
+    from cld.process import ProcessCleanupError
+    original = Job.stop
+
+    def faulty(self):
+        original(self)
+        raise OSError("fixture: accounting unavailable")
+
+    monkeypatch.setattr(Job, "stop", faulty)
+    with pytest.raises(ProcessCleanupError):
+        run(tmp_path, "print('retained')")
+    assert any(p.read_bytes().strip() == b"retained" for p in tmp_path.rglob("stdout.bin"))

@@ -28,6 +28,8 @@ subject to the existing bounded retry policy.
 
 On Windows, a Python bootstrap waits for a private pipe payload. The parent assigns
 it to a Job Object before releasing argv/stdin. Assignment failure fails closed.
+The bootstrap uses isolated Python without site startup hooks; target CLI
+environment and arguments are unchanged.
 Descendants inherit job membership; breakaway is not enabled. Termination covers
 the job, and active-process accounting must reach zero before returning. The job
 also has kill-on-close enabled. This uses the current supported Windows job API,
@@ -46,6 +48,11 @@ No candidate inspection, diff capture or worktree cleanup happens until the runn
 has stopped the owned process tree. Cleanup errors propagate instead of being
 reported as successful completion. Normal timeout cleanup is immediate termination,
 not a grace period in which providers may keep editing.
+
+If OS cleanup cannot be confirmed, a non-retryable ProcessCleanupError aborts the
+delivery. Its journal records `cleanup_unconfirmed`; the worktree stays in place
+without post-dispatch candidate inspection. Inspect OS processes before manually
+recovering that worktree.
 
 Errors distinguish `missing_binary`, `access_denied`, `launch_error`, `timeout`,
 `cancelled`, `nonzero_exit`, and observable `authentication` diagnostics. Completion
