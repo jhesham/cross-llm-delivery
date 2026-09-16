@@ -75,3 +75,21 @@ def test_cancelled_later_worker_stops_earlier_running_process(delivery_repo):
         run(delivery_repo, executor=Executor(), slices=[task("A"), task("B")], max_workers=2)
     assert time.monotonic() - started < 15
     assert len(stopped) == 1 and stopped[0].error == "cancelled"
+
+
+def test_unconfirmed_cleanup_retains_worktree_without_candidate_inspection(delivery_repo):
+    from cld.process import ProcessCleanupError
+    calls = []
+
+    class Executor:
+        def run(self, task, wd, feedback=None):
+            calls.append(wd)
+            raise ProcessCleanupError("fixture: no termination confirmation")
+
+    with pytest.raises(ProcessCleanupError):
+        run(delivery_repo, executor=Executor())
+    assert len(calls) == 1 and Path(calls[0]).is_dir()
+    outcomes = list((delivery_repo / ".cld").rglob("outcome.json"))
+    record = json.loads(outcomes[0].read_text())
+    assert record["state"] == "cleanup_unconfirmed"
+    assert "recovery_ref" not in record  # No post-dispatch capture of a possibly live tree.

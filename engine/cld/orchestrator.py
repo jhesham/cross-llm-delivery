@@ -15,7 +15,7 @@ from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge
 from cld.test_run import test_result, legacy_result
-from cld.process import process_scope
+from cld.process import process_scope, ProcessCleanupError
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
@@ -182,7 +182,8 @@ def deliver_slice(
                     or not isinstance(result.token_usage, dict)):
                 raise CaptureError("Malformed executor completion")
             if not result.ok:
-                raise CaptureError("Executor dispatch failed: " + result.raw_log[-500:])
+                error = result.process.get("error") or "executor_error"
+                raise CaptureError(f"Executor dispatch failed ({error}): " + result.raw_log[-500:])
             if verifier is None:
                 # Compatibility for synthetic callers with no Git boundary.
                 files_changed, diff = result.files_changed, result.diff
@@ -480,7 +481,9 @@ def run_plan_parallel(
         except BaseException as exc:
             detail = f"{exc}; worktree retained at {wt}"
             try:
-                if created:
+                if isinstance(exc, ProcessCleanupError):
+                    session.save(state="cleanup_unconfirmed", error=str(exc))
+                elif created:
                     session.failure(exc)
                 else:
                     session.save(state="failed", error=str(exc))

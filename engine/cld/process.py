@@ -20,6 +20,10 @@ import time
 _scope = ContextVar("cld_process_scope", default={})
 
 
+class ProcessCleanupError(BaseException):
+    """Termination could not be confirmed; abort without inspecting the candidate."""
+
+
 @contextmanager
 def process_scope(**values):
     token = _scope.set({**_scope.get(), **values})
@@ -161,7 +165,8 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                 if os.name == "nt":
                     from cld._windows_job import Job
                     job = Job()
-                    process = subprocess.Popen([sys.executable, "-c", _BOOTSTRAP], stdin=subprocess.PIPE, **options)
+                    process = subprocess.Popen([sys.executable, "-I", "-S", "-c", _BOOTSTRAP],
+                                               stdin=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW, **options)
                     job.assign(process)
                     status_path = directory / "exit.json"
                     payload = json.dumps(dict(argv=list(argv), stdin=stdin, status=str(status_path))).encode() + b"\n"
@@ -201,19 +206,22 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
         except BaseException as exc:
             error, interrupted = "cancelled", exc
         finally:
-            if job is not None:
-                try:
-                    job.stop()
-                finally:
-                    job.close()
-                    if process is not None:
-                        # Also covers a bootstrap whose assignment failed; it has
-                        # not received its payload, so cannot have launched a CLI.
-                        if process.poll() is None:
-                            process.kill()
-                        process.communicate()
-            elif process is not None:
-                _stop_posix(process)
+            try:
+                if job is not None:
+                    try:
+                        job.stop()
+                    finally:
+                        job.close()
+                        if process is not None:
+                            # Also covers an unassigned bootstrap, which has not
+                            # received its payload and cannot have launched a CLI.
+                            if process.poll() is None:
+                                process.kill()
+                            process.communicate()
+                elif process is not None:
+                    _stop_posix(process)
+            except BaseException as exc:
+                raise ProcessCleanupError(f"Process cleanup unconfirmed; retain worktree and logs at {directory}") from exc
     result = ProcessResult(rc, str(out_path), str(err_path), error, time.monotonic() - started)
     if result.error is None:
         result = ProcessResult(rc, str(out_path), str(err_path), exit_error(rc, result.output), result.elapsed)
@@ -244,4 +252,4 @@ def feedback(output, metadata, limit=4000):
     for key in ("stdout_path", "stderr_path", "provider_log_path", "transcript_path"):
         if metadata.get(key):
             suffix += f"\n{key}: {metadata[key]}"
-    return output[:max(0, limit - len(suffix))] + suffix
+    return (output[:max(0, limit - len(suffix))] + suffix)[:limit]
