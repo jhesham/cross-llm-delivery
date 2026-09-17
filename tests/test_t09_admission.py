@@ -254,3 +254,11 @@ def test_real_cli_admits_before_production_and_returns_blocked_gate(cli_setup, m
     if not allow:
         records = list(Path(repo, ".cld").rglob("validation-blocked.json"))
         assert json.loads(records[0].read_text())["gate_code"] == 5
+
+
+@pytest.mark.parametrize("status", [[], {}, None, 1])
+def test_malformed_status_is_reported_as_corrupt_evidence(tmp_path, status):
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({"m": {"status": status}}), encoding="utf-8")
+    with pytest.raises(EvidenceError, match="Invalid validation status"):
+        EvidenceStore(path).get("m")

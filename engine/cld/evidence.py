@@ -28,7 +28,9 @@ class EvidenceStore:
         for rec in data.values():
             if not isinstance(rec, dict):
                 raise EvidenceError(f"Invalid validation evidence record: {self._path}")
-            rec["status"] = {"proven": "verified", "known-bad": "revalidate"}.get(rec.get("status"), rec.get("status"))
+            if not isinstance(rec.get("status"), str):
+                raise EvidenceError(f"Invalid validation status: {self._path}")
+            rec["status"] = {"proven": "verified", "known-bad": "revalidate"}.get(rec["status"], rec["status"])
             if rec["status"] not in ("verified", "revalidate"):
                 raise EvidenceError(f"Invalid validation status: {self._path}")
         return data
