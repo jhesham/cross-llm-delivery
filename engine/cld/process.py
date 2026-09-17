@@ -109,12 +109,13 @@ with open(payload["status"], "w", encoding="utf-8") as stream:
 '''
 
 
-def _stop_posix(process):
+def _stop_posix(process, timeout=5):
+    deadline = time.monotonic() + timeout
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
-    process.wait()
+    process.wait(timeout=timeout)
     # Wait for group members to exit, including descendants after the leader exits.
     # Linux orphan zombies are already terminated; only their adopter can reap them.
     while True:
@@ -134,6 +135,8 @@ def _stop_posix(process):
                     continue
             if not live:
                 return
+        if time.monotonic() >= deadline:
+            raise TimeoutError("POSIX process group termination was not confirmed")
         time.sleep(0.01)
 
 
@@ -217,7 +220,7 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                             # received its payload and cannot have launched a CLI.
                             if process.poll() is None:
                                 process.kill()
-                            process.communicate()
+                            process.communicate(timeout=5)
                 elif process is not None:
                     _stop_posix(process)
             except BaseException as exc:

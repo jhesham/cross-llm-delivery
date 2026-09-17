@@ -49,8 +49,9 @@ class Job:
     def assign(self, process):
         self.check(self.api.AssignProcessToJobObject(self.handle, int(process._handle)))
 
-    def stop(self):
+    def stop(self, timeout=5):
         self.check(self.api.TerminateJobObject(self.handle, 1))
+        deadline = time.monotonic() + timeout
 
         class Accounting(ctypes.Structure):
             _fields_ = [("times", ctypes.c_int64 * 4), ("faults", w.DWORD),
@@ -62,6 +63,8 @@ class Job:
             self.check(self.api.QueryInformationJobObject(self.handle, 1, ctypes.byref(info), ctypes.sizeof(info), None))
             if not info.active:
                 return
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Windows job termination was not confirmed")
             time.sleep(0.01)
 
     def close(self):
