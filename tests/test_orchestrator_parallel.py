@@ -26,7 +26,8 @@ def _slice(i, deps=None):
 class FakeExecutor:
     """Records dispatch order + concurrency; all slices 'pass'."""
 
-    def __init__(self):
+    def __init__(self, barrier=None):
+        self._barrier = barrier
         self.dispatched = []
         self._lock = threading.Lock()
         self.max_concurrent = 0
@@ -37,7 +38,10 @@ class FakeExecutor:
             self._active += 1
             self.max_concurrent = max(self.max_concurrent, self._active)
             self.dispatched.append(task.id)
-        time.sleep(0.02)  # hold the slot so concurrency is observable
+        if self._barrier is not None:
+            self._barrier.wait()  # Require overlap without a scheduler-speed assumption.
+        else:
+            time.sleep(0.02)
         with self._lock:
             self._active -= 1
         return ExecutorResult(ok=True, diff="", files_changed=[f"src/{task.id}.py"],
@@ -53,7 +57,7 @@ def test_parallel_runs_independent_slices_concurrently(tmp_path):
     led = Ledger(str(tmp_path / "l.json"))
     # A, B, C all independent -> one layer, should run concurrently
     slices = [_slice("A"), _slice("B"), _slice("C")]
-    ex = FakeExecutor()
+    ex = FakeExecutor(threading.Barrier(3, timeout=10))
     res = run_plan_parallel(slices, led, executor=ex, judge_fn=_judge, max_workers=3, simulation=True)
     assert isinstance(res, PlanResult)
     assert sorted(res.completed) == ["A", "B", "C"]
@@ -424,5 +428,4 @@ def test_chosen_by_recorded(tmp_path):
 
     assert ledger.get("A").chosen_by == "rec"
     assert ledger.get("B").chosen_by == "you"
-
 
