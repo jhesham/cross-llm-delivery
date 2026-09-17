@@ -149,3 +149,34 @@ def test_cleanup_failure_is_not_an_ordinary_retryable_error(tmp_path, monkeypatc
     with pytest.raises(ProcessCleanupError):
         run(tmp_path, "print('retained')")
     assert any(p.read_bytes().strip() == b"retained" for p in tmp_path.rglob("stdout.bin"))
+
+
+def test_posix_cleanup_confirmation_has_its_own_bound(monkeypatch):
+    from cld.process import _stop_posix
+    import signal
+    from types import SimpleNamespace
+    monkeypatch.setattr(os, "killpg", lambda *args: None, raising=False)
+    monkeypatch.setattr(signal, "SIGKILL", 9, raising=False)
+    monkeypatch.setattr(sys, "platform", "darwin")  # Exercise the portable group query.
+    process = SimpleNamespace(pid=123, wait=lambda **kw: None)
+    with pytest.raises(TimeoutError, match="group termination"):
+        _stop_posix(process, timeout=.02)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows Job accounting API")
+def test_windows_cleanup_confirmation_has_its_own_bound(monkeypatch):
+    import ctypes
+    from cld._windows_job import Job
+    job = Job()
+
+    def active_forever(handle, kind, info, size, returned):
+        # JOBOBJECT_BASIC_ACCOUNTING_INFORMATION.ActiveProcesses is DWORD at 40.
+        ctypes.c_uint32.from_address(ctypes.cast(info, ctypes.c_void_p).value + 40).value = 1
+        return True
+
+    monkeypatch.setattr(job.api, "QueryInformationJobObject", active_forever)
+    try:
+        with pytest.raises(TimeoutError, match="job termination"):
+            job.stop(timeout=.02)
+    finally:
+        job.close()

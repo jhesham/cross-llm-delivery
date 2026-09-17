@@ -50,7 +50,9 @@ reported as successful completion. Normal timeout cleanup is immediate terminati
 not a grace period in which providers may keep editing.
 
 If OS cleanup cannot be confirmed, a non-retryable ProcessCleanupError aborts the
-delivery. Its journal records `cleanup_unconfirmed`; the worktree stays in place
+delivery. OS termination confirmation has a separate 5s bound (Windows may also
+spend up to 5s reaping the bootstrap); it cannot wait indefinitely after a dispatch
+deadline. Its journal records `cleanup_unconfirmed`; the worktree stays in place
 without post-dispatch candidate inspection. Inspect OS processes before manually
 recovering that worktree.
 
