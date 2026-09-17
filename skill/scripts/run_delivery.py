@@ -46,6 +46,7 @@ if os.path.isdir(os.path.join(_engine_dir, "cld")):
 from cld.providers_api import load_providers, get_provider, all_providers, default_workhorse
 from cld.executors import get_executor
 from cld.judge import judge
+from cld.evidence import EvidenceError
 from cld.test_run import TestRun
 from cld.process import run_process
 from cld.candidate import acceptance_args
@@ -383,7 +384,7 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
         [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"],
         workdir, env=env, timeout=600)
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
-                   timed_out=proc.error == "timeout", error=proc.error)
+                   timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)
 
 
 def _parse_name_model(spec: str) -> tuple[str, dict]:
@@ -449,29 +450,19 @@ def _resolve_cli(cmd: str) -> str | None:
     if not cmd:
         return None
     if os.path.isfile(cmd):
-        return cmd
+        return cmd if os.name == "nt" or os.access(cmd, os.X_OK) else None
     found = shutil.which(cmd)
     return found if found else None
 
 
 def _executor_cli_status() -> dict[str, str | None]:
     """Machine-independent contract: resolved CLI command per provider, or None if absent."""
-    from cld_providers.antigravity.provider import _agy_cmd
-    from cld_providers.cursor.provider import _cursor_invocation
-    from cld_providers.opencode.provider import _oc_cmd
-
-    status: dict[str, str | None] = {}
-    status["antigravity"] = _resolve_cli(_agy_cmd())
-    status["opencode"] = _resolve_cli(_oc_cmd())
-
-    inv = _cursor_invocation()
-    if len(inv) == 1:
-        status["cursor"] = _resolve_cli(inv[0])
-    else:
-        node, script = inv[0], inv[1]
-        node_ok = _resolve_cli(node) if not os.path.isabs(node) else (node if os.path.isfile(node) else None)
-        status["cursor"] = script if node_ok and os.path.isfile(script) else None
-
+    status = {}
+    for provider in all_providers():
+        invocation = provider.cli_invocation() if provider.cli_invocation else []
+        executable = _resolve_cli(invocation[0]) if invocation else None
+        scripts = [p for p in invocation[1:] if not p.startswith("-")]
+        status[provider.name] = (scripts[-1] if scripts else executable) if executable and all(os.path.isfile(p) for p in scripts) else None
     return status
 
 
@@ -595,6 +586,102 @@ def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2
     return planner
 
 
+def prepare_dispatch(args, slices, ledger):
+    """Freeze all selected rungs, preflight all providers, then admit all models."""
+    from cld.admission import Admission, AdmissionBlocked, validation_context, writable_directory
+    from cld.evidence import EvidenceStore
+    from cld.models import resolve_spec
+    from cld.validate import validate_model
+    from cld.worktree import managed_location
+    from cld.orchestrator import next_pending_layer
+    from cld.recovery import atomic_write
+    import json
+
+    selected = [s for s in slices if not ledger.is_done(s.id) and
+                not (ledger.get(s.id) and ledger.get(s.id).status == "needs_repair")]
+    if args.step:
+        layer = next_pending_layer(slices, ledger)
+        selected = [s for s in selected if layer and s.id in layer[1]]
+    if not selected:
+        return None, None
+    default, _, _ = resolve_spec(args.executor or _default_spec())
+    # Preflight entry providers before asking a provider to list available models.
+    entries = [resolve_spec(s.executor or default)[0] for s in selected]
+    for spec in dict.fromkeys(entries):
+        problem = _preflight_executor(spec)
+        if problem:
+            raise AdmissionBlocked(problem)
+    directory = run_directory(args.repo, ledger.build["run_id"]) / "validation"
+    _, root, _ = managed_location(args.repo, args.worktree_root,
+        ledger.build["run_id"], "preflight", "0" * 32)
+    for path in (root, directory):
+        writable_directory(path)
+    store = EvidenceStore()
+    store.statuses()  # Detect corrupt evidence before discovery or validation spend.
+    writable_directory(store._path.parent)
+    if store._path.exists():
+        with store._path.open("r+b"):
+            pass
+    # Preserve bare-provider tier selection; an explicit model stays pinned at entry.
+    planner = build_rung_planner(args.executor or _default_spec(), evidence={})
+    rungs = {s.id: [(rung, resolve_spec(spec)[0], budget) for rung, spec, budget in planner(s)] for s in selected}
+    specs = list(dict.fromkeys(spec for values in rungs.values() for _, spec, _ in values))
+    for spec in specs:
+        problem = _preflight_executor(spec)
+        if problem:
+            raise AdmissionBlocked(problem)
+    config_paths = [Path(args.repo) / p for p in
+        ("opencode.json", "opencode.jsonc", ".opencode/opencode.json", ".cursor/cli.json", ".gemini/settings.json")]
+    config_paths += [Path.home() / p for p in
+        (".config/opencode/opencode.json", ".config/opencode/opencode.jsonc", ".cursor/cli-config.json", ".gemini/settings.json")]
+    config_paths += [Path(p).resolve() for p in args.validation_config]
+    if os.environ.get("OPENCODE_CONFIG"):
+        config_paths.append(Path(os.environ["OPENCODE_CONFIG"]).resolve())
+
+    def context_of(spec):
+        _, provider, _ = resolve_spec(spec)
+        invocation = get_provider(provider).cli_invocation()
+        command = _resolve_cli(invocation[0])
+        if not command:
+            raise AdmissionBlocked(f"CLI disappeared for {provider}")
+        return validation_context(spec, cli_paths=[command, *invocation[1:]],
+            config_paths=config_paths, extra=args.validation_context, repo=args.repo)
+
+    def validate(spec):
+        _, provider, kwargs = resolve_spec(spec)
+        return validate_model(spec, executor=get_executor(provider, **kwargs),
+            git_runner=git_runner, base_dir=str(directory))
+
+    report = directory / "admission.json"
+    contexts = {spec: context_of(spec) for spec in specs}
+    gate = Admission(store=store, validate_fn=validate, context_of=context_of,
+        policy=args.validation_policy, force=args.revalidate_models,
+        max_age_seconds=args.validation_max_age, report_path=report)
+    # Save policy and check the report path before the first possible dispatch.
+    atomic_write(report, json.dumps(dict(schema_version=1, validation_policy=args.validation_policy,
+        force_revalidate=args.revalidate_models, selected_specs=specs, models=[])).encode("utf-8"))
+    previews = [gate.check(spec, execute=False) for spec in specs]
+    blocked = [result for result in previews if not result.proceeded]
+    if blocked:
+        raise AdmissionBlocked(f"{blocked[0].spec}: {blocked[0].note}; evidence: {report}")
+    admitted = {}
+    for spec in specs:
+        result = gate.check(spec)
+        if not result.proceeded:
+            raise AdmissionBlocked(f"{spec}: {result.note}; evidence: {report}")
+        if context_of(spec) != contexts[spec]:
+            raise AdmissionBlocked(f"{spec}: CLI/configuration changed during validation; rerun preflight")
+        admitted[spec] = contexts[spec]
+
+    def factory(value):
+        spec, provider, kwargs = resolve_spec(value)
+        if spec not in admitted or context_of(spec) != admitted[spec]:
+            raise AdmissionBlocked("Model/CLI/configuration changed after admission; rerun preflight")
+        return get_executor(provider, **kwargs)
+
+    return factory, lambda task: list(rungs[task.id])
+
+
 def prompt_for_executor() -> str:
     """Interactive model picker (the CLI surface). Lists available OpenCode models,
     builds the recommended shortlist, and prompts the user to choose. The proven
@@ -641,6 +728,12 @@ def _main(argv=None) -> int:
     p.add_argument("--integrate", action="store_true", help="Verify and integrate accepted commits; no provider dispatch")
     p.add_argument("--integration-tests", help="Explicit committed pytest selector for integration (required for whole multi-layer runs)")
     p.add_argument("--manual-integration", help="With --integrate, verify an existing merge commit/ref")
+    p.add_argument("--validation-policy", choices=("deny", "unmetered", "allow"), default="deny",
+                   help="Recorded permission for validation probes: deny (default), known unmetered, or all including unknown costs")
+    p.add_argument("--revalidate-models", action="store_true", help="Force one fresh probe per selected model/context; still requires validation spend policy")
+    p.add_argument("--validation-max-age", type=float, default=30 * 86400, help="Maximum evidence age in seconds")
+    p.add_argument("--validation-context", default="", help="Identity of external provider/account configuration not represented by local files")
+    p.add_argument("--validation-config", action="append", default=[], help="Additional provider config file to fingerprint; repeatable")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
                    help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
@@ -778,9 +871,21 @@ def _main(argv=None) -> int:
                     args.executor = prompt_for_executor()
                 except EOFError:
                     args.executor = _default_spec()
-            preflight_err = _preflight_executor(args.executor or _default_spec())
-            if preflight_err:
-                print(preflight_err)
+            try:
+                args.admitted_factory, args.admitted_planner = prepare_dispatch(args, slices, ledger)
+            except (ValueError, OSError, EvidenceError) as exc:
+                import json
+                from cld.recovery import atomic_write
+                blocked = dict(schema_version=1, gate="blocked", gate_code=5,
+                    reason=str(exc)[:4000], validation_policy=args.validation_policy,
+                    next_action="Correct preflight or select an explicit validation policy, then retry")
+                try:
+                    atomic_write(run_directory(args.repo, ledger.build["run_id"]) / "validation-blocked.json",
+                                 json.dumps(blocked, indent=2).encode("utf-8"))
+                except OSError:
+                    pass  # A denied artifact root must still return a structured block.
+                print(json.dumps(blocked))
+                _record_operation(args, ledger, "validation", 5)
                 return 5
         from cld import telemetry
         try:
@@ -816,9 +921,9 @@ def _execute(args, slices, ledger):
         result = run_plan_parallel(
             layer_slices, ledger,
             plan_slices=slices,
-            executor_factory=build_executor_factory() if _dispatch_needed(slices, ledger) else None,
+            executor_factory=getattr(args, "admitted_factory", None),
             default_spec=args.executor or _default_spec(),
-            rung_planner=build_rung_planner(args.executor or _default_spec()) if _dispatch_needed(layer_slices, ledger) else None,
+            rung_planner=getattr(args, "admitted_planner", None),
             judge_fn=judge_fn,
             max_workers=args.workers,
             repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
@@ -844,9 +949,9 @@ def _execute(args, slices, ledger):
     result = run_plan_parallel(
         slices, ledger,
         plan_slices=slices,
-        executor_factory=build_executor_factory() if _dispatch_needed(slices, ledger) else None,
+        executor_factory=getattr(args, "admitted_factory", None),
         default_spec=args.executor or _default_spec(),
-        rung_planner=build_rung_planner(args.executor or _default_spec()) if _dispatch_needed(slices, ledger) else None,
+        rung_planner=getattr(args, "admitted_planner", None),
         judge_fn=judge_fn,
         max_workers=args.workers,
         repo_dir=args.repo, git_runner=git_runner, worktree_root=args.worktree_root,
@@ -880,7 +985,7 @@ def _execute(args, slices, ledger):
 def main(argv=None) -> int:
     try:
         return _main(argv)
-    except (StateError, OwnerBusy, CaptureError, PlanError) as exc:
+    except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError) as exc:
         print(f"State blocked: {exc}", file=sys.stderr)
         return 5
 
