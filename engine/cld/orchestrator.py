@@ -16,6 +16,7 @@ from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge
 from cld.test_run import test_result, legacy_result
 from cld.process import process_scope, ProcessCleanupError
+from cld.admission import AdmissionBlocked
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
@@ -579,6 +580,14 @@ def run_plan_parallel(
 
         try:
             deliver_res = _run_one(task)
+        except AdmissionBlocked as exc:
+            with ledger_lock:
+                ledger.set(task.id, status="pending", attempts=0)
+                ledger.save()
+                result.deferred.append(task.id)
+                result.blocked.append(task.id)
+                result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
+            return
         except Exception as exc:
             # A build-time error (e.g. unknown executor spec) must FAIL only this
             # slice — record it FAILED and let the rest of the build continue.

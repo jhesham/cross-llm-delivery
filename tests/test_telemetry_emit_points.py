@@ -154,6 +154,7 @@ def test_run_delivery_writes_live_event_stream(tmp_path, monkeypatch):
     # Neutralize the preflights: this test is about the event stream, and must pass on machines
     # (e.g. CI, tmp dirs) with no executor CLI installed and no git repo at the target path.
     monkeypatch.setattr(rd, "_preflight_executor", lambda spec: None)
+    monkeypatch.setattr(rd, "prepare_dispatch", lambda *args: (None, None))
     monkeypatch.setattr(rd, "_preflight_git", lambda repo: None)
     try:
         rc = rd.main([str(plan), "--repo", str(tmp_path), "--ledger", str(tmp_path / "l.json"),

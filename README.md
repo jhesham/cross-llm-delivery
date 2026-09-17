@@ -132,9 +132,22 @@ real build and the rail caught it:
 
 Three executor providers ship today. Each carries a vendored catalog with a **cost class** and a
 **validation status** — `cld` won't quietly trust an unproven model: uncatalogued or untested
-models get a **validate-before-trust probe** (one trivial slice, judged for real) before a build
-commits to them, with outcomes recorded in a local evidence store
-(`~/.cld/validation-evidence.json`).
+models require a **validate-before-trust probe** (one trivial slice, judged for real) before a build
+commits to them. The source CLI applies this to every selected model, including fallback rungs;
+static catalog claims alone do not authorize dispatch. Outcomes live in
+`~/.cld/validation-evidence.json`.
+
+Validation defaults to `--validation-policy deny`: current verified evidence can be reused,
+but a needed probe returns gate 5 with a recorded blocked reason. Choose `unmetered` to permit
+probes for catalogued free/flat models, or `allow` to permit metered and unknown-cost probes.
+These labels are catalog classifications, not a billing guarantee. No validation prompt is used.
+`--revalidate-models` forces a new probe, including previously failed models, and still requires
+a spend policy. Evidence expires after 30 days (`--validation-max-age` sets seconds). Changes to
+model/effort, CLI files, repository, environment, or tracked config invalidate it. Use repeatable
+`--validation-config PATH` and `--validation-context ID` for other configuration/account inputs.
+Probe repositories, recovery artifacts, usage and admission decisions are retained under the
+build run directory. Cumulative token/cost admission limits follow in T10. Generated plugin
+copies receive these source changes in T12/T17.
 
 | Provider | Cost model | Catalog highlights | Proven in real builds¹ |
 |---|---|---|---|
@@ -145,7 +158,7 @@ commits to them, with outcomes recorded in a local evidence store
 ¹ *"Proven" = accepted real slices in live builds during this tool's development (real pytest
 gates, worktree isolation) — including the dogfood builds where these executors implemented parts
 of `cld` itself. Validation statuses live in a machine-local evidence store; on your machine, the
-validate-before-trust probe re-establishes them automatically.*
+validate-before-trust probe re-establishes them under the explicit validation policy.*
 ² *Uncatalogued models (e.g. `opencode/glm-5.2`) are usable via an explicit per-slice `executor:`
 tag; the probe covers them too.*
 
