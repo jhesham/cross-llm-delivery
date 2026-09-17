@@ -102,10 +102,11 @@ def test_validation_probe_cannot_promote_nonzero_rc(monkeypatch, tmp_path):
     class Executor:
         def run(self, *args):
             return ExecutorResult(True, "", ["calc.py"])
-    monkeypatch.setattr(validation, "_init_repo", lambda *_: None)
+    from tests.integration.harness import real_git_runner
     monkeypatch.setattr(validation, "_pytest", lambda *_: TestRun(1, "1 passed, 1 error"))
-    result = validation.validate_model("fake", executor=Executor(), git_runner=None, base_dir=str(tmp_path))
-    assert not result.passed and result.status == "revalidate"
+    result = validation.validate_model("fake", executor=Executor(), git_runner=real_git_runner, base_dir=str(tmp_path))
+    assert not result.passed and result.status == "untested"
+    assert result.attempts == 0  # Invalid baseline blocks even the validation dispatch.
 
 
 def test_markdown_fenced_plan_is_supported():

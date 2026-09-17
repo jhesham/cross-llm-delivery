@@ -195,6 +195,7 @@ _CATALOG = (
 _IDS = [m.id.split(":", 1)[1] for m in _CATALOG]
 
 PROVIDER = Provider(
+    cli_invocation=lambda: [_agy_cmd()],
     name="antigravity",
     make_executor=lambda **k: AntigravityExecutor(**k),
     catalog=_CATALOG,

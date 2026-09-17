@@ -315,6 +315,7 @@ _SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
 _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
 PROVIDER = Provider(
+    cli_invocation=_cursor_invocation,
     name="cursor",
     make_executor=lambda **k: CursorExecutor(**k),
     catalog=_CURSOR_CATALOG,

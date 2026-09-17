@@ -356,6 +356,7 @@ _SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
 _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
 PROVIDER = Provider(
+    cli_invocation=lambda: [_oc_cmd()],
     name="opencode",
     make_executor=lambda **k: OpenCodeExecutor(**k),
     catalog=_OPENCODE_CATALOG,

@@ -121,6 +121,7 @@ def test_cli_needs_repair_is_four_in_whole_and_step_mode(repo, monkeypatch, caps
     path, tasks, ledger = cli_plan(repo)
     monkeypatch.setattr(rd, "_preflight_executor", lambda *_: None)
     monkeypatch.setattr(rd, "build_executor_factory", lambda: None)
+    monkeypatch.setattr(rd, "prepare_dispatch", lambda *args: (None, None))
     monkeypatch.setattr(rd, "build_rung_planner", lambda *_: None)
     def result(slices, led, **kwargs):
         led.set("A", status="needs_repair")

@@ -65,10 +65,14 @@ class CollectionResult:
 
 class RecoverySession:
     def __init__(self, repo, cwd, task, ledger_path, runner, *, session_id=None,
-                 base=None, metadata=None):
+                 base=None, metadata=None, artifact_root=None):
         self.repo, self.cwd, self.task, self.runner = repo, cwd, task, runner
         self.id = session_id or uuid4().hex
         self.directory = slice_directory(repo, task.id, (metadata or {}).get("run_id")) / self.id
+        if artifact_root is not None:
+            self.directory = Path(artifact_root).resolve() / self.id
+            if self.directory.is_relative_to(Path(cwd).resolve()):
+                raise CaptureError("Evidence must be outside the candidate worktree")
         # Exclusive reservation while the caller holds slice ownership. Never
         # overwrite an existing session, including after a restart.
         self.directory.mkdir(parents=True, exist_ok=False)
