@@ -30,3 +30,9 @@ WSL is not installed locally. The existing Ubuntu/Windows CI matrix now also run
 on pushes to `refactor/codex-support`; Ubuntu passed on `fc8a3be` (641 passed, two Windows-only skips); Windows CI is pending. POSIX lifecycle tests executed successfully in that Ubuntu job. Antigravity log/transcript retention and explicit
 cleanup-failure handling were refined after local full-suite startup; the focused
 follow-ups above cover those changes. Remote CI checks the committed source.
+
+The first Windows CI run on `fc8a3be` had one failure in the pre-existing parallel
+fixture: a 20ms sleep did not guarantee overlap on a loaded runner. All other
+Windows tests passed, including the new process contracts. The concurrency test
+now uses a three-party barrier with a bounded wait, preserving the actual overlap
+assertion. Local follow-up: **18 passed**, 1.14s. Latest-head CI remains pending.
