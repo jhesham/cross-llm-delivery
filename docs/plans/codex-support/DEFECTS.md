@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; R02 process interruption/timeout follow-up remains in T08. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; R07/R09/R10/R12/R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; R07/R09/R12/R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [ ] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Build wheel and import `load_providers` outside checkout/editable paths. Current wheel lacks `.md` and raises FileNotFoundError. | T17 |
 | [x] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
 | [ ] | R09 P2: automatic validation unwired | `skill/scripts/run_delivery.py:723` | Unknown explicit/default/tag/escalated model must enter validation or return an explicit blocked policy outcome before real slice dispatch. | T09 |
-| [ ] | R10 P2: no executor timeout | All provider default runners; Cursor `_timeout` unused | Sleeping child and grandchild must terminate within deadline; preserve partial files and log timeout distinctly. | T08 |
+| [x] | R10 P2: no executor timeout | `engine/cld/process.py`, provider default runners | Sleeping child and grandchild terminate within deadline; partial files and both streams survive; cleanup failure aborts without candidate inspection. [Evidence](T08-EVIDENCE.md). | T08 |
 | [x] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
 | [ ] | R12 P2: retries/cost missing from usage | `engine/cld/orchestrator.py:183`, `engine/cld/usage.py:77` | Two attempts plus escalation and validation: cumulative totals survive resume, retain model attribution, cost unknown stays unknown. | T10 |
 | [ ] | R13 P2: release ignores failed native commands | `sync-public.ps1:100`, `release.ps1:73` | Fake Git push/tag/commit and gh failure stop later actions; CI result must match intended SHA/workflow. No remote needed. | T18 |

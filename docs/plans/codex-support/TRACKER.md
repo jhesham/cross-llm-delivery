@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T07, M1 and M2 complete; **T08 in progress: implementation and focused Windows checks passed; full-suite and CI verification pending**. Updated: 2026-09-17.
+Status: T01 through T08, M1 and M2 complete; paused pending explicit token-availability confirmation for **T09**. Updated: 2026-09-17.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -15,7 +15,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 - [x] T05 — Build identity and ledger migration
 - [x] T06 — Dependency and integration lifecycle
 - [x] T07 — Validated plans and gate protocol
-- [ ] T08 — Bounded subprocess execution
+- [x] T08 — Bounded subprocess execution
 - [ ] T09 — Model validation and preflight
 - [ ] T10 — Usage and admission budgets
 - [ ] T11 — Host-neutral CLI interface
@@ -40,7 +40,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T05 — build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration) | T04 | 12–18k | Complete: [evidence](T05-EVIDENCE.md); 532 distinct tests verified across full run/follow-up, 2 T06 xfails; closing commit subject starts `fix: T05` |
 | [T06 — dependency and integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle) | T05 | 10–16k | Complete: [evidence](T06-EVIDENCE.md); 556 distinct passing tests, no xfails; closing subject starts `fix: T06` |
 | [T07 — validated plans and gate protocol](02-STATE-ORCHESTRATION.md#t07--validated-plans-and-gate-protocol) | T06 | 10–16k | Complete: [evidence](T07-EVIDENCE.md); 609 distinct passing tests across full run/follow-ups; closing subject starts `fix: T07` |
-| [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | In progress: [contract](T08-CONTRACT.md), [evidence](T08-EVIDENCE.md); focused Windows checks pass |
+| [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | Complete: [evidence](T08-EVIDENCE.md); Windows CI 645 passed, Ubuntu 642 passed/3 Windows-only skips; code/test head `53cc2c0` |
 | [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Not started |
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Not started |
 | [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Not started |
