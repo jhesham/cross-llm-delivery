@@ -6,14 +6,18 @@ Outcome: external work is bounded, failures are diagnosable, and usage survives 
 
 Dependencies: T04. Estimate: 8–14k. Files: all three provider default runners, `executors/base.py`, `orchestrator.py`; proposed `engine/cld/process.py` and local process fixtures.
 
-- [ ] Define a common process result and lifecycle supporting argv, cwd, environment additions, prompt stdin, deadline, cancellation, separate stdout/stderr artifacts, and exit/error classification.
-- [ ] Apply configurable dispatch deadlines to all providers and remove Cursor's unused timeout behavior. Set deadlines for model-listing/preflight commands too.
-- [ ] Terminate spawned process trees on timeout/cancellation on supported platforms, wait for termination, then inspect/preserve edits before cleanup. Test Windows and POSIX implementations separately.
-- [ ] Classify missing binary, access denial, authentication failure when observable, timeout, malformed output, and nonzero dispatch distinctly. Keep bounded error feedback plus full-log paths.
-- [ ] Keep provider argv/encoding/shim fixes intact. Do not log secrets or silently change approval/sandbox policy. Preserve raw failure output from both streams.
-- [ ] Test a sleeper, child-spawning sleeper, nonzero exit after file writes, long prompt, invalid UTF-8, cancellation, and cleanup after partial output. These tests use no external service.
+- [x] Define a common process result and lifecycle supporting argv, cwd, environment additions, prompt stdin, deadline, cancellation, separate stdout/stderr artifacts, and exit/error classification.
+- [x] Apply configurable dispatch deadlines to all providers and remove Cursor's unused timeout behavior. Set deadlines for model-listing/preflight commands too.
+- [x] Terminate spawned process trees on timeout/cancellation on supported platforms, wait for termination, then inspect/preserve edits before cleanup. Test Windows and POSIX implementations separately.
+- [x] Classify missing binary, access denial, authentication failure when observable, timeout, malformed output, and nonzero dispatch distinctly. Keep bounded error feedback plus full-log paths.
+- [x] Keep provider argv/encoding/shim fixes intact. Do not log secrets or silently change approval/sandbox policy. Preserve raw failure output from both streams.
+- [x] Test a sleeper, child-spawning sleeper, nonzero exit after file writes, long prompt, invalid UTF-8, cancellation, and cleanup after partial output. These tests use no external service.
 
 **Gate:** R10 passes; deadline and cancellation terminate the test child tree, and R02 remains closed. Provider contract suites pass with existing fixtures.
+
+**Complete 2026-09-17:** [contract](T08-CONTRACT.md), [evidence](T08-EVIDENCE.md).
+Final CI on `53cc2c0`: Windows 645 passed; Ubuntu 642 passed, three Windows-only
+skips. Both platforms pass generator smoke checks. No live provider calls.
 
 ## T09 — Model validation and preflight
 
