@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T08, M1 and M2 complete; **T09 in progress**, authorized 2026-09-18. Implementation and focused checks underway.
+Status: T01 through T09, M1 and M2 complete. **Paused before T10** pending token-availability confirmation.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -16,7 +16,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 - [x] T06 — Dependency and integration lifecycle
 - [x] T07 — Validated plans and gate protocol
 - [x] T08 — Bounded subprocess execution
-- [ ] T09 — Model validation and preflight
+- [x] T09 — Model validation and preflight
 - [ ] T10 — Usage and admission budgets
 - [ ] T11 — Host-neutral CLI interface
 - [ ] T12 — Host-aware skill generation
@@ -41,7 +41,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T06 — dependency and integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle) | T05 | 10–16k | Complete: [evidence](T06-EVIDENCE.md); 556 distinct passing tests, no xfails; closing subject starts `fix: T06` |
 | [T07 — validated plans and gate protocol](02-STATE-ORCHESTRATION.md#t07--validated-plans-and-gate-protocol) | T06 | 10–16k | Complete: [evidence](T07-EVIDENCE.md); 609 distinct passing tests across full run/follow-ups; closing subject starts `fix: T07` |
 | [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | Complete: [evidence](T08-EVIDENCE.md); Windows CI 645 passed, Ubuntu 642 passed/3 Windows-only skips; code/test head `53cc2c0` |
-| [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | In progress: unified admission, isolated candidate validation, atomic evidence; offline checks underway |
+| [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Complete: [evidence](T09-EVIDENCE.md); Windows CI 685 passed, Ubuntu 682 passed/3 Windows-only skips; code/test head `3caf863` |
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Not started |
 | [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Not started |
 | [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | Not started |
@@ -89,3 +89,5 @@ Next task:
 - 2026-09-15 — T06 complete: verified dependency bases, build-owned integration worktrees/refs, explicit frozen suite, failure/interruption preservation, idempotent retry, manual verification and whole-plan integration. Full suite: 555 passed, 1 live eval deselected; follow-up: 3 passed, 556 distinct tests verified. Both R05 xfails removed. No sub-agents/provider calls; lead usage unavailable. Commit/push then pause for T07.
 
 - 2026-09-17 — T07/M2 complete: validated plans, structured RC-authoritative test results, verified repair, consistent gates and recorded status. Full offline run: 603 passed, three outdated test expectations corrected; final follow-up: 52 passed, selector follow-up: 68 passed. 609 distinct tests verified, no xfails, one live evaluation excluded. R06/R11/A01/A02 closed. No sub-agents/live model calls; lead usage unavailable. Commit/push then pause for T08.
+
+- 2026-09-18 — T09 complete: unified model/context admission, recorded validation spend policy, trusted isolated probes, synchronized atomic evidence and all-selected-provider preflight. R09/A07 closed. Final CI: Windows 685 passed; Ubuntu 682 passed/3 Windows-only skips; both generator smoke checks pass. Local full run plus follow-up covers 685 distinct tests. No sub-agents/live calls; executor usage zero, lead counters unavailable. Code/test head `3caf863`; closing docs subject starts `docs: close T09`. Pause before T10.
