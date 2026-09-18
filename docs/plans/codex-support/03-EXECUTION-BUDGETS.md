@@ -23,15 +23,19 @@ skips. Both platforms pass generator smoke checks. No live provider calls.
 
 Dependencies: T07/T08. Estimate: 8–14k. Files: `validate.py`, `evidence.py`, `models.py`, `providers_api.py`, CLI, provider/preflight tests.
 
-- [ ] Apply a single resolution/validation policy to build defaults, slice tags, explicit unknown IDs, and escalation rungs. Cache results per resolved model/context during a run.
-- [ ] Respect durable failed/verified evidence, explicit revalidation, CLI/model/config changes, and configured evidence expiry. Ensure forced revalidation actually bypasses every cached/static short circuit.
-- [ ] Define noninteractive behavior: unknown or potentially billed validation needs a recorded spend policy; absence yields a structured blocked result instead of stdin prompts or automatic premium fallback.
-- [ ] Run validation through the same trusted candidate/judge/process contracts, in a fresh isolated repository per probe. Count validation usage, and distinguish executor/auth failure from model capability failure.
-- [ ] Make evidence writes atomic and synchronized so concurrent validations retain all records; distinguish unreadable/corrupt evidence from a clean cache miss in diagnostics.
-- [ ] Preflight every selected provider, not just the build default. Check writable worktree/artifact location and surface restricted-workspace limitations before dispatch.
-- [ ] Verify default/tag/escalation/unknown/known-bad/forced-validation behavior with fake dispatches. Assert no model is called when policy, CLI, or filesystem preflight blocks it.
+- [x] Apply a single resolution/validation policy to build defaults, slice tags, explicit unknown IDs, and escalation rungs. Cache results per resolved model/context during a run.
+- [x] Respect durable failed/verified evidence, explicit revalidation, CLI/model/config changes, and configured evidence expiry. Ensure forced revalidation actually bypasses every cached/static short circuit.
+- [x] Define noninteractive behavior: unknown or potentially billed validation needs a recorded spend policy; absence yields a structured blocked result instead of stdin prompts or automatic premium fallback.
+- [x] Run validation through the same trusted candidate/judge/process contracts, in a fresh isolated repository per probe. Count validation usage, and distinguish executor/auth failure from model capability failure.
+- [x] Make evidence writes atomic and synchronized so concurrent validations retain all records; distinguish unreadable/corrupt evidence from a clean cache miss in diagnostics.
+- [x] Preflight every selected provider, not just the build default. Check writable worktree/artifact location and surface restricted-workspace limitations before dispatch.
+- [x] Verify default/tag/escalation/unknown/known-bad/forced-validation behavior with fake dispatches. Assert no model is called when policy, CLI, or filesystem preflight blocks it.
 
 **Gate:** R09/A07 close. A fresh unknown model cannot go straight to a production slice. Validation, retries, and blocked reasons are observable without interactive prompting.
+
+**Complete 2026-09-18:** [contract](T09-CONTRACT.md), [evidence](T09-EVIDENCE.md).
+Final CI on `3caf863`: Windows 685 passed; Ubuntu 682 passed, three Windows-only
+skips. Both generator smoke checks pass. R09 and defect A07 closed. No live calls.
 
 ## T10 — Usage and admission budgets
 
