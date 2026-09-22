@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T10 and M1–M3 complete. **Paused before T11** pending token-availability confirmation.
+Status: T01 through T10 and M1–M3 complete. **T11 in progress**, authorized 2026-09-23 for Kimi K3/OpenCode dogfooding.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
