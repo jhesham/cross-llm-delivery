@@ -141,7 +141,7 @@ class Accounting:
                 entry.cost = totals["cost"]
         try:
             self.ledger.save()
-        except (OSError, StateError) as exc:
+        except (OSError, StateError, ValueError, TypeError) as exc:
             self.broken = str(exc)
             raise
 
@@ -215,7 +215,7 @@ class Accounting:
             def run(self, task, workdir, feedback=None):
                 try:
                     ident = owner.reserve(model=model, slice_id=task.id, kind=kind, identity=identity)
-                except (OSError, StateError) as exc:
+                except (OSError, StateError, ValueError, TypeError) as exc:
                     owner.broken = str(exc)
                     raise AdmissionBlocked("Usage reservation failed; resume to reconcile") from exc
                 try:
@@ -226,11 +226,17 @@ class Accounting:
                         accepts = False
                     result = executor.run(task, workdir, feedback=feedback) if accepts else executor.run(task, workdir)
                 except BaseException as exc:
-                    owner.finish(ident, error=type(exc).__name__)
+                    try:
+                        owner.finish(ident, error=type(exc).__name__)
+                    except Exception as persistence_error:
+                        owner.broken = str(persistence_error)
+                        if isinstance(exc, Exception):
+                            raise AdmissionBlocked("Usage persistence failed after executor error; resume to reconcile") from persistence_error
+                        exc.add_note("Usage completion could not be saved; reservation retained")
                     raise
                 try:
                     owner.finish(ident, result)
-                except (OSError, StateError) as exc:
+                except (OSError, StateError, ValueError, TypeError) as exc:
                     owner.broken = str(exc)
                     raise AdmissionBlocked("Usage completion persistence failed; resume to reconcile") from exc
                 return result

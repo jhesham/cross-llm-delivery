@@ -200,6 +200,9 @@ def render_accounting_status(ledger):
     gate = "blocked" if summary.get("blocked") else ("needs_repair" if counts["needs_repair"] or ledger.build.get("integration_failure") else
         "failed" if counts["failed"] else "integration_required" if counts["done"] else
         "passed" if counts["integrated"] == len(ledger.entries) and ledger.build.get("integration_proof") else "pending")
+    operation = ledger.build.get("last_operation", {})
+    if operation.get("gate_code") == 5:
+        gate = "blocked"
     lines = [f"cld status - run {ledger.build['run_id']}",
         f"attempts: {summary['attempts']}  in-flight reservations: {summary['in_flight']}",
         f"tokens: {usage_value(summary, 'total')}  cost USD: {usage_value(summary, 'cost')}",
@@ -214,5 +217,7 @@ def render_accounting_status(ledger):
     lines += ["gate: " + gate, "RECORDED STATE: " + ", ".join(f"{k}={v}" for k,v in sorted(counts.items()))]
     if summary.get("blocked"):
         lines.append("budget blocked: " + summary["blocked"])
+    elif gate == "blocked" and operation.get("reason"):
+        lines.append("blocked: " + operation["reason"])
     lines.append("Reservations are admission allowances, not provider hard caps; interrupted usage remains unknown.")
     return "\n".join(lines)
