@@ -41,12 +41,18 @@ skips. Both generator smoke checks pass. R09 and defect A07 closed. No live call
 
 Dependencies: T05/T08/T09. Estimate: 8–12k. Files: `orchestrator.py`, `ledger.py`, `telemetry.py`, `usage.py`, `status.py`, provider usage parsers, budget tests.
 
-- [ ] Store per-attempt usage, model/provider/effort, retry/escalation reason, CLI version, validation usage, and cost provenance. Accumulate across all attempts and resumed invocations.
-- [ ] Define normalized input/output/cached/total semantics; retain raw provider usage and distinguish derived totals. Do not double-count caches or sum overlapping categories.
-- [ ] Populate rendered costs from persisted data. Unknown usage/cost stays unknown; implement Antigravity parsing only if a real documented/recorded source exists, otherwise correct its claims.
-- [ ] Add explicit attempt and cumulative token/cost admission policies. Reserve available budget under the build lock before concurrent dispatch; include validation and escalation. Use unknown-cost policy rather than treating null as zero.
-- [ ] Stop admitting new work at the limit and report any already-in-flight allowance/overrun. Support status output explaining why budget blocked the next action. Do not promise a provider-level token kill switch where none exists.
-- [ ] Bound status reads using per-run indexing/snapshots or a measured incremental reader, and reconcile snapshots after crash. Close/flush telemetry sinks cleanly and preserve complete artifacts.
-- [ ] Test two failures then success, mixed-model escalation, interrupted/resumed attempt, concurrent admission at threshold, unknown costs, and exact agreement between ledger and status aggregates.
+- [x] Store per-attempt usage, model/provider/effort, retry/escalation reason, CLI version, validation usage, and cost provenance. Accumulate across all attempts and resumed invocations.
+- [x] Define normalized input/output/cached/total semantics; retain raw provider usage and distinguish derived totals. Do not double-count caches or sum overlapping categories.
+- [x] Populate rendered costs from persisted data. Unknown usage/cost stays unknown; implement Antigravity parsing only if a real documented/recorded source exists, otherwise correct its claims.
+- [x] Add explicit attempt and cumulative token/cost admission policies. Reserve available budget under the build lock before concurrent dispatch; include validation and escalation. Use unknown-cost policy rather than treating null as zero.
+- [x] Stop admitting new work at the limit and report any already-in-flight allowance/overrun. Support status output explaining why budget blocked the next action. Do not promise a provider-level token kill switch where none exists.
+- [x] Bound status reads using per-run indexing/snapshots or a measured incremental reader, and reconcile snapshots after crash. Close/flush telemetry sinks cleanly and preserve complete artifacts.
+- [x] Test two failures then success, mixed-model escalation, interrupted/resumed attempt, concurrent admission at threshold, unknown costs, and exact agreement between ledger and status aggregates.
 
 **Gate:** R12/A06 close, A09 remains covered, and M3 passes its full offline suite. Record measured versus estimated usage separately in the task evidence. Decide initial canary budgets based on selected provider/account rather than fixed stale price assumptions.
+
+**Complete 2026-09-23; M3 closed:** [contract](T10-CONTRACT.md), [evidence](T10-EVIDENCE.md).
+Final CI on `8f3c5db`: Windows 709 passed; Ubuntu 706 passed, three Windows-only skips.
+Both generator smoke checks passed. R12/A06 closed; A09 recovery remains covered. No live calls.
+Canary allowances remain contingent on verifying the selected model/account; no stale prices or
+unverified live-spend allowance are introduced by this offline gate.
