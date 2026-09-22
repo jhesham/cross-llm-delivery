@@ -25,7 +25,7 @@ def invoke(request):
         try:
             response = json.loads(proc.stdout)
         except ValueError:
-            pytest.fail(f"Expected one JSON object, rc={proc.returncode}, stdout={proc.stdout[:1000]!r}, stderr={proc.stderr[:1000]!r}")
+            assert False, f"Expected one JSON object; rc={proc.returncode}; stderr={proc.stderr[:200]!r}"
         assert response["schema_version"] == 1
         for field in ("command", "gate", "gate_code", "next_action", "run_id", "repository", "ledger", "artifacts", "usage", "budget", "accepted_refs", "errors"):
             assert field in response, field
