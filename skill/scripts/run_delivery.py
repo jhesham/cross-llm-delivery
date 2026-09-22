@@ -151,9 +151,11 @@ def _dispatch_needed(slices, ledger):
     return any(not ledger.is_done(s.id) and (ledger.get(s.id) is None or ledger.get(s.id).status != "needs_repair") for s in slices)
 
 
-def _record_operation(args, ledger, operation, code):
+def _record_operation(args, ledger, operation, code, reason=None):
     from cld import telemetry
     labels = {0: "pending", 2: "failed", 3: "passed", 4: "needs_repair", 5: "blocked", 6: "integration_required"}
+    ledger.build["last_operation"] = dict(operation=operation, gate_code=code, reason=reason)
+    ledger.save()
     try:
         _install_telemetry(args.repo, ledger, args.plan, args.executor or _default_spec())
         telemetry.emit("operation_done", operation=operation, gate=labels[code], gate_code=code)
@@ -904,11 +906,14 @@ def _main(argv=None) -> int:
                 except OSError:
                     pass  # A denied artifact root must still return a structured block.
                 print(json.dumps(blocked))
-                _record_operation(args, ledger, "validation", 5)
+                _record_operation(args, ledger, "validation", 5, reason=blocked["reason"])
                 return 5
         from cld import telemetry
         try:
-            return _execute(args, slices, ledger)
+            code = _execute(args, slices, ledger)
+            ledger.build["last_operation"] = dict(operation="delivery", gate_code=code)
+            ledger.save()
+            return code
         finally:
             telemetry.set_sink(None)
             telemetry.set_run_id(None)
