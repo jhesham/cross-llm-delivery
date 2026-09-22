@@ -54,6 +54,7 @@ class LedgerEntry:
 class Ledger:
     def __init__(self, path: str):
         self.path = str(Path(path).resolve())
+        self.mutation_lock = threading.RLock()
         self._entries: dict[str, LedgerEntry] = {}
         self.build = None
         self.legacy = False
@@ -213,6 +214,11 @@ class Ledger:
         if actual != self._expected:
             raise StateError(f"Ledger changed since load; reload {self.path}")
         build = {**self.build, "updated_at": now()} if self.build is not None else None
+        for sid, totals in (build or {}).get("usage", {}).get("by_slice", {}).items():
+            entry = self.get(sid)
+            if entry is not None:
+                entry.token_usage = {k: totals[k] for k in ("input", "output", "cache_read", "cache_write", "total")}
+                entry.cost, entry.attempts = totals["cost"], totals["attempts"]
         entries = {sid: {k: v for k, v in asdict(entry).items() if k != "slice_id"}
                    for sid, entry in self.entries.items()}
         raw = json.dumps(dict(schema_version=SCHEMA_VERSION, build=build, entries=entries),

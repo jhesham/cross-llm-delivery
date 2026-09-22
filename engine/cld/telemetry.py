@@ -96,7 +96,10 @@ class MultiSink(Sink):
         for sink in self._sinks:
             close = getattr(sink, "close", None)
             if close is not None:
-                close()
+                try:
+                    close()
+                except Exception:
+                    pass
 
 
 class OtelSink(Sink):
@@ -113,9 +116,21 @@ class OtelSink(Sink):
     no-op: telemetry stays best-effort and must never break the build.
     """
 
-    def __init__(self, tracer=None) -> None:
+    def __init__(self, tracer=None, close_fn=None) -> None:
         self._tracer = tracer
+        self._close_fn = close_fn
         self._spans: dict = {}  # slice_id -> open span
+
+    def close(self):
+        for span in list(self._spans.values()):
+            try:
+                span.end()
+            except Exception:
+                pass
+        self._spans.clear()
+        close, self._close_fn = self._close_fn, None
+        if close is not None:
+            close()
 
     def emit(self, record) -> None:
         if self._tracer is None:
@@ -149,9 +164,9 @@ class OtelSink(Sink):
                 return
             tokens = record.get("tokens") or {}
             attrs = {
-                "gen_ai.usage.input_tokens": tokens.get("input", 0),
-                "gen_ai.usage.output_tokens": tokens.get("output", 0),
-                "gen_ai.usage.total_tokens": tokens.get("total", 0),
+                "gen_ai.usage.input_tokens": tokens.get("input"),
+                "gen_ai.usage.output_tokens": tokens.get("output"),
+                "gen_ai.usage.total_tokens": tokens.get("total"),
                 "cld.rc": record.get("rc"),
                 "cld.ms": record.get("ms"),
             }
@@ -168,7 +183,10 @@ def set_sink(sink) -> None:
     if previous is not None and previous is not sink:
         close = getattr(previous, "close", None)
         if close is not None:
-            close()
+            try:
+                close()
+            except Exception:
+                pass
 
 
 def get_sink():

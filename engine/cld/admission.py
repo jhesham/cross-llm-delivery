@@ -44,7 +44,7 @@ def validation_context(spec, *, cli_paths, config_paths=(), extra="", repo=""):
     data = dict(contract=1, spec=spec, cli=[file_identity(p) for p in cli_paths],
         config=[file_identity(p) for p in config_paths], extra=extra,
         repo=str(Path(repo).resolve()), environment=sorted(os.environ.items()))
-    return {"contract": 1, "fingerprint": hashlib.sha256(
+    return {"contract": 1, "cli_fingerprint": hashlib.sha256(json.dumps(data["cli"], sort_keys=True).encode("utf-8")).hexdigest(), "fingerprint": hashlib.sha256(
         json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()}
 
 

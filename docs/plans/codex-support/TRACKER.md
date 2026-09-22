@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T09, M1 and M2 complete. **Paused before T10** pending token-availability confirmation.
+Status: T01 through T09, M1 and M2 complete. **T10 in progress**, authorized 2026-09-22; implementation and offline verification underway.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
