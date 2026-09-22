@@ -254,6 +254,9 @@ def test_real_cli_admits_before_production_and_returns_blocked_gate(cli_setup, m
     if not allow:
         records = list(Path(repo, ".cld").rglob("validation-blocked.json"))
         assert json.loads(records[0].read_text())["gate_code"] == 5
+        from cld.ledger import Ledger
+        status = rd._render_build_status(repo, Ledger.load(str(Path(repo) / ".cld-ledger.json")))
+        assert "gate: blocked" in status and "Validation requires" in status
 
 
 @pytest.mark.parametrize("status", [[], {}, None, 1])

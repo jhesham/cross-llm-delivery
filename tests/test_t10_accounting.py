@@ -202,3 +202,16 @@ def test_otel_close_flushes_owned_provider_once():
     sink = OtelSink(close_fn=lambda: closed.append(True))
     sink.close(); sink.close()
     assert closed == [True]
+
+
+def test_malformed_raw_usage_blocks_without_releasing_reservation(bound):
+    ledger, task = bound
+    account = Accounting(ledger)
+    class Bad:
+        def run(self, *args, **kwargs):
+            return ExecutorResult(True, "", token_usage={"total": float("nan")})
+    with pytest.raises(AdmissionBlocked, match="persistence"):
+        account.wrap(Bad(), "cursor:m").run(task, ".")
+    assert next(iter(account.records.values()))["state"] == "reserved"
+    with pytest.raises(AdmissionBlocked, match="persistence"):
+        account.reserve(model="cursor:m", slice_id=task.id, kind="production", identity=None)
