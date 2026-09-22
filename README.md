@@ -73,17 +73,17 @@ GATE: 1 passed, 0 failed, 0 need repair.
 NEXT: layer 2 -> [S2]
 ```
 
-At any point, `--status` reconstructs live build state from the telemetry stream — including
-**which model ran which slice, why, and what it cost** (flat-rate rows show $0.00; the metered
-detour is attributed exactly):
+For builds using the current source CLI, `--status` reads the persisted usage summary and
+shows model totals, active reservations and budget blocks without scanning the full event log.
+Attempt artifacts retain slice attribution and retry reasons. Unknown cost stays unknown,
+including subscription usage without a reported charge. For example, the summary lines may show:
 
-```
-cld status - run cc695749  (CLD_PLAN.md)
-layer 2/6  done: 1  pending: 0  running: 0  tokens: 1271830  cost: $0.24
+```text
+attempts: 3  in-flight reservations: 0
+tokens: 30  cost USD: unknown (0.24 known; 1 unknown attempts)
 by model:
-  cursor:composer-2.5  slices: T5,T2,T8,T3,T4,T10,T15,T17,T11,T9,T7,T6  tokens: 678694  cost: $0.00  source: default
-  opencode:opencode/deepseek-v4-pro  slices: T15  tokens: 593136  cost: $0.24  source: default
-gate: --
+  cursor:composer-2.5  tokens: 10  cost USD: unknown (0 known; 1 unknown attempts)
+  opencode:opencode/deepseek-v4-pro  tokens: 20  cost USD: 0.24
 ```
 
 ## The design stance

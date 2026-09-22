@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; R07/R12/R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; R07/R13 remain open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | R09 P2: automatic validation unwired | `skill/scripts/run_delivery.py:723` | Unknown explicit/default/tag/escalated model must enter validation or return an explicit blocked policy outcome before real slice dispatch. | T09 |
 | [x] | R10 P2: no executor timeout | `engine/cld/process.py`, provider default runners | Sleeping child and grandchild terminate within deadline; partial files and both streams survive; cleanup failure aborts without candidate inspection. [Evidence](T08-EVIDENCE.md). | T08 |
 | [x] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
-| [ ] | R12 P2: retries/cost missing from usage | `engine/cld/orchestrator.py:183`, `engine/cld/usage.py:77` | Two attempts plus escalation and validation: cumulative totals survive resume, retain model attribution, cost unknown stays unknown. | T10 |
+| [x] | R12 P2: retries/cost missing from usage | `engine/cld/orchestrator.py:183`, `engine/cld/usage.py:77` | Two attempts plus escalation and validation: cumulative totals survive resume, retain model attribution, cost unknown stays unknown. | T10 |
 | [ ] | R13 P2: release ignores failed native commands | `sync-public.ps1:100`, `release.ps1:73` | Fake Git push/tag/commit and gh failure stop later actions; CI result must match intended SHA/workflow. No remote needed. | T18 |
 
 **Additional findings included in this initiative**
@@ -27,7 +27,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
 | [x] | A04: test harness duplicates old capture | Harness, concurrent and step-through executors now reuse production capture; real file/Git-tree assertions retained. [T01 evidence](T01-EVIDENCE.md). | T01 complete; T02 maintains coverage |
 | [ ] | A05: platform claims exceed CI evidence | Publish explicit host/provider/OS coverage; add intended CI coverage or narrow claims. | T17, T19, T20 |
-| [ ] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
+| [x] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
 | [x] | A07: evidence store concurrent writes | Atomic replace plus synchronization; distinct records survive concurrent validation; corruption surfaced. | T09 |
 | [ ] | A08: skill frontmatter/install contradictions | Put frontmatter first; generated bundles must not require editable install or a source-relative driver path. | T12, T13 |
 | [x] | A09: trace overwritten between runs | T05 preserves per-run artifacts/current pointer and history. Bounded status indexing remains a T10 follow-up. | T05 complete; T10 follow-up |
@@ -58,3 +58,5 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T07/M2 closing evidence (2026-09-17):** [T07-EVIDENCE.md](T07-EVIDENCE.md) and [contract](T07-CONTRACT.md) close R06/R11/A01/A02. Full run: 603 passed; three outdated test expectations were corrected and verified in the 52-pass final follow-up. Selector follow-up: 68 passed. 609 distinct passing tests verified overall; no xfails, one live evaluation excluded. Generated host copies and versioned JSON remain T11/T12/T17 work. Closing subject starts `fix: T07`.
 
 **T09 closing evidence (2026-09-18):** [T09-EVIDENCE.md](T09-EVIDENCE.md) and [contract](T09-CONTRACT.md) close R09 and evidence-store concurrency A07. Defaults/tags/unknown IDs/escalation cannot bypass admission; failed/forced/expired/context-changed evidence, noninteractive policy blocks and concurrent atomic writes have offline regressions. Windows CI 685 passed; Ubuntu 682 passed/3 Windows-only skips. Code/test head `3caf863`. Architecture decision A07 (full CLI JSON) remains T11 work.
+
+**T10/M3 closing evidence (2026-09-23):** [T10-EVIDENCE.md](T10-EVIDENCE.md) and [contract](T10-CONTRACT.md) close R12/A06. Per-attempt journals retain failed/retried/escalated/validation usage and cost provenance; shared reservations prevent concurrent budget oversubscription. Interrupted unknown usage is not free. Ledger/status totals agree. Antigravity usage is explicitly unavailable; no unsupported parser or zero-cost claim. Final CI: Windows 709 passed; Ubuntu 706 passed/3 Windows-only skips; both generator smoke checks passed. Code/test head `8f3c5db`. A09 artifact/recovery preservation remains covered.
