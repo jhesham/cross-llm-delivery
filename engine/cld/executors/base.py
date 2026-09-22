@@ -22,6 +22,7 @@ class ExecutorResult:
     token_usage: dict[str, int] = field(default_factory=dict)
     raw_log: str = ""
     process: dict = field(default_factory=dict)
+    usage_raw: object = field(default_factory=dict)
 
 @runtime_checkable
 class Executor(Protocol):

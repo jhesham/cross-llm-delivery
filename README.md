@@ -128,6 +128,22 @@ real build and the rail caught it:
 - **Escalation is bounded and visible.** A failing slice retries with judge feedback, then
   climbs the model ladder; every switch is a telemetry event with its reason (`source`).
 
+## Usage and admission budgets
+
+The source CLI records every validation, retry and escalation attempt. `--status` and `--usage`
+show cumulative persisted totals; missing tokens or cost remain **unknown**, including Antigravity
+usage for which no verified report is available. No subscription is assumed to cost zero.
+
+Set `--budget-attempts N`, `--budget-tokens N` and/or `--budget-cost USD` to limit new dispatches.
+Token/cost limits require positive `--attempt-tokens N` / `--attempt-cost USD` reservations chosen
+for your model/account. These reserve capacity before concurrent calls; they do not stop an
+already-running provider at a token or dollar boundary. Actual overruns block subsequent calls.
+`--unknown-usage deny` blocks further budgeted work after an unmeasured call; explicit `reserve`
+charges its recorded allowance while keeping displayed usage unknown. Omitted flags retain the
+build's prior policy on resume. Validation uses the same budget as production and still needs its
+separate validation spend policy. See the [usage contract](docs/plans/codex-support/T10-CONTRACT.md)
+for recovery, historical-data limits and normalization semantics.
+
 ## Providers & models
 
 Three executor providers ship today. Each carries a vendored catalog with a **cost class** and a
@@ -146,7 +162,7 @@ a spend policy. Evidence expires after 30 days (`--validation-max-age` sets seco
 model/effort, CLI files, repository, environment, or tracked config invalidate it. Use repeatable
 `--validation-config PATH` and `--validation-context ID` for other configuration/account inputs.
 Probe repositories, recovery artifacts, usage and admission decisions are retained under the
-build run directory. Cumulative token/cost admission limits follow in T10. Generated plugin
+build run directory. Cumulative admission limits are available in the source CLI (see below). Generated plugin
 copies receive these source changes in T12/T17.
 
 | Provider | Cost model | Catalog highlights | Proven in real builds¹ |
