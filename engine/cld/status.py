@@ -72,6 +72,7 @@ def render_status(
     # model -> {"slice_ids": [...], "tokens": int, "source": str}
     by_model: dict[str, dict[str, Any]] = {}
     total_tokens = 0
+    unknown_tokens = unknown_cost = 0
     gate: "str | None" = None
 
     for ev in events:
@@ -105,21 +106,19 @@ def render_status(
                 if src:
                     entry["source"] = src
         elif etype == "dispatch_end":
-            tok = ev.get("tokens") or {}
-            try:
-                t = int(tok.get("total", 0) or 0)
-            except (TypeError, ValueError):
-                t = 0
-            total_tokens += t
+            from cld.accounting import normalize
+            tok = normalize({**(ev.get("tokens") or {}), "cost": ev.get("cost")})
+            t = tok["total"]
+            total_tokens += t or 0
+            unknown_tokens += t is None
+            unknown_cost += tok["cost"] is None
             model = ev.get("model", "") or ""
             if model:
-                bm = by_model.setdefault(
-                    model, {"slice_ids": [], "tokens": 0, "source": "", "cost": 0.0}
-                )
-                bm["tokens"] += t
-                c = ev.get("cost")
-                if isinstance(c, (int, float)) and not isinstance(c, bool):
-                    bm["cost"] = bm.get("cost", 0.0) + c
+                bm = by_model.setdefault(model, {"slice_ids": [], "tokens": 0, "source": "", "cost": 0.0})
+                bm["tokens"] += t or 0
+                bm["tokens_unknown"] = bm.get("tokens_unknown", 0) + (t is None)
+                bm["cost_unknown"] = bm.get("cost_unknown", 0) + (tok["cost"] is None)
+                bm["cost"] = bm.get("cost", 0) + (tok["cost"] or 0)
         elif etype == "slice_done":
             sid = ev.get("slice_id")
             if sid is not None:
@@ -145,6 +144,8 @@ def render_status(
 
     total_cost = sum(float(i.get("cost", 0) or 0) for i in by_model.values())
 
+    token_text = str(total_tokens) if not unknown_tokens else f"unknown ({total_tokens} known)"
+    cost_text = f"${total_cost:.2f}" if not unknown_cost else f"unknown (${total_cost:.2f} known)"
     lines: list[str] = []
     head = f"cld status - run {run_id or '?'}"
     if plan:
@@ -156,12 +157,12 @@ def render_status(
         tot = layer_total if layer_total is not None else 0
         lines.append(
             f"layer {pos}/{tot}  done: {len(done)}  pending: {len(pending)}  "
-            f"running: {len(running)}  tokens: {total_tokens}  cost: ${total_cost:.2f}"
+            f"running: {len(running)}  tokens: {token_text}  cost: {cost_text}"
         )
     else:
         lines.append(
             f"done: {len(done)}  pending: {len(pending)}  "
-            f"running: {len(running)}  tokens: {total_tokens}  cost: ${total_cost:.2f}"
+            f"running: {len(running)}  tokens: {token_text}  cost: {cost_text}"
         )
 
     for sid, (model, ts) in running:
@@ -173,12 +174,45 @@ def render_status(
     if by_model:
         for model, info in by_model.items():
             slices = ",".join(info["slice_ids"]) if info["slice_ids"] else "--"
+            mt = str(info['tokens']) if not info.get('tokens_unknown') else f"unknown ({info['tokens']} known)"
+            mc = f"${float(info.get('cost', 0) or 0):.2f}" if not info.get('cost_unknown') else "unknown"
             lines.append(
-                f"  {model}  slices: {slices}  tokens: {info['tokens']}  "
-                f"cost: ${float(info.get('cost', 0) or 0):.2f}  source: {info['source'] or '--'}"
+                f"  {model}  slices: {slices}  tokens: {mt}  "
+                f"cost: {mc}  source: {info['source'] or '--'}"
             )
     else:
         lines.append("  --")
 
     lines.append(f"gate: {gate}" if gate is not None else "gate: --")
+    return "\n".join(lines)
+
+
+def usage_value(summary, key):
+    value = summary.get(key)
+    return str(value) if value is not None else f"unknown ({summary.get(key + '_known', 0)} known; {summary.get(key + '_unknown', 0)} unknown attempts)"
+
+
+def render_accounting_status(ledger):
+    """Bounded by current slices/models; no JSONL or attempt-journal scan on status reads."""
+    from collections import Counter
+    summary = ledger.build["usage"]
+    counts = Counter(e.status for e in ledger.entries.values())
+    gate = "blocked" if summary.get("blocked") else ("needs_repair" if counts["needs_repair"] or ledger.build.get("integration_failure") else
+        "failed" if counts["failed"] else "integration_required" if counts["done"] else
+        "passed" if counts["integrated"] == len(ledger.entries) and ledger.build.get("integration_proof") else "pending")
+    lines = [f"cld status - run {ledger.build['run_id']}",
+        f"attempts: {summary['attempts']}  in-flight reservations: {summary['in_flight']}",
+        f"tokens: {usage_value(summary, 'total')}  cost USD: {usage_value(summary, 'cost')}",
+        f"reserved tokens: {summary.get('total_reserved', 0)}  reserved USD: {summary.get('cost_reserved', 0)}",
+        f"observed overrun tokens: {summary.get('total_overrun')}  USD: {summary.get('cost_overrun')}",
+        f"validation attempts: {summary['validation']['attempts']}  attempt overruns: {summary.get('attempt_overruns', 0)}", "by model:"]
+    for model, totals in sorted(summary["by_model"].items()):
+        lines.append(f"  {model}  tokens: {usage_value(totals, 'total')}  cost USD: {usage_value(totals, 'cost')}")
+    current_time = datetime.datetime.now(datetime.timezone.utc)
+    for active in summary.get("active", []):
+        lines.append(f"reserved: {active['slice_id']}  model: {active['model']}  elapsed: {_elapsed_seconds(active.get('started_at'), current_time)}s  kind: {active['kind']}")
+    lines += ["gate: " + gate, "RECORDED STATE: " + ", ".join(f"{k}={v}" for k,v in sorted(counts.items()))]
+    if summary.get("blocked"):
+        lines.append("budget blocked: " + summary["blocked"])
+    lines.append("Reservations are admission allowances, not provider hard caps; interrupted usage remains unknown.")
     return "\n".join(lines)

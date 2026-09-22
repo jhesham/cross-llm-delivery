@@ -72,32 +72,40 @@ def _has_step_finish(raw: str) -> bool:
     return False
 
 
-def parse_opencode_usage(raw_json: str) -> dict[str, int]:
-    usage: dict[str, int] = {}
-    if not raw_json:
-        return usage
-    for line in raw_json.splitlines():
-        line = line.strip()
-        if not line:
-            continue
+
+def raw_usage(raw):
+    values = []
+    for line in raw.splitlines():
         try:
             data = json.loads(line)
-        except Exception:
-            continue
-        if isinstance(data, dict) and data.get("type") == "step_finish":
-            part = data.get("part")
-            if isinstance(part, dict):
-                tokens = part.get("tokens")
-                if isinstance(tokens, dict):
-                    for k, v in tokens.items():
-                        if type(v) is int:
-                            usage[k] = usage.get(k, 0) + v
-                # opencode reports a per-step dollar cost on the step_finish part;
-                # accumulate it so dispatch_end / the by-model rollup can show real $.
-                cost = part.get("cost")
-                if isinstance(cost, (int, float)) and not isinstance(cost, bool):
-                    usage["cost"] = usage.get("cost", 0) + cost
-    return usage
+            if isinstance(data, dict) and data.get("type") == "step_finish" and isinstance(data.get("part"), dict):
+                values.append({k: data["part"][k] for k in ("tokens", "cost") if k in data["part"]})
+        except (ValueError, TypeError):
+            pass
+    return values
+
+
+def parse_opencode_usage(raw_json: str) -> dict[str, int]:
+    import math
+    steps = raw_usage(raw_json or "")
+    if not steps:
+        return {}
+    rows = []
+    for step in steps:
+        tokens = step.get("tokens")
+        row = dict(tokens) if isinstance(tokens, dict) else {}
+        cache = row.pop("cache", None)
+        if isinstance(cache, dict):
+            for source, target in (("read", "cache_read"), ("write", "cache_write")):
+                if source in cache:
+                    row[target] = cache[source]
+        if "cost" in step:
+            row["cost"] = step["cost"]
+        rows.append(row)
+    # Only aggregate complete categories; a missing step is unknown, not zero.
+    keys = set.intersection(*(set(row) for row in rows))
+    return {key: sum(row[key] for row in rows) for key in keys
+            if all(type(row[key]) in (int, float) and math.isfinite(row[key]) and row[key] >= 0 for row in rows)}
 
 
 class OpenCodeExecutor:
@@ -183,6 +191,7 @@ class OpenCodeExecutor:
             diff=diff,
             files_changed=files_changed,
             token_usage=token_usage,
+            usage_raw=raw_usage(raw),
             raw_log=process_feedback(raw, process), process=process,
         )
 

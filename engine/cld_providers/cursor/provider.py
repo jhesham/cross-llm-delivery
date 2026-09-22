@@ -78,6 +78,15 @@ def _cursor_invocation() -> list[str]:
     return ["cursor-agent"]
 
 
+
+def raw_usage(raw):
+    try:
+        data = json.loads(raw)
+        return data.get("usage", {}) if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
 def parse_cursor_usage(raw_json: str) -> dict[str, int]:
     """Parse Cursor JSON usage statistics.
 
@@ -103,10 +112,10 @@ def parse_cursor_usage(raw_json: str) -> dict[str, int]:
 
         result = {}
         for k, v in usage_data.items():
-            if k in mapping and isinstance(v, int):
+            if k in mapping and type(v) is int and v >= 0:
                 result[mapping[k]] = v
 
-        if "input" in result or "output" in result:
+        if "input" in result and "output" in result:
             result["total"] = result.get("input", 0) + result.get("output", 0)
 
         return result
@@ -159,7 +168,8 @@ class CursorExecutor:
         token_usage = parse_cursor_usage(raw)
         diff, files_changed = capture_diff(self._runner, cwd)
         return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
-                              token_usage=token_usage, raw_log=process_feedback(raw, process), process=process)
+                              token_usage=token_usage, raw_log=process_feedback(raw, process), process=process,
+                              usage_raw=raw_usage(raw))
 
 
 # ---------------------------------------------------------------------------

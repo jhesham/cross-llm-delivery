@@ -166,6 +166,9 @@ def _record_operation(args, ledger, operation, code):
 
 def _render_build_status(repo, ledger):
     from cld.status import render_status
+    if ledger.build and ledger.build.get("usage") is not None:
+        from cld.status import render_accounting_status
+        return render_accounting_status(ledger)
     events = _read_event_stream(repo, ledger)
     if ledger.build is None:
         return render_status(events)
@@ -244,7 +247,7 @@ def _maybe_otel_sink():
         provider = TracerProvider()
         provider.add_span_processor(
             BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, headers=headers or None)))
-        return OtelSink(tracer=provider.get_tracer("cld"))
+        return OtelSink(tracer=provider.get_tracer("cld"), close_fn=provider.shutdown)
     except Exception:
         return None
 
@@ -649,7 +652,10 @@ def prepare_dispatch(args, slices, ledger):
 
     def validate(spec):
         _, provider, kwargs = resolve_spec(spec)
-        return validate_model(spec, executor=get_executor(provider, **kwargs),
+        executor = get_executor(provider, **kwargs)
+        if getattr(args, "accounting", None):
+            executor = args.accounting.wrap(executor, spec, kind="validation", identity=context_of(spec))
+        return validate_model(spec, executor=executor,
             git_runner=git_runner, base_dir=str(directory))
 
     report = directory / "admission.json"
@@ -677,7 +683,10 @@ def prepare_dispatch(args, slices, ledger):
         spec, provider, kwargs = resolve_spec(value)
         if spec not in admitted or context_of(spec) != admitted[spec]:
             raise AdmissionBlocked("Model/CLI/configuration changed after admission; rerun preflight")
-        return get_executor(provider, **kwargs)
+        executor = get_executor(provider, **kwargs)
+        if getattr(args, "accounting", None):
+            executor = args.accounting.wrap(executor, spec, identity=admitted[spec])
+        return executor
 
     return factory, lambda task: list(rungs[task.id])
 
@@ -734,6 +743,12 @@ def _main(argv=None) -> int:
     p.add_argument("--validation-max-age", type=float, default=30 * 86400, help="Maximum evidence age in seconds")
     p.add_argument("--validation-context", default="", help="Identity of external provider/account configuration not represented by local files")
     p.add_argument("--validation-config", action="append", default=[], help="Additional provider config file to fingerprint; repeatable")
+    p.add_argument("--budget-tokens", type=int, help="Cumulative dispatch token admission limit")
+    p.add_argument("--budget-cost", type=float, help="Cumulative provider-reported USD admission limit")
+    p.add_argument("--budget-attempts", type=int, help="Cumulative dispatch count limit, including probes/retries")
+    p.add_argument("--attempt-tokens", type=int, help="Token reservation per dispatch, not a provider hard cap")
+    p.add_argument("--attempt-cost", type=float, help="USD reservation per dispatch, not a provider hard cap")
+    p.add_argument("--unknown-usage", choices=("deny", "reserve"), help="Unknown completed usage under limits: block (default) or charge recorded allowance")
     p.add_argument("--workers", type=int, default=4, help="Max parallel slices")
     p.add_argument("--executor", default=None,
                    help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
@@ -864,6 +879,10 @@ def _main(argv=None) -> int:
             failure = ledger.build["integration_failure"]
             print(f"Integration repair required: {failure['error']}; evidence: {failure['evidence']}")
             return 4
+        from cld.accounting import Accounting
+        args.accounting = Accounting(ledger, dict(tokens=args.budget_tokens, cost=args.budget_cost,
+            attempts=args.budget_attempts, attempt_tokens=args.attempt_tokens,
+            attempt_cost=args.attempt_cost, unknown=args.unknown_usage))
         dispatch_needed = _dispatch_needed(slices, ledger)
         if dispatch_needed:
             if args.executor is None and sys.stdin.isatty():
@@ -921,6 +940,7 @@ def _execute(args, slices, ledger):
         result = run_plan_parallel(
             layer_slices, ledger,
             plan_slices=slices,
+            accounting=getattr(args, "accounting", None),
             executor_factory=getattr(args, "admitted_factory", None),
             default_spec=args.executor or _default_spec(),
             rung_planner=getattr(args, "admitted_planner", None),
@@ -949,6 +969,7 @@ def _execute(args, slices, ledger):
     result = run_plan_parallel(
         slices, ledger,
         plan_slices=slices,
+        accounting=getattr(args, "accounting", None),
         executor_factory=getattr(args, "admitted_factory", None),
         default_spec=args.executor or _default_spec(),
         rung_planner=getattr(args, "admitted_planner", None),
@@ -985,7 +1006,7 @@ def _execute(args, slices, ledger):
 def main(argv=None) -> int:
     try:
         return _main(argv)
-    except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError) as exc:
+    except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError, ValueError) as exc:
         print(f"State blocked: {exc}", file=sys.stderr)
         return 5
 

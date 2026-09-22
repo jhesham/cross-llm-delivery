@@ -143,7 +143,9 @@ def deliver_slice(
         # Pass judge feedback into the retry so the executor can self-correct.
         # Executors that don't accept a `feedback` kwarg (legacy) keep working.
         artifacts = {"artifact_dir": evidence.directory / f"attempt-{attempt}" / "processes"} if evidence is not None else {}
-        with process_scope(**artifacts):
+        from cld.accounting import dispatch_context
+        with process_scope(**artifacts), dispatch_context(attempt=attempt, source=source, rung=rung,
+                reason=(feedback or "initial dispatch")[:4000], artifact_dir=str(artifacts.get("artifact_dir", ""))):
             if feedback is None or not _accepts(executor.run, task, effective_workdir, feedback=feedback):
                 result = executor.run(deepcopy(task), effective_workdir)
             else:
@@ -394,6 +396,7 @@ def run_plan_parallel(
     integration_test_runner: Callable | None = None,
     rung_planner: Callable | None = None,
     simulation: bool = False,
+    accounting=None,
 ) -> PlanResult:
     """Run a plan with DAG-aware parallel fan-out.
 
@@ -438,7 +441,7 @@ def run_plan_parallel(
 
     by_id = {s.id: s for s in slices}
     deps = {s.id: [d for d in s.deps if d in by_id] for s in slices}
-    ledger_lock = threading.Lock()
+    ledger_lock = ledger.mutation_lock
     run_id = ledger.build["run_id"] if not simulation else uuid4().hex
     run_base = verified_base(ledger, git_runner) if not simulation else None
     if not simulation and len([layer for layer in parallel_batches(deps) if any(sid in by_id for sid in layer)]) > 1 and not integration_test_path:
@@ -491,6 +494,8 @@ def run_plan_parallel(
             except Exception as preservation_error:
                 detail += f"; recovery incomplete: {preservation_error}"
             detail += f"; evidence: {session.directory}"
+            if isinstance(exc, AdmissionBlocked):
+                raise AdmissionBlocked(detail) from exc
             if not isinstance(exc, Exception):
                 exc.add_note(detail)
                 raise
@@ -536,6 +541,8 @@ def run_plan_parallel(
                     worktree_root=record.get("worktree_root"), branch=record.get("branch"), intervened=bool(record.get("repair_of")))
         if rung_planner is None:
             ex, spec = _executor_for(task)
+            if accounting is not None:
+                ex = accounting.wrap(ex, spec)
             source = "tag" if task.executor else "default"
             if not simulation:
                 return _worktree_delivery(task, ex, spec, max_retries, source, "workhorse")
@@ -549,6 +556,8 @@ def run_plan_parallel(
                 emit("escalate", slice_id=task.id, from_rung=rungs[i - 1][0], to_rung=rung)
             source = "tag" if task.executor else ("escalated" if i else "default")
             ex = executor_factory(spec) if executor_factory is not None else executor
+            if accounting is not None:
+                ex = accounting.wrap(ex, spec)
             if not simulation:
                 res = _worktree_delivery(task, ex, spec, max(budget - 1, 0), source, rung)
             else:
@@ -565,6 +574,7 @@ def run_plan_parallel(
         return last
 
     def _process_owned(task: SliceTask) -> None:
+        nonlocal accounting
         # Quota gate (checked per slice so a window can fill mid-run).
         if quota_check is not None and quota_check() >= quota_threshold:
             with ledger_lock:
@@ -574,6 +584,9 @@ def run_plan_parallel(
             return
 
         with ledger_lock:
+            if not simulation and accounting is None:
+                from cld.accounting import Accounting
+                accounting = Accounting(ledger)
             ledger.set(task.id, status=IN_PROGRESS)
             ledger.save()
         emit("slice_start", slice_id=task.id)
