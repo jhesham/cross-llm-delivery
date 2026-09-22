@@ -122,7 +122,7 @@ Recovery/events/summaries now live under `.cld/runs/<run-id>` with an atomic cur
 pointer; legacy evidence remains readable and is never truncated. New runs cannot
 reuse earlier accepted journals automatically. Git worktree registry mutations are
 serialized separately to avoid partially registered worktrees being read by other
-workers. T06 implements integration transitions and T07 implements verified repair/gate semantics. T10 usage aggregation/status indexing remain pending.
+workers. T06 implements integration transitions and T07 implements verified repair/gate semantics. T10 implements per-attempt journals, cumulative ledger aggregates, locked budget reservations and bounded status reads; see [T10 contract](T10-CONTRACT.md).
 
 **A06 — Integrate in a build-owned branch.** `--step` dispatches one ready layer and produces accepted commits. `--integrate` (implemented in T06) combines those exact commits in deterministic order into a build-owned integration worktree, runs the configured integration suite, and advances the recorded integration SHA only on success. Later slices branch from that SHA. The user's checkout/branch remains untouched until an explicit final merge action. A failed gate or conflict preserves its candidate and cannot unblock dependents.
 
