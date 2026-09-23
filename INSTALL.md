@@ -147,8 +147,9 @@ python scripts/run_delivery.py <plan.md> --repo <target-repo> --step
 - **Skill folder doesn't import / "no module named cld":** confirm you copied the *generated*
   `dist/cross-llm-<provider>/` folder (it has `scripts/cld/`), NOT the repo's `skill/` folder
   (that's a deprecation stub).
- **Banner check:** `dist/cross-llm-<provider>/SKILL.md`'s first line should read
-  `GENERATED from cross-llm-delivery@<sha>` matching the source HEAD.
+- **Banner check:** the generated Claude skill contains a `GENERATED from
+  cross-llm-delivery@<sha>` comment matching the source HEAD. Codex skills
+  start with YAML frontmatter and place this comment immediately after it.
 
 ---
 
@@ -221,7 +222,8 @@ itself performs no user-global install.)
 
 - **Update:** rebuild, then re-run `--install` with the newer bundle. A clean owned install
   is replaced; any local edit, extra file, or a missing/invalid manifest blocks the update.
-- **Uninstall:** removes only a verified owned, unmodified folder:
+- **Uninstall:** removes only a verified owned, unmodified folder. Python's generated
+  `__pycache__/*.pyc` files do not count as local edits:
   ```bash
   python generator/install_codex.py --uninstall --scope-root "<scope-root>" --name cross-llm-opencode
   ```

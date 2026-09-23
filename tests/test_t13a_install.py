@@ -78,7 +78,20 @@ def test_clean_update_then_uninstall_preserves_unrelated(tmp_path):
     assert unrelated.read_text(encoding="utf-8") == "keep"
 
 
-@pytest.mark.parametrize("change", ["edit", "extra", "manifest"])
+def test_import_cache_does_not_prevent_uninstall(tmp_path):
+    source = bundle(tmp_path, script="import cld\nprint('ok')\n")
+    scope = tmp_path / "project"
+    assert invoke(scope, "--install", source=source)[0] == 0
+    target = scope / ".agents" / "skills" / source.name
+    run = subprocess.run([sys.executable, str(target / "scripts" / "run_delivery.py")],
+                         text=True, capture_output=True, timeout=10)
+    assert run.returncode == 0, run.stderr
+    assert any(target.rglob("*.pyc"))
+    assert invoke(scope, "--uninstall", name=source.name)[0] == 0
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("change", ["edit", "extra", "manifest", "symlink"])
 def test_local_edits_block_update_and_uninstall(tmp_path, change):
     source = bundle(tmp_path)
     scope = tmp_path / "project"
@@ -88,8 +101,15 @@ def test_local_edits_block_update_and_uninstall(tmp_path, change):
         (target / "SKILL.md").write_text("local", encoding="utf-8")
     elif change == "extra":
         (target / "note.txt").write_text("local", encoding="utf-8")
-    else:
+    elif change == "manifest":
         (target / ".cld-install.json").write_text("invalid", encoding="utf-8")
+    else:
+        outside = tmp_path / "outside.txt"
+        outside.write_text("outside", encoding="utf-8")
+        try:
+            (target / "linked.txt").symlink_to(outside)
+        except OSError:
+            pytest.skip("symlink creation unavailable")
     snapshot = {str(p.relative_to(target)): p.read_bytes() for p in target.rglob("*") if p.is_file()}
     assert invoke(scope, "--install", source=source)[0] != 0
     assert invoke(scope, "--uninstall", name=source.name)[0] != 0
@@ -128,6 +148,20 @@ def test_symlink_source_is_rejected(tmp_path):
     except OSError:
         pytest.skip("symlink creation unavailable")
     assert invoke(tmp_path / "project", "--install", source=source)[0] != 0
+
+
+def test_target_parent_symlink_escape_is_rejected(tmp_path):
+    source = bundle(tmp_path)
+    scope = tmp_path / "project"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    scope.mkdir()
+    try:
+        (scope / ".agents").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlink creation unavailable")
+    assert invoke(scope, "--install", source=source)[0] != 0
+    assert not (outside / "skills").exists()
 
 
 def test_read_only_or_permission_denied_target_is_non_destructive(tmp_path):
