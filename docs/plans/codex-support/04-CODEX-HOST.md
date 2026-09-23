@@ -6,14 +6,24 @@ Required outcome: a user can open Codex CLI/IDE, invoke the delivery skill, and 
 
 Dependencies: T07/T09/T10. Estimate: 8–14k. Files: `skill/scripts/run_delivery.py`, proposed `engine/cld/cli.py` and `engine/cld/__main__.py`, `summary.py`, `status.py`, CLI contract tests.
 
-- [ ] Move reusable command handling into the engine while keeping the existing script as a thin supported entrypoint; consider `python -m cld` for packaged use.
-- [ ] Implement `--json` and the versioned A07 response schema for plan preview, step, integrate, status, usage, and repair/reconcile outcomes. Keep stdout parseable and prompts/banners off it.
-- [ ] Include exact accepted refs, next action, run identity, resolved ledger, and artifact paths; keep default responses bounded. Expose optional details by slice/attempt rather than dumping all logs.
-- [ ] Remove Claude-specific runtime assumptions: no Claude binary/API/key needed to construct commands, judge deterministic tests, inspect state, or resume.
-- [ ] Include optional `host` provenance in telemetry without letting host identity affect acceptance. Clarify missing permission/auth/model policy as structured errors.
-- [ ] Test the old script and new entrypoint against the same command/result matrix; preserve established arguments and truthful exit meanings. Verify a no-TTY process never asks for input.
+- [x] Move reusable command handling into the engine while keeping the existing script as a thin supported entrypoint; consider `python -m cld` for packaged use.
+- [x] Implement `--json` and the versioned A07 response schema for plan preview, step, integrate, status, usage, and repair/reconcile outcomes. Keep stdout parseable and prompts/banners off it.
+- [x] Include exact accepted refs, next action, run identity, resolved ledger, and artifact paths; keep default responses bounded. Expose optional details by slice/attempt rather than dumping all logs.
+- [x] Remove Claude-specific runtime assumptions: no Claude binary/API/key needed to construct commands, judge deterministic tests, inspect state, or resume.
+- [x] Include optional `host` provenance in telemetry without letting host identity affect acceptance. Clarify missing permission/auth/model policy as structured errors.
+- [x] Test the old script and new entrypoint against the same command/result matrix; preserve established arguments and truthful exit meanings. Verify a no-TTY process never asks for input.
 
 **Gate:** Both lead hosts can consume the same deterministic JSON transcript. A failing/repair/integration-required result cannot be misread as success. R06 compatibility is explicitly covered.
+
+
+
+**T11 closing evidence (2026-09-23):** [T11-EVIDENCE.md](T11-EVIDENCE.md), [CLI usage/schema](../../CLI.md).
+Kimi K3/OpenCode candidate passed the verified repair/collection gate, then explicit T11 integration.
+Lead review added regressions and fixes; Ubuntu CI 758 passed/3 Windows-only skips and Windows CI
+761 passed. Both generator smoke jobs passed. Final code/test commit `8759ce7`, pushed to
+`refactor/codex-support`. Dogfood usage is only a lower bound after timeouts; see evidence. T11 closes
+the CLI/protocol portion of R06 compatibility. M4 remains open until T12-T14 and actual host
+installation/discovery evidence pass.
 
 ## T12 — Host-aware skill generation
 
