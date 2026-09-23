@@ -69,6 +69,8 @@ def make_error(reason, action: str = "correct_input") -> dict:
 
 def bound(value, _depth: int = 0):
     """Recursively bound a JSON-serializable value (strings and collections)."""
+    if _depth >= 8:
+        return {"truncated": True}
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):
@@ -115,31 +117,34 @@ def build(*, command: str, gate: str, run_id=None, repository=None, ledger=None,
 
 
 def dumps(response: dict, limit: int = MAX_BYTES) -> str:
-    """Serialize, shrinking bounded collections until the payload fits `limit`.
-
-    The default response is already small (raw logs/history are never included);
-    this is a fail-safe that trades detail for the hard byte bound and says so.
-    """
-    raw = json.dumps(response, ensure_ascii=True)
-    if len(raw.encode("utf-8")) < limit:
-        return raw
+    """Bound output without changing a collection's JSON type or ref contents."""
     shrunk = dict(response)
-    for key in ("details", "slices", "layers", "accepted_refs", "artifacts"):
+
+    def serialize():
+        return json.dumps(shrunk, ensure_ascii=True, allow_nan=False)
+
+    # Keep useful exact references, and report omitted counts separately.
+    for key in ("accepted_refs", "slices", "layers", "errors"):
         value = shrunk.get(key)
-        if value in (None, [], {}):
-            continue
-        if isinstance(value, (list, dict)):
-            shrunk[key] = {"truncated": True, "total": len(value)}
-        else:
-            shrunk[key] = bounded_text(value, 200)
-        raw = json.dumps(shrunk, ensure_ascii=True)
+        if isinstance(value, list) and len(value) > ITEM_LIMIT:
+            shrunk[key + "_count"] = len(value)
+            shrunk[key + "_truncated"] = True
+            shrunk[key] = value[:ITEM_LIMIT]
+    raw = serialize()
+    for key in ("details", "slices", "layers", "accepted_refs", "artifacts", "errors"):
         if len(raw.encode("utf-8")) < limit:
             return raw
-    if shrunk.get("errors"):
-        shrunk["errors"] = [
-            make_error(e.get("reason", "")[:500], e.get("next_action", "correct_input"))
-            if isinstance(e, dict) else make_error(e)
-            for e in shrunk["errors"][:5]
-        ]
-        raw = json.dumps(shrunk, ensure_ascii=True)
+        value = shrunk.get(key)
+        if not isinstance(value, (dict, list)) or not value:
+            continue
+        shrunk.setdefault(key + "_count", len(value))
+        shrunk[key + "_truncated"] = True
+        # Reduce progressively, preserving useful entries and container types.
+        while value and len(raw.encode("utf-8")) >= limit:
+            size = len(value) // 2
+            value = value[:size] if isinstance(value, list) else dict(list(value.items())[:size])
+            shrunk[key] = value
+            raw = serialize()
+    if len(raw.encode("utf-8")) >= limit:
+        raise ValueError("Response identity or scalar fields exceed the JSON size limit")
     return raw
