@@ -255,3 +255,54 @@ python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" 
 python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" \
   "<plan.md>" --repo "<target repo>" --step --json      # run next layer
 ```
+
+---
+
+## Local Codex plugin marketplace (alternative install route)
+
+Instead of copying standalone skills, Codex surfaces that support local plugin
+marketplaces can install the three provider plugins from one generated catalog.
+The marketplace is **local**: it points at portable plugin folders on disk and
+needs no network access or hosted submission.
+
+### 1. Build the bundles, then the plugins and catalog
+
+```bash
+python generator/build_skill.py --all --host codex     # dist/codex/cross-llm-<provider>/
+python generator/build_plugins.py --host codex         # -> dist/plugins/
+```
+
+`generator/build_plugins.py --host codex` writes, under the output root (default
+`dist/plugins/`; override with `--out-root`):
+
+- `codex/cross-llm-<provider>/` — portable plugin (`plugin.json` + `skills/`)
+- `.agents/plugins/marketplace.json` — the local marketplace catalog
+  (`cross-llm-delivery-codex`) whose three plugin sources are the relative
+  `./codex/cross-llm-<provider>` paths above
+
+The output root is self-contained and movable; the catalog only resolves plugins
+inside it. Generation is deterministic and never installs anything, never touches
+your Codex configuration, and never runs `codex` itself.
+
+### 2. Register the marketplace (changes your Codex configuration)
+
+```bash
+codex plugin marketplace add "<path to>/dist/plugins"
+```
+
+> **This command changes your configured Codex marketplace list.** Run it
+> yourself, deliberately. It is never a generator side effect: building the
+> plugins only writes files under the output root.
+
+### 3. List and install on supported local surfaces
+
+```bash
+codex plugin list                                        # shows the catalog's plugins
+codex plugin install cross-llm-opencode@cross-llm-delivery-codex
+```
+
+Listing and installing this way work on Codex surfaces that support local plugin
+marketplaces. **The Codex IDE extension uses the standalone skill route instead**
+(see "Standalone Codex skills" above): install the generated skills into
+`.agents/skills/` for IDE use — do not expect the IDE to consume this plugin
+catalog.

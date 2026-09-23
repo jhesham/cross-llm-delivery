@@ -12,11 +12,14 @@ self-hosted plugin marketplace:
 Codex host mode (--host codex) packages the generated Codex bundles instead:
     <out-root>/codex/cross-llm-<p>/plugin.json            (portable manifest at root)
     <out-root>/codex/cross-llm-<p>/skills/cross-llm-<p>/<the generated codex skill>
+plus a deterministic local marketplace catalog alongside them:
+    <out-root>/.agents/plugins/marketplace.json          (name: cross-llm-delivery-codex)
 Codex mode reads <dist-root>/codex/cross-llm-<p> (build with
-`python generator/build_skill.py --all --host codex` first) and never touches an
-adjacent Claude plugin tree. Its manifest carries the official schema URL, the
-existing plugin name, the VERSION semantic version, description and author; it
-claims no submission or readiness that has not been validated.
+`python generator/build_skill.py --all --host codex` first), preflights all three input
+bundles before changing any output, and never touches an adjacent Claude plugin tree.
+Its manifest carries the official schema URL, the existing plugin name, the VERSION
+semantic version, description and author; it claims no submission or readiness that has
+not been validated.
 
 Idempotence: the dist SKILL.md banner embeds the git SHA, which would churn a commit on
 every regeneration; in the plugin copy the banner is normalized to a version-only form so
@@ -46,6 +49,8 @@ CODEX_DESCRIPTIONS = {
     "cursor": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Codex as architect + judge; committed failing tests gate every merge.",
 }
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+CODEX_CATALOG_NAME = "cross-llm-delivery-codex"
+CODEX_CATALOG_DISPLAY = "Cross-LLM Delivery (Codex, local plugins)"
 _BANNER_SHA = re.compile(r"(GENERATED from cross-llm-delivery)@[0-9a-f]+")
 _SKIP = ("__pycache__", ".pyc", ".pytest_cache")
 
@@ -110,18 +115,45 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
     return 0
 
 
-def _main_codex(dist_root: Path, out_root: Path) -> int:
-    """Codex host: portable plugins under <out-root>/codex/ from codex bundles.
+def _codex_catalog() -> dict:
+    """Deterministic local marketplace catalog for the three portable plugins.
 
-    Touches only <out-root>/codex/; an adjacent Claude plugin tree is preserved.
+    Source paths are relative to the marketplace root (the output root holding
+    .agents/plugins/marketplace.json), so the whole tree stays movable.
     """
+    return {
+        "name": CODEX_CATALOG_NAME,
+        "interface": {"displayName": CODEX_CATALOG_DISPLAY},
+        "plugins": [
+            {
+                "name": f"cross-llm-{p}",
+                "source": {"source": "local", "path": f"./codex/cross-llm-{p}"},
+                "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                "category": "Productivity",
+            }
+            for p in PROVIDERS
+        ],
+    }
+
+
+def _main_codex(dist_root: Path, out_root: Path) -> int:
+    """Codex host: portable plugins + local marketplace catalog under <out-root>.
+
+    Writes only <out-root>/codex/ and <out-root>/.agents/plugins/marketplace.json;
+    an adjacent Claude plugin tree is preserved. All three input bundles are
+    preflighted before any output changes, so a missing bundle leaves prior
+    packages and catalog untouched.
+    """
+    missing = [p for p in PROVIDERS
+               if not (dist_root / "codex" / f"cross-llm-{p}").is_dir()]
+    if missing:
+        print(f"ERROR: missing codex bundle(s) for {', '.join(missing)} under "
+              f"{dist_root / 'codex'} - run `python generator/build_skill.py --all --host codex` first.")
+        return 1
     changed = []
     version = _version()
     for p in PROVIDERS:
         dist = dist_root / "codex" / f"cross-llm-{p}"
-        if not dist.is_dir():
-            print(f"ERROR: {dist} missing - run `python generator/build_skill.py --all --host codex` first.")
-            return 1
         plug = out_root / "codex" / f"cross-llm-{p}"
         # snapshot old state for change detection
         before = _snapshot(plug)
@@ -139,6 +171,13 @@ def _main_codex(dist_root: Path, out_root: Path) -> int:
         after = _snapshot(plug)
         if before != after:
             changed.append(p)
+    catalog_path = out_root / ".agents" / "plugins" / "marketplace.json"
+    catalog_text = json.dumps(_codex_catalog(), indent=2) + "\n"
+    old_catalog = catalog_path.read_bytes() if catalog_path.is_file() else None
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    catalog_path.write_text(catalog_text, encoding="utf-8", newline="\n")
+    if old_catalog != catalog_path.read_bytes():
+        changed.append("marketplace")
     print(f"codex plugins refreshed. changed: {', '.join(changed) if changed else 'none (idempotent)'}")
     return 0
 

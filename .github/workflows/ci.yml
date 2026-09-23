@@ -36,3 +36,6 @@ jobs:
         run: python generator/build_skill.py --all --host codex
       - name: Codex plugin packaging smoke (offline; no install, no marketplace)
         run: python generator/build_plugins.py --host codex --dist-root dist --out-root dist/plugin-smoke
+      - name: Codex marketplace catalog check (offline; no Codex install, no network)
+        run: >-
+          python -c "import json,pathlib; r=pathlib.Path('dist/plugin-smoke'); c=json.loads((r/'.agents/plugins/marketplace.json').read_text(encoding='utf-8')); assert c['name']=='cross-llm-delivery-codex' and c['interface']['displayName']; ps=c['plugins']; assert len(ps)==3 and {p['name'] for p in ps}=={'cross-llm-antigravity','cross-llm-opencode','cross-llm-cursor'}; ok=[p for p in ps if p['source']['source']=='local' and (r/p['source']['path']).resolve().is_relative_to(r.resolve()) and json.loads(((r/p['source']['path'])/'plugin.json').read_text(encoding='utf-8'))['name']==p['name'] and (r/p['source']['path']/'skills'/p['name']/'SKILL.md').is_file()]; assert len(ok)==3, ok; print('catalog OK: 3 contained local plugin sources')"
