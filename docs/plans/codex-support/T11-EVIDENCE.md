@@ -1,4 +1,4 @@
-# T11 dogfood evidence — in progress
+# T11 dogfood evidence — complete
 
 2026-09-23. User explicitly authorized T11 via Kimi K3/OpenCode.
 OpenCode 1.18.29 discovers exact model opencode/kimi-k3. One pinned production slice, no fallback.
@@ -73,9 +73,11 @@ Transcript retained locally at .cld/t11-dogfood/transcript.json. User-facing sch
 
 ## Final validation
 
-Final code/test head: bb0907d. Windows/Ubuntu CI and generator smoke are pending:
-https://github.com/jhesham/cross-llm-delivery/actions/runs/35824058308.
-Earlier run 35823874324 was deliberately cancelled after final review fixes; it is not closing evidence.
+Final code/test head: 8759ce7. Final Windows/Ubuntu CI and generator smoke passed:
+https://github.com/jhesham/cross-llm-delivery/actions/runs/35839266779. Windows: 761 passed;
+Ubuntu: 758 passed, 3 Windows-only skips. Both generator smoke steps passed. The preceding run
+35824058308 failed two compatibility regressions; fixes were independently reproduced locally,
+pushed in 8759ce7, and the full cross-platform workflow passed on that head.
 
 Engine CLI, module entrypoint and legacy shim share behavior. --host is telemetry-only. JSON status
 and usage remain local; details are selected by slice/attempt. Generated host overlays and actual
@@ -86,3 +88,17 @@ context separately when interpreting tokens, and inspect partial artifacts at a 
 blindly retrying. The local controller's nested repair lock was avoided by invoking the verifier only
 after the dispatcher exited. No acceptance safety code was weakened.
 Lead usage unavailable; no Codex sub-agents. Stop after T11 and request token confirmation for T12.
+
+
+## Closure
+
+T11 complete and pushed on 2026-09-23. All six T11 checklist items and the gate passed. The final
+branch includes dogfood implementation 2457380, lead review fixes af5250f and bb0907d, deferred-hook
+compatibility fix 8759ce7, and the tracking/evidence checkpoint. The public refactor branch is
+`refactor/codex-support`; no main merge or release was made.
+
+Pause before T12. Its estimate remains 10–16k lead tokens; start only after the user's next explicit
+token-availability confirmation. No model dispatch is queued. Preserve the Kimi-only selection if
+T12 dogfood is authorized, split work into acceptance-backed slices where useful, and stop at each
+slice boundary. Lead token counters are unavailable. Production provider totals after the two timeouts
+remain unknown; partial artifact lower bounds above must not be presented as final usage.
