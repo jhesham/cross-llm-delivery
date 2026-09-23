@@ -147,5 +147,107 @@ python scripts/run_delivery.py <plan.md> --repo <target-repo> --step
 - **Skill folder doesn't import / "no module named cld":** confirm you copied the *generated*
   `dist/cross-llm-<provider>/` folder (it has `scripts/cld/`), NOT the repo's `skill/` folder
   (that's a deprecation stub).
-- **Banner check:** `dist/cross-llm-<provider>/SKILL.md`'s first line should read
+ **Banner check:** `dist/cross-llm-<provider>/SKILL.md`'s first line should read
   `GENERATED from cross-llm-delivery@<sha>` matching the source HEAD.
+
+---
+
+## Standalone Codex skills (repo or user scope)
+
+Codex does **not** read `~/.claude/skills/`. Per the official discovery rules — OpenAI,
+[Agent Skills – Codex](https://developers.openai.com/codex/skills) (rechecked 2026-09-23;
+mirrors the [Build skills guide](https://learn.chatgpt.com/docs/build-skills)) — Codex scans
+`.agents/skills/` in every directory from the current working directory up to the Git
+repository root (**REPO** scope), `$HOME/.agents/skills/` (**USER** scope),
+`/etc/codex/skills/` (**ADMIN** scope), plus skills bundled with Codex itself (**SYSTEM**).
+Same-name skills are never merged, so keep the three provider names distinct.
+
+`generator/install_codex.py` is a previewable standard-library installer that copies a
+generated Codex bundle into `<scope-root>/.agents/skills/<skill-name>`. The scope root is
+always passed explicitly — the tool never infers or touches your real home or Claude
+folders on its own.
+
+### 1. Build the Codex bundles (source machine)
+
+```bash
+python generator/build_skill.py --all --host codex
+# -> dist/codex/cross-llm-<provider>/  (opencode, antigravity, cursor)
+```
+
+### 2. Preview first, then install (repo scope)
+
+`--preview` writes nothing and prints the exact target as JSON. All paths are quoted so
+commands work when they contain spaces.
+
+macOS / Linux:
+```bash
+python generator/install_codex.py --preview \
+  --scope-root "/path/to/my repo" \
+  --bundle "dist/codex/cross-llm-opencode"
+python generator/install_codex.py --install \
+  --scope-root "/path/to/my repo" \
+  --bundle "dist/codex/cross-llm-opencode"
+```
+
+Windows (PowerShell):
+```powershell
+python generator\install_codex.py --preview `
+  --scope-root "C:\path\to\my repo" `
+  --bundle "dist\codex\cross-llm-opencode"
+python generator\install_codex.py --install `
+  --scope-root "C:\path\to\my repo" `
+  --bundle "dist\codex\cross-llm-opencode"
+```
+
+This installs to `<scope-root>/.agents/skills/cross-llm-opencode/`, discovered as REPO scope
+for anything launched at or below that root.
+
+### 3. User-scope alternative (explicit, optional)
+
+To make a skill available across all your repositories, point the same commands at your
+home directory — Codex's USER scope is `$HOME/.agents/skills/`:
+
+```bash
+python generator/install_codex.py --preview --scope-root "$HOME" --bundle "dist/codex/cross-llm-opencode"
+```
+```powershell
+python generator\install_codex.py --preview --scope-root "$env:USERPROFILE" --bundle "dist\codex\cross-llm-opencode"
+```
+
+Run the matching `--install` only after the preview shows the intended target. (This task
+itself performs no user-global install.)
+
+### 4. Update and uninstall
+
+- **Update:** rebuild, then re-run `--install` with the newer bundle. A clean owned install
+  is replaced; any local edit, extra file, or a missing/invalid manifest blocks the update.
+- **Uninstall:** removes only a verified owned, unmodified folder:
+  ```bash
+  python generator/install_codex.py --uninstall --scope-root "<scope-root>" --name cross-llm-opencode
+  ```
+
+### Safety contract
+
+- Prints one deterministic JSON line with `action`, `target`, `outcome` (plus `error` /
+  `collision` on failure); the exit code is nonzero on any failure.
+- `--preview` is read-only; a failed operation leaves an existing target unchanged, and
+  unrelated skill folders are always preserved.
+- Rejects invalid bundles, names other than the three supported providers, symlinks that
+  can escape the selected scope, source/target overlap, and same-name unowned folders.
+- Each installed folder carries `.cld-install.json` (a stable installer marker plus
+  per-file SHA-256 hashes) that gates update and uninstall.
+
+### Using the installed skill
+
+Codex detects newly installed skills automatically (restart it if one doesn't appear).
+Invoke explicitly with `/skills` in the Codex CLI or IDE extension, or mention
+`$cross-llm-opencode` in a prompt. To drive a build yourself, run the vendored driver from
+the installed skill folder — it puts its own `scripts/` directory first on `sys.path`, so
+it resolves the vendored engine from any working directory with no `pip install`:
+
+```bash
+python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" \
+  "<plan.md>" --repo "<target repo>" --dry-run --json   # preview layers
+python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" \
+  "<plan.md>" --repo "<target repo>" --step --json      # run next layer
+```

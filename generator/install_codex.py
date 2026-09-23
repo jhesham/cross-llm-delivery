@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+"""Safe, previewable installer for generated cross-llm Codex skill bundles.
+
+Installs a generated Codex bundle (YAML-first ``SKILL.md`` plus vendored
+``scripts/``) into ``<scope-root>/.agents/skills/<skill-name>``. The scope root
+is always chosen explicitly by the caller (a repository checkout or a user
+home); this tool never infers or mutates the current user's real home or
+Claude folders on its own.
+
+Every invocation prints exactly one deterministic JSON object carrying
+``action``, ``target``, ``outcome`` and, on failure, ``error`` (plus
+``collision`` for same-name unowned folders). The exit code is 0 on success
+and nonzero on any failure. ``--preview`` performs no writes at all, and a
+failed operation leaves an existing target unchanged.
+
+Safety rules (docs/plans/codex-support/T13A-CONTRACT.md):
+  * skill names are restricted to the three supported provider names;
+  * source/target symlinks that can escape the selected scope, and any
+    source/target overlap, are rejected;
+  * install copies the whole bundle into a staged sibling, then publishes it;
+  * the installed folder carries an ownership manifest (``.cld-install.json``)
+    with a stable installer marker and per-file SHA-256 hashes;
+  * update and uninstall require a verified owned, unmodified folder: local
+    edits, extra files, or an absent/invalid manifest block both;
+  * a directory is only ever recursively deleted after verifying the resolved
+    target is beneath the selected scope and owned by this installer.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import sys
+from pathlib import Path
+
+# The only skill folder names this installer will ever create or delete.
+SUPPORTED_NAMES = frozenset({
+    "cross-llm-opencode",
+    "cross-llm-antigravity",
+    "cross-llm-cursor",
+})
+
+MANIFEST_NAME = ".cld-install.json"
+# Stable marker recorded in every manifest we write; its presence (plus
+# matching hashes) is what makes an installed folder "owned" by this tool.
+INSTALLER_MARKER = "cross-llm-delivery/install_codex.py"
+
+
+class Reject(Exception):
+    """A validation failure reported as a JSON error with a nonzero exit."""
+
+    def __init__(self, message: str, *, collision: bool = False) -> None:
+        super().__init__(message)
+        self.collision = collision
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _real(path: Path) -> Path:
+    """Resolve symlinks and ``..`` without requiring the path to exist."""
+    return Path(os.path.realpath(path))
+
+
+def _is_beneath(child: Path, parent: Path) -> bool:
+    return parent in child.parents
+
+
+def _iter_entries(root: Path):
+    """Yield ``(path, is_dir)`` for every entry under *root*.
+
+    Raises Reject on any symlink or non-regular file; directory symlinks are
+    never followed.
+    """
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        for entry in os.scandir(current):
+            entry_path = Path(entry.path)
+            if entry.is_symlink():
+                raise Reject(f"refusing symlink: {entry_path}")
+            if entry.is_dir(follow_symlinks=False):
+                stack.append(entry_path)
+                yield entry_path, True
+            elif entry.is_file(follow_symlinks=False):
+                yield entry_path, False
+            else:
+                raise Reject(f"refusing non-regular file: {entry_path}")
+
+
+def _frontmatter_name(skill_md: Path) -> str:
+    """Extract ``name`` from a YAML-first SKILL.md (no YAML dependency)."""
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Reject(f"unreadable SKILL.md: {exc}") from exc
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        raise Reject("SKILL.md is not YAML-first (missing opening '---')")
+    for line in lines[1:]:
+        stripped = line.strip()
+        if stripped in ("---", "..."):
+            break
+        if stripped.startswith("name:"):
+            value = stripped[len("name:"):].strip().strip("\"'")
+            if value:
+                return value
+    raise Reject("SKILL.md frontmatter does not declare a name")
+
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+def _validate_name(name: str | None) -> str:
+    if name not in SUPPORTED_NAMES:
+        raise Reject(
+            f"unsupported skill name {name!r}; expected one of "
+            f"{', '.join(sorted(SUPPORTED_NAMES))}"
+        )
+    return name  # type: ignore[return-value]
+
+
+def _validate_bundle(bundle_arg: str | None) -> tuple[Path, str]:
+    if not bundle_arg:
+        raise Reject("--preview/--install requires --bundle PATH")
+    source = Path(bundle_arg)
+    if source.is_symlink():
+        raise Reject(f"bundle source is a symlink: {source}")
+    if not source.is_dir():
+        raise Reject(f"bundle not found or not a directory: {source}")
+    name = _validate_name(source.name)
+    skill_md = source / "SKILL.md"
+    if not skill_md.is_file():
+        raise Reject(f"bundle is missing SKILL.md: {source}")
+    declared = _frontmatter_name(skill_md)
+    if declared != name:
+        raise Reject(
+            f"SKILL.md frontmatter name {declared!r} does not match the "
+            f"bundle folder name {name!r}"
+        )
+    for required in (Path("scripts") / "run_delivery.py",
+                     Path("scripts") / "cld" / "__init__.py"):
+        candidate = source / required
+        if candidate.is_symlink() or not candidate.is_file():
+            raise Reject(f"bundle is missing vendored {required.as_posix()}")
+    for _path, _is_dir in _iter_entries(source):  # raises on any symlink
+        pass
+    return source, name
+
+
+def _check_separation(source: Path, target: Path) -> None:
+    """Reject any overlap between the bundle source and the install target."""
+    source_real = _real(source)
+    target_real = _real(target)
+    if (source_real == target_real
+            or _is_beneath(source_real, target_real)
+            or _is_beneath(target_real, source_real)):
+        raise Reject("bundle source and install target overlap")
+
+
+def _check_target_safe(scope: Path, target: Path) -> None:
+    """Reject targets whose resolved path escapes the selected scope."""
+    if target.is_symlink():
+        raise Reject(f"target is a symlink: {target}")
+    scope_real = _real(scope)
+    target_real = _real(target)
+    if target_real == scope_real or not _is_beneath(target_real, scope_real):
+        raise Reject(
+            f"resolved target {target_real} escapes the selected scope "
+            f"{scope_real} (a symlinked parent may point outside it)"
+        )
+
+
+def _verify_owned(target: Path) -> None:
+    """Raise Reject unless *target* is an owned, unmodified installation."""
+    manifest_path = target / MANIFEST_NAME
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise Reject(
+            "target has no valid ownership manifest (unowned or locally "
+            "modified); refusing to touch it",
+            collision=True,
+        ) from exc
+    if not isinstance(data, dict) or data.get("installer") != INSTALLER_MARKER:
+        raise Reject(
+            "target ownership manifest lacks this installer's marker "
+            "(unowned); refusing to touch it",
+            collision=True,
+        )
+    recorded = data.get("files")
+    if not isinstance(recorded, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in recorded.items()):
+        raise Reject("target ownership manifest is invalid")
+    seen: dict[str, str] = {}
+    for path, is_dir in _iter_entries(target):
+        if is_dir:
+            continue
+        rel = path.relative_to(target).as_posix()
+        if rel == MANIFEST_NAME:
+            continue
+        seen[rel] = _sha256(path)
+    if set(seen) != set(recorded):
+        raise Reject(
+            "target contents differ from the ownership manifest (local "
+            "additions or removals); refusing to touch it"
+        )
+    changed = sorted(rel for rel, digest in seen.items() if recorded[rel] != digest)
+    if changed:
+        raise Reject(
+            f"target files were locally modified: {', '.join(changed)}; "
+            "refusing to touch it"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Actions
+# ---------------------------------------------------------------------------
+
+def _write_manifest(staged: Path, name: str) -> None:
+    files: dict[str, str] = {}
+    for path, is_dir in _iter_entries(staged):
+        if is_dir:
+            continue
+        rel = path.relative_to(staged).as_posix()
+        if rel == MANIFEST_NAME:
+            continue
+        files[rel] = _sha256(path)
+    manifest = {
+        "installer": INSTALLER_MARKER,
+        "skill": name,
+        "files": files,
+    }
+    (staged / MANIFEST_NAME).write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _preview(scope: Path, target: Path) -> dict:
+    _check_target_safe(scope, target)
+    if target.is_symlink() or target.exists():
+        if not target.is_dir() or target.is_symlink():
+            raise Reject(f"target exists and is not a plain directory: {target}",
+                         collision=True)
+        _verify_owned(target)
+        outcome = "update"
+    else:
+        outcome = "install"
+    return {"action": "preview", "target": str(target), "outcome": outcome}
+
+
+def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
+    _check_target_safe(scope, target)
+    updating = target.exists()
+    if updating:
+        if target.is_symlink() or not target.is_dir():
+            raise Reject(f"target exists and is not a plain directory: {target}",
+                         collision=True)
+        _verify_owned(target)
+    skills_dir = target.parent
+    stage = skills_dir / f".{name}.cld-stage-{os.getpid()}"
+    backup = skills_dir / f".{name}.cld-backup-{os.getpid()}"
+    if stage.exists() or backup.exists():
+        raise Reject("stale staging/backup directory present; refusing to proceed")
+    try:
+        try:
+            skills_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise Reject(f"cannot create {skills_dir}: {exc}") from exc
+        shutil.copytree(source, stage, symlinks=False)
+        _write_manifest(stage, name)
+        renamed = False
+        try:
+            if updating:
+                target.replace(backup)
+                renamed = True
+            stage.replace(target)
+        except OSError:
+            # Publish failed: restore the previous installation if we moved it.
+            if renamed and not target.exists():
+                backup.replace(target)
+            raise
+        if renamed:
+            shutil.rmtree(backup)
+    except BaseException:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+    outcome = "updated" if updating else "installed"
+    return {"action": "install", "target": str(target), "outcome": outcome}
+
+
+def _uninstall(scope: Path, target: Path, name: str) -> dict:
+    _check_target_safe(scope, target)
+    if target.is_symlink():
+        raise Reject(f"target is a symlink: {target}")
+    if not target.exists():
+        raise Reject(f"nothing to uninstall: {target} does not exist")
+    if not target.is_dir():
+        raise Reject(f"target is not a directory: {target}", collision=True)
+    _verify_owned(target)
+    shutil.rmtree(target)
+    return {"action": "uninstall", "target": str(target), "outcome": "uninstalled"}
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _parse(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="install_codex.py",
+        description=(
+            "Safely preview, install, or uninstall a generated cross-llm "
+            "Codex skill bundle under <scope-root>/.agents/skills/. The scope "
+            "root is always explicit; nothing is inferred from the environment."
+        ),
+    )
+    actions = parser.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--preview", action="store_true",
+                         help="Report the exact target and outcome; writes nothing.")
+    actions.add_argument("--install", action="store_true",
+                         help="Install the bundle, or update a clean owned install.")
+    actions.add_argument("--uninstall", action="store_true",
+                         help="Remove a verified owned, unmodified install.")
+    parser.add_argument("--scope-root", required=True, metavar="PATH",
+                        help="Explicit scope root (a repository or a user home).")
+    parser.add_argument("--bundle", metavar="PATH",
+                        help="Generated bundle folder (required for --preview/--install).")
+    parser.add_argument("--name", metavar="NAME",
+                        help="Skill name to uninstall (required for --uninstall).")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse(argv)
+    if args.preview:
+        action = "preview"
+    elif args.install:
+        action = "install"
+    else:
+        action = "uninstall"
+    target_str: str | None = None
+    try:
+        scope = Path(args.scope_root)
+        if action == "uninstall":
+            if not args.name:
+                raise Reject("--uninstall requires --name cross-llm-<provider>")
+            name = _validate_name(args.name)
+            target = scope / ".agents" / "skills" / name
+            target_str = str(target)
+            payload = _uninstall(scope, target, name)
+        else:
+            source, name = _validate_bundle(args.bundle)
+            target = scope / ".agents" / "skills" / name
+            target_str = str(target)
+            _check_separation(source, target)
+            if action == "preview":
+                payload = _preview(scope, target)
+            else:
+                payload = _install(source, scope, target, name)
+    except Reject as exc:
+        payload = {
+            "action": action,
+            "target": target_str,
+            "outcome": "error",
+            "error": str(exc),
+        }
+        if exc.collision:
+            payload["collision"] = "unowned"
+        print(json.dumps(payload, sort_keys=True))
+        return 1
+    except OSError as exc:
+        payload = {
+            "action": action,
+            "target": target_str,
+            "outcome": "error",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        print(json.dumps(payload, sort_keys=True))
+        return 1
+    print(json.dumps(payload, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
