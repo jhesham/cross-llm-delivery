@@ -2,6 +2,8 @@
 
 Checked 2026-09-09. Official URLs below were opened during planning; some older developers.openai.com Codex URLs redirect to learn.chatgpt.com. Recheck version-sensitive details at T13 and T15. Design choices in ARCHITECTURE.md are project proposals, not claims that OpenAI supplies those CLD features.
 
+**T13A refresh, 2026-09-23:** The [current Build skills guide](https://learn.chatgpt.com/docs/build-skills) confirms repository ancestor `.agents/skills` scanning through Git root, user `$HOME/.agents/skills`, explicit `/skills` or `$skill` invocation, and standalone skills in Codex CLI and IDE. The [plugin guide](https://learn.chatgpt.com/docs/plugins) confirms plugins are unavailable in the IDE extension; the [plugin packaging guide](https://developers.openai.com/plugins/build/plugins) describes repo marketplaces and portable root manifests. Installed read-only CLI evidence: `codex-cli 0.155.1`, `opencode 1.18.29`, exact model ID `opencode/kimi-k3` listed. T13A validated copy/install/update/uninstall and vendored script resolution in a disposable repo. Actual Codex skill discovery and plugin marketplace validation remain T13B.
+
 | Source | Verified point relevant to this plan |
 |---|---|
 | [Build skills](https://learn.chatgpt.com/docs/build-skills) | Skills contain SKILL.md with name/description, optional scripts/references and `agents/openai.yaml`. Codex supports standalone skills, progressive loading, explicit invocation, and repository/user `.agents/skills` discovery. |
