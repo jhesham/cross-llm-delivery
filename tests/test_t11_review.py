@@ -33,6 +33,30 @@ def test_blocked_operation_without_accounting_is_not_pending():
     assert cli._status_gate(ledger) == "blocked"
 
 
+def test_unbound_entries_do_not_masquerade_as_empty():
+    assert cli._status_gate(SimpleNamespace(build=None, entries={"A": object()})) == "blocked"
+
+
+def test_usage_preserves_known_subtotal_and_budget_reservation():
+    ledger = SimpleNamespace(build={"usage": {"cost": None, "cost_known": 1.5,
+        "cost_unknown": 1, "cost_reserved": 3, "policy": {"cost": 8}}})
+    assert cli._usage_field(ledger)["cost"] is None
+    assert cli._usage_field(ledger)["cost_known"] == 1.5
+    assert cli._budget_field(ledger)["cost_reserved"] == 3
+    assert cli._budget_field(ledger)["cost"] == 8
+
+
+@pytest.mark.parametrize("status,code", [("needs_repair", 4), ("failed", 2)])
+def test_status_failure_includes_diagnostic(bound, capsys, status, code):
+    repo, ledger = bound
+    with ledger.writer():
+        ledger.set("A", status=status)
+        ledger.save()
+    assert cli.main(["--json", "--status", "--repo", str(repo)]) == code
+    data = json.loads(capsys.readouterr().out)
+    assert "A" in data["errors"][0]["reason"]
+
+
 @pytest.fixture
 def bound(tmp_path):
     repo = Path(init_repo(tmp_path / "repo"))
