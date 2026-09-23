@@ -101,13 +101,30 @@ def _compose_skill_codex(provider: str, out: Path) -> None:
 
 
 def _vendor_codex_references(provider: str, out: Path) -> None:
-    """Copy the Codex host workflow + the provider's setup/fragment as references."""
+    """Copy the Codex host workflow + shared core + provider docs as references."""
     refs = out / "references"
     refs.mkdir(parents=True, exist_ok=True)
     shutil.copy2(CODEX_HOST_SRC / "references" / "codex-workflow.md",
                  refs / "codex-workflow.md")
+    # The one shared, host-neutral reference (also vendored into Claude bundles).
+    shutil.copy2(SKILL_SRC / "references" / "delivery-core.md",
+                 refs / "delivery-core.md")
     shutil.copy2(PROVIDERS_DIR / provider / "setup.md", refs / "provider-setup.md")
     shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", refs / "provider.md")
+
+
+def _compose_codex_agent_metadata(provider: str, out: Path) -> None:
+    """Render agents/openai.yaml from the verified Codex agent metadata template.
+
+    Codex bundles only: Claude bundles never receive this metadata. Only
+    {{PROVIDER_NAME}} is substituted; the template carries no other markers.
+    """
+    template = (CODEX_HOST_SRC / "agents" / "openai.yaml.template").read_text(
+        encoding="utf-8")
+    meta = template.replace("{{PROVIDER_NAME}}", provider)
+    agents = out / "agents"
+    agents.mkdir(parents=True, exist_ok=True)
+    (agents / "openai.yaml").write_text(meta, encoding="utf-8", newline="\n")
 
 
 def _scaffold_codex(provider: str, out: Path) -> None:
@@ -293,6 +310,7 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
     if host == "codex":
         _vendor_codex_references(provider, out)
         _compose_skill_codex(provider, out)
+        _compose_codex_agent_metadata(provider, out)
         _scaffold_codex(provider, out)
     else:
         _vendor_aux(out)

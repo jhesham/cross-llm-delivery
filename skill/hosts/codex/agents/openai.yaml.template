@@ -1,0 +1,10 @@
+# Verified OpenAI agent metadata for this Codex-host skill variant.
+# Optional for a standalone skill; included so Codex can present and invoke
+# this agent explicitly. Do not add keys beyond the verified fields below.
+interface:
+  display_name: "Cross-LLM Delivery ({{PROVIDER_NAME}} executor)"
+  short_description: "Codex leads the build -- decompose, contract, judge, integrate -- while {{PROVIDER_NAME}} implements each slice."
+  default_prompt: "Drive my decomposed multi-slice plan with the {{PROVIDER_NAME}} headless executor: implement each slice in an isolated worktree and gate it on its committed acceptance test."
+policy:
+  products: [CODEX]
+  allow_implicit_invocation: false

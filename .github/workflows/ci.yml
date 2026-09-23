@@ -32,3 +32,7 @@ jobs:
         run: python -m pytest -q
       - name: Generator smoke (skill bundles build from a fresh clone)
         run: python generator/build_skill.py --all
+      - name: Generator smoke (Codex host bundles build from a fresh clone)
+        run: python generator/build_skill.py --all --host codex
+      - name: Codex plugin packaging smoke (offline; no install, no marketplace)
+        run: python generator/build_plugins.py --host codex --dist-root dist --out-root dist/plugin-smoke
