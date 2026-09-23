@@ -1,35 +1,32 @@
 # Current handoff
 
-Updated 2026-09-23. **T01 through T10 and M1–M3 complete. Paused before T11.**
-Read [T10-CONTRACT.md](T10-CONTRACT.md) and [T10-EVIDENCE.md](T10-EVIDENCE.md).
-Do not start T11 without explicit token-availability confirmation.
+Updated 2026-09-23. T01-T10/M1-M3 complete. T11 Kimi dogfood implementation, independent acceptance,
+integration and lead review are complete; final CI pending. Do not start T12 until T11 is closed and
+the user confirms token availability. Read IMPLEMENTATION_PLAN.md, TRACKER.md and T11-EVIDENCE.md.
 
-Code/test head `8f3c5db` (initial implementation `c73209d`) is pushed to
-`public/refactor/codex-support`. Resolve the closing docs commit with
-`git log -1 --format=%h --grep="^docs: close T10"` and verify its remote push.
-CI: https://github.com/jhesham/cross-llm-delivery/actions/runs/35712951008
-**Windows 709 passed; Ubuntu 706 passed, three Windows-only skips.** Both generator smoke
-checks passed. Local full run: 699 passed plus an active-owner regression subsequently fixed
-and verified separately; one live eval excluded, two existing warnings. Follow-up evidence
-covers the ownership correction, later budget tests, status blocks and persistence failures.
+Branch refactor/codex-support, remote public. Code/test head bb0907d is pushed.
+Final CI: https://github.com/jhesham/cross-llm-delivery/actions/runs/35824058308.
+Wait for Windows and Ubuntu tests plus both generator smoke steps. Earlier run 35823874324 was
+cancelled after follow-up fixes and must not be cited as closure. If final CI fails, fix and reverify;
+otherwise update T11 checkboxes/tracker/evidence and this handoff, commit/push documentation, pause.
 
-T10 adds atomic per-dispatch journals and cumulative ledger usage by slice/model/validation.
-Retries, escalation, failed calls and validation all count. Shared mutation locking reserves
-capacity before parallel dispatch; policy persists across resume. New flags: --budget-attempts,
---budget-tokens, --budget-cost, --attempt-tokens, --attempt-cost and --unknown-usage deny|reserve.
-These are admission allowances, not provider hard caps. Unknown cost/tokens remain unknown;
-Antigravity has no verified usage source. CLI version identity uses T09 content fingerprints.
-Status reads ledger aggregates, not the growing event log; crash reconciliation happens on resume.
-Budget blocks preserve candidates and do not escalate. Sink shutdown closes and flushes owned resources.
-R12/A06 closed; A09 recovery remains covered. Schema 2 remains in use.
+Exact model opencode/kimi-k3 via OpenCode 1.18.29. Trusted canary passed. Two production calls
+(600s then same-session 1200s) timed out; second produced the candidate, protected inputs unchanged.
+No further model dispatch is queued or needed. Candidate 4841149 passed independent repair/collection,
+integration commit 38e386d passed explicit T11 acceptance; branch cherry-pick 2457380.
+Lead review commits af5250f and bb0907d add 21 regressions beyond the original 31 acceptance cases.
 
-Next: **T11 — host-neutral CLI interface**, estimate 8–14k lead tokens. Read phase 4,
-architecture A07, run_delivery.py, status.py, summary.py and T07/T09/T10 contracts. Implement
-versioned JSON and consistent inspect/next-action output without prompts or banners on stdout;
-retain human output and gate semantics. T11 is not started.
+Canary: 49,915 tokens/USD 0.0526338. Production totals remain unknown. Observed completed-step
+lower bounds including canary: 2,629,362 tokens/USD 2.5188468, mostly cached context. These are not
+complete billed totals. Lead counters unavailable; no Codex sub-agents. See T11-EVIDENCE for reservations.
 
-No live model calls or sub-agents this slice; executor usage zero; lead counters unavailable.
-Kimi K3 via OpenCode remains the later dogfood choice. Verify exact model ID/account and choose
-explicit canary allowances before first live call; no substitution or stale-price assumption.
-If explicitly requested, sub-agents use gpt-5.6-luna at max. Generated plugins refresh in T12/T17.
-Commit/push each slice, then stop for the user's token checkpoint. No release or merge.
+Local production ledger .cld/t11-dogfood/production-ledger.json;
+run 360c78e28aee4c0baf0420df77169875. Logs/controllers and local validation cache retained under
+.cld/t11-dogfood; global invalid evidence cache was left untouched. Retained source worktree:
+.cld/worktrees/T11-360c78e2-738bee799c1142abb8e40a1681a291bb.
+No release/main merge. Generated host overlays remain T12; discovery T13/T14; wheel resources T17.
+
+Next task after checkpoint: T12 host-aware skill generation (10-16k planning estimate), with its own
+committed acceptance contract before any model call. Keep exact model, no silent substitution, and
+split work if needed to keep context/elapsed time bounded. T11 timeout partial-usage normalization
+is a documented provider follow-up, not permission to launch an extra slice now.

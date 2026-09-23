@@ -43,7 +43,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | Complete: [evidence](T08-EVIDENCE.md); Windows CI 645 passed, Ubuntu 642 passed/3 Windows-only skips; code/test head `53cc2c0` |
 | [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Complete: [evidence](T09-EVIDENCE.md); Windows CI 685 passed, Ubuntu 682 passed/3 Windows-only skips; code/test head `3caf863` |
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Complete: [evidence](T10-EVIDENCE.md); Windows CI 709 passed, Ubuntu 706 passed/3 Windows-only skips; code/test head `8f3c5db` |
-| [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Not started |
+| [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | In progress: Kimi dogfood accepted and integrated; lead review complete, CI pending. [Evidence](T11-EVIDENCE.md); code/test head `bb0907d` |
 | [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | Not started |
 | [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Not started |
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
