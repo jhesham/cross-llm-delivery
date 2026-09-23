@@ -29,15 +29,20 @@ installation/discovery evidence pass.
 
 Dependencies: T11. Estimate: 10–16k. Files: `generator/build_skill.py`, `generator/build_plugins.py`, `skill/SKILL.template.md`, proposed `skill/hosts/*`, shared references, generator tests.
 
-- [ ] Extract shared workflow instructions and add explicit host overlays. Keep provider setup/catalog content separate from lead-host wording.
-- [ ] Add `--host claude-code|codex`, retaining Claude output defaults and existing plugin IDs/layout. Produce Codex artifacts in a distinct output root.
-- [ ] Generate SKILL.md with YAML frontmatter at the start and provenance after it. Use concise descriptions and primary instructions; move catalogs, repair recipes, and large examples into references.
-- [ ] Codex overlay names Codex as lead, uses portable bundle-relative driver commands, interprets JSON gates, honors current session authorization, and references the user's existing project instructions without overwriting them.
-- [ ] Generate optional Codex `agents/openai.yaml` only using verified fields. Start with explicit invocation policy for the delivery workflow and clear host/provider naming; avoid ambiguous duplicate installations.
-- [ ] Correct bundle instructions that currently require `pip install -e .` or reference nonexistent `skill/scripts` inside generated outputs. A self-contained bundle must actually remain self-contained.
-- [ ] Test all 2-host × 3-provider combinations for syntax, no unresolved placeholders, import isolation, reproducibility, valid entrypoint paths, and preservation of Claude behavior. Do not assert byte equality for intentionally changed shared instructions.
+- [x] Extract shared workflow instructions and add explicit host overlays. Keep provider setup/catalog content separate from lead-host wording.
+- [x] Add `--host claude-code|codex`, retaining Claude output defaults and existing plugin IDs/layout. Produce Codex artifacts in a distinct output root.
+- [x] Generate SKILL.md with YAML frontmatter at the start and provenance after it. Use concise descriptions and primary instructions; move catalogs, repair recipes, and large examples into references.
+- [x] Codex overlay names Codex as lead, uses portable bundle-relative driver commands, interprets JSON gates, honors current session authorization, and references the user's existing project instructions without overwriting them.
+- [x] Generate optional Codex `agents/openai.yaml` only using verified fields. Start with explicit invocation policy for the delivery workflow and clear host/provider naming; avoid ambiguous duplicate installations.
+- [x] Correct bundle instructions that currently require `pip install -e .` or reference nonexistent `skill/scripts` inside generated outputs. A self-contained bundle must actually remain self-contained.
+- [x] Test all 2-host × 3-provider combinations for syntax, no unresolved placeholders, import isolation, reproducibility, valid entrypoint paths, and preservation of Claude behavior. Do not assert byte equality for intentionally changed shared instructions.
 
 **Gate:** Six generated combinations smoke successfully without source checkout dependencies. Required YAML metadata is recognized by the chosen validator and later confirmed by actual host discovery. R07 is separately verified by wheel testing in T17.
+
+**T12 closing evidence (2026-09-23):** [T12A](T12A-EVIDENCE.md) and [T12B](T12B-EVIDENCE.md).
+Six generated bundles passed offline isolation/metadata checks; the Codex plugin package passed
+offline smoke on Windows and Ubuntu. Actual Codex discovery is the distinct T13 gate, and wheel
+coverage remains T17. Final code/test head `3b1c0b9`.
 
 ## T13 — Codex installation and discovery
 
