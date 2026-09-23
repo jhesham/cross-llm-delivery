@@ -4,7 +4,7 @@ Created: 2026-09-09. Baseline: `c3ced8a5fbbb964019352f04da8d509858644ee8`, v0.2.
 
 **Outcome:** Codex and Claude Code can both plan, drive, inspect, integrate, and resume deliveries through the same reliable engine. The first release must close all 13 review findings and the associated plan/documentation gaps.
 
-Implementation is in progress: **T01 through T10 and M1–M3 completed by 2026-09-23** ([T10 evidence](docs/plans/codex-support/T10-EVIDENCE.md)). **T11 complete** ([T11 evidence](docs/plans/codex-support/T11-EVIDENCE.md)). T12 requires a new token-availability checkpoint. The checkboxes in the linked task files are the detailed source of progress; the tracker records task-level completion and evidence.
+Implementation is in progress: **T01 through T10 and M1–M3 completed by 2026-09-23** ([T10 evidence](docs/plans/codex-support/T10-EVIDENCE.md)). **T11 complete** ([T11 evidence](docs/plans/codex-support/T11-EVIDENCE.md)). T12A is now authorized for Kimi K3/OpenCode; [T12 child slices](docs/plans/codex-support/T12-SLICES.md) define its checkpoints. The checkboxes in the linked task files are the detailed source of progress; the tracker records task-level completion and evidence.
 
 **User-required token checkpoint.** After each slice, finish verification, commit its coherent changes and progress/handoff updates, then stop and ask the user to confirm token availability before starting the next slice. Treat each Txx task as one checkpoint until it is split into executable slices; if split, stop after every child slice as well. Do not auto-advance, queue another dispatch, or treat silence as confirmation. Report usage as measured, estimated, or unavailable.
 
@@ -46,3 +46,5 @@ Implementation is in progress: **T01 through T10 and M1–M3 completed by 2026-0
 
 
 - 2026-09-23 — T11 complete: host-neutral engine CLI, `python -m cld`, backward-compatible legacy shim, versioned bounded JSON responses, telemetry-only host provenance, and regression coverage. Kimi K3/OpenCode dogfood candidate passed independent repair/collection and integration gates. Lead review closed the Ubuntu compatibility findings. Windows CI 761 passed; Ubuntu 758 passed/3 Windows-only skips; both generator smoke checks passed. Code/test head `8759ce7`; pushed to `public/refactor/codex-support`. Dogfood production usage remains unknown after two timeouts; observed combined lower bounds and costs are in [T11 evidence](docs/plans/codex-support/T11-EVIDENCE.md). Pause before T12 for token confirmation.
+
+- 2026-09-23 — T12 authorized with Kimi K3/OpenCode and split into T12A/T12B to bound model context and cost after T11. T12A baseline contract and red acceptance are committed before dispatch; stop for token confirmation after T12A. Parent T12 remains open until T12B.
