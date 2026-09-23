@@ -8,11 +8,3 @@ files: generator/install_codex.py, INSTALL.md
 acceptance_test_path: tests/test_t13a_install.py
 protected_inputs: docs/plans/codex-support/T13A-CONTRACT.md, pyproject.toml
 deps:
-__pycache__/
-*.egg-info/
-*.pyc
-.pytest_cache/
-.cld-ledger.json
-.cld/
-publish-targets.toml
-dist/
