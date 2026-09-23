@@ -368,7 +368,9 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     proc = _hook("run_process")(
-        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"],
+        # Keep complete assertion reasons even with a project's quiet addopts.
+        # Candidate preflight classifies failures from the real pytest summary.
+        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-vvv", "--tb=short"],
         workdir, env=env, timeout=600)
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
                    timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)
@@ -763,8 +765,10 @@ def _validate(args) -> None:
         raise StateError("--slice/--attempt require --status or --usage")
     if args.manual_integration and not args.integrate:
         raise StateError("--manual-integration requires --integrate")
-    if sum(bool(v) for v in (args.integrate, args.step, args.mark_repaired, args.migrate_ledger, args.reconcile_plan, args.new_build)) > 1:
-        raise StateError("Choose one delivery/state action")
+    if sum(bool(v) for v in (args.status, args.usage, args.watch, args.dry_run,
+                            args.integrate, args.step, args.mark_repaired,
+                            args.migrate_ledger, args.reconcile_plan, args.new_build)) > 1:
+        raise StateError("Choose one inspection/delivery/state action")
     if args.workers < 1 or args.interval < 1:
         raise StateError("Workers and interval must be positive")
 
@@ -835,6 +839,8 @@ def _run(args) -> int:
             pending = [sid for sid, entry in ledger.entries.items() if entry.status == "needs_repair"]
             if pending:
                 print(f"reconciliation required: {', '.join(pending)}")
+                if getattr(args, "json", False):
+                    return 4
             return 0
         if args.mark_repaired:
             from cld.repair import verify_repair
@@ -1050,15 +1056,10 @@ def _command_of(args) -> str:
 
 
 def _paths_from(raw_repo, raw_ledger):
-    """Response path fields. `repository` resolves exactly; the default ledger
-    path is the plain <repo>/.cld-ledger.json join (an explicit one resolves)."""
+    """Resolve both fields using the same rules as the actual command."""
     raw_repo = raw_repo or "."
     repository = str(Path(raw_repo).resolve())
-    if raw_ledger is not None:
-        ledger = str(Path(raw_ledger).resolve())
-    else:
-        ledger = str(Path(raw_repo) / ".cld-ledger.json")
-    return repository, ledger
+    return repository, resolve_ledger(repository, raw_ledger)
 
 
 def _emit(response) -> int:
@@ -1083,12 +1084,12 @@ def _status_gate(ledger) -> str:
     build = ledger.build
     usage = build.get("usage")
     operation = build.get("last_operation") or {}
-    if usage is not None and (usage.get("blocked") or operation.get("gate_code") == 5):
+    if (usage or {}).get("blocked") or operation.get("gate_code") == 5:
         return "blocked"
     counts = Counter(e.status for e in ledger.entries.values())
     if counts["needs_repair"] or build.get("integration_failure"):
         return "needs_repair"
-    if counts["failed"]:
+    if counts["failed"] or counts["deferred"]:
         return "failed"
     if pending_integration(ledger):
         return "integration_required"
@@ -1179,12 +1180,14 @@ def _attempt_record(args, ledger):
     if ledger.build is None:
         return None, "No run is bound; there are no retained usage records"
     try:
-        usage_dir = run_directory(args.repo, ledger.build["run_id"]) / "usage"
+        run_dir = run_directory(args.repo, ledger.build["run_id"])
+        usage_dir = run_dir / "usage"
     except StateError as exc:
         return None, str(exc)
     path = usage_dir / f"attempt-{ident}.json"
     try:
-        contained = path.resolve().is_relative_to(usage_dir.resolve())
+        contained = (usage_dir.resolve().is_relative_to(run_dir.resolve())
+                     and path.resolve().is_relative_to(usage_dir.resolve()))
     except OSError:
         contained = False
     if not contained:
@@ -1197,6 +1200,8 @@ def _attempt_record(args, ledger):
         return None, f"Unreadable usage record: {exc}"
     if not isinstance(record, dict) or record.get("id") != ident:
         return None, "Usage record identity mismatch"
+    if args.slice is not None and record.get("slice_id") != args.slice:
+        return None, "Usage record does not belong to the selected slice"
     return cli_response.bound(record), None
 
 
@@ -1212,7 +1217,8 @@ def _detail(args, ledger):
                             "attempts": entry.attempts, "tokens": entry.token_usage.get("total"),
                             "cost": entry.cost, "commit": entry.commit,
                             "complexity": entry.complexity, "final_rung": entry.final_rung,
-                            "intervened": entry.intervened, "updated_at": entry.updated_at}
+                            "intervened": entry.intervened, "updated_at": entry.updated_at,
+                            "recovery_path": entry.recovery_path, "worktree_path": entry.worktree_path}
     if args.attempt is not None:
         record, error = _attempt_record(args, ledger)
         if error is not None:
@@ -1223,7 +1229,10 @@ def _detail(args, ledger):
 
 def _load_ledger_or_blocked(command, args):
     try:
-        return Ledger.load(args.ledger), None
+        ledger = Ledger.load(args.ledger)
+        if ledger.build and ledger.build["repo"] != os.path.realpath(args.repo):
+            raise StateError("Ledger belongs to another repository; use its original --repo")
+        return ledger, None
     except (StateError, ValueError, OSError) as exc:
         return None, _blocked(command, str(exc), raw_repo=args.raw_repo, raw_ledger=args.raw_ledger)
 
@@ -1296,22 +1305,18 @@ class _ProgressTee:
     def __init__(self, stream, limit=8000):
         self._stream = stream
         self._limit = limit
-        self._chunks = []
-        self._size = 0
+        self._tail = ""
 
     def write(self, text):
         self._stream.write(text)
-        self._chunks.append(text)
-        self._size += len(text)
-        while self._size > self._limit and len(self._chunks) > 1:
-            self._size -= len(self._chunks.pop(0))
+        self._tail = (self._tail + text[-self._limit:])[-self._limit:]
         return len(text)
 
     def flush(self):
         self._stream.flush()
 
     def tail(self, limit=1500):
-        return cli_response.bounded_text("".join(self._chunks).strip(), limit)
+        return cli_response.bounded_text(self._tail.strip(), limit)
 
 
 def _json_action(args) -> int:
@@ -1390,7 +1395,13 @@ def main(argv=None) -> int:
         telemetry.set_host(host)
     try:
         if "--json" in argv:
-            return _main_json(argv)
+            try:
+                return _main_json(argv)
+            except Exception as exc:
+                # Machine callers must also receive structured diagnostics for
+                # malformed optional state or an unexpected provider failure.
+                return _blocked(_guess_command(argv), str(exc),
+                    raw_repo=_scan_option(argv, "--repo"), raw_ledger=_scan_option(argv, "--ledger"))
         try:
             return _main(argv)
         except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError, ValueError) as exc:
