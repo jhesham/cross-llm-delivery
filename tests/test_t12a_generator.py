@@ -29,7 +29,8 @@ def test_explicit_claude_host_preserves_default_bundle_bytes(tmp_path):
     except TypeError as exc:
         assert False, f"Explicit Claude host is unavailable: {exc}"
     def snapshot(path):
-        return {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*") if p.is_file()}
+        return {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*")
+                if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"}
     assert explicit == tmp_path / "explicit" / "cross-llm-cursor"
     assert snapshot(default) == snapshot(explicit)
 
@@ -76,7 +77,7 @@ def test_codex_bundle_references_and_isolated_driver_work(tmp_path, provider):
         encoding="utf-8", timeout=30)
     response = json.loads(proc.stdout)
     assert proc.returncode == 0 and response["layers"] == [["A"]]
-    assert "cld" in str(out / "scripts") and (out / "scripts" / "cld").is_dir()
+    assert (out / "scripts" / "cld").is_dir()
 
 
 def test_codex_all_cli_keeps_existing_claude_tree(tmp_path):

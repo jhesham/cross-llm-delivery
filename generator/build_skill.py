@@ -13,6 +13,11 @@ ENGINE: Path = REPO_ROOT / "engine"
 PROVIDERS_DIR: Path = ENGINE / "cld_providers"
 SKILL_SRC: Path = REPO_ROOT / "skill"
 
+# Supported output hosts. "claude-code" is the historical default; "codex" is
+# the standalone Codex variant (YAML-first SKILL.md + host references).
+HOSTS: tuple[str, ...] = ("claude-code", "codex")
+CODEX_HOST_SRC: Path = SKILL_SRC / "hosts" / "codex"
+
 
 def _git_sha() -> str:
     """Return the short git SHA of HEAD, or 'unknown' on failure."""
@@ -81,6 +86,35 @@ def _compose_skill(provider: str, out: Path) -> None:
         .replace("{{BANNER}}", banner)
     )
     (out / "SKILL.md").write_text(skill, encoding="utf-8")
+
+
+def _compose_skill_codex(provider: str, out: Path) -> None:
+    """Compose the Codex-host SKILL.md from its own concise YAML-first template."""
+    template = (CODEX_HOST_SRC / "SKILL.template.md").read_text(encoding="utf-8")
+    skill = (
+        template
+        .replace("{{PROVIDER_NAME}}", provider)
+        .replace("{{DEFAULT_WORKHORSE}}", _provider_default_workhorse(provider))
+        .replace("{{BANNER}}", _banner(provider))
+    )
+    (out / "SKILL.md").write_text(skill, encoding="utf-8")
+
+
+def _vendor_codex_references(provider: str, out: Path) -> None:
+    """Copy the Codex host workflow + the provider's setup/fragment as references."""
+    refs = out / "references"
+    refs.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(CODEX_HOST_SRC / "references" / "codex-workflow.md",
+                 refs / "codex-workflow.md")
+    shutil.copy2(PROVIDERS_DIR / provider / "setup.md", refs / "provider-setup.md")
+    shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", refs / "provider.md")
+
+
+def _scaffold_codex(provider: str, out: Path) -> None:
+    """Write LICENSE and .gitignore for a Codex bundle (no Claude README)."""
+    shutil.copy2(REPO_ROOT / "LICENSE", out / "LICENSE")
+    gitignore = "__pycache__/\n*.pyc\n.cld-ledger.json\n"
+    (out / ".gitignore").write_text(gitignore, encoding="utf-8")
 
 
 def _scaffold(provider: str, out: Path) -> None:
@@ -222,19 +256,33 @@ def _smoke_check(out: Path) -> None:
         )
 
 
-def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = True) -> Path:
-    """Create (or wipe+recreate) <out_root>/cross-llm-<provider>/ and return it.
+def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = True,
+              host: str = "claude-code") -> Path:
+    """Create (or wipe+recreate) the skill bundle for *provider* and return it.
+
+    host="claude-code" (the default) writes <out_root>/cross-llm-<provider>/
+    exactly as it always has. host="codex" writes the standalone Codex variant
+    to <out_root>/codex/cross-llm-<provider>/ and never touches an adjacent
+    Claude bundle. An unknown host raises ValueError before any output is
+    created or deleted.
 
     If *smoke* is True (the default) a standalone smoke-check is run after the
     bundle is assembled, proving that the vendored copy of cld is self-contained.
     Pass smoke=False to skip the check (e.g. for fast unit tests of earlier steps).
     """
+    if host not in HOSTS:
+        raise ValueError(
+            f"Unknown host '{host}'. Known: {{{', '.join(HOSTS)}}}"
+        )
     known = _known_providers()
     if provider not in known:
         raise ValueError(
             f"Unknown provider '{provider}'. Known: {{{', '.join(known)}}}"
         )
-    out = Path(out_root) / f"cross-llm-{provider}"
+    if host == "codex":
+        out = Path(out_root) / "codex" / f"cross-llm-{provider}"
+    else:
+        out = Path(out_root) / f"cross-llm-{provider}"
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
@@ -242,9 +290,14 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
     _trim_executor_shims(provider, out)
     _vendor_provider(provider, out)
     _vendor_driver(out)
-    _vendor_aux(out)
-    _compose_skill(provider, out)
-    _scaffold(provider, out)
+    if host == "codex":
+        _vendor_codex_references(provider, out)
+        _compose_skill_codex(provider, out)
+        _scaffold_codex(provider, out)
+    else:
+        _vendor_aux(out)
+        _compose_skill(provider, out)
+        _scaffold(provider, out)
     if smoke:
         _smoke_check(out)
     return out
@@ -271,6 +324,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Output root directory (default: dist).",
     )
     parser.add_argument(
+        "--host",
+        default="claude-code",
+        help="Target host for the generated bundle: claude-code (default) or codex.",
+    )
+    parser.add_argument(
         "--no-smoke",
         action="store_true",
         dest="no_smoke",
@@ -287,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
 
     smoke = not args.no_smoke
     for target in targets:
-        out = build_one(target, out_root=args.out_root, smoke=smoke)
+        out = build_one(target, out_root=args.out_root, smoke=smoke, host=args.host)
         print(out)
 
     return 0
