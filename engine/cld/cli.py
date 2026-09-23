@@ -1078,6 +1078,8 @@ def _blocked(command, reason, *, raw_repo=None, raw_ledger=None, run_id=None, ac
 def _status_gate(ledger) -> str:
     """Truthful gate from persisted state; success never hides pending repair/integration."""
     if ledger.build is None:
+        if ledger.entries:
+            return "blocked"  # legacy/simulation state has no production identity
         return "pending"  # empty state is explicit; no run is invented
     from collections import Counter
     from cld.integration import pending_integration
@@ -1102,9 +1104,15 @@ def _usage_field(ledger) -> dict:
     """Local persisted usage only; unknown usage stays null (never invented)."""
     summary = (ledger.build or {}).get("usage")
     if summary:
-        return {"attempts": summary.get("attempts", 0), "input": summary.get("input"),
+        result = {"attempts": summary.get("attempts", 0), "input": summary.get("input"),
                 "output": summary.get("output"), "total": summary.get("total"),
                 "cost": summary.get("cost")}
+        for field in ("input", "output", "cache_read", "cache_write", "total", "cost"):
+            for suffix in ("_known", "_unknown"):
+                if field + suffix in summary:
+                    result[field + suffix] = summary[field + suffix]
+        result["in_flight"] = summary.get("in_flight", 0)
+        return result
     entries = list(ledger.entries.values())
 
     def _sum(values):
@@ -1119,9 +1127,12 @@ def _usage_field(ledger) -> dict:
 
 
 def _budget_field(ledger) -> dict:
-    policy = ((ledger.build or {}).get("usage") or {}).get("policy") or {}
+    summary = (ledger.build or {}).get("usage") or {}
+    policy = summary.get("policy") or {}
     budget = cli_response.null_budget()
     budget.update({key: policy.get(key) for key in budget})
+    for key in ("total_reserved", "cost_reserved", "total_overrun", "cost_overrun", "attempt_overruns", "blocked"):
+        budget[key] = summary.get(key)
     return budget
 
 
@@ -1251,10 +1262,18 @@ def _json_status(args) -> int:
         extra["details"] = details
     errors = None
     if gate == "blocked":
-        reason = ((ledger.build.get("usage") or {}).get("blocked")
-                  or (ledger.build.get("last_operation") or {}).get("reason")
+        build = ledger.build or {}
+        reason = ((build.get("usage") or {}).get("blocked")
+                  or (build.get("last_operation") or {}).get("reason")
+                  or ("Unbound ledger entries require explicit migration/reconciliation" if not build else None)
                   or "Build is blocked; inspect the ledger and correct the input")
         errors = [cli_response.make_error(reason)]
+    elif gate in ("needs_repair", "failed"):
+        failure = (ledger.build or {}).get("integration_failure") or {}
+        affected = [sid for sid, entry in ledger.entries.items()
+                    if entry.status in ("needs_repair", "failed", "deferred")]
+        reason = failure.get("error") or f"{gate}: {', '.join(affected[:50])}; inspect --slice details and recovery artifacts"
+        errors = [cli_response.make_error(reason, cli_response.next_action(gate))]
     return _emit(_ledger_response("status", gate, args, ledger, errors=errors, extra=extra))
 
 
@@ -1357,7 +1376,7 @@ def _main_json(argv) -> int:
     if "--help" in argv or "-h" in argv:
         raw_repo, raw_ledger = _scan_option(argv, "--repo"), _scan_option(argv, "--ledger")
         repository, ledger_path = _paths_from(raw_repo, raw_ledger)
-        return _emit(cli_response.build(command="help", gate="passed",
+        return _emit(cli_response.build(command="help", gate="pending",
             repository=repository, ledger=ledger_path,
             extra={"details": {"usage": cli_response.bounded_text(build_parser().format_help(), 6000)}}))
     try:
