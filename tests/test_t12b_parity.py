@@ -22,6 +22,7 @@ HOSTS = ("claude-code", "codex")
 def test_codex_skill_has_verified_agent_metadata(tmp_path, provider):
     bundle = build_one(provider, out_root=tmp_path, host="codex")
     meta_path = bundle / "agents" / "openai.yaml"
+    assert meta_path.is_file()
     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8"))
     assert isinstance(meta, dict)
     assert set(meta) == {"interface", "policy"}
@@ -40,6 +41,7 @@ def test_host_bundle_shares_core_reference_and_uses_its_vendored_driver(tmp_path
     bundle = build_one(provider, out_root=tmp_path / "output with spaces", host=host)
     skill = (bundle / "SKILL.md").read_text(encoding="utf-8")
     core = bundle / "references" / "delivery-core.md"
+    assert core.is_file()
     assert core.read_bytes() == (ROOT / "skill" / "references" / "delivery-core.md").read_bytes()
     assert "references/delivery-core.md" in skill
     assert "python scripts/run_delivery.py" in skill
@@ -88,6 +90,7 @@ def _build_codex_plugins(tmp_path):
 def test_codex_plugin_layout_metadata_and_idempotence(tmp_path):
     output, cmd = _build_codex_plugins(tmp_path)
     plugins = output / "codex"
+    assert plugins.is_dir()
     assert {p.name for p in plugins.iterdir() if p.is_dir()} == {
         f"cross-llm-{provider}" for provider in PROVIDERS}
     for provider in PROVIDERS:
