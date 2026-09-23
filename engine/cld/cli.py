@@ -45,15 +45,15 @@ from cld.plan.slice import load_slices, PlanError
 from cld import telemetry
 from cld import cli_response
 
-# Load all providers at startup so the registry is populated before any
-# call to get_executor / get_provider / KNOWN_EXECUTORS.
+# Load all providers at startup so registry-backed provider discovery is ready.
 load_providers()
 
 # ---------------------------------------------------------------------------
-# KNOWN_EXECUTORS: dynamic shim (registry-backed) for backward-compat callers
-# within this module (e.g. _parse_name_model, _provider_of_spec).
+# Dynamic provider discovery for executor parsing and selection.
 # ---------------------------------------------------------------------------
-KNOWN_EXECUTORS = tuple(p.name for p in all_providers())
+
+def _executor_names():
+    return tuple(provider.name for provider in all_providers())
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +391,7 @@ def _parse_name_model(spec: str) -> tuple[str, dict]:
     # no colon: accept "<known-executor>/<model>" (the picker/catalog slash form)
     if "/" in spec:
         head = spec.split("/", 1)[0].strip().lower()
-        if head in KNOWN_EXECUTORS:
+        if head in _executor_names():
             name, model = spec.split("/", 1)
             model = model.strip()
             return (name.strip(), {"model": model} if model else {})
@@ -505,7 +505,7 @@ def _provider_of_spec(spec: str) -> str:
         name = s.split(":", 1)[0].strip().lower()
     else:
         name = s.lower()
-    return name if name in KNOWN_EXECUTORS else _default_provider()
+    return name if name in _executor_names() else _default_provider()
 
 
 def _available_ids_for(provider: str) -> list:

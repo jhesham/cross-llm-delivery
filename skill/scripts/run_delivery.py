@@ -55,7 +55,7 @@ PlanError = _cli.PlanError
 EvidenceError = _cli.EvidenceError
 CaptureError = _cli.CaptureError
 TestRun = _cli.TestRun
-KNOWN_EXECUTORS = _cli.KNOWN_EXECUTORS
+KNOWN_EXECUTORS = tuple(provider.name for provider in _cli.all_providers())
 load_providers = _cli.load_providers
 get_provider = _cli.get_provider
 all_providers = _cli.all_providers
@@ -97,7 +97,14 @@ def _wrap(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         with _cli.hooks_from(globals()):
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+        # Admission returns deferred factories/planners that may be called
+        # later by legacy import-based clients, after the initial hook scope.
+        if callable(result):
+            return _wrap(result)
+        if isinstance(result, tuple):
+            return tuple(_wrap(value) if callable(value) else value for value in result)
+        return result
     return wrapper
 
 
