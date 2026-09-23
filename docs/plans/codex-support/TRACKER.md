@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T12 and M1–M3 complete. T13 awaits the user's next token confirmation.
+Status: T01 through T12, T13A, and M1–M3 complete. T13B awaits the user's next token confirmation; parent T13 remains open.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -23,6 +23,8 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T12A — Standalone Codex generator
   - [x] T12B — Host metadata and parity
 - [ ] T13 — Codex installation and discovery
+  - [x] T13A — Safe standalone installer
+  - [ ] T13B — Marketplace and host discovery
 - [ ] T14 — Cross-host acceptance
 - [ ] T15 — Optional Codex executor contract (deferred)
 - [ ] T16 — Optional Codex executor implementation (deferred)
@@ -47,7 +49,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Complete: [evidence](T10-EVIDENCE.md); Windows CI 709 passed, Ubuntu 706 passed/3 Windows-only skips; code/test head `8f3c5db` |
 | [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Complete: [evidence](T11-EVIDENCE.md); Windows 761 passed, Ubuntu 758 passed/3 Windows-only skips; both generator smoke checks passed; code/test head `8759ce7` |
 | [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | Complete: [T12A](T12A-EVIDENCE.md), [T12B](T12B-EVIDENCE.md); final `3b1c0b9`, Windows/Ubuntu full CI plus both-host generator and Codex plugin smoke green |
-| [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Not started |
+| [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | In progress: [T13A complete](T13A-EVIDENCE.md), final code/test `adbaf0c`; T13B pending actual host discovery and marketplace. [Split plan](T13-SLICES.md) |
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Deferred by default |
@@ -100,3 +102,4 @@ Next task:
 - 2026-09-23 — T12A complete: Codex standalone skill generation for all three providers, YAML-first entry metadata, bundle references and isolated driver. Kimi K3/OpenCode timed out after producing the permitted draft; the lead corrected two faulty acceptance assertions and reviewed/manual-integrated the code. Nine corrected tests remained red on baseline; 25 focused passed on feature. Local full suite and Windows/Ubuntu CI with default generator smoke passed; Codex smoke passed locally. Code/test `8ef2a38`, [evidence](T12A-EVIDENCE.md). Production usage unknown, partial lower bounds retained. Parent T12 remains open; pause before T12B.
 
 - 2026-09-23 — T12B/T12 complete: pinned Kimi K3/OpenCode delivered seven allowed files; engine collection and independent integration passed. Lead review moved Codex plugin default output to ignored `dist/plugins/` and fixed a pre-existing cancellation-test race exposed by Ubuntu CI. 38 focused generator cases, local full suite and final Windows/Ubuntu CI (tests plus Claude/Codex generator and Codex plugin smoke) passed. Code/test `3b1c0b9`; [evidence](T12B-EVIDENCE.md). Complete usage 1,794,375 tokens/USD 1.0957002 including validation. Pause before T13.
+- 2026-09-24 — T13A complete: pinned Kimi K3/OpenCode delivered a standalone Codex installer and install guide, with committed red acceptance and independent integration. Lead review fixed containment, Python cache ownership, and cleanup outcome reporting. Local 13-case focused suite, generated-bundle disposable install/update/uninstall, full offline suite, and final Windows/Ubuntu CI with all generator smoke passed. Code/test `adbaf0c`; [evidence](T13A-EVIDENCE.md). Complete measured usage 641,634 tokens/USD 0.7045932 including validation. Parent T13 open; pause before T13B.
