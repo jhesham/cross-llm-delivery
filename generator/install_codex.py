@@ -372,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
         action = "uninstall"
     target_str: str | None = None
     try:
-        scope = Path(args.scope_root)
+        scope = Path(args.scope_root).absolute()
         if action == "uninstall":
             if not args.name:
                 raise Reject("--uninstall requires --name cross-llm-<provider>")
