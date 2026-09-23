@@ -54,6 +54,8 @@ Exit codes: 0 ok, work remains; 2 failure/defer; 3 integrated and verified;
 
 ## References
 
+- `references/delivery-core.md` -- the shared, host-neutral gate (exit-code)
+  contract and authorization rules; identical in every host bundle.
 - `references/codex-workflow.md` -- the full Codex-led workflow: plan authoring,
   batch-stepping, the model picker, gates, and the repair loop.
 - `references/provider-setup.md` -- install and verify the {{PROVIDER_NAME}} CLI.

@@ -46,7 +46,8 @@ you prepare a plan and invoke the driver script.
 
 {{SETUP}}
 
-- The `cld` package importable (`pip install -e .` from the repo root).
+- No package install: the `cld` engine and the driver are vendored inside this
+  bundle under `scripts/` -- nothing to `pip install`.
 - A git repo (worktree isolation runs `git worktree add/remove`).
 - Optional: `ANTHROPIC_API_KEY` to enable behavioral (G-Eval) judging (no-op when absent).
 - Telemetry is **always on and local** — every build writes `<repo>/.cld/events.jsonl` and you
@@ -85,10 +86,12 @@ to write good slices (vertical not horizontal, injectable boundaries, right-sizi
 ### 2. Run the plan -- batch-step (context-lean, interactive)
 
 Drive the build ONE DAG layer at a time so your context stays small and you can steer
-between phases. Per layer:
+between phases. Run commands from this generated skill directory with absolute plan and
+repo paths (or invoke the driver by its absolute path from another working directory).
+Per layer:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor <name>[:model][@effort]]
+python scripts/run_delivery.py <plan.md> --repo <dir> --step [--workers N] [--executor <name>[:model][@effort]]
 ```
 
 This runs only the next pending layer (independent slices fan out concurrently in isolated
@@ -104,7 +107,7 @@ and act on the gate (the exit code):
 After acceptance, integrate the exact recorded commits with an explicit suite:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector>
+python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector>
 ```
 
 The engine merges in an owned worktree, verifies the frozen candidate and records
@@ -118,8 +121,8 @@ slice-by-slice instead of blocking on it, dispatch in the BACKGROUND and poll th
 turns:
 
 ```bash
-python skill/scripts/run_delivery.py <plan.md> --repo <dir> --step --workers N   # background
-python skill/scripts/run_delivery.py --status --repo <dir>                       # poll between turns
+python scripts/run_delivery.py <plan.md> --repo <dir> --step --workers N   # background
+python scripts/run_delivery.py --status --repo <dir>                       # poll between turns
 ```
 
 `--status` is context-cheap -- one short digest (layer position, done/running/pending, in-flight
@@ -319,7 +322,7 @@ Inspect the worktree and recovery paths printed by the command; failed worktrees
    acceptance tests and protected inputs unchanged.
 3. Verify a slice repair with its original plan:
    ```bash
-   python skill/scripts/run_delivery.py <plan.md> --repo <repo> --mark-repaired <slice_id> --ledger <path>
+    python scripts/run_delivery.py <plan.md> --repo <repo> --mark-repaired <slice_id> --ledger <path>
    ```
    This re-tests and collects a frozen repaired candidate in a new owned worktree.
    Exit 6 means accepted and awaiting integration; it is not a status-only override.
@@ -356,6 +359,8 @@ re-run to refresh.
 
 ## Reference material
 
+- `references/delivery-core.md` -- the shared, host-neutral gate (exit-code)
+  contract and authorization rules; identical in every host bundle.
 - `references/architecture.md` -- the cld engine: modules, the locked CLI invocation form,
   executor registry, ledger, DAG, quota-awareness, observability.
 - `references/authoring-plans.md` -- how to write good vertical slices + contracts.
