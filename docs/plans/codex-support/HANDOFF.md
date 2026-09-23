@@ -1,20 +1,21 @@
 # Current handoff
 
-Updated 2026-09-23. T01–T11/M1–M3 complete. **Paused before T12 for token-availability
-confirmation.** Read IMPLEMENTATION_PLAN.md, TRACKER.md, T11-EVIDENCE.md and docs/CLI.md.
+Updated 2026-09-23. T01–T11/M1–M3 complete. **T12A in progress**, authorized for Kimi K3
+through OpenCode. T12 was split into two child slices in T12-SLICES.md after T11's costly
+long-running dogfood. Stop for the user's token confirmation after T12A before T12B.
 
-Branch `refactor/codex-support`, remote `public`, code/test head `8759ce7` (pushed). T11 CI passed:
-Windows 761 tests; Ubuntu 758 tests plus 3 Windows-only skips. Both generator smoke checks passed.
-Run: https://github.com/jhesham/cross-llm-delivery/actions/runs/35839266779.
-T11 acceptance candidate passed the verified repair/collection and explicit integration gates.
-No main merge or release.
+Branch `refactor/codex-support`, remote `public`; T11 code/test head `8759ce7`, closing docs
+`539d82e`. T11 CI passed Windows 761, Ubuntu 758/3 Windows-only skips and both generator smoke.
+T12A contract: T12A-CONTRACT.md; executable plan: T12A-DOGFOOD.md; lead acceptance:
+tests/test_t12a_generator.py (9 expected red assertions). Explicit PyYAML dev dependency supports
+real YAML validation. Baseline must be committed before Kimi dispatch. T12B owns plugin/agent
+metadata and final host parity; parent T12 stays unchecked until T12B passes.
 
-Exact dogfood model `opencode/kimi-k3` through OpenCode 1.18.29. Two production calls timed out;
-first produced no edits, second produced the accepted candidate. No model substitution and no further
-call is queued. Canaries: 49,915 reported tokens / USD 0.0526338. Production ledger totals remain
-unknown. Observed completed-step lower bounds including canary are 2,629,362 tokens / USD 2.5188468,
-mostly cached context; these are not final billed totals. Lead usage counters unavailable.
+Exact model `opencode/kimi-k3` is listed by OpenCode 1.18.29. Use a project-local evidence store
+and normal T09 admission; no model substitution. One production attempt/worker, no automatic retry,
+strict allowed paths. T11 production totals remain unknown; its partial lower bounds are retained
+in T11-EVIDENCE.md and must not be represented as this new run's spend.
 
-See T11-EVIDENCE for commit/gate trail and retained local artifacts. The machine-wide unsupported
-evidence cache was left untouched. Generated host overlays and discovery remain T12–T14; packaging
-remains T17. T12 estimate: 10–16k lead tokens. Await explicit token confirmation before starting it.
+After T12A candidate: independently verify the immutable red baseline and allowlist, integrate
+accepted commit, run affected generator tests and full cross-platform CI if shared generator changes,
+record usage honestly, close only T12A in tracker, commit/push and stop. No main merge or release.
