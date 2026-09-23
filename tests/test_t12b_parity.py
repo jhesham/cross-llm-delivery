@@ -112,6 +112,46 @@ def test_codex_plugin_layout_metadata_and_idempotence(tmp_path):
     assert _snapshot(plugins) == before
 
 
+def test_codex_plugin_default_output_is_a_disposable_build_directory(tmp_path):
+    isolated = tmp_path / "isolated generator repo"
+    (isolated / "generator").mkdir(parents=True)
+    shutil.copy2(ROOT / "generator" / "build_plugins.py", isolated / "generator" / "build_plugins.py")
+    shutil.copy2(ROOT / "VERSION", isolated / "VERSION")
+    for provider in PROVIDERS:
+        build_one(provider, out_root=isolated / "dist", host="codex")
+    proc = subprocess.run([sys.executable, str(isolated / "generator" / "build_plugins.py"),
+                           "--host", "codex"], cwd=tmp_path, stdin=subprocess.DEVNULL,
+                          capture_output=True, text=True, encoding="utf-8", timeout=90)
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert (isolated / "dist" / "plugins" / "codex" / "cross-llm-cursor" / "plugin.json").is_file()
+    assert not (isolated / "plugins").exists()
+
+
+def test_claude_plugin_default_layout_and_repeatability(tmp_path):
+    isolated = tmp_path / "isolated generator repo"
+    (isolated / "generator").mkdir(parents=True)
+    shutil.copy2(ROOT / "generator" / "build_plugins.py", isolated / "generator" / "build_plugins.py")
+    for provider in PROVIDERS:
+        build_one(provider, out_root=isolated / "dist", host="claude-code")
+    cmd = [sys.executable, str(isolated / "generator" / "build_plugins.py")]
+    first = subprocess.run(cmd, cwd=tmp_path, stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, encoding="utf-8", timeout=90)
+    assert first.returncode == 0, first.stderr + first.stdout
+    plugins = isolated / "plugins"
+    assert {p.name for p in plugins.iterdir() if p.is_dir()} == {
+        f"cross-llm-{provider}" for provider in PROVIDERS}
+    for provider in PROVIDERS:
+        plugin = plugins / f"cross-llm-{provider}"
+        manifest = json.loads((plugin / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        assert manifest["name"] == f"cross-llm-{provider}"
+        assert (plugin / "skills" / f"cross-llm-{provider}" / "SKILL.md").is_file()
+    before = _snapshot(plugins)
+    second = subprocess.run(cmd, cwd=tmp_path, stdin=subprocess.DEVNULL,
+                            capture_output=True, text=True, encoding="utf-8", timeout=90)
+    assert second.returncode == 0, second.stderr + second.stdout
+    assert _snapshot(plugins) == before
+
+
 def test_ci_smokes_codex_generation_and_plugin_packaging():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "python generator/build_skill.py --all --host codex" in workflow
