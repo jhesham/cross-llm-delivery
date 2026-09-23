@@ -307,17 +307,27 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
             if renamed and not target.exists():
                 backup.replace(target)
             raise
+        cleanup_warning = None
         if renamed:
-            _check_target_safe(scope, backup)
-            _verify_owned(backup)
-            shutil.rmtree(backup)
+            try:
+                _check_target_safe(scope, backup)
+                _verify_owned(backup)
+                shutil.rmtree(backup)
+            except (OSError, Reject) as exc:
+                # The new target is already published. Report success and keep
+                # the old backup for manual inspection rather than claiming a
+                # failed operation left the previous target untouched.
+                cleanup_warning = f"old backup retained at {backup}: {exc}"
     except BaseException:
         if stage.is_dir() and not stage.is_symlink():
             _check_target_safe(scope, stage)
             shutil.rmtree(stage, ignore_errors=True)
         raise
     outcome = "updated" if updating else "installed"
-    return {"action": "install", "target": str(target), "outcome": outcome}
+    result = {"action": "install", "target": str(target), "outcome": outcome}
+    if cleanup_warning:
+        result["cleanup_warning"] = cleanup_warning
+    return result
 
 
 def _uninstall(scope: Path, target: Path, name: str) -> dict:

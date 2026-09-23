@@ -91,6 +91,29 @@ def test_import_cache_does_not_prevent_uninstall(tmp_path):
     assert not target.exists()
 
 
+def test_backup_cleanup_error_reports_published_update(tmp_path, monkeypatch):
+    from generator import install_codex
+
+    source = bundle(tmp_path)
+    scope = tmp_path / "project"
+    assert invoke(scope, "--install", source=source)[0] == 0
+    (source / "scripts" / "run_delivery.py").write_text("print('new')\n", encoding="utf-8")
+    original = install_codex.shutil.rmtree
+
+    def deny_backup(path, *args, **kwargs):
+        if ".cld-backup-" in str(path):
+            raise PermissionError("backup locked")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(install_codex.shutil, "rmtree", deny_backup)
+    result = install_codex._install(source, scope,
+        scope / ".agents" / "skills" / source.name, source.name)
+    assert result["outcome"] == "updated"
+    assert "cleanup_warning" in result
+    target = scope / ".agents" / "skills" / source.name
+    assert "new" in (target / "scripts" / "run_delivery.py").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("change", ["edit", "extra", "manifest", "symlink"])
 def test_local_edits_block_update_and_uninstall(tmp_path, change):
     source = bundle(tmp_path)
