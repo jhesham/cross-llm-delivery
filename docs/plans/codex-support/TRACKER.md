@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T11 and M1–M3 complete. **T12A complete**; T12B requires the user's next token checkpoint.
+Status: T01 through T11 and M1–M3 complete. **T12A complete; T12B in progress** after the user's token confirmation.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -46,7 +46,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Complete: [evidence](T09-EVIDENCE.md); Windows CI 685 passed, Ubuntu 682 passed/3 Windows-only skips; code/test head `3caf863` |
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Complete: [evidence](T10-EVIDENCE.md); Windows CI 709 passed, Ubuntu 706 passed/3 Windows-only skips; code/test head `8f3c5db` |
 | [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Complete: [evidence](T11-EVIDENCE.md); Windows 761 passed, Ubuntu 758 passed/3 Windows-only skips; both generator smoke checks passed; code/test head `8759ce7` |
-| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | T12A complete: [evidence](T12A-EVIDENCE.md), code/test `8ef2a38`, Windows/Ubuntu CI green; T12B not started, parent open |
+| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | T12A complete: [evidence](T12A-EVIDENCE.md), code/test `8ef2a38`, Windows/Ubuntu CI green; T12B acceptance baseline in progress, parent open |
 | [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Not started |
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |

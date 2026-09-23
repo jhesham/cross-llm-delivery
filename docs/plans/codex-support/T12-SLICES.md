@@ -17,6 +17,9 @@ independently checked child slices, with a mandatory user token checkpoint after
   validate the complete two-host × three-provider matrix, CLI/reproducibility and offline CI. Its
   contract and acceptance tests must be committed before any dispatch. Estimated lead effort
   5–8k, plus independent CI. Stop after this child slice. T12 parent closes only then.
+  Contract: [T12B-CONTRACT.md](T12B-CONTRACT.md); executable plan:
+  [T12B-DOGFOOD.md](T12B-DOGFOOD.md); lead acceptance: `tests/test_t12b_parity.py`
+  (11 red assertions before implementation). In progress after the user's token confirmation.
 
 T13 owns installation/discovery; T17 owns wheel packaging. T12 checks generated files in disposable
 roots, not a user-global install. Existing Claude plugin IDs and default build commands must persist.
