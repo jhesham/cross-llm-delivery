@@ -4,12 +4,13 @@ The user authorized T12 with Kimi K3 via OpenCode on 2026-09-23. T11 showed that
 rewrite incurred long OpenCode sessions and unbounded cached-token growth. T12 is divided into
 independently checked child slices, with a mandatory user token checkpoint after each.
 
-- [ ] **T12A — Standalone Codex generator.** Add `--host codex|claude-code` to the generator, keep
+- [x] **T12A — Standalone Codex generator.** Add `--host codex|claude-code` to the generator, keep
   the current Claude default byte-for-byte compatible, generate Codex bundles under `dist/codex/`,
   put valid YAML metadata first, supply concise Codex workflow/provider references, and prove
   vendored driver isolation for all three providers. Allowed implementation is deliberately small.
   Contract: [T12A-CONTRACT.md](T12A-CONTRACT.md). Acceptance: `tests/test_t12a_generator.py`.
-  Estimated lead effort 5–8k; executor usage measured separately. Stop after this slice.
+  [Evidence](T12A-EVIDENCE.md), code/test `8ef2a38`, cross-platform CI passed. Executor production
+  usage remains unknown after timeout; observed lower bounds are in evidence. Stop after this slice.
 - [ ] **T12B — Host metadata and parity.** Add optional verified `agents/openai.yaml` metadata and
   Codex host packaging in generator/build_plugins.py as appropriate; extract shared instruction
   references without changing existing Claude behavior, resolve remaining bundle path/setup text,

@@ -1,21 +1,26 @@
 # Current handoff
 
-Updated 2026-09-23. T01–T11/M1–M3 complete. **T12A in progress**, authorized for Kimi K3
-through OpenCode. T12 was split into two child slices in T12-SLICES.md after T11's costly
-long-running dogfood. Stop for the user's token confirmation after T12A before T12B.
+Updated 2026-09-23. T01–T11/M1–M3 and **T12A complete**. T12 parent remains open for T12B.
+Stop here for the user's explicit token-availability confirmation before T12B. Branch
+`refactor/codex-support`, remote `public`; T12A code/test head `8ef2a38`. No main merge or release.
 
-Branch `refactor/codex-support`, remote `public`; T11 code/test head `8759ce7`, closing docs
-`539d82e`. T11 CI passed Windows 761, Ubuntu 758/3 Windows-only skips and both generator smoke.
-T12A contract: T12A-CONTRACT.md; executable plan: T12A-DOGFOOD.md; lead acceptance:
-tests/test_t12a_generator.py (9 expected red assertions). Explicit PyYAML dev dependency supports
-real YAML validation. Baseline must be committed before Kimi dispatch. T12B owns plugin/agent
-metadata and final host parity; parent T12 stays unchecked until T12B passes.
+T12A produced `--host codex` standalone bundles under `dist/codex/` for antigravity, cursor and
+opencode. The default Claude output path remains intact. Codex entry skills start with YAML
+frontmatter and link workflow/provider references; vendored JSON driver previews run from another
+working directory. The nine corrected acceptance cases are red on the original baseline and green
+on the feature; 25 focused tests and the local full suite passed. [Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35845344191)
+passed full tests and default generator smoke. All three Codex bundles built and passed local
+standalone checks. See [T12A evidence](T12A-EVIDENCE.md).
 
-Exact model `opencode/kimi-k3` is listed by OpenCode 1.18.29. Use a project-local evidence store
-and normal T09 admission; no model substitution. One production attempt/worker, no automatic retry,
-strict allowed paths. T11 production totals remain unknown; its partial lower bounds are retained
-in T11-EVIDENCE.md and must not be represented as this new run's spend.
+Dogfood used exact `opencode/kimi-k3`, no substitution. Validation reported 49,738 tokens and
+USD 0.053958. Production timed out at 540 seconds; final usage/cost are unknown, with completed
+step lower bounds 879,480 tokens and USD 0.9173688. The lead reviewed/manual-integrated the
+retained changes after correcting two lead-owned test assertions. Do not claim the engine accepted
+or integrated that timed-out candidate. Ignored `.cld/t12a-dogfood/` retains ledger, controller,
+logs and the failed attempt worktree. Leave these artifacts in place.
 
-After T12A candidate: independently verify the immutable red baseline and allowlist, integrate
-accepted commit, run affected generator tests and full cross-platform CI if shared generator changes,
-record usage honestly, close only T12A in tracker, commit/push and stop. No main merge or release.
+At the next authorized sitting, write and commit T12B's contract and red acceptance before
+dispatch. Scope: optional `agents/openai.yaml`, plugin packaging/metadata, remaining host text
+parity, CLI/reproducibility and 2-host × 3-provider offline CI. Use exact Kimi K3 via OpenCode
+if dogfooding continues. Preserve default Claude compatibility and do not mark parent T12 complete
+until T12B passes. Stop again after T12B and request token availability before T13.
