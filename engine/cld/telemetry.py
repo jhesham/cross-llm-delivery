@@ -25,12 +25,29 @@ import threading
 _sink: "Sink | None" = None
 _sink_lock = threading.Lock()
 _run_id: "str | None" = None  # stable id per run; set once by run_delivery, shared by all events
+_host: "str | None" = None  # optional host provenance stamp; cleared after each CLI invocation
 
 
 def set_run_id(run_id) -> None:
     """Install the process-global run id stamped onto every emitted record."""
     global _run_id
     _run_id = run_id
+
+
+def set_host(host) -> None:
+    """Install the process-global host provenance stamp (``None`` clears it).
+
+    Host is observability metadata only: it is stamped onto emitted records and
+    never influences candidate judging, provider selection or admission policy.
+    The CLI clears it after every invocation.
+    """
+    global _host
+    _host = host
+
+
+def get_host():
+    """Return the currently-installed host provenance stamp (or ``None``)."""
+    return _host
 
 
 class Sink:
@@ -213,6 +230,8 @@ def emit(event_type: str, **fields) -> None:
     }
     if _run_id is not None:
         record["run_id"] = _run_id
+    if _host is not None:
+        record["host"] = _host
     try:
         sink.emit(record)
     except Exception:
