@@ -160,12 +160,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--out-root",
         default=None,
-        help="Output root for packaged plugins (default: <repo>/plugins).",
+        help="Output root (default: <repo>/plugins for Claude, <repo>/dist/plugins for Codex).",
     )
     args = parser.parse_args(argv)
 
     dist_root = Path(args.dist_root) if args.dist_root else ROOT / "dist"
-    out_root = Path(args.out_root) if args.out_root else ROOT / "plugins"
+    out_root = Path(args.out_root) if args.out_root else ROOT / (
+        "dist/plugins" if args.host == "codex" else "plugins")
     if args.host == "codex":
         return _main_codex(dist_root, out_root)
     return _main_claude(dist_root, out_root)
