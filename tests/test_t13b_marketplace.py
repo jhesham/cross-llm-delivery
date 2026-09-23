@@ -68,7 +68,8 @@ def test_catalog_has_three_contained_local_plugin_sources(tmp_path):
     before = _snapshot(out)
     again = _run(isolated, dist, out)
     assert again.returncode == 0, again.stderr + again.stdout
-    assert _snapshot(out) == before
+    unchanged = _snapshot(out) == before
+    assert unchanged, "repeat generation changed package or catalog bytes"
 
 
 def test_missing_input_fails_before_catalog_or_packages_change(tmp_path):
@@ -81,7 +82,8 @@ def test_missing_input_fails_before_catalog_or_packages_change(tmp_path):
     shutil.rmtree(dist / "codex" / "cross-llm-cursor")
     result = _run(isolated, dist, out)
     assert result.returncode != 0
-    assert _snapshot(out) == before
+    unchanged = _snapshot(out) == before
+    assert unchanged, "missing input changed existing packages or catalog"
 
 
 def test_default_codex_output_includes_catalog(tmp_path):
@@ -108,10 +110,14 @@ def test_repository_maintainer_guidance_is_concise_and_local():
 
 def test_install_docs_and_ci_cover_catalog_without_ide_plugin_claim():
     guide = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
-    assert "codex plugin marketplace add" in guide
-    assert "codex plugin list" in guide
-    assert "generator/build_plugins.py --host codex" in guide
-    assert "IDE" in guide and "standalone" in guide
+    marketplace_add = "codex plugin marketplace add" in guide
+    marketplace_list = "codex plugin list" in guide
+    package_command = "generator/build_plugins.py --host codex" in guide
+    assert marketplace_add, "install guide lacks the marketplace add command"
+    assert marketplace_list, "install guide lacks the plugin list command"
+    assert package_command, "install guide lacks the Codex package command"
+    ide_guidance = "IDE" in guide and "standalone" in guide
+    assert ide_guidance, "install guide lacks IDE standalone-skill guidance"
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert ".agents/plugins/marketplace.json" in workflow
     assert "codex plugin marketplace add" not in workflow
