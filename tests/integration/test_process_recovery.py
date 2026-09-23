@@ -20,18 +20,29 @@ def test_partial_process_work_retained_and_never_accepted(delivery_repo, mode):
         def run(self, task, wd, feedback=None):
             calls.append(wd)
             event = threading.Event()
-            timer = threading.Timer(.6, event.set) if mode == "cancelled" else None
+            # Cancel only after the grandchild has made the partial edit this
+            # test promises to retain. A fixed timer races process startup on
+            # loaded CI runners and can cancel before any edit exists.
+            def cancel_after_partial_edit():
+                target = Path(wd) / "implementation.py"
+                deadline = time.monotonic() + 2.5
+                while time.monotonic() < deadline:
+                    if target.is_file() and target.read_text() == BODY:
+                        break
+                    time.sleep(.01)
+                event.set()
+            watcher = threading.Thread(target=cancel_after_partial_edit, daemon=True) if mode == "cancelled" else None
             child = f"from pathlib import Path; import time; p=Path('implementation.py'); " \
                     f"\nwhile True: p.write_text({BODY!r}); time.sleep(.02)"
             code = f"import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',{child!r}]); " \
                    "print('partial stdout',flush=True); print('partial stderr',file=sys.stderr,flush=True); time.sleep(60)"
-            if timer:
-                timer.start()
+            if watcher:
+                watcher.start()
             try:
-                process = run_process([sys.executable, "-c", code], wd, timeout=1, cancel=event)
+                process = run_process([sys.executable, "-c", code], wd, timeout=3, cancel=event)
             finally:
-                if timer:
-                    timer.cancel()
+                if watcher:
+                    watcher.join(timeout=.5)
             return ExecutorResult(False, "", raw_log=process.output, process=process.metadata())
 
     if mode == "cancelled":
