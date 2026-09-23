@@ -48,12 +48,12 @@ coverage remains T17. Final code/test head `3b1c0b9`.
 
 Dependencies: T12. Estimate: 8–14k. Files: installer/generator helpers, proposed Codex plugin output, `INSTALL.md`, new Codex setup reference, repository `AGENTS.md` if useful, install tests.
 
-- [ ] Provide a repository-scoped standalone installation path under `.agents/skills` and a documented user-scoped alternative; recheck current official discovery behavior before coding. Never assume the app's internal cache path is a public installation contract.
-- [ ] Implement a previewable copy/install operation with exact target paths, containment checks, collision reporting, and upgrade/uninstall ownership metadata. Preserve unrelated skills, project instructions, and local edits.
+- [x] Provide a repository-scoped standalone installation path under `.agents/skills` and a documented user-scoped alternative; recheck current official discovery behavior before coding. Never assume the app's internal cache path is a public installation contract. [T13A evidence](T13A-EVIDENCE.md).
+- [x] Implement a previewable copy/install operation with exact target paths, containment checks, collision reporting, and upgrade/uninstall ownership metadata. Preserve unrelated skills, project instructions, and local edits. T13A complete.
 - [ ] Test nested-cwd discovery, path spaces, same-name collisions, fresh install, update, uninstall, and read-only target. Prefer copy fallback where Windows symlinks require privileges.
 - [ ] Provide additive Codex plugin packaging for supported surfaces using the currently verified schema. Keep standalone skills as the IDE route; do not require the IDE to support plugins.
 - [ ] Add concise maintainer AGENTS.md guidance for this repository only: source locations, generated-file policy, focused checks, and plan/handoff entrypoint. Do not embed the entire initiative or change user-wide AGENTS.md.
-- [ ] Verify dry-run/install/uninstall in disposable locations. Actual user-global install is a separate selected target, not a hidden generator side effect.
+- [x] Verify dry-run/install/uninstall in disposable locations. Actual user-global install is a separate selected target, not a hidden generator side effect. T13A generated-bundle smoke passed.
 
 **Gate:** An isolated Codex setup can discover the generated skill and resolve its scripts. Record host/version/path evidence; no existing Claude installation changes. Installation instructions cover source bundle, repo-local skill, and supported plugin routes accurately.
 
