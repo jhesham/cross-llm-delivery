@@ -238,6 +238,8 @@ itself performs no user-global install.)
   can escape the selected scope, source/target overlap, and same-name unowned folders.
 - Each installed folder carries `.cld-install.json` (a stable installer marker plus
   per-file SHA-256 hashes) that gates update and uninstall.
+- If an update publishes successfully but cannot remove the old backup, the JSON
+  reports `updated` with `cleanup_warning` and the retained backup path.
 
 ### Using the installed skill
 
