@@ -1,7 +1,7 @@
 # Current handoff
 
 Updated 2026-09-23. T01–T11/M1–M3 and **T12A complete**. T12 parent remains open for T12B.
-Stop here for the user's explicit token-availability confirmation before T12B. Branch
+The user confirmed token availability for T12B. Branch
 `refactor/codex-support`, remote `public`; T12A code/test head `8ef2a38`. No main merge or release.
 
 T12A produced `--host codex` standalone bundles under `dist/codex/` for antigravity, cursor and
@@ -19,8 +19,8 @@ retained changes after correcting two lead-owned test assertions. Do not claim t
 or integrated that timed-out candidate. Ignored `.cld/t12a-dogfood/` retains ledger, controller,
 logs and the failed attempt worktree. Leave these artifacts in place.
 
-At the next authorized sitting, write and commit T12B's contract and red acceptance before
-dispatch. Scope: optional `agents/openai.yaml`, plugin packaging/metadata, remaining host text
+T12B's contract and 11 red acceptance cases are in `T12B-CONTRACT.md`, `T12B-DOGFOOD.md`,
+and `tests/test_t12b_parity.py`; commit them before dispatch. Scope: optional `agents/openai.yaml`, plugin packaging/metadata, remaining host text
 parity, CLI/reproducibility and 2-host × 3-provider offline CI. Use exact Kimi K3 via OpenCode
 if dogfooding continues. Preserve default Claude compatibility and do not mark parent T12 complete
 until T12B passes. Stop again after T12B and request token availability before T13.
