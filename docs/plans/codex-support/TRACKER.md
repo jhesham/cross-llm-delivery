@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T11 and M1–M3 complete. **T12A in progress**, explicitly authorized for Kimi K3/OpenCode; T12B requires its own token checkpoint.
+Status: T01 through T11 and M1–M3 complete. **T12A complete**; T12B requires the user's next token checkpoint.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -20,7 +20,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 - [x] T10 — Usage and admission budgets
 - [x] T11 — Host-neutral CLI interface
 - [ ] T12 — Host-aware skill generation
-  - [ ] T12A — Standalone Codex generator
+  - [x] T12A — Standalone Codex generator
   - [ ] T12B — Host metadata and parity
 - [ ] T13 — Codex installation and discovery
 - [ ] T14 — Cross-host acceptance
@@ -46,7 +46,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Complete: [evidence](T09-EVIDENCE.md); Windows CI 685 passed, Ubuntu 682 passed/3 Windows-only skips; code/test head `3caf863` |
 | [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Complete: [evidence](T10-EVIDENCE.md); Windows CI 709 passed, Ubuntu 706 passed/3 Windows-only skips; code/test head `8f3c5db` |
 | [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Complete: [evidence](T11-EVIDENCE.md); Windows 761 passed, Ubuntu 758 passed/3 Windows-only skips; both generator smoke checks passed; code/test head `8759ce7` |
-| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | In progress: [T12 child slices](T12-SLICES.md); T12A dogfood authorized, acceptance baseline pending; T12B not started |
+| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | T12A complete: [evidence](T12A-EVIDENCE.md), code/test `8ef2a38`, Windows/Ubuntu CI green; T12B not started, parent open |
 | [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Not started |
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |
@@ -75,6 +75,7 @@ Next task:
 
 **Progress log**
 
+
 - 2026-09-09 — Planning files created from the full-build review and verified Codex documentation; local CLI reports 0.153.4. No implementation tasks completed and no live model calls made.
 - 2026-09-09 — User selected Kimi K3 via OpenCode for dogfooding. Codex retains lead/test/review responsibilities. Exact model ID remains to be verified; no automatic model substitution. The 20 task units have not yet been converted to executable acceptance-test-backed CLD slices.
 - 2026-09-09 — Prepared the 13-file planning baseline for commit before T01. User requires verification/commit and an explicit token-availability checkpoint after every slice; no implementation task started.
@@ -95,3 +96,5 @@ Next task:
 - 2026-09-18 — T09 complete: unified model/context admission, recorded validation spend policy, trusted isolated probes, synchronized atomic evidence and all-selected-provider preflight. R09/A07 closed. Final CI: Windows 685 passed; Ubuntu 682 passed/3 Windows-only skips; both generator smoke checks pass. Local full run plus follow-up covers 685 distinct tests. No sub-agents/live calls; executor usage zero, lead counters unavailable. Code/test head `3caf863`; closing docs subject starts `docs: close T09`. Pause before T10.
 
 - 2026-09-23 — T10/M3 complete: durable per-attempt usage, cumulative ledger totals, validation/retry/escalation budget reservations, explicit unknown policy, bounded status snapshots and sink cleanup. R12/A06 closed. CI: Windows 709 passed; Ubuntu 706 passed/3 Windows-only skips; both generator smoke checks passed. No live calls/sub-agents; executor usage zero, lead counters unavailable. Code/test head `8f3c5db`; closing docs subject starts `docs: close T10`. Pause before T11.
+
+- 2026-09-23 — T12A complete: Codex standalone skill generation for all three providers, YAML-first entry metadata, bundle references and isolated driver. Kimi K3/OpenCode timed out after producing the permitted draft; the lead corrected two faulty acceptance assertions and reviewed/manual-integrated the code. Nine corrected tests remained red on baseline; 25 focused passed on feature. Local full suite and Windows/Ubuntu CI with default generator smoke passed; Codex smoke passed locally. Code/test `8ef2a38`, [evidence](T12A-EVIDENCE.md). Production usage unknown, partial lower bounds retained. Parent T12 remains open; pause before T12B.
