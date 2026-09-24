@@ -21,12 +21,12 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from pathlib import Path
 from typing import Callable, List, Tuple
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback
 from cld.models import ModelInfo
 from cld.providers_api import Provider, register_provider
 
@@ -36,9 +36,8 @@ Runner = Callable[[list[str], str], tuple[int, str]]
 DEFAULT_MODEL = "composer-2.5"
 
 
-def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Real subprocess runner. Direct-node cursor-agent needs CURSOR_INVOKED_AS set and
-    stdin closed. utf-8/replace; stderr merged on failure for raw_log."""
+def _default_runner(args: list[str], cwd: str, **options):
+    """Bounded probe by default; dispatch supplies its own deadline."""
     env = {**os.environ, "CURSOR_INVOKED_AS": "cursor-agent"}
     # TLS-interception fix: cursor's BUNDLED node uses its own CA store, so behind a
     # TLS-intercepting proxy / AV MITM (e.g. Norton) it can't verify the Cursor API cert
@@ -51,10 +50,8 @@ def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
         opts = env.get("NODE_OPTIONS", "")
         if "--use-system-ca" not in opts:
             env["NODE_OPTIONS"] = (opts + " --use-system-ca").strip()
-    proc = subprocess.run(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
-    out = proc.stdout if proc.returncode == 0 else (proc.stderr or proc.stdout)
-    return (proc.returncode, out)
+    return run_process(args, cwd, env=env, **options)
+
 
 
 def _cursor_invocation() -> list[str]:
@@ -79,6 +76,15 @@ def _cursor_invocation() -> list[str]:
                 node = bundled if os.path.exists(bundled) else "node"
                 return [node, index_js]
     return ["cursor-agent"]
+
+
+
+def raw_usage(raw):
+    try:
+        data = json.loads(raw)
+        return data.get("usage", {}) if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
 
 
 def parse_cursor_usage(raw_json: str) -> dict[str, int]:
@@ -106,10 +112,10 @@ def parse_cursor_usage(raw_json: str) -> dict[str, int]:
 
         result = {}
         for k, v in usage_data.items():
-            if k in mapping and isinstance(v, int):
+            if k in mapping and type(v) is int and v >= 0:
                 result[mapping[k]] = v
 
-        if "input" in result or "output" in result:
+        if "input" in result and "output" in result:
             result["total"] = result.get("input", 0) + result.get("output", 0)
 
         return result
@@ -121,11 +127,12 @@ class CursorExecutor:
     """Executor implementation backed by the cursor-agent CLI."""
 
     def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
-                 effort: str | None = None, timeout: int = 600):
+                 effort: str | None = None, timeout: float | None = None,
+                 cancel=None, artifact_dir=None):
+        self._timeout, self._cancel, self._artifact_dir = timeout, cancel, artifact_dir
         self._runner = runner
         self._model = model
         self._effort = effort
-        self._timeout = timeout
 
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
@@ -147,13 +154,22 @@ class CursorExecutor:
         model_id = f"{self._model}-{self._effort}" if self._effort else self._model
         argv = [*_cursor_invocation(), "-p", prompt, "--output-format", "json",
                 "--workspace", cwd, "--model", model_id, "--force", "--trust"]
-        rc, raw = self._runner(argv, cwd)
+        rc, raw, process = run_dispatch(self._runner, _default_runner, argv, cwd,
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)
         if rc != 0:
-            return ExecutorResult(ok=False, diff="", raw_log=raw)
+            return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
+        try:
+            result = json.loads(raw)
+        except ValueError:
+            result = None
+        if not isinstance(result, dict) or result.get("type") != "result" or result.get("is_error") is True:
+            process["error"] = "malformed_output" if not isinstance(result, dict) or result.get("type") != "result" else "provider_error"
+            return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
         token_usage = parse_cursor_usage(raw)
         diff, files_changed = capture_diff(self._runner, cwd)
         return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
-                              token_usage=token_usage, raw_log=raw)
+                              token_usage=token_usage, raw_log=process_feedback(raw, process), process=process,
+                              usage_raw=raw_usage(raw))
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +263,8 @@ def account_stats() -> str:
     """
     invocation = _cursor_invocation()
     try:
-        proc = subprocess.run([*invocation, "about"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
-        return proc.stdout or ""
+        proc = _default_runner([*invocation, "about"], ".")
+        return proc.stdout if not proc.error else ""
     except Exception:
         return ""
 
@@ -310,6 +325,7 @@ _SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
 _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
 PROVIDER = Provider(
+    cli_invocation=_cursor_invocation,
     name="cursor",
     make_executor=lambda **k: CursorExecutor(**k),
     catalog=_CURSOR_CATALOG,

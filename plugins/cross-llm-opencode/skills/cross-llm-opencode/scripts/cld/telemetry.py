@@ -25,12 +25,29 @@ import threading
 _sink: "Sink | None" = None
 _sink_lock = threading.Lock()
 _run_id: "str | None" = None  # stable id per run; set once by run_delivery, shared by all events
+_host: "str | None" = None  # optional host provenance stamp; cleared after each CLI invocation
 
 
 def set_run_id(run_id) -> None:
     """Install the process-global run id stamped onto every emitted record."""
     global _run_id
     _run_id = run_id
+
+
+def set_host(host) -> None:
+    """Install the process-global host provenance stamp (``None`` clears it).
+
+    Host is observability metadata only: it is stamped onto emitted records and
+    never influences candidate judging, provider selection or admission policy.
+    The CLI clears it after every invocation.
+    """
+    global _host
+    _host = host
+
+
+def get_host():
+    """Return the currently-installed host provenance stamp (or ``None``)."""
+    return _host
 
 
 class Sink:
@@ -67,6 +84,11 @@ class JsonlSink(Sink):
             self._fh.flush()
 
 
+    def close(self):
+        with self._lock:
+            self._fh.close()
+
+
 class MultiSink(Sink):
     """Fan out records to many sinks, isolating failures.
 
@@ -87,6 +109,16 @@ class MultiSink(Sink):
                 pass
 
 
+    def close(self):
+        for sink in self._sinks:
+            close = getattr(sink, "close", None)
+            if close is not None:
+                try:
+                    close()
+                except Exception:
+                    pass
+
+
 class OtelSink(Sink):
     """Map the event stream to OpenTelemetry spans (GenAI semantic attributes).
 
@@ -101,9 +133,21 @@ class OtelSink(Sink):
     no-op: telemetry stays best-effort and must never break the build.
     """
 
-    def __init__(self, tracer=None) -> None:
+    def __init__(self, tracer=None, close_fn=None) -> None:
         self._tracer = tracer
+        self._close_fn = close_fn
         self._spans: dict = {}  # slice_id -> open span
+
+    def close(self):
+        for span in list(self._spans.values()):
+            try:
+                span.end()
+            except Exception:
+                pass
+        self._spans.clear()
+        close, self._close_fn = self._close_fn, None
+        if close is not None:
+            close()
 
     def emit(self, record) -> None:
         if self._tracer is None:
@@ -137,9 +181,9 @@ class OtelSink(Sink):
                 return
             tokens = record.get("tokens") or {}
             attrs = {
-                "gen_ai.usage.input_tokens": tokens.get("input", 0),
-                "gen_ai.usage.output_tokens": tokens.get("output", 0),
-                "gen_ai.usage.total_tokens": tokens.get("total", 0),
+                "gen_ai.usage.input_tokens": tokens.get("input"),
+                "gen_ai.usage.output_tokens": tokens.get("output"),
+                "gen_ai.usage.total_tokens": tokens.get("total"),
                 "cld.rc": record.get("rc"),
                 "cld.ms": record.get("ms"),
             }
@@ -152,7 +196,14 @@ def set_sink(sink) -> None:
     """Install the process-global telemetry sink (replaces any prior sink)."""
     global _sink
     with _sink_lock:
-        _sink = sink
+        previous, _sink = _sink, sink
+    if previous is not None and previous is not sink:
+        close = getattr(previous, "close", None)
+        if close is not None:
+            try:
+                close()
+            except Exception:
+                pass
 
 
 def get_sink():
@@ -179,6 +230,8 @@ def emit(event_type: str, **fields) -> None:
     }
     if _run_id is not None:
         record["run_id"] = _run_id
+    if _host is not None:
+        record["host"] = _host
     try:
         sink.emit(record)
     except Exception:

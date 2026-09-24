@@ -1,4 +1,4 @@
-class CycleError(Exception):
+class CycleError(ValueError):
     """Raised when the dependency graph has a cycle."""
     pass
 
@@ -11,10 +11,10 @@ def topo_layers(deps: dict[str, list[str]]) -> list[list[str]]:
     Within a layer, ids are sorted alphabetically.
     Raises CycleError if a cycle exists.
     """
-    all_nodes = set()
-    for u, vs in deps.items():
-        all_nodes.add(u)
-        all_nodes.update(vs)
+    all_nodes = set(deps)
+    unknown = {v for values in deps.values() for v in values} - all_nodes
+    if unknown:
+        raise ValueError(f"Unknown dependency IDs: {sorted(unknown)}")
 
     indegree = {u: 0 for u in all_nodes}
     adj = {u: [] for u in all_nodes}
