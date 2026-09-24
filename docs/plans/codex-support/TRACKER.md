@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T13, T17A and M1–M3 complete. T17B awaits the user's next token confirmation; parent T17 remains open.
+Status: T01 through T13, T17A–T17B and M1–M3 complete. T17C awaits the user's next token confirmation; parent T17 remains open.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -30,7 +30,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 - [ ] T16 — Optional Codex executor implementation (deferred)
 - [ ] T17 — Wheel, bundle, and CI coverage
   - [x] T17A — Wheel/sdist resources and isolated core
-  - [ ] T17B — Bundle matrix and tracked freshness
+  - [x] T17B — Bundle matrix and tracked freshness (source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md); Windows/Ubuntu CI green)
   - [ ] T17C — CI matrix and compatibility gate
 - [ ] T18 — Checked release automation
 - [ ] T19 — Migration and interruption rehearsal
@@ -56,7 +56,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Deferred by default |
-| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | In progress: [T17A complete](T17A-EVIDENCE.md), source fixes `ae0556a`, `e979372`; T17B tracked bundle freshness and T17C CI matrix/compatibility remain. [Split plan](T17-SLICES.md). |
+| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | In progress: [T17A](T17A-EVIDENCE.md) and [T17B](T17B-EVIDENCE.md) complete; T17B source `7997ecb`, `d09a2ab`, [Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35959871810). T17C CI matrix/compatibility remains. [Split plan](T17-SLICES.md). |
 | [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Not started |
 | [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
 | [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | 6–10k | Not started |
@@ -108,3 +108,4 @@ Next task:
 - 2026-09-24 — T13A complete: pinned Kimi K3/OpenCode delivered a standalone Codex installer and install guide, with committed red acceptance and independent integration. Lead review fixed containment, Python cache ownership, and cleanup outcome reporting. Local 13-case focused suite, generated-bundle disposable install/update/uninstall, full offline suite, and final Windows/Ubuntu CI with all generator smoke passed. Code/test `adbaf0c`; [evidence](T13A-EVIDENCE.md). Complete measured usage 641,634 tokens/USD 0.7045932 including validation. Parent T13 open; pause before T13B.
 - 2026-09-24 — T13B/T13 complete: pinned Kimi K3/OpenCode passed red preflight, one validation and one accepted production attempt, plus independent integration. The generated local Codex marketplace, repository AGENTS.md and docs were verified with installed Codex 0.155.1 app-server from a nested disposable repo; three plugins and the standalone skill discovered. Five focused tests, local full suite, and Windows/Ubuntu CI with all generator smoke passed. Code/test merge `f4b9551`; [evidence](T13B-EVIDENCE.md). Measured Kimi usage 542,087 tokens/USD 0.5650458 including validation. Pause before T17.
 - 2026-09-24 — T17A complete: wheel and sdist now include all six provider Markdown resources; a disposable installed wheel loads all three providers and CLI under `python -I -S` outside checkout. The pinned Kimi candidate was retained for lead repair because `pyproject.toml` is protected test configuration; lead reviewed and applied its package-data diff as `ae0556a`, without weakening the protection or dispatching a second model. Windows Python 3.11 CI exposed an older setuptools that rejected the existing SPDX license string during no-isolation artifact tests; `e979372` set the build/dev minimum to 77. Two focused artifact cases, local full suite, and final Windows/Ubuntu CI with generator smoke passed. [Evidence](T17A-EVIDENCE.md); measured Kimi usage 224,951 tokens/USD 0.3175866. Parent T17 open; pause before T17B.
+- 2026-09-24 — T17B complete: six fresh host/provider bundles passed isolated smoke and entrypoint checks; Codex manifests/catalog passed offline checks. Tracked Claude plugins were regenerated to close 48 missing/60 stale files, and CI now checks freshness without changing the tree. Focused and local full suites plus [Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35959871810) with generator smoke passed. Source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md). No model call in this mechanical slice. Parent T17 open; pause before T17C.
