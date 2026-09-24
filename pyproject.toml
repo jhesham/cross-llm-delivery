@@ -22,6 +22,14 @@ dev = ["pytest>=8", "deepeval>=1.0", "anthropic>=0.30",
 [tool.setuptools.packages.find]
 where = ["engine"]  # the importable packages (cld, cld_providers) live under engine/
 
+[tool.setuptools.package-data]
+# Provider Markdown resources are read at provider-import time via
+# Path(__file__).parent, so they must ship inside both wheel and sdist.
+# setuptools includes package_data files in sdists as well as wheels.
+"cld_providers.antigravity" = ["*.md"]
+"cld_providers.cursor" = ["*.md"]
+"cld_providers.opencode" = ["*.md"]
+
 [tool.pytest.ini_options]
 pythonpath = ["engine"]
 # Default run is fast/offline/deterministic: deselect behavioral evals (which call
