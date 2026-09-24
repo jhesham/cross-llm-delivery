@@ -3,6 +3,44 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple, Dict
 
+
+def resolve_spec(spec: str) -> tuple[str, str, dict]:
+    """Resolve a provider default or explicit ID without substituting providers."""
+    from cld.providers_api import get_provider, default_workhorse
+    value = (spec or default_workhorse()).strip()
+    effort = None
+    if "@" in value:
+        value, effort = value.rsplit("@", 1)
+        if not effort.strip():
+            raise ValueError("Empty executor effort")
+        effort = effort.strip()
+    if ":" in value:
+        name, model = value.split(":", 1)
+    elif "/" in value:
+        name, model = value.split("/", 1)
+    else:
+        name, model = value, ""
+    name, model = name.strip().lower(), model.strip()
+    provider = get_provider(name)
+    if not model:
+        _, _, defaults = resolve_spec(provider.default_workhorse)
+        model = defaults["model"]
+        effort = effort or defaults.get("effort")
+    if any(c in model for c in "\r\n\0"):
+        raise ValueError("Model must be a single-line ID")
+    kwargs = {"model": model}
+    if effort:
+        kwargs["effort"] = effort
+    return name + ":" + model + ("@" + effort if effort else ""), name, kwargs
+
+
+def model_policy(spec):
+    from cld.providers_api import get_provider
+    _, name, kwargs = resolve_spec(spec)
+    ids = (kwargs["model"], name + ":" + kwargs["model"])
+    info = next((m for m in get_provider(name).catalog if m.id in ids), None)
+    return (info.headless_status, info.cost_class) if info else ("untested", "metered-unknown")
+
 @dataclass(frozen=True)
 class ModelInfo:
     id: str

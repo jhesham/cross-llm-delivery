@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Callable
 
-from cld.judge import parse_pytest_output
+from cld.judge import judge
 
 
 @dataclass
@@ -16,10 +16,10 @@ class GateResult:
 
 
 def integration_gate(batch: list[str], *, run_full_suite: Callable[[], str]) -> GateResult:
-    raw_output = run_full_suite()
-    passed_count, failed_count, failing_tests = parse_pytest_output(raw_output)
-    
-    passed = (failed_count == 0 and passed_count > 0)
+    verdict = judge([], [], run_tests=run_full_suite)
+    raw_output = verdict.raw_output
+    passed_count, failed_count, failing_tests = verdict.tests_passed, verdict.tests_failed, verdict.failing_tests
+    passed = verdict.passed
     rework_batch = [] if passed else list(batch)
     
     return GateResult(

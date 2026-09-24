@@ -60,12 +60,15 @@ def render_usage_table(ledger) -> str:
     lines = ["| Slice | Complexity | Model | Rung | Tokens | Cost |",
              "|---|---|---|---|---|---|"]
     total_tokens = 0
+    unknown_tokens = False
     models_seen: set[str] = set()
 
     for entry in ledger.entries.values():
-        tokens = entry.token_usage.get("total", 0)
-        total_tokens += tokens
-        cost_str = "" if entry.cost is None else str(entry.cost)
+        tokens = entry.token_usage.get("total")
+        unknown_tokens |= tokens is None
+        total_tokens += tokens or 0
+        tokens = "unknown" if tokens is None else tokens
+        cost_str = "unknown" if entry.cost is None else str(entry.cost)
         complexity = getattr(entry, "complexity", None) or "-"
         rung = getattr(entry, "final_rung", None) or "-"
         model = entry.model or "-"
@@ -76,7 +79,14 @@ def render_usage_table(ledger) -> str:
             models_seen.add(entry.model)
 
     lines.append("")
-    lines.append(f"**Build total tokens:** {total_tokens}")
+    summary = (getattr(ledger, "build", None) or {}).get("usage")
+    if summary:
+        from cld.status import usage_value
+        lines.append(f"**Build total tokens:** {usage_value(summary, 'total')}")
+        lines.append(f"**Build cost USD:** {usage_value(summary, 'cost')}")
+        lines.append(f"**Validation attempts:** {summary['validation']['attempts']}")
+    else:
+        lines.append(f"**Build total tokens:** {'unknown; known subtotal ' if unknown_tokens else ''}{total_tokens}")
     lines.append("")
 
     # Provider-blind account sections: each provider self-sources its stats.

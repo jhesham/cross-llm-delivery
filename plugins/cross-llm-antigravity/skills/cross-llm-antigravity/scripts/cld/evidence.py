@@ -1,61 +1,63 @@
-"""Durable validation-evidence store (supersedes session-only revalidate marks,
-user-directed 2026-06-13).
-
-Validation verdicts cost real time/tokens — they are evidence worth keeping. This
-store persists CONCLUDED verdicts (verified / revalidate) per model id in a small JSON
-file, with timestamps, so a verdict survives across sessions. The blacklist risk
-that motivated session-only is handled differently: records carry their date, and
-`resolve_and_validate(force_revalidate=True)` re-runs validation and overwrites the
-record — a transient failure is one re-validation away from being cleared.
-
-Inconclusive outcomes (untested / executor errors) are never recorded.
-"""
-
+"""Atomic, synchronized validation evidence; corruption fails closed."""
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from cld.locking import file_owner
+from cld.recovery import atomic_write
 
 DEFAULT_PATH = Path.home() / ".cld" / "validation-evidence.json"
 
 
-class EvidenceStore:
-    """JSON-file-backed verdict store. Keyed by MODEL ID (e.g. `opencode/kimi-k2.6`,
-    `gemini:gemini-3.1-pro-preview`) — not the executor spec. Never raises on a
-    missing or corrupt file (degrades to empty)."""
+class EvidenceError(RuntimeError):
+    """Unreadable evidence is distinct from a missing cache."""
 
+
+class EvidenceStore:
     def __init__(self, path=None):
         self._path = Path(path) if path is not None else DEFAULT_PATH
 
-    def _load(self) -> dict:
+    def _load(self):
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                return {}
-            _MIGRATE = {"proven": "verified", "known-bad": "revalidate"}
-            for rec in data.values():
-                if isinstance(rec, dict) and rec.get("status") in _MIGRATE:
-                    rec["status"] = _MIGRATE[rec["status"]]
-            return data
-        except Exception:
+        except FileNotFoundError:
             return {}
+        except (OSError, ValueError) as exc:
+            raise EvidenceError(f"Cannot read validation evidence {self._path}: {type(exc).__name__}") from exc
+        if not isinstance(data, dict):
+            raise EvidenceError(f"Invalid validation evidence object: {self._path}")
+        for rec in data.values():
+            if not isinstance(rec, dict):
+                raise EvidenceError(f"Invalid validation evidence record: {self._path}")
+            if not isinstance(rec.get("status"), str):
+                raise EvidenceError(f"Invalid validation status: {self._path}")
+            rec["status"] = {"proven": "verified", "known-bad": "revalidate"}.get(rec["status"], rec["status"])
+            if rec["status"] not in ("verified", "revalidate"):
+                raise EvidenceError(f"Invalid validation status: {self._path}")
+        return data
 
-    def get(self, model_id: str) -> dict | None:
-        """The recorded verdict for a model id, or None."""
+    def get(self, model_id):
         return self._load().get(model_id)
 
-    def statuses(self) -> dict[str, str]:
-        """{model_id: status} mapping — the overlay for recommend/browse_models."""
-        return {k: v.get("status") for k, v in self._load().items()
-                if isinstance(v, dict) and v.get("status")}
+    def statuses(self):
+        return {key: rec["status"] for key, rec in self._load().items()}
 
-    def record(self, model_id: str, status: str, *, note: str = "", attempts: int = 1) -> None:
-        """Record (or overwrite) a concluded verdict, timestamped UTC."""
-        data = self._load()
-        data[model_id] = {
-            "status": status,
-            "note": note,
-            "attempts": attempts,
-            "validated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    def record(self, model_id, status, *, note="", attempts=1, context=None, usage=None, artifact_path=None):
+        if status not in ("verified", "revalidate"):
+            raise ValueError("Only concluded validation verdicts may be recorded")
+        with file_owner(self._path.with_suffix(self._path.suffix + ".lock"), wait_seconds=10):
+            data = self._load()
+            data[model_id] = dict(status=status, note=note, attempts=attempts,
+                validated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                context=context, usage=usage, artifact_path=artifact_path)
+            atomic_write(self._path, json.dumps(data, indent=2).encode("utf-8"))
+
+
+def fresh_record(record, context, max_age_seconds, *, now=None):
+    if not record or record.get("context") != context:
+        return False
+    try:
+        timestamp = datetime.fromisoformat(record["validated_at"])
+        age = ((now or datetime.now(timezone.utc)) - timestamp).total_seconds()
+        return 0 <= age <= max_age_seconds
+    except (ValueError, KeyError, TypeError):
+        return False

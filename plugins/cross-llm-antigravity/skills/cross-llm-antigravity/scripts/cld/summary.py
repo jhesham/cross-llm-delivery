@@ -3,10 +3,24 @@ import os
 from typing import Any, List
 
 
-def write_artifacts(result: Any, *, repo_dir: str) -> None:
+def recovery_lines(slice_id, detail):
+    warning = getattr(detail, "cleanup_warning", None)
+    if warning:
+        return [f"  {slice_id}  ! {warning}"]
+    if getattr(detail, "status", None) in ("failed", "needs_repair") and getattr(detail, "worktree_path", None):
+        return [f"  {slice_id}  worktree retained: {detail.worktree_path}",
+                f"  {slice_id}  recovery evidence: {getattr(detail, 'recovery_path', None)}"]
+    return []
+
+
+def write_artifacts(result: Any, *, repo_dir: str, run_id=None) -> None:
     """Persist raw per-slice detail under <repo_dir>/.cld/<slice-id>/ so the agent can
     inspect on request WITHOUT it entering context. Best-effort; never raises."""
     base = os.path.join(repo_dir, ".cld")
+    if run_id is not None:
+        from uuid import uuid4
+        from cld.build_state import run_directory
+        base = str(run_directory(repo_dir, run_id) / "summaries" / uuid4().hex)
     for sid, d in (getattr(result, "details", {}) or {}).items():
         try:
             sdir = os.path.join(base, sid)
@@ -16,6 +30,10 @@ def write_artifacts(result: Any, *, repo_dir: str) -> None:
                     "slice_id": d.slice_id, "status": d.status,
                     "files_changed": d.files_changed, "attempts": d.attempts,
                     "diff_lines": d.diff_lines, "failing_tests": d.failing_tests,
+                    "commit": getattr(d, "commit", None),
+                    "recovery_path": getattr(d, "recovery_path", None),
+                    "worktree_path": getattr(d, "worktree_path", None),
+                    "cleanup_warning": getattr(d, "cleanup_warning", None),
                 }, f, indent=2)
         except Exception:
             continue
@@ -56,7 +74,9 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
                 first_failing_test = failing_tests[0] if failing_tests else "(no test id)"
                 lines.append(f"  {slice_id}  ! NEEDS REPAIR   {first_failing_test}")
             else:
-                lines.append(f"  {slice_id}  - {status}")
+                reasons = "; ".join(getattr(detail, "failing_tests", []))
+                lines.append(f"  {slice_id}  - {status} {reasons}")
+            lines.extend(recovery_lines(slice_id, detail))
 
     # Also catch needs_repair slices listed on result but missing from details
     result_repair = getattr(result, "needs_repair", [])
@@ -66,15 +86,26 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
             repair_ids.append(sid)
             lines.append(f"  {sid}  ! NEEDS REPAIR   (no test id)")
 
-    gate_line = f"GATE: {n_pass} passed, {n_fail} failed, {n_repair} need repair."
+    n_deferred = len(getattr(result, "deferred", []))
+    gate_line = f"GATE: {n_pass} passed, {n_fail} failed, {n_repair} need repair, {n_deferred} deferred."
     if n_fail > 0:
         failed_csv = ", ".join(failed_ids)
         gate_line += f" Inspect {failed_csv}?"
     lines.append(gate_line)
     
-    if next_layer:
+    if getattr(result, "integration_error", None):
+        lines.append(f"NEXT: integration failed: {result.integration_error}")
+    elif getattr(result, "integration_required", []):
+        lines.append("NEXT: integration required; run --integrate with an explicit suite.")
+    elif getattr(result, "failed", []) or getattr(result, "needs_repair", []) or getattr(result, "deferred", []):
+        lines.append("NEXT: inspect failed, deferred or repair outcomes before continuing.")
+        if next_layer:
+            lines.append("PENDING: " + ", ".join(next_layer))
+    elif next_layer:
         next_csv = ", ".join(next_layer)
         lines.append(f"NEXT: layer {layer_index+2} -> [{next_csv}]")
+    elif getattr(result, "build_complete", None) is False:
+        lines.append("NEXT: build has pending work; inspect recorded state.")
     else:
         lines.append(f"NEXT: build complete — no further layers.")
         
@@ -82,11 +113,17 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
 
 
 def classify_gate(result: Any, *, more_layers: bool) -> int:
-    if getattr(result, "needs_repair", []):
+    if getattr(result, "blocked", []):
+        return 5
+    if getattr(result, "needs_repair", []) or getattr(result, "integration_error", None):
         return 4
     if getattr(result, "failed", []) or getattr(result, "deferred", []):
         return 2
+    elif getattr(result, "integration_required", []):
+        return 6
     elif more_layers:
+        return 0
+    elif getattr(result, "build_complete", None) is False:
         return 0
     else:
         return 3
