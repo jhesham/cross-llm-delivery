@@ -9,9 +9,10 @@ provider(s) you install.
 > checked-out stale one. On the source machine: `python generator/build_skill.py --all`
 > (cross-platform; on Windows `pwsh ./rebuild-skills.ps1` is a clean-rebuild convenience wrapper).
 
-> **Platform note:** Windows is the validated platform for all three providers. On macOS/Linux the
-> engine/generator/tests are portable and **opencode** is the recommended (proven-path) executor;
-> antigravity and cursor dispatch on POSIX is experimental. See the README's Platform support section.
+> **Platform note:** Offline CI covers Windows and Ubuntu on Python 3.11/3.14; macOS is
+> unverified. Historical live Windows builds cover all three executors. The CI matrix
+> makes no live provider calls, and POSIX dispatch has not been proven for every provider.
+> See the README's Platform support section for the evidence levels.
 
 ## The runnable providers
 
