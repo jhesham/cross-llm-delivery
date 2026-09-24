@@ -64,6 +64,8 @@ def test_wheel_contains_provider_resources_and_runs_without_checkout_or_optional
         "load_providers(); "
         "assert {p.name for p in all_providers()} == "
         "{'antigravity','cursor','opencode'}; "
+        "import cld.behavioral as behavioral; "
+        "assert behavioral.GEval is None; "
         "sys.argv=['cld','--help']; runpy.run_module('cld',run_name='__main__')"
     )
     output = _run([sys.executable, "-I", "-S", "-c", probe], sandbox)

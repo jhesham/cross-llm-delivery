@@ -218,14 +218,18 @@ skill fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Platform support
 
-- **Windows: validated.** All three providers have run real multi-slice builds headless
-  (including the Windows-specific fixes that made that true: shim-bypass, stdin detachment,
-  console-encoding safety).
-- **macOS / Linux: engine, generator, and test suite are portable** (plain Python; CI runs
-  both OSes). The **opencode** provider has a clean POSIX dispatch path and is the
-  recommended non-Windows executor. **antigravity and cursor on POSIX are experimental** —
-  their dispatch handling was engineered against Windows CLI behavior and hasn't been
-  live-validated elsewhere. Reports welcome.
+The offline CI matrix exercises Python 3.11 and 3.14 on Windows and Ubuntu. Each job
+runs the full default test suite, builds all six Claude/Codex provider bundles, checks
+the tracked Claude plugins, and packages the Codex plugins/catalog. The installed-wheel
+regression also runs with optional packages excluded. Python 3.13 has a separate local
+Windows full-suite pass; Python 3.12 and macOS have no current CI coverage.
+
+Historical live headless Windows builds cover all three executors. The current CI matrix
+makes **no live provider calls**, so its green status proves offline contracts, not live
+provider operation on every host. OpenCode has a POSIX dispatch path, but live dispatch
+on Ubuntu/macOS is not established by this matrix. Antigravity and cursor dispatch on
+POSIX remain experimental. Codex plugin discovery was checked separately on Windows;
+Claude and Codex host installation/rehearsal across platforms belongs to T14/T19.
 
 ---
 

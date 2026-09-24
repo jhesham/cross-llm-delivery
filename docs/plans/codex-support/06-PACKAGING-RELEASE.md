@@ -13,7 +13,7 @@ Dependencies: T12. Estimate: 8–12k. Files: `pyproject.toml`, generators, `.git
 - [ ] CI matrix: Python minimum 3.11 and a current supported version selected at implementation; Windows and Ubuntu required. Add macOS coverage if claiming it, otherwise state its unverified scope. Keep live models excluded from default CI.
 - [ ] Add plan/result/state-schema compatibility fixtures, wheel import checks, bundle freshness checks, and the new real-Git regression suite. Remove all temporary xfails once fixed.
 
-**Gate:** R07/A05 pass and all 13 fixes remain testable without paid calls. Record wheel filename/hash, build command, isolated import result, bundle matrix, and CI environments. A wheel that merely builds does not satisfy this gate.
+**Gate:** R07/A05 pass and the defects closed through T17 remain testable without paid calls; R13 belongs to T18 and remains open until its release-command gate. Record wheel filename/hash, build command, isolated import result, bundle matrix, and CI environments. A wheel that merely builds does not satisfy this gate.
 
 ## T18 — Checked release automation
 

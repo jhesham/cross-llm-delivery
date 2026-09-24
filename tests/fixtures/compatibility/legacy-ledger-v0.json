@@ -1,0 +1,4 @@
+{
+  "A": {"status": "failed", "attempts": 2},
+  "B": {"status": "pending"}
+}
