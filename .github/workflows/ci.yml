@@ -32,6 +32,8 @@ jobs:
         run: python -m pytest -q
       - name: Generator smoke (skill bundles build from a fresh clone)
         run: python generator/build_skill.py --all
+      - name: Committed Claude plugin freshness (normalized generated banners)
+        run: python generator/check_plugins_fresh.py --dist-root dist --plugins-root plugins
       - name: Generator smoke (Codex host bundles build from a fresh clone)
         run: python generator/build_skill.py --all --host codex
       - name: Codex plugin packaging smoke (offline; no install, no marketplace)
