@@ -1,4 +1,3 @@
-{{BANNER}}
 ---
 name: cross-llm-{{PROVIDER_NAME}}
 description: >-
@@ -16,6 +15,7 @@ description: >-
   all the code itself. NOT for small one-file fixes -- the per-dispatch
   overhead only pays off on large builds.
 ---
+{{BANNER}}
 
 # Cross-LLM Delivery
 

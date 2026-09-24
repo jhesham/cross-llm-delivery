@@ -1,4 +1,3 @@
-<!-- GENERATED from cross-llm-delivery (provider: opencode, v0.2.0) - do not edit here; edit the monorepo source. -->
 ---
 name: cross-llm-opencode
 description: >-
@@ -16,6 +15,7 @@ description: >-
   all the code itself. NOT for small one-file fixes -- the per-dispatch
   overhead only pays off on large builds.
 ---
+<!-- GENERATED from cross-llm-delivery (provider: opencode, v0.2.0) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery
 
