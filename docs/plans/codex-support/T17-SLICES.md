@@ -16,6 +16,6 @@ T17 precedes T14 because T14's fresh cross-host flow depends on installable whee
 
 ## T17C — CI matrix and compatibility gate
 
-- [ ] Run Python 3.11 and a current supported version on Windows/Ubuntu; state macOS as unverified unless covered. Keep live model calls excluded.
-- [ ] Add or consolidate meaningful plan/result/state-schema, installed wheel, bundle freshness and real-Git regressions; resolve any remaining temporary xfails that T17 owns.
-- [ ] Complete R07/A05 and T17 gate with full cross-platform CI, artifact hashes and evidence; commit/push handoff, then pause before T14.
+- [x] Run Python 3.11 and a current supported version on Windows/Ubuntu; state macOS as unverified unless covered. Keep live model calls excluded. Python 3.11/3.14 × Windows/Ubuntu [CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121).
+- [x] Add or consolidate meaningful plan/result/state-schema, installed wheel, bundle freshness and real-Git regressions; resolve any remaining temporary xfails that T17 owns. [Evidence](T17C-EVIDENCE.md).
+- [x] Complete R07/A05 and T17 gate with full cross-platform CI, artifact hashes and evidence; commit/push handoff, then pause before T14. [Evidence](T17C-EVIDENCE.md).
