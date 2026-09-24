@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T13 and M1–M3 complete. T17 is the next required task and awaits the user's token confirmation.
+Status: T01 through T13 and M1–M3 complete. T17A is in progress after the user's token confirmation; parent T17 remains open.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -29,6 +29,9 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
 - [ ] T15 — Optional Codex executor contract (deferred)
 - [ ] T16 — Optional Codex executor implementation (deferred)
 - [ ] T17 — Wheel, bundle, and CI coverage
+  - [ ] T17A — Wheel/sdist resources and isolated core
+  - [ ] T17B — Bundle matrix and tracked freshness
+  - [ ] T17C — CI matrix and compatibility gate
 - [ ] T18 — Checked release automation
 - [ ] T19 — Migration and interruption rehearsal
 - [ ] T20 — Documentation and release candidate
@@ -53,7 +56,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Not started |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Deferred by default |
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Deferred by default |
-| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Not started; extra T13B smoke reconfirmed existing tracked Claude-plugin regeneration drift to close with bundle freshness |
+| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | In progress: T17A artifact-level wheel/sdist resource regression red; [split plan](T17-SLICES.md). Existing tracked Claude-plugin regeneration drift belongs to T17B. |
 | [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Not started |
 | [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
 | [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | 6–10k | Not started |
