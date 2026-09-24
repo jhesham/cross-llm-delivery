@@ -44,6 +44,7 @@ class Provider:
     account_section: Optional[Callable] = None  # () -> list[str]: shell+parse+render
     skill_fragment: str = ""
     setup_notes: str = ""
+    cli_invocation: Optional[Callable] = None  # () -> argv prefix; no process launched
 
 
 # ---------------------------------------------------------------------------

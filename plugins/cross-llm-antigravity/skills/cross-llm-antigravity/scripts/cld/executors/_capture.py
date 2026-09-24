@@ -10,6 +10,25 @@ from typing import Callable
 Runner = Callable[[list[str], str], tuple[int, str]]
 
 
+class CaptureError(RuntimeError):
+    """Git could not provide a complete candidate; never treat this as no edits."""
+
+
+def checked(runner: Runner, cwd: str, *args: str) -> str:
+    rc, output = runner(["git", *args], cwd)
+    if rc != 0:
+        raise CaptureError(f"git {args[0]} failed ({rc}): {output[:500]}")
+    if not isinstance(output, str):
+        raise CaptureError("Git runner returned non-text output")
+    return output
+
+
+def nul_names(output: str) -> list[str]:
+    if output and not output.endswith("\0"):
+        raise CaptureError("Incomplete NUL-delimited Git output")
+    return output.split("\0")[:-1] if output else []
+
+
 def _is_noise(path: str) -> bool:
     """True for transient artifacts the executor generates by RUNNING tests —
     bytecode/caches that are not real slice edits. Counting them as changed files
@@ -24,18 +43,17 @@ def _is_noise(path: str) -> bool:
     return False
 
 
-def capture_diff(runner: Runner, cwd: str) -> tuple[str, list[str]]:
+def capture_diff(runner: Runner, cwd: str, *, base: str = "HEAD") -> tuple[str, list[str]]:
     """Stage (intent-to-add) then capture (diff, files_changed) for the worktree.
 
     Transient test artifacts (__pycache__, .pyc, .pytest_cache) are filtered from
     files_changed — they are produced by running the acceptance tests, not by the
     slice, and must not trip the judge's allowed-files diff-rule.
     """
-    runner(["git", "add", "--intent-to-add", "-A"], cwd)
-    _, diff = runner(["git", "diff", "HEAD"], cwd)
-    _, names = runner(["git", "diff", "HEAD", "--name-only"], cwd)
+    checked(runner, cwd, "add", "--intent-to-add", "-A")
+    diff = checked(runner, cwd, "diff", "--binary", "--no-ext-diff", "--no-textconv", base, "--")
+    names = checked(runner, cwd, "diff", "--no-renames", "--name-only", "-z", base, "--")
     files_changed = [
-        line.strip() for line in names.splitlines()
-        if line.strip() and not _is_noise(line.strip())
+        name for name in nul_names(names) if not _is_noise(name)
     ]
     return diff, files_changed

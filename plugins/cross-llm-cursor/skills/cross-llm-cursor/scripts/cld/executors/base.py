@@ -11,6 +11,8 @@ class SliceTask:
     deps: list[str] = field(default_factory=list)
     executor: str | None = None  # optional per-slice executor spec; None -> build default
     complexity: str = "standard"  # easy / standard / complex; default standard
+    protected_inputs: list[str] = field(default_factory=list)
+    allow_already_satisfied: bool = False
 
 @dataclass
 class ExecutorResult:
@@ -19,8 +21,10 @@ class ExecutorResult:
     files_changed: list[str] = field(default_factory=list)
     token_usage: dict[str, int] = field(default_factory=dict)
     raw_log: str = ""
+    process: dict = field(default_factory=dict)
+    usage_raw: object = field(default_factory=dict)
 
 @runtime_checkable
 class Executor(Protocol):
-    def run(self, task: SliceTask, workdir: Path) -> ExecutorResult:
+    def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         ...
