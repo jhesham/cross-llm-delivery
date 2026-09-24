@@ -63,12 +63,12 @@ T13B host gate: Codex app-server 0.155.1 discovered the repo skill and all three
 
 Dependencies: T13/T17. Estimate: 10–16k. Files: `tests/integration/`, recorded CLI responses, host acceptance checklist/examples, setup documentation. Install/run in disposable test projects.
 
-- [ ] Create a small two-layer sample with committed acceptance tests and deterministic fake provider, exercising plan→step→integrate→status→stop→resume→complete.
-- [ ] Run that flow from a different cwd and from a fresh lead session using only the handoff/ledger. Verify no duplicate dispatch or reliance on conversation history.
+- [x] Create a small two-layer sample with committed acceptance tests and deterministic fake provider, exercising plan→step→integrate→status→stop→resume→complete. [T14 evidence](T14-EVIDENCE.md).
+- [x] Run that flow from a different cwd and from a fresh lead session using only the handoff/ledger. Verify no duplicate dispatch or reliance on conversation history.
 - [ ] Confirm Codex can discover and invoke the skill from CLI and IDE standalone installation. Capture bounded evidence of script path resolution, permission handling, and gate interpretation.
-- [ ] Check Claude Code discovery/driver behavior remains valid with existing names. Automated bundle tests supplement, but do not impersonate, actual host discovery evidence.
-- [ ] Exercise each existing provider through contract fixtures under both generated host variants; do not multiply paid live runs across every combination merely because templates differ.
-- [ ] When live calls are authorized and credentials are available, run one minimal canary with a selected existing provider, then interrupt/resume safely. Record CLI/host/model/platform, attempts, actual usage if exposed, and unknown costs explicitly.
-- [ ] Test sandbox denial: report the needed capability without silently broadening permissions. Verify a worktree root can be configured inside the allowed workspace.
+- [x] Check Claude Code discovery/driver behavior remains valid with existing names. Automated bundle tests supplement, but do not impersonate, actual host discovery evidence. The interactive host displayed the existing skill name; the vendored driver emitted the expected JSON preview.
+- [x] Exercise each existing provider through contract fixtures under both generated host variants; do not multiply paid live runs across every combination merely because templates differ.
+- [x] When live calls are authorized and credentials are available, run one minimal canary with a selected existing provider, then interrupt/resume safely. Record CLI/host/model/platform, attempts, actual usage if exposed, and unknown costs explicitly. [T14 evidence](T14-EVIDENCE.md).
+- [x] Test sandbox denial: report the needed capability without silently broadening permissions. Verify a worktree root can be configured inside the allowed workspace.
 
 **Gate:** M4 passes offline cross-host tests and recorded discovery evidence. If a host/platform/live account is unavailable, keep that specific checkbox pending and narrow the support claim; do not mark it verified from a mocked test. Full offline suite runs once after the final changes.

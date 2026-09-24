@@ -30,7 +30,10 @@ class EvidenceStore:
                 raise EvidenceError(f"Invalid validation evidence record: {self._path}")
             if not isinstance(rec.get("status"), str):
                 raise EvidenceError(f"Invalid validation status: {self._path}")
-            rec["status"] = {"proven": "verified", "known-bad": "revalidate"}.get(rec["status"], rec["status"])
+            # Older caches could persist an inconclusive "untested" result.
+            # It grants no validation proof; require a fresh probe instead.
+            rec["status"] = {"proven": "verified", "known-bad": "revalidate",
+                             "untested": "revalidate"}.get(rec["status"], rec["status"])
             if rec["status"] not in ("verified", "revalidate"):
                 raise EvidenceError(f"Invalid validation status: {self._path}")
         return data

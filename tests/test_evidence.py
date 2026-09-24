@@ -46,10 +46,12 @@ def test_legacy_verdicts_migrate_on_load(tmp_path):
     p = tmp_path / "ev.json"
     p.write_text(json.dumps({
         "opencode/kimi-k2.6": {"status": "known-bad", "note": "x", "validated_at": "t"},
+        "opencode/kimi-k2.7": {"status": "untested", "note": "inconclusive", "validated_at": "t"},
         "gemini:gemini-3.1-pro-preview": {"status": "proven", "note": "", "validated_at": "t"},
     }), encoding="utf-8")
     st = EvidenceStore(path=p).statuses()
     assert st["opencode/kimi-k2.6"] == "revalidate"
+    assert st["opencode/kimi-k2.7"] == "revalidate"
     assert st["gemini:gemini-3.1-pro-preview"] == "verified"
 
 
