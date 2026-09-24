@@ -32,8 +32,16 @@ def test_partial_process_work_retained_and_never_accepted(delivery_repo, mode):
                     time.sleep(.01)
                 event.set()
             watcher = threading.Thread(target=cancel_after_partial_edit, daemon=True) if mode == "cancelled" else None
-            child = f"from pathlib import Path; import time; p=Path('implementation.py'); " \
-                    f"\nwhile True: p.write_text({BODY!r}); time.sleep(.02)"
+            # Repeated truncation could leave an empty file at the exact timeout
+            # boundary even after the grandchild had produced the complete edit.
+            # Keep rewriting in place so mtime still proves termination while
+            # readers never observe a transient zero-length candidate.
+            child = (f"from pathlib import Path; import time; p=Path('implementation.py'); "
+                     f"p.write_text({BODY!r}); "
+                     f"\nwhile True:\n"
+                     f"    with p.open('r+', encoding='utf-8') as out:\n"
+                     f"        out.write({BODY!r}); out.flush()\n"
+                     f"    time.sleep(.02)\n")
             code = f"import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',{child!r}]); " \
                    "print('partial stdout',flush=True); print('partial stderr',file=sys.stderr,flush=True); time.sleep(60)"
             if watcher:
