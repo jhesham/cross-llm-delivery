@@ -1,0 +1,5 @@
+# T17A dogfood contract — installed Python artifacts
+
+Edit only `pyproject.toml` and, if necessary for setuptools sdist inclusion, a new root `MANIFEST.in`. Make the committed `tests/test_t17a_packaging.py` pass. Do not edit tests, engine/provider runtime files, generators, tracked plugins, CI, plan files, user-home files or source metadata unrelated to resource inclusion. Do not commit, push, dispatch another provider, invoke Codex inference, or perform an installation outside the isolated test paths.
+
+The artifact test builds a wheel and sdist from a copied source tree whose path has spaces. Both artifacts must include `SKILL.fragment.md` and `setup.md` for antigravity, cursor and opencode. The test installs the wheel to a disposable target and runs from outside the checkout under Python `-I -S`; provider registration and the `cld` CLI help must succeed with no optional dependencies. Keep the project dependency list empty unless a concrete required runtime import is proven. Preserve editable install and existing Claude/Codex generators. Run only `tests/test_t17a_packaging.py` and finish promptly.
