@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests/fixtures/compatibility"
 PLAN = FIXTURES / "plan-v1.md"
 LEGACY = FIXTURES / "legacy-ledger-v0.json"
+PREVIEW = FIXTURES / "cli-preview-v1.json"
 
 
 def test_versioned_plan_fixture_previews_as_stable_json_without_state(tmp_path):
@@ -30,10 +31,8 @@ def test_versioned_plan_fixture_previews_as_stable_json_without_state(tmp_path):
         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
     response = json.loads(result.stdout)
-    assert response["schema_version"] == 1
-    assert (response["command"], response["gate"], response["gate_code"],
-            response["next_action"]) == ("preview", "pending", 0, "resume")
-    assert response["layers"] == [["A"], ["B"]]
+    expected = json.loads(PREVIEW.read_text(encoding="utf-8"))
+    assert {key: response[key] for key in expected} == expected
     assert response["repository"] == str(repo.resolve())
     assert response["ledger"] == str(repo / ".cld-ledger.json")
     assert not Path(response["ledger"]).exists()

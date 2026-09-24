@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; T17A closes R07. R13 remains open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; T17A closes R07, and T17C closes A05. R13 remains open. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -26,7 +26,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | A02: invalid DAG/plan inputs | Reject duplicate IDs, missing dependencies, empty selectors, invalid complexity, unsafe IDs/paths; no phantom endless pending layer. | T07 |
 | [x] | A03: corrupt ledger treated as fresh | Missing is new; unreadable/invalid is blocked; existing evidence must not be truncated. | T05 |
 | [x] | A04: test harness duplicates old capture | Harness, concurrent and step-through executors now reuse production capture; real file/Git-tree assertions retained. [T01 evidence](T01-EVIDENCE.md). | T01 complete; T02 maintains coverage |
-| [ ] | A05: platform claims exceed CI evidence | Publish explicit host/provider/OS coverage; add intended CI coverage or narrow claims. | T17, T19, T20 |
+| [x] | A05: platform claims exceed CI evidence | Offline CI now covers Python 3.11/3.14 × Windows/Ubuntu, with six bundles and plugin gates; README/INSTALL/KNOWN-ISSUES distinguish historical Windows live calls, offline Ubuntu tests, and unverified macOS/POSIX live dispatch. [T17C evidence](T17C-EVIDENCE.md). T14/T19 may add new evidence. | T17C |
 | [x] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
 | [x] | A07: evidence store concurrent writes | Atomic replace plus synchronization; distinct records survive concurrent validation; corruption surfaced. | T09 |
 | [ ] | A08: skill frontmatter/install contradictions | Put frontmatter first; generated bundles must not require editable install or a source-relative driver path. | T12, T13 |

@@ -6,12 +6,12 @@ Outcome: conventional Python installs and both host bundles work from a clean en
 
 Dependencies: T12. Estimate: 8–12k. Files: `pyproject.toml`, generators, `.github/workflows/ci.yml`, packaging tests, optional dependency tests.
 
-- [ ] Include required provider resources in wheel/sdist package data and verify both distributions. Ensure the engine can load all installed providers without the source checkout on sys.path.
-- [ ] Build wheel, install into a clean environment, and smoke import providers/CLI. Clear editable/source-path leakage. Test the supported core with only required dependencies, plus pytest for deterministic target tests; optional behavioral/OTel imports must remain optional.
-- [ ] Build every required host/provider skill combination into a fresh output root, import it alone, and validate metadata/entrypoint paths. Include Codex plugin manifests for intended supported surfaces.
-- [ ] Regenerate committed bundles from source and make CI fail on drift. Compare normalized banners intentionally; do not hand-edit generated engines.
-- [ ] CI matrix: Python minimum 3.11 and a current supported version selected at implementation; Windows and Ubuntu required. Add macOS coverage if claiming it, otherwise state its unverified scope. Keep live models excluded from default CI.
-- [ ] Add plan/result/state-schema compatibility fixtures, wheel import checks, bundle freshness checks, and the new real-Git regression suite. Remove all temporary xfails once fixed.
+- [x] Include required provider resources in wheel/sdist package data and verify both distributions. Ensure the engine can load all installed providers without the source checkout on sys.path. [T17A evidence](T17A-EVIDENCE.md).
+- [x] Build wheel, install into a clean environment, and smoke import providers/CLI. Clear editable/source-path leakage. Test the supported core with only required dependencies, plus pytest for deterministic target tests; optional behavioral/OTel imports must remain optional. [T17A](T17A-EVIDENCE.md) and [T17C](T17C-EVIDENCE.md) evidence.
+- [x] Build every required host/provider skill combination into a fresh output root, import it alone, and validate metadata/entrypoint paths. Include Codex plugin manifests for intended supported surfaces. [T17B evidence](T17B-EVIDENCE.md).
+- [x] Regenerate committed bundles from source and make CI fail on drift. Compare normalized banners intentionally; do not hand-edit generated engines. [T17B evidence](T17B-EVIDENCE.md).
+- [x] CI matrix: Python minimum 3.11 and a current supported version selected at implementation; Windows and Ubuntu required. Add macOS coverage if claiming it, otherwise state its unverified scope. Keep live models excluded from default CI. Python 3.11/3.14 × Windows/Ubuntu; [T17C evidence](T17C-EVIDENCE.md).
+- [x] Add plan/result/state-schema compatibility fixtures, wheel import checks, bundle freshness checks, and the new real-Git regression suite. Remove all temporary xfails once fixed. [T17C evidence](T17C-EVIDENCE.md); T01–T13 real-Git suite remains active, and no T17 xfails remain.
 
 **Gate:** R07/A05 pass and the defects closed through T17 remain testable without paid calls; R13 belongs to T18 and remains open until its release-command gate. Record wheel filename/hash, build command, isolated import result, bundle matrix, and CI environments. A wheel that merely builds does not satisfy this gate.
 
