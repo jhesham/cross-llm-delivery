@@ -4,9 +4,9 @@ T17 precedes T14 because T14's fresh cross-host flow depends on installable whee
 
 ## T17A — Wheel/sdist resources and isolated core
 
-- [ ] Commit a red artifact-level regression and bounded Kimi K3/OpenCode contract before dispatch.
-- [ ] Package all six provider Markdown resources in wheel and sdist. Build from a clean copied source and verify installed provider registry plus CLI under `python -I -S` outside the checkout.
-- [ ] Lead review, focused/full offline suite, Windows/Ubuntu CI, artifact filename/hash and usage evidence; commit/push handoff, then pause.
+- [x] Commit a red artifact-level regression and bounded Kimi K3/OpenCode contract before dispatch. [Evidence](T17A-EVIDENCE.md).
+- [x] Package all six provider Markdown resources in wheel and sdist. Build from a clean copied source and verify installed provider registry plus CLI under `python -I -S` outside the checkout. Lead-owned source fix `ae0556a` after CLD retained the protected `pyproject.toml` candidate.
+- [x] Lead review, focused/full offline suite, Windows/Ubuntu CI, artifact filename/hash and usage evidence; commit/push handoff, then pause. [Evidence](T17A-EVIDENCE.md); source fixes `ae0556a`, `e979372`.
 
 ## T17B — Bundle matrix and tracked freshness
 
