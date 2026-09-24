@@ -10,9 +10,9 @@ T17 precedes T14 because T14's fresh cross-host flow depends on installable whee
 
 ## T17B — Bundle matrix and tracked freshness
 
-- [ ] Build six host/provider combinations into a fresh output root and validate each isolated entrypoint and metadata, including Codex plugin manifests and catalog.
-- [ ] Diagnose and close the existing tracked Claude-plugin regeneration drift; add a deterministic CI freshness check with intentional banner normalization. Preserve the Claude default and Codex ignored output routes.
-- [ ] Verify, commit/push evidence and handoff, then pause.
+- [x] Build six host/provider combinations into a fresh output root and validate each isolated entrypoint and metadata, including Codex plugin manifests and catalog. [Evidence](T17B-EVIDENCE.md).
+- [x] Diagnose and close the existing tracked Claude-plugin regeneration drift; add a deterministic CI freshness check with intentional banner normalization. Preserve the Claude default and Codex ignored output routes. Red contract `7997ecb`, generated refresh `d09a2ab`.
+- [x] Verify, commit/push evidence and handoff, then pause. [Evidence](T17B-EVIDENCE.md).
 
 ## T17C — CI matrix and compatibility gate
 
