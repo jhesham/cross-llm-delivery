@@ -5,8 +5,8 @@ Honest scope notes. None of these block normal use; each names its workaround.
 ## Platform
 - **antigravity + cursor dispatch on macOS/Linux is experimental.** Their dispatch handling
   (transcript reading, versioned-binary resolution) was engineered and validated against Windows
-  CLI behavior. The **opencode** provider has a clean POSIX path and is the recommended
-  non-Windows executor. Field reports welcome.
+  CLI behavior. OpenCode has a POSIX code path, but current Ubuntu CI is offline and does not
+  establish live dispatch. macOS has no current CI coverage. See the README platform section.
 
 ## Cost reporting
 - **Per-dispatch dollar cost is captured for opencode only** (read from its `step_finish.cost`
