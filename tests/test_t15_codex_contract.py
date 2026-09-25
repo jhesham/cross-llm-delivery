@@ -38,6 +38,13 @@ def test_capability_probe_is_feature_based():
         check_capabilities("garbage", HELP)
 
 
+def test_capability_probe_accepts_wrapped_stdin_help():
+    wrapped = HELP.replace("If PROMPT is '-' read from stdin.",
+                           "Initial instructions for the agent. If not provided as an argument (or if `-` is used),\n"
+                           "instructions are read from stdin.")
+    assert check_capabilities("codex-cli 0.155.1", wrapped) == "codex-cli 0.155.1"
+
+
 def test_invocation_is_fresh_explicit_and_isolated(tmp_path):
     # A real Git worktree is the only permitted working root.
     import subprocess
@@ -103,7 +110,8 @@ def test_completion_cardinality_and_event_integrity():
     completion = success.splitlines()[-1] + "\n"
     for altered in (success.replace(completion, ""), success + completion,
                     success.replace('{"type":"turn.started"}\n', ""),
-                    success + '{"type":"error","message":"late failure"}\n'):
+                    success + '{"type":"error","message":"late failure"}\n',
+                    completion + success.replace(completion, "")):
         assert not parse_exec_output(altered, "", 0).ok
 
 
@@ -114,3 +122,12 @@ def test_missing_usage_is_unknown_and_invalid_usage_fails():
     assert result.ok and result.usage == {} and result.usage_raw == {}
     invalid = success.replace('"input_tokens":120', '"input_tokens":-1')
     assert not parse_exec_output(invalid, "", 0).ok
+    invalid_reasoning = success.replace('"reasoning_output_tokens":10', '"reasoning_output_tokens":-1')
+    assert not parse_exec_output(invalid_reasoning, "", 0).ok
+
+
+def test_missing_returncode_and_stdout_prose_auth_are_distinct():
+    success = fixture("success.jsonl")
+    assert parse_exec_output(success, "", None).error == "nonzero_exit"
+    message = '{"type":"item.completed","item":{"type":"agent_message","text":"login required"}}'
+    assert parse_exec_output(success.replace(success.splitlines()[2], message), "", 0).ok
