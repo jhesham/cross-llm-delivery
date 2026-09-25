@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T15, T17 and M1–M4 complete. T15's optional Codex executor contract is offline-only; T16 remains optional and unstarted. T18 is the next required task.
+Status: T01 through T17 and M1–M4 plus optional M6 complete. T18 is the next required task. Stop for the user token-availability checkpoint before starting it.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -27,7 +27,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T13B — Marketplace and host discovery
 - [x] T14 — Cross-host acceptance
 - [x] T15 — Optional Codex executor contract
-- [ ] T16 — Optional Codex executor implementation (deferred)
+- [x] T16 — Optional Codex executor implementation ([evidence](T16-EVIDENCE.md); source `e64d12f`, four-job CI green)
 - [x] T17 — Wheel, bundle, and CI coverage
   - [x] T17A — Wheel/sdist resources and isolated core
   - [x] T17B — Bundle matrix and tracked freshness (source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md); Windows/Ubuntu CI green)
@@ -55,7 +55,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Complete: [T13A](T13A-EVIDENCE.md), [T13B](T13B-EVIDENCE.md); T13B code/test merge `f4b9551`; installed Codex app-server found repo skill and all three local plugins from nested cwd; Windows/Ubuntu full CI and generator smoke green |
 | [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Complete: [offline flow, CLI and IDE host evidence, and pinned Kimi K3 canary](T14-EVIDENCE.md); CLI/IDE standalone skill invoked from disposable installs, Claude behavior verified. Closing evidence commit and final CI are recorded in T14 evidence. |
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Complete: [evidence](T15-EVIDENCE.md); source/test `63b5ed1`; [Windows/Ubuntu Python 3.11/3.14 CI plus generator smoke green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36102993135). Synthetic fixtures only; live Codex remains T16. |
-| [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Deferred by default |
+| [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Complete: source/test `e64d12f`; [Windows canary and Kimi dogfood evidence](T16-EVIDENCE.md); [Windows/Ubuntu Python 3.11/3.14 CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). |
 | [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Complete: [T17A](T17A-EVIDENCE.md), [T17B](T17B-EVIDENCE.md), [T17C](T17C-EVIDENCE.md); T17C source `465b698`, race repair `5a5e68e`, [Python 3.11/3.14 × Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; T14 is next. |
 | [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Not started |
 | [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
@@ -112,3 +112,4 @@ Next task:
 - 2026-09-24 — T17C/T17 complete: Python 3.11/3.14 × Windows/Ubuntu full offline CI and generator/plugin gates passed after correcting a timeout-test truncation race exposed on Ubuntu 3.11. Static plan, CLI-result and legacy-state fixtures pin compatibility; installed wheel and sdist include all six provider resources, with isolated core-only CLI smoke. README/install/known-issues platform claims now state evidence levels and macOS remains unverified. [Evidence](T17C-EVIDENCE.md), source `465b698`, repair `5a5e68e`, [CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; R13 remains T18. No Kimi call. Pause before T14.
 - 2026-09-25 — T14 partial: disposable two-layer real-Git fake-provider stop/resume and six generated host/provider contracts passed; Codex app-server and Claude interactive skill discovery/driver previews recorded. Claude skill frontmatter warning fixed in source and generated plugins. Legacy `untested` evidence now requires revalidation rather than blocking all dispatch; exact Kimi K3 canary validated, implemented, stopped, resumed and integrated with 2 provider attempts / 100,318 reported tokens / USD 0.1057668. IDE unavailable. [Evidence](T14-EVIDENCE.md). T14/M4 stay open; do not start T18.
 - 2026-09-25 — T14/M4 complete: the actual Codex VS Code panel offered the repo-installed `$cross-llm-opencode` skill and invoked its vendored driver in a disposable workspace with spaces. The IDE reported the resolved script path, `pending` gate and A/B layers with no executor dispatch. [Screenshots and full T14 evidence](T14-EVIDENCE.md). Final Windows/Ubuntu CI at the pushed closing SHA is recorded there. Stop for token confirmation before T18.
+- 2026-09-26 — T16/M6 complete: exact Kimi K3/OpenCode delivered the bounded adapter (401,147 reported tokens, USD 0.5116818); lead review registered the fourth provider, generated both host variants and refreshed tracked Claude plugins. The exact `codex:gpt-6-luna@max` Windows canary passed live validation, controlled budget stop/resume, independent one-file acceptance, and fresh-process integration (944,961 derived tokens; USD unknown; 44,961-token admission overrun recorded). [Evidence](T16-EVIDENCE.md), source `e64d12f`, [four-job Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253) green. Live POSIX dispatch and mid-process kill/resume remain unverified. Pause for token confirmation before T18.
