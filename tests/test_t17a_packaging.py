@@ -11,7 +11,7 @@ from shutil import copy2, copytree
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = ("antigravity", "cursor", "opencode")
+PROVIDERS = ("antigravity", "cursor", "opencode", "codex")
 
 
 def _source_copy(tmp_path: Path) -> Path:
@@ -63,7 +63,7 @@ def test_wheel_contains_provider_resources_and_runs_without_checkout_or_optional
         "from cld.providers_api import load_providers,all_providers; "
         "load_providers(); "
         "assert {p.name for p in all_providers()} == "
-        "{'antigravity','cursor','opencode'}; "
+        "{'antigravity','cursor','opencode','codex'}; "
         "import cld.behavioral as behavioral; "
         "assert behavioral.GEval is None; "
         "sys.argv=['cld','--help']; runpy.run_module('cld',run_name='__main__')"

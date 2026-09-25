@@ -85,7 +85,8 @@ print(render_chat_picker(recs))
 
 Rules:
 
-- The default is the provider's workhorse (see `references/provider.md`).
+- Use the provider's default only when one is configured. A provider without a
+  default requires an exact `--executor` model ID (see `references/provider.md`).
 - For a premium-metered model, confirm that billed dispatches are covered by
   the user's existing authorization; ask if that is unclear. Declining falls
   back to the default only with the user's agreement.

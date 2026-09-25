@@ -92,7 +92,7 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
         failed_csv = ", ".join(failed_ids)
         gate_line += f" Inspect {failed_csv}?"
     lines.append(gate_line)
-    
+
     if getattr(result, "integration_error", None):
         lines.append(f"NEXT: integration failed: {result.integration_error}")
     elif getattr(result, "integration_required", []):
@@ -108,7 +108,7 @@ def summarize_layer(result: Any, *, layer_index: int, total_layers: int, next_la
         lines.append("NEXT: build has pending work; inspect recorded state.")
     else:
         lines.append(f"NEXT: build complete — no further layers.")
-        
+
     return "\n".join(lines)
 
 

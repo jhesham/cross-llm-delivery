@@ -219,12 +219,13 @@ skill fragment) — see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Platform support
 
 The offline CI matrix exercises Python 3.11 and 3.14 on Windows and Ubuntu. Each job
-runs the full default test suite, builds all six Claude/Codex provider bundles, checks
+runs the full default test suite, builds all eight Claude/Codex provider bundles, checks
 the tracked Claude plugins, and packages the Codex plugins/catalog. The installed-wheel
 regression also runs with optional packages excluded. Python 3.13 has a separate local
 Windows full-suite pass; Python 3.12 and macOS have no current CI coverage.
 
-Historical live headless Windows builds cover all three executors. The current CI matrix
+Historical live headless Windows builds cover the original three executors. The Codex
+executor has a separately recorded Windows canary in the T16 evidence. The current CI matrix
 makes **no live provider calls**, so its green status proves offline contracts, not live
 provider operation on every host. OpenCode has a POSIX dispatch path, but live dispatch
 on Ubuntu/macOS is not established by this matrix. Antigravity and cursor dispatch on
@@ -243,12 +244,13 @@ This repo doubles as a plugin marketplace. In Claude Code, add it once:
 /plugin marketplace add jhesham/cross-llm-delivery
 ```
 
-then install **the provider(s) whose CLI you have** — there are three, pick any:
+then install **the provider(s) whose CLI you have** — pick any:
 
 ```
 /plugin install cross-llm-opencode@cross-llm-delivery       # free/cheap models, works everywhere
 /plugin install cross-llm-antigravity@cross-llm-delivery    # flat-rate, needs a Google AI sub
 /plugin install cross-llm-cursor@cross-llm-delivery         # Composer, needs a Cursor sub
+/plugin install cross-llm-codex@cross-llm-delivery          # exact Codex model required; cost unknown
 ```
 
 (First time? Install just **cross-llm-opencode** — it has free models and is the proven
@@ -268,7 +270,8 @@ python -m pytest                     # should pass; no API keys or executor CLIs
 ## Generate + install a provider skill (source route)
 
 The monorepo ships a **generator** that produces self-contained, per-provider Claude Code
-skills — `cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`. Each generated
+skills — `cross-llm-antigravity`, `cross-llm-opencode`, `cross-llm-cursor`,
+`cross-llm-codex`. Each generated
 skill needs **no pip install** (the engine is vendored into `scripts/cld/`).
 
 ```bash
@@ -419,7 +422,7 @@ copies receive these changes in the planned packaging slices.
 
 ```
 engine/cld/             the engine (orchestrator, judge, ledger, dag, telemetry, status, ...)
-engine/cld_providers/   one package per executor backend (antigravity, opencode, cursor)
+engine/cld_providers/   one package per executor backend (antigravity, opencode, cursor, codex)
 generator/              builds self-contained per-provider skills into dist/
 skill/                  skill template, scripts (run_delivery.py), references, examples
 tests/                  the test suite (default run needs no API keys or CLIs)

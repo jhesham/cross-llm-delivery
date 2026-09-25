@@ -71,7 +71,9 @@ def _provider_default_workhorse(provider: str) -> str:
 
 def _compose_skill(provider: str, out: Path) -> None:
     """Compose SKILL.md from the template + provider fragment/setup, write to out."""
-    template = (SKILL_SRC / "SKILL.template.md").read_text(encoding="utf-8")
+    provider_template = PROVIDERS_DIR / provider / "SKILL.template.md"
+    template = (provider_template if provider_template.is_file() else
+                SKILL_SRC / "SKILL.template.md").read_text(encoding="utf-8")
     fragment = (PROVIDERS_DIR / provider / "SKILL.fragment.md").read_text(encoding="utf-8")
     setup = (PROVIDERS_DIR / provider / "setup.md").read_text(encoding="utf-8")
     default_workhorse = _provider_default_workhorse(provider)
@@ -91,10 +93,17 @@ def _compose_skill(provider: str, out: Path) -> None:
 def _compose_skill_codex(provider: str, out: Path) -> None:
     """Compose the Codex-host SKILL.md from its own concise YAML-first template."""
     template = (CODEX_HOST_SRC / "SKILL.template.md").read_text(encoding="utf-8")
+    executor_policy = (
+        "An exact model ID is required for each build; this provider has no default model. "
+        "Pass `--executor codex:<model-id>@<effort>` explicitly."
+        if provider == "codex" else
+        f"The default workhorse is `{_provider_default_workhorse(provider)}`."
+    )
     skill = (
         template
         .replace("{{PROVIDER_NAME}}", provider)
         .replace("{{DEFAULT_WORKHORSE}}", _provider_default_workhorse(provider))
+        .replace("{{EXECUTOR_POLICY}}", executor_policy)
         .replace("{{BANNER}}", _banner(provider))
     )
     (out / "SKILL.md").write_text(skill, encoding="utf-8")
