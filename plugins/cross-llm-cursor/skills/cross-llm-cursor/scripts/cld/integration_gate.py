@@ -21,7 +21,7 @@ def integration_gate(batch: list[str], *, run_full_suite: Callable[[], str]) -> 
     passed_count, failed_count, failing_tests = verdict.tests_passed, verdict.tests_failed, verdict.failing_tests
     passed = verdict.passed
     rework_batch = [] if passed else list(batch)
-    
+
     return GateResult(
         passed=passed,
         batch=list(batch),

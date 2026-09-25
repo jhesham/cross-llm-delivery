@@ -29,6 +29,7 @@ where = ["engine"]  # the importable packages (cld, cld_providers) live under en
 "cld_providers.antigravity" = ["*.md"]
 "cld_providers.cursor" = ["*.md"]
 "cld_providers.opencode" = ["*.md"]
+"cld_providers.codex" = ["*.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]

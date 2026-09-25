@@ -14,7 +14,7 @@ and nonzero on any failure. ``--preview`` performs no writes at all, and a
 failed operation leaves an existing target unchanged.
 
 Safety rules (docs/plans/codex-support/T13A-CONTRACT.md):
-  * skill names are restricted to the three supported provider names;
+  * skill names are restricted to the supported provider names;
   * source/target symlinks that can escape the selected scope, and any
     source/target overlap, are rejected;
   * install copies the whole bundle into a staged sibling, then publishes it;
@@ -40,6 +40,7 @@ SUPPORTED_NAMES = frozenset({
     "cross-llm-opencode",
     "cross-llm-antigravity",
     "cross-llm-cursor",
+    "cross-llm-codex",
 })
 
 MANIFEST_NAME = ".cld-install.json"

@@ -31,18 +31,21 @@ class FakeProcess:
 
 
 class FakeCodexRunner:
-    def __init__(self, *, help_text=HELP, exec_result=None, write=None):
+    def __init__(self, *, help_text=HELP, exec_result=None, version_result=None,
+                 help_result=None, write=None):
         self.help_text = help_text
         self.exec_result = exec_result or FakeProcess(stdout=FIXTURE.read_text(encoding="utf-8"))
+        self.version_result = version_result or FakeProcess(stdout="codex-cli 0.155.1\n")
+        self.help_result = help_result or FakeProcess(stdout=help_text)
         self.write = write
         self.calls = []
 
     def __call__(self, argv, cwd, **kwargs):
         self.calls.append((list(argv), str(cwd), kwargs))
         if argv == ["codex", "--version"]:
-            return FakeProcess(stdout="codex-cli 0.155.1\n")
+            return self.version_result
         if argv == ["codex", "exec", "--help"]:
-            return FakeProcess(stdout=self.help_text)
+            return self.help_result
         assert argv[:2] == ["codex", "exec"]
         if self.write is not None:
             self.write(Path(cwd))
@@ -113,6 +116,13 @@ def test_missing_capability_blocks_before_dispatch(repo):
     assert not result.ok and result.diff == ""
     assert "--ephemeral" in result.raw_log
     assert len(runner.calls) == 2
+
+
+def test_nonzero_probe_blocks_even_with_supported_help_text(repo):
+    runner = FakeCodexRunner(version_result=FakeProcess(returncode=1, stdout="codex-cli 0.155.1\n"))
+    result = CodexExecutor(model="gpt-example", runner=runner).run(task(), repo)
+    assert not result.ok and result.process["error"] == "nonzero_exit"
+    assert len(runner.calls) == 1
 
 
 def test_recursive_dispatch_guard_precedes_process(repo, monkeypatch):

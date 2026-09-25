@@ -38,15 +38,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = ("antigravity", "opencode", "cursor")
+
+
+def _package_providers(dist_root: Path, *, host: str) -> tuple[str, ...]:
+    """Keep the three established packages; include optional Codex when built."""
+    host_root = dist_root / "codex" if host == "codex" else dist_root
+    return PROVIDERS + (("codex",) if (host_root / "cross-llm-codex").is_dir() else ())
 DESCRIPTIONS = {
     "antigravity": "Delegate bulk implementation to Google's Antigravity CLI (flat-rate Gemini/Claude models) with Claude as architect + judge; committed failing tests gate every merge.",
     "opencode": "Delegate bulk implementation to OpenCode CLI models (free/cheap-metered: deepseek, kimi, GLM, ...) with Claude as architect + judge; committed failing tests gate every merge.",
     "cursor": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Claude as architect + judge; committed failing tests gate every merge.",
+    "codex": "Delegate bulk implementation to an explicitly selected Codex CLI model with Claude as architect + judge; committed failing tests gate every merge.",
 }
 CODEX_DESCRIPTIONS = {
     "antigravity": "Delegate bulk implementation to Google's Antigravity CLI (flat-rate Gemini/Claude models) with Codex as architect + judge; committed failing tests gate every merge.",
     "opencode": "Delegate bulk implementation to OpenCode CLI models (free/cheap-metered: deepseek, kimi, GLM, ...) with Codex as architect + judge; committed failing tests gate every merge.",
     "cursor": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Codex as architect + judge; committed failing tests gate every merge.",
+    "codex": "Delegate bulk implementation to an explicitly selected Codex CLI model with Codex as architect + judge; committed failing tests gate every merge.",
 }
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 CODEX_CATALOG_NAME = "cross-llm-delivery-codex"
@@ -90,7 +98,7 @@ def _version() -> str:
 def _main_claude(dist_root: Path, out_root: Path) -> int:
     """Default host: refresh committed Claude plugins (layout/names unchanged)."""
     changed = []
-    for p in PROVIDERS:
+    for p in _package_providers(dist_root, host="claude-code"):
         dist = dist_root / f"cross-llm-{p}"
         if not dist.is_dir():
             print(f"ERROR: {dist} missing - run `python generator/build_skill.py --all` first.")
@@ -115,8 +123,8 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
     return 0
 
 
-def _codex_catalog() -> dict:
-    """Deterministic local marketplace catalog for the three portable plugins.
+def _codex_catalog(providers: tuple[str, ...]) -> dict:
+    """Deterministic local marketplace catalog for built portable plugins.
 
     Source paths are relative to the marketplace root (the output root holding
     .agents/plugins/marketplace.json), so the whole tree stays movable.
@@ -131,7 +139,7 @@ def _codex_catalog() -> dict:
                 "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                 "category": "Productivity",
             }
-            for p in PROVIDERS
+            for p in providers
         ],
     }
 
@@ -140,11 +148,12 @@ def _main_codex(dist_root: Path, out_root: Path) -> int:
     """Codex host: portable plugins + local marketplace catalog under <out-root>.
 
     Writes only <out-root>/codex/ and <out-root>/.agents/plugins/marketplace.json;
-    an adjacent Claude plugin tree is preserved. All three input bundles are
+    an adjacent Claude plugin tree is preserved. All selected input bundles are
     preflighted before any output changes, so a missing bundle leaves prior
     packages and catalog untouched.
     """
-    missing = [p for p in PROVIDERS
+    providers = _package_providers(dist_root, host="codex")
+    missing = [p for p in providers
                if not (dist_root / "codex" / f"cross-llm-{p}").is_dir()]
     if missing:
         print(f"ERROR: missing codex bundle(s) for {', '.join(missing)} under "
@@ -152,7 +161,7 @@ def _main_codex(dist_root: Path, out_root: Path) -> int:
         return 1
     changed = []
     version = _version()
-    for p in PROVIDERS:
+    for p in providers:
         dist = dist_root / "codex" / f"cross-llm-{p}"
         plug = out_root / "codex" / f"cross-llm-{p}"
         # snapshot old state for change detection
@@ -172,7 +181,7 @@ def _main_codex(dist_root: Path, out_root: Path) -> int:
         if before != after:
             changed.append(p)
     catalog_path = out_root / ".agents" / "plugins" / "marketplace.json"
-    catalog_text = json.dumps(_codex_catalog(), indent=2) + "\n"
+    catalog_text = json.dumps(_codex_catalog(providers), indent=2) + "\n"
     old_catalog = catalog_path.read_bytes() if catalog_path.is_file() else None
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
     catalog_path.write_text(catalog_text, encoding="utf-8", newline="\n")

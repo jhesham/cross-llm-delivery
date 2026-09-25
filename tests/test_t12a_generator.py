@@ -12,7 +12,7 @@ from generator.build_skill import build_one
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = ("antigravity", "cursor", "opencode")
+PROVIDERS = ("antigravity", "cursor", "opencode", "codex")
 
 
 def codex_build(provider, out_root):

@@ -5,8 +5,8 @@ capability probes, one bounded stdin dispatch through the injected runner, JSONL
 parsing, and (on valid completion alone) Git diff capture through the shared
 ``cld.executors._capture``. Allowed-files enforcement stays with CLD's
 independent candidate verifier; JSONL item/file events and final prose are
-never treated as acceptance. Provider registration, generated bundles, and CLI
-default-model policy are owned by the lead and are intentionally NOT here.
+never treated as acceptance. The registered provider has no static model
+catalog or default; callers must select the exact model and effort.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from pathlib import Path
 from cld.executors._capture import CaptureError, capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.process import deadline_seconds, feedback as process_feedback, run_process
+from cld.providers_api import Provider, register_provider
 
 from .contract import (
     CodexContractError,
@@ -85,7 +86,8 @@ class CodexExecutor:
 
     def _probe(self, argv: list[str], cwd: str):
         """Read-only capability probe with a finite deadline; never inference."""
-        return self._runner(argv, cwd, timeout=deadline_seconds())
+        return self._runner(argv, cwd, timeout=deadline_seconds(),
+                            cancel=self._cancel, artifact_dir=self._artifact_dir)
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
@@ -111,14 +113,24 @@ class CodexExecutor:
 
         # Capability gate: feature-test the installed CLI, never infer support.
         version = self._probe(["codex", "--version"], cwd)
-        help_out = self._probe(["codex", "exec", "--help"], cwd)
-        for label, probe in (("codex --version", version), ("codex exec --help", help_out)):
-            if probe.error:
+        for label, probe in (("codex --version", version),):
+            if probe.error or probe.returncode != 0:
+                error = probe.error or "nonzero_exit"
                 return ExecutorResult(
                     ok=False, diff="",
-                    raw_log=(f"Codex CLI probe '{label}' failed ({probe.error}); install or "
+                    raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
                              f"repair the Codex CLI and ensure it is on PATH."),
-                    process={**probe.metadata(), "error": probe.error},
+                    process={**probe.metadata(), "error": error},
+                )
+        help_out = self._probe(["codex", "exec", "--help"], cwd)
+        for label, probe in (("codex exec --help", help_out),):
+            if probe.error or probe.returncode != 0:
+                error = probe.error or "nonzero_exit"
+                return ExecutorResult(
+                    ok=False, diff="",
+                    raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
+                             f"repair the Codex CLI and ensure it is on PATH."),
+                    process={**probe.metadata(), "error": error},
                 )
         try:
             check_capabilities(version.stdout, help_out.stdout)
@@ -166,3 +178,19 @@ class CodexExecutor:
         return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
                               token_usage=token_usage, usage_raw=outcome.usage_raw,
                               raw_log=raw_log, process=metadata)
+
+
+_HERE = Path(__file__).parent
+PROVIDER = Provider(
+    name="codex",
+    make_executor=lambda **kwargs: CodexExecutor(**kwargs),
+    catalog=(),
+    default_workhorse="",  # Exact model selection is mandatory.
+    list_models=lambda runner: [],  # No authoritative account-scoped list in this contract.
+    account_stats=None,
+    account_block=None,
+    cli_invocation=lambda: ["codex"],
+    skill_fragment=(_HERE / "SKILL.fragment.md").read_text(encoding="utf-8"),
+    setup_notes=(_HERE / "setup.md").read_text(encoding="utf-8"),
+)
+register_provider(PROVIDER)

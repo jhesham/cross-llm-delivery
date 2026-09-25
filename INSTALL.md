@@ -10,7 +10,8 @@ provider(s) you install.
 > (cross-platform; on Windows `pwsh ./rebuild-skills.ps1` is a clean-rebuild convenience wrapper).
 
 > **Platform note:** Offline CI covers Windows and Ubuntu on Python 3.11/3.14; macOS is
-> unverified. Historical live Windows builds cover all three executors. The CI matrix
+> unverified. Historical live Windows builds cover the original three executors;
+> the Codex executor has separate T16 Windows evidence. The CI matrix
 > makes no live provider calls, and POSIX dispatch has not been proven for every provider.
 > See the README's Platform support section for the evidence levels.
 
@@ -21,8 +22,10 @@ provider(s) you install.
 | **opencode** | `dist/cross-llm-opencode` | **$0** with a free model (`opencode/deepseek-v4-flash-free`); metered otherwise | free opencode account |
 | **antigravity** | `dist/cross-llm-antigravity` | flat-rate ($0 marginal) | **Antigravity / Google-AI subscription** |
 | **cursor** | `dist/cross-llm-cursor` | metered | **Cursor subscription** |
+| **codex** | `dist/cross-llm-codex` | unknown; no fixed price assumed | Codex CLI auth and explicit model ID |
 
-These three are the only runnable executors. (The Composer model is reachable via the **cursor**
+The Codex executor requires `--executor codex:<exact-model-id>@<effort>`; it has no
+default or static catalog. (The Composer model is reachable via the **cursor**
 provider as `cursor:composer-2.5`.)
 
 ## Can I install several at once? Yes — they don't collide
@@ -30,7 +33,7 @@ provider as `cursor:composer-2.5`.)
 The generated `dist/cross-llm-<provider>/` folders are **independent and self-contained**, so any
 number can live in `~/.claude/skills/` together:
 
-- **Distinct skill names** (`cross-llm-opencode`, `cross-llm-antigravity`, `cross-llm-cursor`) —
+- **Distinct skill names** (`cross-llm-opencode`, `cross-llm-antigravity`, `cross-llm-cursor`, `cross-llm-codex`) —
   Claude Code registers each as its own skill.
 - **No shared package on a global path.** Each folder ships its own vendored `scripts/cld/`, and its
   `run_delivery.py` puts *its own* `scripts/` dir first on `sys.path`. Each run is a separate process
@@ -47,12 +50,12 @@ So: install one to start, or install all the runnable ones — your choice.
 
 ## Install ALL runnable providers
 
-### 1. Copy the three provider skill folders
+### 1. Copy the four provider skill folders
 
 macOS / Linux:
 ```bash
 mkdir -p ~/.claude/skills
-for p in opencode antigravity cursor; do
+for p in opencode antigravity cursor codex; do
   cp -r "<source>/dist/cross-llm-$p" ~/.claude/skills/cross-llm-$p
 done
 # sanity: each must have a vendored engine (not the deprecation stub)
@@ -63,10 +66,10 @@ Windows (PowerShell):
 ```powershell
 $skills = "$env:USERPROFILE\.claude\skills"
 New-Item -ItemType Directory -Force $skills | Out-Null
-foreach ($p in "opencode","antigravity","cursor") {
+foreach ($p in "opencode","antigravity","cursor","codex") {
     Copy-Item -Recurse -Force "<source>\dist\cross-llm-$p" (Join-Path $skills "cross-llm-$p")
 }
-foreach ($p in "opencode","antigravity","cursor") {
+foreach ($p in "opencode","antigravity","cursor","codex") {
     Test-Path (Join-Path $skills "cross-llm-$p\scripts\cld\__init__.py")   # must be True for each
 }
 ```
@@ -162,7 +165,7 @@ mirrors the [Build skills guide](https://learn.chatgpt.com/docs/build-skills)) �
 `.agents/skills/` in every directory from the current working directory up to the Git
 repository root (**REPO** scope), `$HOME/.agents/skills/` (**USER** scope),
 `/etc/codex/skills/` (**ADMIN** scope), plus skills bundled with Codex itself (**SYSTEM**).
-Same-name skills are never merged, so keep the three provider names distinct.
+Same-name skills are never merged, so keep the four provider names distinct.
 
 `generator/install_codex.py` is a previewable standard-library installer that copies a
 generated Codex bundle into `<scope-root>/.agents/skills/<skill-name>`. The scope root is
@@ -173,7 +176,7 @@ folders on its own.
 
 ```bash
 python generator/build_skill.py --all --host codex
-# -> dist/codex/cross-llm-<provider>/  (opencode, antigravity, cursor)
+# -> dist/codex/cross-llm-<provider>/  (opencode, antigravity, cursor, codex)
 ```
 
 ### 2. Preview first, then install (repo scope)
@@ -262,7 +265,7 @@ python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" 
 ## Local Codex plugin marketplace (alternative install route)
 
 Instead of copying standalone skills, Codex surfaces that support local plugin
-marketplaces can install the three provider plugins from one generated catalog.
+marketplaces can install the four provider plugins from one generated catalog.
 The marketplace is **local**: it points at portable plugin folders on disk and
 needs no network access or hosted submission.
 
