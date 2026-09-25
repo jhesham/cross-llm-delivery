@@ -8,6 +8,8 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     """Resolve a provider default or explicit ID without substituting providers."""
     from cld.providers_api import get_provider, default_workhorse
     value = (spec or default_workhorse()).strip()
+    if not value:
+        raise ValueError("No executor model default is configured; pass --executor codex:<exact-model-id>@<effort>")
     effort = None
     if "@" in value:
         value, effort = value.rsplit("@", 1)
@@ -23,6 +25,8 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     name, model = name.strip().lower(), model.strip()
     provider = get_provider(name)
     if not model:
+        if not provider.default_workhorse:
+            raise ValueError(f"{name} requires an explicit model ID: --executor {name}:<exact-model-id>@<effort>")
         _, _, defaults = resolve_spec(provider.default_workhorse)
         model = defaults["model"]
         effort = effort or defaults.get("effort")
@@ -310,7 +314,7 @@ def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
 
     default_rec = next((r for r in ordered if r.is_default), ordered[0] if ordered else None)
     if default_rec is None:
-        return "gemini"  # empty catalog -> safe default
+        raise ValueError("No model shortlist is available; pass an explicit --executor model ID")
 
     raw = (input_fn("Pick one [default: workhorse]: ") or "").strip()
     if not raw:
@@ -349,21 +353,22 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
     out = []
 
     default_id = _default_workhorse_id
-    def_info = _catalog[default_id]
-    default_executor = default_id.split(":", 1)[0] if ":" in default_id else default_id
-    out.append(
-        ModelChoice(
-            spec=default_id,
-            executor=default_executor,
-            provider=_provider_of(default_id),
-            model=default_id.split(":", 1)[1] if ":" in default_id else default_id,
-            label=def_info.note,
-            cost_class=def_info.cost_class,
-            headless_status=evidence.get(default_id, def_info.headless_status),
-            efforts=[],
-            default_effort=None,
+    if default_id in _catalog:
+        def_info = _catalog[default_id]
+        default_executor = default_id.split(":", 1)[0] if ":" in default_id else default_id
+        out.append(
+            ModelChoice(
+                spec=default_id,
+                executor=default_executor,
+                provider=_provider_of(default_id),
+                model=default_id.split(":", 1)[1] if ":" in default_id else default_id,
+                label=def_info.note,
+                cost_class=def_info.cost_class,
+                headless_status=evidence.get(default_id, def_info.headless_status),
+                efforts=[],
+                default_effort=None,
+            )
         )
-    )
 
     for id in opencode_ids:
         if id in _catalog:

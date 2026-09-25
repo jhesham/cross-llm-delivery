@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = ("antigravity", "cursor", "opencode")
+ALL_PROVIDERS = (*PROVIDERS, "codex")
 
 
 def _run(*args, cwd=ROOT):
@@ -23,7 +24,7 @@ def test_six_fresh_bundles_and_codex_package_metadata(tmp_path):
     for host in ("claude-code", "codex"):
         _run(ROOT / "generator/build_skill.py", "--all", "--host", host,
              "--out-root", dist)
-        for provider in PROVIDERS:
+        for provider in ALL_PROVIDERS:
             name = f"cross-llm-{provider}"
             bundle = dist / ("codex" if host == "codex" else "") / name
             skill = (bundle / "SKILL.md").read_text(encoding="utf-8")
@@ -43,7 +44,7 @@ def test_six_fresh_bundles_and_codex_package_metadata(tmp_path):
     catalog = json.loads((packages / ".agents/plugins/marketplace.json").read_text(
         encoding="utf-8"))
     assert {p["name"] for p in catalog["plugins"]} == {
-        f"cross-llm-{p}" for p in PROVIDERS}
+        f"cross-llm-{p}" for p in ALL_PROVIDERS}
     for entry in catalog["plugins"]:
         plugin = (packages / entry["source"]["path"]).resolve()
         assert plugin.is_relative_to(packages.resolve())

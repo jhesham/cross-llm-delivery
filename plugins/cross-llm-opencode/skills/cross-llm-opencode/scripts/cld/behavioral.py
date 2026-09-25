@@ -53,10 +53,10 @@ def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8):
 def evaluate_compliance(spec, code, *, metric=None) -> BehavioralResult:
     if metric is None:
         metric = make_compliance_metric()
-    
+
     test_case = LLMTestCase(input=spec, actual_output=code)
     metric.measure(test_case)
-    
+
     return BehavioralResult(
         score=metric.score,
         passed=metric.score >= metric.threshold,

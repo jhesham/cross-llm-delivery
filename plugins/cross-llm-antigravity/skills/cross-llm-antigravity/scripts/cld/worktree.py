@@ -69,7 +69,7 @@ def worktree(repo_dir: str, branch: str, *, runner, cleanup: bool = True,
         rc, output = runner(add_args, repo_dir)
     if rc != 0:
         raise RuntimeError(f"worktree creation failed at {path}: {output}")
-    
+
     try:
         yield path
     except BaseException as exc:

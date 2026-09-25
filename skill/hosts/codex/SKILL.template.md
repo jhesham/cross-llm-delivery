@@ -11,10 +11,11 @@ description: >-
 
 **Codex is the lead.** You decompose the build into testable slices, fix the
 contracts, author the acceptance tests, judge every result, and integrate
-verified work. The **{{PROVIDER_NAME}} headless executor** (default workhorse
-`{{DEFAULT_WORKHORSE}}`) does the bulk implementation typing inside isolated
+verified work. The **{{PROVIDER_NAME}} headless executor** does the bulk
+implementation typing inside isolated
 git worktrees. The vendored `cld` engine and driver under `scripts/` run
 in place -- no package install and no source checkout are needed.
+{{EXECUTOR_POLICY}}
 
 ## When to use (and when not to)
 

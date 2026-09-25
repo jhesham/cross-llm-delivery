@@ -453,6 +453,7 @@ def _install_hint(provider: str) -> str:
         "antigravity": "Install Antigravity and ensure `agy` is on PATH (or set AGY_CMD).",
         "opencode": "Install OpenCode: npm install -g opencode-ai (or set OPENCODE_CLI_CMD).",
         "cursor": "Install Cursor and ensure `cursor-agent` is on PATH (or set CURSOR_AGENT_CMD).",
+        "codex": "Install Codex CLI, sign in, and ensure `codex` is on PATH.",
     }
     return hints.get(provider, f"Install the {provider} CLI.")
 
@@ -560,6 +561,9 @@ def prepare_dispatch(args, slices, ledger):
     from cld.worktree import managed_location
     from cld.orchestrator import next_pending_layer
     from cld.recovery import atomic_write
+
+    if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
+        raise AdmissionBlocked("Recursive CLD dispatch blocked: CLD_EXECUTOR_DEPTH is set")
 
     selected = [s for s in slices if not ledger.is_done(s.id) and
                 not (ledger.get(s.id) and ledger.get(s.id).status == "needs_repair")]
@@ -720,7 +724,8 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
                    help="Executor to use, e.g. 'antigravity', 'antigravity:<model>', or "
                         "'opencode:<provider/model>'. If omitted and stdin is a TTY, "
                         "an interactive picker prompts you to choose (default: the "
-                        "verified workhorse). Non-interactive: defaults to the workhorse.")
+                        "verified workhorse when configured). Non-interactive: uses a "
+                        "configured workhorse, or requires an explicit model.")
     p.add_argument("--dry-run", action="store_true",
                    help="Load + layer the plan and print the schedule; no dispatch")
     p.add_argument("--step", action="store_true",

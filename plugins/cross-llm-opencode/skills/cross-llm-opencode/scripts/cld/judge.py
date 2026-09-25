@@ -17,15 +17,15 @@ def parse_pytest_output(output: str) -> tuple[int, int, list[str]]:
     passed = 0
     failed = 0
     failing_tests = []
-    
+
     passed_match = re.search(r'(\d+)\s+passed', output)
     if passed_match:
         passed = int(passed_match.group(1))
-        
+
     failed_match = re.search(r'(\d+)\s+failed', output)
     if failed_match:
         failed = int(failed_match.group(1))
-        
+
     for match in re.finditer(r'FAILED\s+(\S+)', output):
         failing_tests.append(match.group(1))
 

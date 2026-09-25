@@ -341,7 +341,7 @@ def run_plan(
             test_runner=test_runner,
             simulation=True,
         )
-        
+
         if deliver_res.accepted:
             ledger.set(task.id, status=DONE, attempts=deliver_res.attempts,
                        model=deliver_res.model, token_usage=deliver_res.token_usage)

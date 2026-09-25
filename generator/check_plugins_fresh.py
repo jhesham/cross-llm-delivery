@@ -11,7 +11,7 @@ import argparse
 import tempfile
 from pathlib import Path
 
-from build_plugins import ROOT, _main_claude
+from build_plugins import ROOT, _main_claude, _package_providers
 
 
 def _files(root: Path) -> dict[str, bytes]:
@@ -48,7 +48,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         missing, extra, changed = compare_trees(fresh_root, args.plugins_root)
     if not (missing or extra or changed):
-        print("Claude plugins fresh: 3 provider packages match generated bundles")
+        count = len(_package_providers(args.dist_root, host="claude-code"))
+        print(f"Claude plugins fresh: {count} provider packages match generated bundles")
         return 0
     for label, paths in (("missing", missing), ("extra", extra), ("changed", changed)):
         if paths:
