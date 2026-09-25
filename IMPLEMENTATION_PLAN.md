@@ -36,7 +36,7 @@ Implementation is in progress: **T01 through T14, T17 and M1–M4 are complete**
 - [x] M3 — T08–T10: bounded processes, validation before dispatch, cumulative usage and admission budgets.
 - [x] M4 — T11–T14: Codex host support and Claude compatibility demonstrated with isolated installs.
 - [ ] M5 — T17–T20: wheel/bundle/CI/release checks pass; documentation matches verified behavior.
-- [ ] Optional M6 — T15–T16: Codex executor passes the same provider and acceptance contracts.
+- [ ] Optional M6 — T15–T16: Codex executor passes the same provider and acceptance contracts. T15 offline contract complete; T16 provider/live proof unstarted.
 
 **Definition of complete.** A fresh Codex session can discover the skill, validate a plan, execute a layer, inspect concise outcomes, integrate safely, stop, and resume from another session. Forbidden changes, failed commits, missing dependencies, invalid state, and missing permissions cannot produce success. A fresh Claude Code installation still works. Each review defect has a recorded regression and closing commit. External publication remains a distinct final action under the user's authorization at that time.
 
