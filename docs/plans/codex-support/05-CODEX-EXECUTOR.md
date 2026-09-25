@@ -1,6 +1,6 @@
 # Optional phase — Codex as an implementation provider
 
-This phase is separate from using Codex as the lead. It can ship after the required release. T15 was selected and completed; [its evidence](T15-EVIDENCE.md) is offline contract evidence only. T16 remains optional and unstarted. Its deferral must not hide any required review fix.
+This phase is separate from using Codex as the lead. T15's [offline contract evidence](T15-EVIDENCE.md) and T16's [Windows executor evidence](T16-EVIDENCE.md) are recorded separately. T16 and optional M6 are complete after four-job CI. This optional phase does not hide any required review fix.
 
 ## T15 — Codex executor contract and fixtures
 
@@ -19,11 +19,11 @@ Dependencies: T08/T09/T11. Estimate: 8–12k. Files: proposed `engine/cld_provid
 
 Dependencies: T15/T13. Estimate: 10–18k. Files: `cld_providers/codex/provider.py`, package/init/resources, provider registry/generator discovery, tests and examples.
 
-- [ ] Implement the adapter using shared process deadlines, stdin prompt transport, explicit cwd/root, and supported sandbox options. Preserve the user's auth/config through documented interfaces; never read or copy credentials into artifacts.
-- [ ] Require valid dispatch completion and independently verified candidate acceptance. Codex JSONL file-change events and final prose are diagnostics, not the allowed-files authority.
-- [ ] Normalize usage without double-counting cache/reasoning categories; retain raw usage and mark derived totals/cost uncertainty. Feed validation and admission budgets through the shared policy.
-- [ ] Register the provider and generate both host variants; remove fixed three-provider assumptions only where needed while preserving existing output names.
-- [ ] Test long prompts/Unicode, spaces in paths, errors, cancellation, failed auth, unsupported CLI, usage, no recursive dispatch, and worktree isolation offline.
-- [ ] When authorized, run one trivial passing live slice plus a controlled interrupted/resumed case. Record exact CLI/model/host/platform/usage, then run the provider suite and isolated bundle imports.
+- [x] Implement the adapter using shared process deadlines, stdin prompt transport, explicit cwd/root, and supported sandbox options. Preserve the user's auth/config through documented interfaces; never read or copy credentials into artifacts.
+- [x] Require valid dispatch completion and independently verified candidate acceptance. Codex JSONL file-change events and final prose are diagnostics, not the allowed-files authority.
+- [x] Normalize usage without double-counting cache/reasoning categories; retain raw usage and mark derived totals/cost uncertainty. Feed validation and admission budgets through the shared policy.
+- [x] Register the provider and generate both host variants; remove fixed three-provider assumptions only where needed while preserving existing output names.
+- [x] Test long prompts/Unicode, spaces in paths, errors, cancellation, failed auth, unsupported CLI, usage, no recursive dispatch, and worktree isolation offline.
+- [x] Run one user-selected trivial live slice, a controlled admission stop/resume and fresh-process integration. Record exact CLI/model/host/platform/usage, provider suite and isolated bundle imports. [Evidence](T16-EVIDENCE.md) narrows this to Windows; live process interruption and POSIX dispatch remain unverified.
 
-**Gate:** Optional M6 passes the same acceptance/recovery contracts as other providers. Expand T17/T19 matrices to four providers if this ships; if live evidence is incomplete, mark this provider experimental with the exact limitation rather than implying verified support.
+**Gate:** Optional M6 passes the same acceptance/recovery contracts as other providers. T17's offline matrices and T19's planned rehearsal now include four providers. One Windows live canary passed; POSIX live dispatch and process-level interruption remain explicit limitations, not implied support.
