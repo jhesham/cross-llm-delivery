@@ -38,10 +38,11 @@ def main(bundle, provider, repo, fixtures):
             return result.returncode, result.stdout + result.stderr
         calls.append(argv)
         if provider == "codex" and argv == ["codex", "--version"]:
-            return FakeProcess("codex-cli fixture\n")
+            return FakeProcess("codex-cli 0.155.1\n")
         if provider == "codex" and argv == ["codex", "exec", "--help"]:
-            return FakeProcess("--json --ephemeral --sandbox --cd --model --config\n"
-                               "If not provided, instructions are read from stdin.\n")
+            return FakeProcess("Usage: codex exec [OPTIONS] [PROMPT]\n"
+                               "--json --ephemeral --sandbox --cd --model --config\n"
+                               "If not provided (or if `-` is used), instructions are read from stdin.\n")
         (repo / "value.py").write_text("VALUE = 42\n", encoding="utf-8")
         rc = 0 if mode == "success" else 1
         if provider == "codex":
@@ -56,12 +57,14 @@ def main(bundle, provider, repo, fixtures):
     kwargs = {"runner": runner, "model": "fixture-only", "artifact_dir": repo.parent / "artifacts"}
     if provider == "antigravity":
         kwargs["home"] = str(home)
+    if provider == "codex":
+        kwargs["git_runner"] = runner
     executor = get_executor(provider, **kwargs)
     task = SliceTask("A", "Set VALUE to 42", ["value.py"], "test_value.py")
     for mode in ("success", "failed"):
         (repo / "value.py").write_text("VALUE = 0\n")
         result = executor.run(task, repo)
-        assert (repo / "value.py").read_text() == "VALUE = 42\n"
+        assert (repo / "value.py").read_text() == "VALUE = 42\n", result.raw_log
         if mode == "success":
             assert result.ok, result.raw_log
             assert result.files_changed == ["value.py"] and "+VALUE = 42" in result.diff
