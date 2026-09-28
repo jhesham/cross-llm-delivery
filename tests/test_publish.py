@@ -59,7 +59,7 @@ def test_execute_pushes_to_local_bare_repo(tmp_path):
                 dist_root=tmp_path / "dist", execute=True, runner=_git)
     # clone the bare repo and verify the skill landed at the repo ROOT + the tag exists
     work = tmp_path / "verify"
-    _git(["git", "clone", str(remote), str(work)], str(tmp_path))
+    _git(["git", "clone", "--branch", "main", str(remote), str(work)], str(tmp_path))
     assert (work / "SKILL.md").is_file()                 # repo root IS the skill
     assert (work / "scripts" / "cld_providers" / "cursor").is_dir()
     rc, tags = _git(["git", "tag"], str(work))
@@ -87,7 +87,7 @@ def test_umbrella_execute_to_local_bare_repo(tmp_path):
     publish_umbrella(targets={"all": str(remote)}, version=VERSION,
                      dist_root=tmp_path / "dist", execute=True, runner=_git)
     work = tmp_path / "verify-all"
-    _git(["git", "clone", str(remote), str(work)], str(tmp_path))
+    _git(["git", "clone", "--branch", "main", str(remote), str(work)], str(tmp_path))
     from generator.build_skill import _known_providers
     for p in _known_providers():
         assert (work / f"cross-llm-{p}" / "SKILL.md").is_file()

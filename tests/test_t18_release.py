@@ -68,8 +68,9 @@ class Commands:
             return 77, "T18 injected native failure"
         if argv[0] in ("python", sys.executable):
             if any("build_plugins.py" in a for a in argv):
-                plugin = self.root / "plugins/demo/.claude-plugin/plugin.json"
-                plugin.write_text(json.dumps({"name": "demo", "version": (self.root / "VERSION").read_text().strip()}), encoding="utf-8")
+                plugin = self.root / ("dist/release-plugins/codex/demo/plugin.json" if "codex" in argv else "plugins/demo/.claude-plugin/plugin.json")
+                plugin.parent.mkdir(parents=True, exist_ok=True)
+                plugin.write_text(json.dumps({"name": "demo", "version": (self.root / "VERSION").read_text().strip(), "generated": True}), encoding="utf-8")
             return 0, "fake generation/test passed"
         if argv[0] == "gh":
             if "run" in argv and "list" in argv:
@@ -284,3 +285,164 @@ def test_powershell_wrapper_propagates_native_failure(repository, script):
     p = subprocess.run(args,cwd=ROOT,capture_output=True,text=True,encoding="utf-8",errors="replace",timeout=30)
     assert p.returncode != 0 and "RELEASED" not in p.stdout and "SYNC COMPLETE" not in p.stdout
     assert "wrong-branch" in p.stdout+p.stderr
+
+
+def seed_bundle_remote(tmp_path):
+    remote = tmp_path / "existing.git"
+    must_git(tmp_path, "init", "--bare", str(remote))
+    source = tmp_path / "old source"
+    source.mkdir()
+    must_git(source, "init", "-b", "main")
+    must_git(source, "config", "user.name", "Fixture")
+    must_git(source, "config", "user.email", "fixture@example.invalid")
+    (source / "OLD").write_text("old public snapshot")
+    must_git(source, "add", ".")
+    must_git(source, "commit", "-qm", "old root")
+    must_git(source, "tag", "unrelated-tag")
+    must_git(source, "push", str(remote), "HEAD:refs/heads/main", "refs/tags/unrelated-tag")
+    return remote, source, must_git(source, "rev-parse", "HEAD")
+
+
+def test_bundle_replacement_needs_exact_lease_and_preserves_other_tags(tmp_path, monkeypatch):
+    remote, source, old = seed_bundle_remote(tmp_path)
+    targets = {"cursor": str(remote)}
+    real_build = publish.build_one
+    monkeypatch.setattr(publish, "build_one", lambda *a,**k: pytest.fail("built before guard"))
+    for args in ({}, {"replace_history": True}, {"replace_history": True, "expected_sha": "f"*40}):
+        with pytest.raises((ValueError, RuntimeError)):
+            publish.publish_one("cursor", targets=targets, version=VERSION, execute=True, runner=git, **args)
+    monkeypatch.setattr(publish, "build_one", real_build)
+    calls = []
+    def runner(a,c):
+        calls.append(a)
+        return git(a,c)
+    publish.publish_one("cursor", targets=targets, version=VERSION, execute=True,
+        runner=runner, replace_history=True, expected_sha=old)
+    pushes = [a for a in calls if "push" in a]
+    assert len(pushes) == 1 and "--atomic" in pushes[0]
+    assert f"--force-with-lease=refs/heads/main:{old}" in pushes[0]
+    assert must_git(source, "ls-remote", str(remote), "refs/tags/unrelated-tag").split()[0] == old
+    assert must_git(source, "ls-remote", str(remote), "refs/heads/main").split()[0] != old
+
+
+def test_remote_race_rejects_branch_and_tag_atomically(tmp_path):
+    remote, source, old = seed_bundle_remote(tmp_path)
+    advanced = []
+    def runner(a,c):
+        if "push" in a:
+            (source / "NEW").write_text("concurrent remote change")
+            must_git(source, "add", ".")
+            must_git(source, "commit", "-qm", "concurrent")
+            must_git(source, "push", str(remote), "HEAD:refs/heads/main")
+            advanced.append(must_git(source, "rev-parse", "HEAD"))
+        return git(a,c)
+    with pytest.raises(RuntimeError, match="Recovery staging retained"):
+        publish.publish_one("cursor", targets={"cursor": str(remote)}, version=VERSION,
+            execute=True, runner=runner, replace_history=True, expected_sha=old)
+    assert must_git(source, "ls-remote", str(remote), "refs/heads/main").split()[0] == advanced[0]
+    assert must_git(source, "ls-remote", str(remote), "refs/tags/v" + VERSION) == ""
+
+
+@pytest.mark.parametrize("operation", ["worktree-add", "read-tree", "ci", "worktree-remove"])
+def test_sync_stage_ci_cleanup_failures_are_not_success(repository, operation):
+    root, remote = repository
+    def fail(a):
+        return ((operation == "worktree-add" and a[:3] == ["git", "worktree", "add"])
+            or (operation == "read-tree" and "read-tree" in a)
+            or (operation == "ci" and a[0] == "gh")
+            or (operation == "worktree-remove" and a[:3] == ["git", "worktree", "remove"]))
+    runner = Commands(root, fail=fail)
+    with pytest.raises(module().CommandError, match="T18 injected native failure"):
+        module().sync_public(root, **options(remote, runner))
+    assert fail(runner.calls[-1][0])
+    if operation != "worktree-add":
+        assert list((root / ".cld/release").rglob(".git"))
+
+
+def test_sync_copy_failure_keeps_verified_worktree(repository, monkeypatch):
+    root, remote = repository
+    def broken_copy(*args): raise OSError("copy denied")
+    monkeypatch.setattr(module(), "_copy_skills", broken_copy)
+    opts = options(remote, Commands(root))
+    opts["no_skills"] = False
+    opts["skills_root"] = root.parent / "disposable skills"
+    with pytest.raises(module().CommandError, match="copy denied"):
+        module().sync_public(root, **opts)
+    assert list((root / ".cld/release").rglob(".git"))
+
+
+@pytest.mark.parametrize("problem", ["missing", "wrong-version"])
+def test_generated_manifest_defect_stops_before_commit_or_push(repository, problem):
+    root, remote = repository
+    commands = Commands(root)
+    def runner(a,c):
+        result = commands(a,c)
+        if "codex" in a and any("build_plugins.py" in x for x in a):
+            path = root / "dist/release-plugins/codex/demo/plugin.json"
+            if problem == "missing": path.unlink()
+            else: path.write_text('{"version":"8.8.8"}')
+        return result
+    with pytest.raises(module().CommandError, match="(?i)manifest"):
+        module().sync_public(root, **options(remote, runner))
+    assert not any("commit" in a or "push" in a for a,c in commands.calls)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("nan"), float("inf")])
+def test_invalid_ci_deadline_rejected_before_mutation(repository, timeout):
+    root, remote = repository
+    before = snapshot(root)
+    opts = options(remote, Commands(root))
+    opts["ci_timeout"] = timeout
+    with pytest.raises(ValueError, match="timeout"):
+        module().release_version(root, "0.3.0", **opts)
+    assert snapshot(root) == before
+
+
+def test_release_success_uses_mirror_tag_and_literal_notes_file(repository):
+    root, remote = repository
+    notes = "Literal notes: $HOME `command` $(expression)\nNext line."
+    (root / "CHANGELOG.md").write_text("# Changelog\n## [Unreleased]  \n\n" + notes + "\n## 0.2.0\nOld.\n")
+    # A preceding unrelated TOML version must not be bumped.
+    (root / "pyproject.toml").write_text('[tool.fixture]\nversion="9.9.9"\n[project]\nname="fixture"\nversion = \'0.2.0\'\n')
+    must_git(root, "add", "."); must_git(root, "commit", "-qm", "notes")
+    commands = Commands(root)
+    seen = []
+    def runner(a,c):
+        if a[:3] == ["gh","release","create"]:
+            seen.append(Path(a[a.index("--notes-file")+1]).read_text().strip())
+        return commands(a,c)
+    result = module().release_version(root, "0.3.0", **options(remote,runner))
+    assert seen == [notes]
+    assert must_git(root, "ls-remote", str(remote), "refs/tags/v0.3.0").split()[0] == result["pushed_sha"]
+    assert 'version="9.9.9"' in (root / "pyproject.toml").read_text()
+    assert "## 0.3.0" in (root / "CHANGELOG.md").read_text()
+
+
+def test_all_cli_preview_includes_umbrella_and_codex(tmp_path, capsys):
+    targets = tmp_path / "targets.toml"
+    targets.write_text('cursor="fixture://cursor"\nall="fixture://all"\n')
+    assert publish.main(["--all", "--targets", str(targets), "--host", "codex", "--dist-root", str(tmp_path / "dist")]) == 0
+    plans = json.loads(capsys.readouterr().out)
+    assert [p["provider"] for p in plans] == ["cursor", "all"]
+    assert all(p["host"] == "codex" and p["file_hashes"] for p in plans)
+    assert not (tmp_path / "dist").exists()
+
+
+def test_owned_path_cannot_escape_to_parent(repository):
+    root, remote = repository
+    with pytest.raises(module().CommandError, match="escapes"):
+        module()._owned(root, root.parent / "user files")
+
+
+def test_skills_copy_checks_failure_and_overlap(tmp_path, monkeypatch):
+    root = tmp_path / "source"
+    source = root / "dist/cross-llm-demo"
+    source.mkdir(parents=True)
+    (source / "SKILL.md").write_text("fixture")
+    destination = tmp_path / "skills"
+    with pytest.raises(module().CommandError, match="Unsafe"):
+        module()._copy_skills(root, source / "nested")
+    def denied(*a,**k): raise OSError("copy permission failure")
+    monkeypatch.setattr(module().shutil, "copytree", denied)
+    with pytest.raises(module().CommandError, match="copy permission failure"):
+        module()._copy_skills(root, destination)

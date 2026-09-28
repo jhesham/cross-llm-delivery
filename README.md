@@ -434,10 +434,33 @@ each (catalog + executor + skill fragment). For the module-by-module map, see
 
 ## Publishing your own mirrors (optional)
 
-`generator/publish.py` can push each generated skill to its own mirror repo and tag it.
-Configure targets in `publish-targets.toml` (gitignored; copy from
-`generator/publish-targets.example.toml`), preview with `python generator/publish.py`,
-push with `--execute`.
+`generator.publish` builds isolated bundles and previews their SHA-256 hashes,
+remote URLs, exact branch/tag refs and ordered commands. Copy
+`generator/publish-targets.example.toml` to `generator/publish-targets.toml`
+(gitignored), then inspect `python -m generator.publish --all`. Add `--host codex`
+for Codex bundles; otherwise bundles target Claude Code. `--all` includes the
+umbrella when its `all` target is configured. Preview leaves existing `dist/`
+artifacts untouched and does not grant permission to publish.
+
+After reviewing the targets, `--execute` creates an empty remote's `main` branch
+and the matching source VERSION tag in one atomic push. Existing tags are
+rejected. Replacing a snapshot's history requires a separate per-remote command
+with `--replace-history --expected-sha <full-current-remote-sha>`; an exact
+force-with-lease rejects concurrent updates. No unrelated tags are pushed.
+Each command is checked; failures retain staging and report its recovery path.
+
+Maintainer mirror/release wrappers use `python -m generator.release sync` or
+`release --version X.Y.Z`. `--dry-run` reports the intended source branch/SHA,
+expected remote URL, target ref, artifacts and optional local skills destination.
+Execution requires a clean source checkout and the intended branch (historically
+`master`). Sync uses a normal branch push, then waits for the configured CI
+workflow at the full pushed SHA; it fails on missing runs, cancellation, errors
+or a bounded deadline. Release also requires tests, consistent source/generated
+versions and nonempty Unreleased notes, then tags the verified mirror commit and
+uploads literal notes through a file. Failures preserve source edits and staging;
+there is no generic rollback. Use `--no-skills` to omit the historical Claude
+skills copy, or `--skills-root` to select its destination. This optional copy
+merges generated files and preserves additional existing destination files.
 
 ## Known issues
 
