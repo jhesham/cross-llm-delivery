@@ -4,9 +4,12 @@ cross-llm-delivery emits a structured **event** per build-lifecycle moment. By d
 go to a local JSONL stream the lead agent reads; optionally they also fan out to any
 OpenTelemetry-compatible dashboard. Zero config required — dashboards are opt-in.
 
-## Default: local, zero-config (always on)
+## Default: local events and durable inspection
 
-Every build writes `<repo>/.cld/events.jsonl` (gitignored scratch). One JSON record per line:
+Run-scoped events are retained under `<repo>/.cld/runs/<run-id>/events.jsonl`;
+compatibility event/summary paths may also exist. Event writes are best-effort.
+Durable ledger/usage state drives machine status independently of export.
+One JSON record per line:
 `run_start`, `layer_start`, `slice_start`, `dispatch_start`, `dispatch_end`, `judge_verdict`,
 `retry`, `escalate`, `needs_repair`, `slice_done`, `layer_done`, `run_done`. Every `dispatch_*`
 record carries `model`, `rung`, and `source` (`tag` / `default` / `auto` / `escalated`), so the
@@ -14,15 +17,16 @@ stream always says **which model ran which slice and why**.
 
 Read it two ways:
 
-- **`python run_delivery.py --status`** — a compact digest the lead agent polls between turns:
+- **`python scripts/run_delivery.py --status --repo <dir> --json`** — a compact durable digest:
   run id, layer position, done/pending/running counts, each in-flight slice's model + elapsed,
   cumulative tokens + cost, gate, and a **by-model rollup** (slices + tokens + **$cost** grouped by
-  model — flat-rate slices show `$0.00`, a pinned premium slice shows its real spend).
-- **`python run_delivery.py --watch [--interval N]`** — repaints `--status` every N seconds (a tiny
-  human terminal view; `Ctrl-C` to stop). Equivalent to `tail -f .cld/events.jsonl`.
+  model; missing cost/token fields stay unknown, including subscription calls).
+- **`python scripts/run_delivery.py --watch --repo <dir> [--interval N]`** — a
+  human terminal view (`Ctrl-C` to stop), not the one-response JSON interface.
 
-The stream is live-flushed, so `--status` is fresh mid-build. To monitor in real time, dispatch the
-build in the **background** and poll `--status` between turns (see SKILL.md).
+Poll `--status --json` between steps or during an already-running build rather
+than repeatedly loading raw logs. It never dispatches a provider. Run-scoped
+events preserve prior build evidence rather than implying a new build erases it.
 
 ## Optional: any OpenTelemetry backend (opt-in)
 
@@ -79,4 +83,5 @@ otel: ON -> https://cloud.langfuse.com/api/public/otel/v1/traces
 ```
 
 `otel: OFF (...)` means JSONL-only (the default). Everything is **best-effort and guarded**: a missing
-SDK, an unreachable endpoint, or a failing sink never breaks a build — the local stream always works.
+SDK, an unreachable endpoint, or a failing sink never becomes an acceptance
+requirement. Event writes are best-effort; durable state/usage are separate.

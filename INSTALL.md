@@ -1,312 +1,143 @@
-# Installing cross-llm-delivery skill(s) on another machine
+# Install Cross-LLM Delivery
 
-You install **one or more generated per-provider skills** by copying self-contained folders into
-`~/.claude/skills/`. Each folder vendors the whole engine (`scripts/cld/`) — **no `pip install`,
-no cloning, no building on the target**. You need Python 3.11+ and the executor CLI(s) for the
-provider(s) you install.
+Choose the **lead host** (Codex or Claude Code) and **executor provider**
+(antigravity, cursor, opencode or codex) independently. Each generated skill
+contains its selected provider and the same engine. Python 3.11+ and Git are
+required, together with the authenticated provider CLI. Node/npm requirements
+depend on the installed provider distribution.
 
-> `dist/` is gitignored build output. Always hand over a **freshly rebuilt** folder, never a
-> checked-out stale one. On the source machine: `python generator/build_skill.py --all`
-> (cross-platform; on Windows `pwsh ./rebuild-skills.ps1` is a clean-rebuild convenience wrapper).
+## Build and transfer a coherent set
 
-> **Platform note:** Offline CI covers Windows and Ubuntu on Python 3.11/3.14; macOS is
-> unverified. Historical live Windows builds cover the original three executors;
-> the Codex executor has separate T16 Windows evidence. The CI matrix
-> makes no live provider calls, and POSIX dispatch has not been proven for every provider.
-> See the README's Platform support section for the evidence levels.
+Build from a committed source revision. `dist/` is ignored generated output;
+never copy a stale folder left from another engine version.
 
-## The runnable providers
+```bash
+python generator/build_skill.py --all
+python generator/build_skill.py --all --host codex
+python generator/build_plugins.py
+python generator/build_plugins.py --host codex
+python generator/check_plugins_fresh.py --dist-root dist --plugins-root plugins
+```
 
-| Provider | Folder to copy | Cost | Account needed |
-|---|---|---|---|
-| **opencode** | `dist/cross-llm-opencode` | **$0** with a free model (`opencode/deepseek-v4-flash-free`); metered otherwise | free opencode account |
-| **antigravity** | `dist/cross-llm-antigravity` | flat-rate ($0 marginal) | **Antigravity / Google-AI subscription** |
-| **cursor** | `dist/cross-llm-cursor` | metered | **Cursor subscription** |
-| **codex** | `dist/cross-llm-codex` | unknown; no fixed price assumed | Codex CLI auth and explicit model ID |
+Claude bundles: `dist/cross-llm-<provider>`. Codex bundles:
+`dist/codex/cross-llm-<provider>`. Record the generated SKILL banner source SHA.
+When switching providers across slices sharing a ledger, update all installed
+bundles together from that revision. Provider-specific code differs; shared
+engine files must match. Stop active writers before replacing an installation
+and preserve the old folders/configuration as backups. Restart the lead host
+after installing/updating.
 
-The Codex executor requires `--executor codex:<exact-model-id>@<effort>`; it has no
-default or static catalog. (The Composer model is reachable via the **cursor**
-provider as `cursor:composer-2.5`.)
+Version 0.3.0 is a candidate until separately published. The public default
+branch marketplace may serve an older version; the candidate bundle set and
+hashes are in [the candidate record](docs/plans/codex-support/T20B-CANDIDATE.md).
 
-## Can I install several at once? Yes — they don't collide
+## Claude Code standalone skills
 
-The generated `dist/cross-llm-<provider>/` folders are **independent and self-contained**, so any
-number can live in `~/.claude/skills/` together:
+For a **new** installation, copy the chosen `dist/cross-llm-<provider>` folder
+into `~/.claude/skills/`. On Windows this is
+`%USERPROFILE%\.claude\skills\`.
 
-- **Distinct skill names** (`cross-llm-opencode`, `cross-llm-antigravity`, `cross-llm-cursor`, `cross-llm-codex`) —
-  Claude Code registers each as its own skill.
-- **No shared package on a global path.** Each folder ships its own vendored `scripts/cld/`, and its
-  `run_delivery.py` puts *its own* `scripts/` dir first on `sys.path`. Each run is a separate process
-  using its own engine copy — no cross-contamination.
-- **No hooks, no shared filenames** between bundles (each is wholly under its own folder).
-- **Shared state is intentional and safe:** all skills read/write one global validation-evidence
-  file, `~/.cld/validation-evidence.json` — a *feature* (a model you validate once is known to every
-  skill), not a collision. The per-build ledger is `.cld-ledger.json` written in the build's working
-  directory (the repo you point `--repo` at), so it's scoped to the build, not the skill.
+```powershell
+$destination = Join-Path $env:USERPROFILE ".claude\skills"
+New-Item -ItemType Directory -Force $destination | Out-Null
+# Fresh destination only; move an existing installation to a backup first.
+Copy-Item -LiteralPath "<source>\dist\cross-llm-codex" -Destination $destination -Recurse
+```
 
-So: install one to start, or install all the runnable ones — your choice.
-
----
-
-## Install ALL runnable providers
-
-### 1. Copy the four provider skill folders
-
-macOS / Linux:
 ```bash
 mkdir -p ~/.claude/skills
-for p in opencode antigravity cursor codex; do
-  cp -r "<source>/dist/cross-llm-$p" ~/.claude/skills/cross-llm-$p
-done
-# sanity: each must have a vendored engine (not the deprecation stub)
-ls ~/.claude/skills/cross-llm-*/scripts/cld/__init__.py
+# Fresh destination only; back up an existing folder first.
+cp -R "<source>/dist/cross-llm-codex" ~/.claude/skills/
 ```
 
-Windows (PowerShell):
-```powershell
-$skills = "$env:USERPROFILE\.claude\skills"
-New-Item -ItemType Directory -Force $skills | Out-Null
-foreach ($p in "opencode","antigravity","cursor","codex") {
-    Copy-Item -Recurse -Force "<source>\dist\cross-llm-$p" (Join-Path $skills "cross-llm-$p")
-}
-foreach ($p in "opencode","antigravity","cursor","codex") {
-    Test-Path (Join-Path $skills "cross-llm-$p\scripts\cld\__init__.py")   # must be True for each
-}
-```
-(Replace `<source>` with the path to the freshly rebuilt repo `dist/`.)
+Use the same procedure for the other providers. Avoid overlay copies on an
+existing bundle: deleted engine files could remain and mix versions. The folder
+must contain YAML-first `SKILL.md` and `scripts/run_delivery.py`.
+In a new session ask Claude Code to use `cross-llm-codex` (or the chosen name).
+A copied file alone is not observed picker discovery.
 
-### 2. Install + authenticate each executor CLI
+## Claude Code plugins
 
-Requirements on the target machine: **Python ≥ 3.11**, **git**, and **Node/npm** (the executor
-CLIs are Node-based). Set up each provider you'll use (commands identical on all platforms):
+The repo is also a Claude marketplace. In Claude Code:
 
-**opencode** ($0 with the free model; free account):
-```bash
-npm install -g opencode-ai
-opencode auth login
-opencode run "reply with the single word READY"   # headless verify -> should print output
+```text
+/plugin marketplace add jhesham/cross-llm-delivery
+/plugin install cross-llm-opencode@cross-llm-delivery
+/plugin install cross-llm-antigravity@cross-llm-delivery
+/plugin install cross-llm-cursor@cross-llm-delivery
+/plugin install cross-llm-codex@cross-llm-delivery
 ```
 
-**antigravity** (needs an Antigravity / Google-AI subscription; flat-rate):
-```bash
-# install the Antigravity CLI so `agy` is on PATH (usually %LOCALAPPDATA%\agy\bin\agy.exe;
-# set AGY_CMD if it's elsewhere).
-agy --version        # confirms the BINARY only (says nothing about auth)
+Install only the providers you need. These commands follow the marketplace's
+default-branch version; they do not publish/install this candidate automatically.
+The source generator produces all four Claude packages under `plugins/`.
+Claude manifests intentionally omit a fixed version so Git-commit updates
+remain available; generated skill banners record the engine/product version.
+Codex portable manifests carry the explicit 0.3.0 candidate version.
 
-# MANDATORY one-time interactive login BEFORE any headless use:
-agy                  # run it bare in a real terminal, complete the browser sign-in, then exit
-```
-**Auth caveats (read these — they save an hour):**
-- **Login is mandatory before headless use.** `agy` ships installed but **unauthenticated**; logging
-  in via the interactive `agy` is what writes its state under `%USERPROFILE%\.gemini\antigravity-cli\`.
-- **There is NO `whoami`/`status`/`auth` subcommand**, so there is no scriptable auth check. The only
-  thing safe to run non-interactively is `agy --version` (returns e.g. `1.0.10`) — and it proves only
-  that the binary exists, NOT that you're logged in. `agy models` requires an interactive terminal.
-- **A hang means "log in first," not "broken."** Both `agy models` and `agy -p "…"` **silently hang
-  with no error** if you're not authenticated (or if run without a real interactive TTY). If `agy`
-  appears to freeze, the cause is almost always missing login — do the interactive `agy` sign-in.
-- Confirm auth by running `agy` (or `agy models`) **interactively** once after login: it should list
-  your models instead of hanging. `agy -p` writes its reply to a transcript file (not stdout), so it
-  won't echo a one-liner — the skill's executor reads that transcript (and forces the working dir onto
-  C: for a Windows path quirk). The first real `--step` build is the true end-to-end headless proof.
+## Codex standalone skills: CLI and IDE
 
-**cursor** (needs a Cursor subscription; metered):
-```bash
-# install cursor-agent so it's on PATH (the skill auto-resolves the versioned binary;
-# set CURSOR_AGENT_CMD to override). Then log in + verify reachability:
-cursor-agent --version
-cursor-agent about           # short call -> prints tier + model (confirms auth/reachable)
-```
-Long-prompt headless dispatch on Windows is handled by the skill via direct-node (validated).
-
-### 3. (single-provider only) If you want just one
-
-Do step 1 for that one folder and step 2 for just that CLI. The recommended lowest-friction $0
-choice is **opencode** with `opencode/deepseek-v4-flash-free`.
-
----
-
-## Choosing which installed skill to use
-
-With several installed, you select per build by **naming the skill** when you ask Claude Code — e.g.
-"use **cross-llm-opencode** to run this plan" or "drive this build with **cross-llm-antigravity**."
-Each skill drives the same engine; the only difference is which executor backend (and model picker)
-it exposes. Within a chosen skill, its first-dispatch picker still lets you pick the specific model.
-
-A rule of thumb: **opencode** for $0/free-tier work, **antigravity** for highest-quality flat-rate
-runs (if subscribed), **cursor** for Composer-based runs (if subscribed).
-
-## Running a build (any installed skill)
-
-From the installed skill folder (all platforms):
-```bash
-python scripts/run_delivery.py <plan.md> --repo <target-repo> --step
-```
-- `--dry-run` first prints the layers without dispatching (also confirms Python + the vendored
-  engine import cleanly — needs no executor CLI).
-- The picker offers that provider's models on the first dispatch.
-
-## If something's off
-- **`python` not found:** use `py` instead of `python`.
-- **Skill folder doesn't import / "no module named cld":** confirm you copied the *generated*
-  `dist/cross-llm-<provider>/` folder (it has `scripts/cld/`), NOT the repo's `skill/` folder
-  (that's a deprecation stub).
-- **Banner check:** the generated Claude skill contains a `GENERATED from
-  cross-llm-delivery@<sha>` comment matching the source HEAD. Codex skills
-  start with YAML frontmatter and place this comment immediately after it.
-
----
-
-## Standalone Codex skills (repo or user scope)
-
-Codex does **not** read `~/.claude/skills/`. Per the official discovery rules — OpenAI,
-[Agent Skills – Codex](https://developers.openai.com/codex/skills) (rechecked 2026-09-23;
-mirrors the [Build skills guide](https://learn.chatgpt.com/docs/build-skills)) — Codex scans
-`.agents/skills/` in every directory from the current working directory up to the Git
-repository root (**REPO** scope), `$HOME/.agents/skills/` (**USER** scope),
-`/etc/codex/skills/` (**ADMIN** scope), plus skills bundled with Codex itself (**SYSTEM**).
-Same-name skills are never merged, so keep the four provider names distinct.
-
-`generator/install_codex.py` is a previewable standard-library installer that copies a
-generated Codex bundle into `<scope-root>/.agents/skills/<skill-name>`. The scope root is
-always passed explicitly — the tool never infers or touches your real home or Claude
-folders on its own.
-
-### 1. Build the Codex bundles (source machine)
+Use the safe installer with an explicit scope root. A repository root installs
+under `<repo>/.agents/skills/`; a user-home scope installs under
+`<home>/.agents/skills/`. No destination is inferred from environment variables.
 
 ```bash
-python generator/build_skill.py --all --host codex
-# -> dist/codex/cross-llm-<provider>/  (opencode, antigravity, cursor, codex)
+python generator/install_codex.py --preview --scope-root <target-repo> --bundle dist/codex/cross-llm-opencode
+python generator/install_codex.py --install --scope-root <target-repo> --bundle dist/codex/cross-llm-opencode
 ```
 
-### 2. Preview first, then install (repo scope)
-
-`--preview` writes nothing and prints the exact target as JSON. All paths are quoted so
-commands work when they contain spaces.
-
-macOS / Linux:
-```bash
-python generator/install_codex.py --preview \
-  --scope-root "/path/to/my repo" \
-  --bundle "dist/codex/cross-llm-opencode"
-python generator/install_codex.py --install \
-  --scope-root "/path/to/my repo" \
-  --bundle "dist/codex/cross-llm-opencode"
-```
-
-Windows (PowerShell):
-```powershell
-python generator\install_codex.py --preview `
-  --scope-root "C:\path\to\my repo" `
-  --bundle "dist\codex\cross-llm-opencode"
-python generator\install_codex.py --install `
-  --scope-root "C:\path\to\my repo" `
-  --bundle "dist\codex\cross-llm-opencode"
-```
-
-This installs to `<scope-root>/.agents/skills/cross-llm-opencode/`, discovered as REPO scope
-for anything launched at or below that root.
-
-### 3. User-scope alternative (explicit, optional)
-
-To make a skill available across all your repositories, point the same commands at your
-home directory — Codex's USER scope is `$HOME/.agents/skills/`:
+For a user install, explicitly replace `<target-repo>` with the user home.
+Modified/unowned/linked installations are refused; preserve changes and review
+the ownership manifest instead of forcing an overwrite. To remove a clean
+owned install:
 
 ```bash
-python generator/install_codex.py --preview --scope-root "$HOME" --bundle "dist/codex/cross-llm-opencode"
-```
-```powershell
-python generator\install_codex.py --preview --scope-root "$env:USERPROFILE" --bundle "dist\codex\cross-llm-opencode"
+python generator/install_codex.py --uninstall --scope-root <target-repo> --name cross-llm-opencode
 ```
 
-Run the matching `--install` only after the preview shows the intended target. (This task
-itself performs no user-global install.)
+In a new Codex CLI or IDE session invoke `$cross-llm-opencode` (or the selected
+skill). Standalone skill discovery has recorded Windows CLI/VS Code evidence;
+inspect the actual host if discovery fails. The user's project instructions
+are retained. Do not install over `AGENTS.md`.
 
-### 4. Update and uninstall
+## Codex plugin surface
 
-- **Update:** rebuild, then re-run `--install` with the newer bundle. A clean owned install
-  is replaced; any local edit, extra file, or a missing/invalid manifest blocks the update.
-- **Uninstall:** removes only a verified owned, unmodified folder. Python's generated
-  `__pycache__/*.pyc` files do not count as local edits:
-  ```bash
-  python generator/install_codex.py --uninstall --scope-root "<scope-root>" --name cross-llm-opencode
-  ```
-
-### Safety contract
-
-- Prints one deterministic JSON line with `action`, `target`, `outcome` (plus `error` /
-  `collision` on failure); the exit code is nonzero on any failure.
-- `--preview` is read-only; a failed operation leaves an existing target unchanged, and
-  unrelated skill folders are always preserved.
-- Rejects invalid bundles, names other than the three supported providers, symlinks that
-  can escape the selected scope, source/target overlap, and same-name unowned folders.
-- Each installed folder carries `.cld-install.json` (a stable installer marker plus
-  per-file SHA-256 hashes) that gates update and uninstall.
-- If an update publishes successfully but cannot remove the old backup, the JSON
-  reports `updated` with `cleanup_warning` and the retained backup path.
-
-### Using the installed skill
-
-Codex detects newly installed skills automatically (restart it if one doesn't appear).
-Invoke explicitly with `/skills` in the Codex CLI or IDE extension, or mention
-`$cross-llm-opencode` in a prompt. To drive a build yourself, run the vendored driver from
-the installed skill folder — it puts its own `scripts/` directory first on `sys.path`, so
-it resolves the vendored engine from any working directory with no `pip install`:
+Packaging is distinct from host installation:
 
 ```bash
-python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" \
-  "<plan.md>" --repo "<target repo>" --dry-run --json   # preview layers
-python "<scope-root>/.agents/skills/cross-llm-opencode/scripts/run_delivery.py" \
-  "<plan.md>" --repo "<target repo>" --step --json      # run next layer
+python generator/build_plugins.py --host codex
+codex plugin marketplace add <absolute-path-to-dist/plugins>
+codex plugin list
 ```
 
----
+The generated root includes `.agents/plugins/marketplace.json` with contained
+local sources. Use the installed CLI's supported plugin installation flow.
+Recorded discovery covered the original three plugins on Windows; the fourth
+Codex plugin and IDE plugin surface remain unverified. For the IDE, use the
+standalone skill path above rather than assuming plugin discovery.
 
-## Local Codex plugin marketplace (alternative install route)
+## Executor setup and read-only verification
 
-Instead of copying standalone skills, Codex surfaces that support local plugin
-marketplaces can install the four provider plugins from one generated catalog.
-The marketplace is **local**: it points at portable plugin folders on disk and
-needs no network access or hosted submission.
+Read `references/provider-setup.md` in the chosen generated bundle. It preserves
+provider-specific authentication, command overrides and observed CLI caveats.
+CLI `--version`/`--help` checks do not establish model/account entitlement.
+A model listing is also not a successful validation.
 
-### 1. Build the bundles, then the plugins and catalog
+From the installed skill directory:
 
 ```bash
-python generator/build_skill.py --all --host codex     # dist/codex/cross-llm-<provider>/
-python generator/build_plugins.py --host codex         # -> dist/plugins/
+python scripts/run_delivery.py --help
+python scripts/run_delivery.py <absolute-plan.md> --repo <absolute-repo> --dry-run --json
 ```
 
-`generator/build_plugins.py --host codex` writes, under the output root (default
-`dist/plugins/`; override with `--out-root`):
+These do not dispatch a provider. A real build requires an exact supported
+executor spec and an explicit validation policy under the user's existing
+authorization. Codex examples: `codex:gpt-6-luna@max` or, when explicitly
+requested, `codex:gpt-6-luna@max+fast`. There is no Codex default model or
+entitlement guarantee. For larger max-effort slices, explicitly set
+`CLD_DISPATCH_TIMEOUT=1200` before the driver; default dispatch/probe deadlines
+are 600/30 seconds. Do not automatically raise budgets or retry.
 
-- `codex/cross-llm-<provider>/` — portable plugin (`plugin.json` + `skills/`)
-- `.agents/plugins/marketplace.json` — the local marketplace catalog
-  (`cross-llm-delivery-codex`) whose three plugin sources are the relative
-  `./codex/cross-llm-<provider>` paths above
-
-The output root is self-contained and movable; the catalog only resolves plugins
-inside it. Generation is deterministic and never installs anything, never touches
-your Codex configuration, and never runs `codex` itself.
-
-### 2. Register the marketplace (changes your Codex configuration)
-
-```bash
-codex plugin marketplace add "<path to>/dist/plugins"
-```
-
-> **This command changes your configured Codex marketplace list.** Run it
-> yourself, deliberately. It is never a generator side effect: building the
-> plugins only writes files under the output root.
-
-### 3. List and install on supported local surfaces
-
-```bash
-codex plugin list                                        # shows the catalog's plugins
-codex plugin install cross-llm-opencode@cross-llm-delivery-codex
-```
-
-Listing and installing this way work on Codex surfaces that support local plugin
-marketplaces. **The Codex IDE extension uses the standalone skill route instead**
-(see "Standalone Codex skills" above): install the generated skills into
-`.agents/skills/` for IDE use — do not expect the IDE to consume this plugin
-catalog.
+See [worked examples](docs/WORKED-EXAMPLES.md), [migration](docs/MIGRATION.md)
+and [support limits](KNOWN-ISSUES.md). An older ledger is not made compatible
+by copying a newer skill over it; migrate with backups first.

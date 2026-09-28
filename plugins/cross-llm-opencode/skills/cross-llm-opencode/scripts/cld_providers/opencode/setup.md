@@ -2,12 +2,13 @@
 
 1. Install Node.js (v18+ recommended).
 2. Install the OpenCode CLI: `npm install -g opencode-ai`
-3. Authenticate with your chosen model provider via the OpenCode TUI or:
-   `opencode auth add <provider>`
-   (Supported: Anthropic, Google, DeepSeek, Moonshot/Kimi, and others.)
-4. Verify headless operation:
-   `opencode run "print hello" -m opencode/deepseek-v4-flash-free --format json --dir . --dangerously-skip-permissions --port`
-   (Should emit JSONL with a `step_finish` event; exit code 0.)
+3. Authenticate with your chosen model provider through the installed
+   OpenCode TUI or its supported auth flow (`opencode auth --help`). Do not
+   infer account/model access from the bundled catalog.
+4. Inspect `opencode --version`, `opencode run --help` and `opencode models`.
+   These are read-only discovery, not proof of authentication/entitlement or
+   successful headless execution. Use CLD's explicit validation policy for an
+   authorized one-slice validation; do not dispatch an unsolicited live probe.
 
 ### Windows note
 
@@ -19,5 +20,7 @@ Override with `OPENCODE_CLI_CMD=<path>` if auto-detection fails.
 ### Cost
 
 OpenCode dispatches are metered at the underlying model provider's token rates.
-`opencode/deepseek-v4-flash-free` is free; other models bill real money.
+Catalog free/flat labels are snapshots, not proof of current price. Missing
+completed usage is unknown. Any real canary/validation requires the user's
+exact model and spend authorization; CLI discovery alone does not grant it.
 Monitor usage with `opencode stats`.

@@ -1,91 +1,87 @@
 ---
 name: cross-llm-codex
 description: >-
-  Run a multi-slice cross-LLM build with Claude as lead and an explicitly
-  selected Codex CLI model as the headless executor in isolated Git worktrees.
+  Run a multi-slice build with Claude Code as lead and the codex
+  headless executor, using committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: codex, v0.2.0) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: codex, v0.3.0) - do not edit here; edit the monorepo source. -->
 
-# Cross-LLM Delivery — Claude host, Codex executor
+# Cross-LLM Delivery -- Claude Code lead
 
-Claude authors slice contracts and acceptance tests, reviews every candidate,
-and integrates only accepted work. The vendored driver runs from `scripts/`;
-it requires an exact `--executor codex:<model-id>@<effort>` for dispatch.
-There is no default Codex model or verified subscription entitlement.
+Claude authors the slice contracts and acceptance tests, reviews candidates,
+and integrates verified commits. The codex CLI implements each
+slice. The engine and driver are vendored under `scripts/`; no package install
+or source checkout is needed on the target machine.
+An exact model ID is required; this provider has no default model. Pass `--executor codex:<model-id>@<effort>` explicitly. For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier.
 
-Run from this skill directory with absolute plan and repository paths:
+## Before dispatch
+
+Use this for a build with independently testable slices and a dependency DAG.
+For a small direct edit, the dispatch overhead may outweigh the benefit.
+
+Read [delivery-core.md](references/delivery-core.md) when starting a build or
+recovering one. Read [provider-setup.md](references/provider-setup.md) to check
+CLI/authentication requirements, and [provider.md](references/provider.md) for
+the selected executor's capabilities and limitations. Catalog entries and CLI
+discovery do not prove headless access, price or current validation.
+
+Keep the user's exact executor/model/effort/tier selection. Honor their
+existing authorization for billed validation and implementation; ask only
+when it is unclear. Do not silently substitute models, remove a tier, increase
+budgets or retry paid work. Preserve existing project instructions.
+
+## Plan and run
+
+Author and commit failing acceptance tests first. Keep tests and pytest
+configuration outside the slice's writable allowlist. Plan values are one
+line; split large work into top-level `## SLICE:` blocks with `deps`.
+Read [authoring-plans.md](references/authoring-plans.md) for the supported schema.
+
+Run from this installed skill directory with absolute plan/repository paths,
+or use the absolute driver path from another cwd. Select the executor explicitly
+for dispatch, and prefer `--json` to inspect the gate and evidence paths.
 
 ```bash
 python scripts/run_delivery.py <plan.md> --repo <dir> --dry-run --json
-python scripts/run_delivery.py <plan.md> --repo <dir> --step --executor codex:<model-id>@<effort> --validation-policy allow --json
+python scripts/run_delivery.py <plan.md> --repo <dir> --step --workers 1 --executor <exact-spec> --validation-policy <deny|unmetered|allow> --budget-attempts <N> --json
+python scripts/run_delivery.py --status --repo <dir> --json
 python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector> --json
 ```
 
-Obtain the exact model and reasoning effort from the user. Keep that choice for
-the build; do not silently substitute. A catalog listing does not prove live
-access. Validation dispatches spend tokens, and USD cost may be unknown; apply
-the user's authorization and CLD's admission and unknown-usage policies.
+Choose the validation policy and attempt limit under the user's authorization:
+validation and retries count as dispatches. Start with one worker and only the
+production/validation allowance needed for this sitting. The public CLI default
+is four workers, so pass `--workers 1` when limiting concurrency.
 
-## Codex CLI executor
+## Act on the result
 
-Choose an exact Codex CLI model ID and optional supported effort for every build, for example `--executor codex:<model-id>@<effort>`. This provider has no default model and no static model catalog. A CLI catalog listing is not proof of account entitlement or a successful headless build; CLD's normal validation gate applies before production.
+- 0: the operation succeeded; work remains.
+- 2: failure or dependency defer; inspect the named evidence.
+- 3: all slices are integrated and verified.
+- 4: lead repair required; retained work is available.
+- 5: invalid input/state, prerequisite, lock or budget/admission block.
+- 6: accepted work awaits integration before dependent dispatch.
 
-An explicit fast request uses `--executor codex:gpt-6-luna@max+fast`.
-CLD separates effort and service tier, preserves the full spec in validation
-evidence, and refuses warning/fallback output before collecting a candidate.
-Fast is opt-in; absent actual-tier telemetry does not prove fast was delivered.
-For long max-effort slices, explicitly set `CLD_DISPATCH_TIMEOUT` (default 600
-seconds; for example 1200) as described in `references/provider-setup.md`.
+Acceptance is the independently verified Git diff plus a real passing pytest
+run with tests collected. An executor's prose or file events are not acceptance.
+Integration runs an explicit committed suite against the recorded candidate in
+an owned worktree; inspect its final ref/SHA before merging into the user's branch.
 
-The adapter uses a fresh `codex exec --json --ephemeral` session in CLD's isolated Git worktree. It sends the full slice prompt on stdin (`-`), pins `--model`, applies `--sandbox workspace-write` (or an explicit `read-only` setting), and uses `--config model_reasoning_effort="<effort>"` only when an effort is selected. It never uses `resume`, `--last`, a permission-bypass flag, or a positional prompt. The shared process runner bounds timeout and cancellation. JSONL completion permits Git diff capture; CLD's independent acceptance and allowed-files gate decides whether the candidate may be integrated.
+Resume using the same plan, repository and ledger. Status needs no provider call.
+For repair, inspect the retained attempt, edit only authorized source files,
+then run `--mark-repaired <slice-id>` with the original plan and integrate after
+gate 6. Never reset/delete a ledger or worktree to make an error disappear.
+Read the recovery section of [delivery-core.md](references/delivery-core.md)
+for migration, changed plans, collection failure and rollback.
 
-Only reported input/output/cache-read token fields enter accounting. Total is derived from input plus output; reasoning and cached input are never added again. The CLI JSONL event does not establish USD cost, so cost remains unknown. A configured cost ceiling therefore follows CLD's existing unknown-usage policy, and model validation requires an explicit validation spend policy. Do not infer entitlement or pricing from a model name.
+A Git worktree isolates candidate files; it is not a security sandbox. Tests
+and executor processes inherit host capabilities. Provider permissions differ.
+Denied permissions require inspecting the log/configuration, not blanket bypass.
 
-The recorded Windows canary passed validation, acceptance, and fresh-process integration; other host platforms and process-level interruption are unverified. See `references/provider-setup.md` for the installed CLI check and `docs/plans/codex-support/T16-EVIDENCE.md` in the source repository for its evidence level.
+Missing token/cost usage stays unknown. Token/dollar budgets admit calls using
+explicit reservations; they cannot stop an already running provider at an exact
+usage boundary. See the budget section of the core reference.
 
-
-## Codex CLI executor setup
-
-Install and sign in to a current Codex CLI through the official Codex setup instructions. Verify the installed binary with `codex --version` and `codex exec --help`; CLD feature-tests the required noninteractive flags before dispatch. On the target host, choose a model ID and supported effort explicitly, then run a preview with `--dry-run --json` and a budgeted one-slice build. `codex debug models` may show a catalog, but it is not a validation or entitlement guarantee.
-
-Codex uses the current user's documented CLI authentication and configuration. CLD does not read or copy credentials, and the prompt travels on stdin. The default write sandbox is `workspace-write`; this adapter does not enable full-access or approval-bypass flags. Keep CLD's worktree root inside the selected repository and retain the independent acceptance/integration gate.
-
-Usage cost in USD is unknown unless a future CLI event supplies it. Under a cost ceiling, the existing unknown-usage policy blocks by default. Pass an explicit model as `--executor codex:<exact-model-id>@<supported-effort>` and select a validation policy before live execution.
-
-For explicitly requested max effort and fast mode, use
-`--executor codex:gpt-6-luna@max+fast`. CLD emits separate configuration
-arguments for `model_reasoning_effort="max"` and `service_tier="fast"`.
-Only `+fast` is accepted; unknown tiers and tier suffixes on other providers
-fail before dispatch. Fast and tier-unspecified specs have separate validation
-evidence. Account/model access still requires validation; this syntax is not
-proof that fast service was delivered.
-
-With an explicit tier, warning control events or service-tier diagnostics on
-stderr fail the dispatch even if Codex exits zero. Reported actual tiers other
-than `fast`/`priority` also fail. No candidate diff is collected on that failure;
-the worktree and process logs remain available for inspection. Missing actual
-tier telemetry remains unverified; CLD cannot detect an unreported server-side
-downgrade. Do not silently remove `+fast` and retry.
-
-The shared dispatch deadline defaults to 600 seconds; read-only CLI probes
-default to 30 seconds. For a larger max-effort slice, explicitly configure a
-finite positive deadline **before** invoking the driver, for example:
-
-```powershell
-$env:CLD_DISPATCH_TIMEOUT = "1200"
-```
-
-```bash
-export CLD_DISPATCH_TIMEOUT=1200
-```
-
-This applies to provider dispatches including validation, not read-only probes.
-It does not increase attempt or usage budgets. Restore the previous environment
-setting after the build; never increase a deadline or retry paid work automatically.
-
-Configuration checked 2026-09-28 against the official
-[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
-
-
-For gate meanings and recovery, read `references/delivery-core.md`. CLD judges
-the real Git diff and acceptance tests, not the executor's final prose.
+Read [observability.md](references/observability.md) only for event logs or
+optional exports, and [architecture.md](references/architecture.md) for engine
+extension/debugging. Do not load every reference for an ordinary step.

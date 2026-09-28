@@ -1,6 +1,8 @@
 ### Antigravity (`agy`) executor
 
-Antigravity is a flat-rate plan (quota-based; $0 marginal). It exposes Gemini, Claude and GPT-OSS
+The recorded Antigravity catalog describes subscription/quota models. Actual
+per-call usage/cost may be unavailable; do not infer zero from the subscription.
+It exposes Gemini, Claude and GPT-OSS
 models -- select with `--executor "antigravity:<label>"`, e.g. `antigravity:Claude Opus 4.6 (Thinking)`.
 The default workhorse is `antigravity:Gemini 3.1 Pro (High)`.
 

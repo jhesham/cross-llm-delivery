@@ -56,8 +56,7 @@ def test_vendors_references(tmp_path):
 def test_skill_template_exists_with_placeholders():
     from pathlib import Path
     t = Path("skill/SKILL.template.md").read_text(encoding="utf-8")
-    for ph in ("{{PROVIDER_NAME}}", "{{DEFAULT_WORKHORSE}}", "{{PROVIDER_FRAGMENT}}",
-               "{{SETUP}}", "{{BANNER}}"):
+    for ph in ("{{PROVIDER_NAME}}", "{{EXECUTOR_POLICY}}", "{{BANNER}}"):
         assert ph in t
     # the core template must NOT hardcode a specific provider in its prose
     low = t.lower()
@@ -73,8 +72,12 @@ def test_composes_skill_md(tmp_path):
     assert "{{" not in skill
     assert "cursor" in skill.lower()
     assert "cursor:composer-2.5" in skill            # the provider's default workhorse
-    # provider fragment content is woven in (a phrase from cursor's fragment)
-    assert "cursor-agent" in skill.lower()
+    # Details load on demand; the generated references preserve the source.
+    assert "references/provider.md" in skill
+    assert "references/provider-setup.md" in skill
+    for source, target in (("SKILL.fragment.md", "provider.md"), ("setup.md", "provider-setup.md")):
+        assert (out / "references" / target).read_bytes() == (
+            Path("engine/cld_providers/cursor") / source).read_bytes()
     # GENERATED banner present
     assert "GENERATED" in skill and "do not edit" in skill.lower()
     skill.encode("cp1252")

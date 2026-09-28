@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-cursor",
-  "description": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Claude as architect + judge; committed failing tests gate every merge.",
+  "description": "Claude Code leads cursor CLI implementation with independent acceptance and verified integration.",
   "author": {
     "name": "cross-llm-delivery contributors"
   }

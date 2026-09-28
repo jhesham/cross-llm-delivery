@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-antigravity",
-  "description": "Delegate bulk implementation to Google's Antigravity CLI (flat-rate Gemini/Claude models) with Claude as architect + judge; committed failing tests gate every merge.",
+  "description": "Claude Code leads antigravity CLI implementation with independent acceptance and verified integration.",
   "author": {
     "name": "cross-llm-delivery contributors"
   }

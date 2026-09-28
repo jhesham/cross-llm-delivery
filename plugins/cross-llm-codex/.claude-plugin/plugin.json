@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-codex",
-  "description": "Delegate bulk implementation to an explicitly selected Codex CLI model with Claude as architect + judge; committed failing tests gate every merge.",
+  "description": "Claude Code leads codex CLI implementation with independent acceptance and verified integration.",
   "author": {
     "name": "cross-llm-delivery contributors"
   }

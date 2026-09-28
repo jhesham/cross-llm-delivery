@@ -1,54 +1,45 @@
-# cld engine — architecture reference
+# Engine architecture
 
-The `cld` package is the orchestration engine. The skill drives it; this file documents
-the pieces for anyone who needs to extend or debug a run.
+The lead host supplies instructions and an installed driver. The provider
+package supplies CLI execution. Neither host nor model prose replaces the
+engine's candidate/acceptance/integration boundaries.
 
-## Executors (the CLI backends)
-
-Each provider plugin under `cld_providers/<name>/` registers an executor that wraps a CLI
-behind an injected `runner` (so every executor is unit-testable without live calls). The
-default workhorse is `antigravity:Gemini 3.1 Pro (High)` (the Antigravity `agy` CLI, flat-rate).
-Other backends: `opencode` and `cursor` (direct-node dispatch on Windows).
-Pick a backend per slice with `--executor "<provider>:<model>"`.
-
-Each executor returns an `ExecutorResult` (ok / diff / files_changed / token_usage / raw_log);
-diffs are captured uniformly via `cld.executors._capture.capture_diff`.
-
-## Module map
-
-| Module | Role |
+| Module | Responsibility |
 |---|---|
-| `cld.executors.base` | `Executor` Protocol + `SliceTask` / `ExecutorResult` dataclasses |
-| `cld_providers.<name>.provider` | per-provider executor + catalog + registration (antigravity, opencode, cursor) |
-| `cld.executors` (`get_executor`) | registry: `get_executor("<provider>")` resolves via `cld.providers_api` (pluggable) |
-| `cld.plan.slice` | `load_slices(md)` / `slices_to_markdown` — plan parsing |
-| `cld.worktree` | `worktree(repo, branch, runner=)` context manager (isolation) |
-| `cld.judge` | `judge(...)` — run tests, parse pass/fail + failing names, diff-rule check |
-| `cld.orchestrator` | `deliver_slice` (single), `run_plan` (sequential, resumable), `run_plan_parallel` (DAG fan-out + worktree isolation + quota gate) |
-| `cld.ledger` | `Ledger` — atomic, corruption-safe JSON progress store (resumability) |
-| `cld.dag` | `parallel_batches` / `topo_layers` / `has_cycle` — DAG layering |
-| `cld.integration_gate` | `integration_gate` — full-suite check after a batch merges |
-| `cld.behavioral` | `evaluate_compliance` — Claude-as-judge G-Eval (behavioral regime, no OpenAI) |
-| `cld.telemetry` | `emit`/`Sink`/`JsonlSink`/`OtelSink` — one structured event per lifecycle moment (local JSONL always; OTLP export opt-in) |
-| `cld.status` | `render_status` — the compact `--status` digest (layer/slices/tokens/cost/by-model/gate) |
+| `cld.cli`, `cld.cli_response` | Legacy/vendored driver, machine JSON gates and inspection |
+| `cld.plan.slice`, `cld.dag` | Validated single-line slice schema and dependency layering |
+| `cld.providers_api`, `cld_providers.<name>` | Provider registration, explicit model configuration and adapters |
+| `cld.process`, `cld.worktree` | Bounded child/process-tree handling and managed Git worktrees |
+| `cld.candidate`, `cld.judge`, `cld.test_run` | Reconstructed frozen candidates, protected inputs and authoritative pytest results |
+| `cld.ledger`, `cld.build_state`, `cld.attempts`, `cld.recovery`, `cld.locking` | Durable identity, ownership and per-attempt recovery |
+| `cld.orchestrator`, `cld.integration`, `cld.repair` | Verified dispatch/collection, dependency integration and lead repair |
+| `cld.admission`, `cld.evidence`, `cld.validate` | Context-bound model evidence and explicit validation spend policy |
+| `cld.accounting`, `cld.usage` | Persisted reservations, reported/unknown usage and admission ceilings |
+| `cld.telemetry`, `cld.status` | Best-effort local/export events and build inspection |
 
-## Two verification regimes
+The four adapters are antigravity, cursor, opencode and codex. A generated
+bundle vendors one selected provider and the engine; different bundles sharing
+a ledger must come from the same source revision. Codex requires an exact
+model and optional effort/tier; there is no static default.
 
-1. **Plumbing (deterministic)** — pytest pass/fail + diff-rule. The primary gate, run by
-   `cld.judge` on every slice.
-2. **Behavioral (non-deterministic)** — `cld.behavioral.evaluate_compliance` scores code
-   against a spec via **Claude G-Eval** (needs `ANTHROPIC_API_KEY`; skips otherwise). For
-   slices whose quality isn't fully captured by `==`.
+Each executor returns a candidate result with process/usage evidence. On valid
+completion the adapter captures the actual Git diff. The engine independently
+reconstructs it against the original baseline, enforces protected inputs and
+the allowlist, and runs committed acceptance tests. Collection checks the
+resulting tree/commit/ref before durable acceptance. Dependent dispatch uses
+verified integration, not an unmerged accepted commit.
 
-## Cost & quota model
+The production acceptance gate is deterministic. `cld.behavioral` is an optional
+G-Eval library facility using an explicitly constructed metric/API-backed
+judge; it is not wired into automatic acceptance and does not replace pytest.
+Absent dependencies are guarded at import; calling grading requires optional
+dependencies and authorized credentials/spend.
 
-The executor runs on a **flat-rate Gemini plan** → tokens are $0 marginal. The binding
-constraint is **quota** (a rolling window), not dollars. `run_plan_parallel` accepts a
-`quota_check` callable; when usage ≥ `quota_threshold` it defers slices (records them in
-`PlanResult.deferred`) instead of dispatching, so a big fan-out can't exhaust the window.
+Usage and cost come only from reported provider fields. Missing data remains
+unknown. Limits admit dispatches using explicit reservations, not a hard token
+cap or inferred subscription price. See [delivery-core.md](delivery-core.md)
+for gates, admission, budget and recovery behavior.
 
-## Resumability
-
-Every processed slice is persisted to the ledger (`status`, `commit`, `attempts`) with an
-atomic write. A fresh run loads the ledger and skips done slices — a mid-build stop resumes
-from the right place. This is the machine-managed successor to a hand-rolled status file.
+A worktree is a Git/file-integrity boundary, not an OS sandbox. Provider
+permissions and project tests inherit host capabilities. Optional telemetry
+failure is not delivery success/failure; durable ledger/ref proofs are separate.

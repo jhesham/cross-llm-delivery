@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-opencode",
-  "description": "Delegate bulk implementation to OpenCode CLI models (free/cheap-metered: deepseek, kimi, GLM, ...) with Claude as architect + judge; committed failing tests gate every merge.",
+  "description": "Claude Code leads opencode CLI implementation with independent acceptance and verified integration.",
   "author": {
     "name": "cross-llm-delivery contributors"
   }
