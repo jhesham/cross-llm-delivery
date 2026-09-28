@@ -2,6 +2,14 @@
 
 Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; T17A closes R07, and T17C closes A05. T18 closes R13 with checked release operations and failure/race regressions. T01 closed harness observation A04. Closing evidence is linked below.
 
+T20B's final real-package check found the Claude marketplace missing its fourth
+Codex entry and the native release validator rejecting intentionally unversioned
+Claude manifests. `tests/test_t20b_entries.py` records both pre-fix failures;
+the catalog now resolves all four packages, and release validation requires a
+current generated Claude banner when the manifest omits version. Stale/missing
+and explicit null version evidence remain errors. This extends R13/A08 evidence
+without changing Claude's Git-commit update policy; final source CI is required.
+
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
 | [x] | R01 P1: executor commits hide forbidden changes | `engine/cld/executors/_capture.py:34` | Commit a forbidden file inside the worktree; capture currently reports no files and accepts it. Reject relative to immutable dispatch base, including changed tests. | T02 |
@@ -10,7 +18,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | R04 P1: escalation/resume branch collision | `engine/cld/worktree.py:11` | Fail first rung, enter second; `slice-A` already exists. Verify second dispatch and restart after interruption with real Git. | T04 |
 | [x] | R05 P1: dependencies absent / failure ignored | `engine/cld/orchestrator.py:476` | A writes an interface, B depends on A; B currently starts without it. Failed/deferred A must block B. Integrated candidate must be base for B. | T06 |
 | [x] | R06 P1: repair exits zero | `skill/scripts/run_delivery.py:762` | Whole-plan result has only `needs_repair=['A']`; current exit is 0 and output omits A. Assert non-success, reason, and next action. | T07, T11 |
-| [x] | R07 P2: wheel misses provider resources | `pyproject.toml:21` | Wheel and sdist now include all six provider Markdown files; installed wheel loads three providers and CLI help under `python -I -S` outside checkout. [T17A evidence](T17A-EVIDENCE.md). | T17A |
+| [x] | R07 P2: wheel misses provider resources | `pyproject.toml` | Wheel/sdist contain all eight required provider fragment/setup resources and isolated CLI imports all four providers. [T17A evidence](T17A-EVIDENCE.md), fourth-provider T16/T17 coverage and final T20B candidate checks. | T17A, T16, T20B |
 | [x] | R08 P2: ledger follows caller cwd | `skill/scripts/run_delivery.py:600` | Two `--repo` values, same invocation directory and slice IDs; state must stay isolated. Restart same repo from another cwd. | T05 |
 | [x] | R09 P2: automatic validation unwired | `skill/scripts/run_delivery.py:723` | Unknown explicit/default/tag/escalated model must enter validation or return an explicit blocked policy outcome before real slice dispatch. | T09 |
 | [x] | R10 P2: no executor timeout | `engine/cld/process.py`, provider default runners | Sleeping child and grandchild terminate within deadline; partial files and both streams survive; cleanup failure aborts without candidate inspection. [Evidence](T08-EVIDENCE.md). | T08 |

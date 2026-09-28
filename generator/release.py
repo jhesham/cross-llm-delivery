@@ -147,7 +147,24 @@ def _validate_manifests(root):
         if claude != expected:
             raise CommandError(f"Generated provider manifests incomplete: expected {expected}, found {claude}")
     for file in files:
-        if json.loads(file.read_text(encoding="utf-8")).get("version") != version:
+        manifest = json.loads(file.read_text(encoding="utf-8"))
+        if file.parent.name == ".claude-plugin" and "version" not in manifest:
+            # Claude packages follow Git commits without a fixed manifest
+            # version. Require the generated entry's matching version instead;
+            # absence alone must not turn stale/unowned bytes into a pass.
+            plugin = file.parent.parent
+            skill = plugin / "skills" / plugin.name / "SKILL.md"
+            try:
+                text = skill.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise CommandError(f"Cannot verify generated Claude version: {skill}") from exc
+            provider = plugin.name.removeprefix("cross-llm-")
+            pattern = (r"<!-- GENERATED from cross-llm-delivery(?:@[0-9a-f]+)? "
+                       r"\(provider: " + re.escape(provider) + ", v" + re.escape(version)
+                       + r"\) - do not edit here;")
+            if not re.search(pattern, text):
+                raise CommandError(f"Generated Claude banner version differs from VERSION: {skill}")
+        elif manifest.get("version") != version:
             raise CommandError(f"Generated manifest version differs from VERSION: {file}")
 
 

@@ -11,14 +11,17 @@ opencode run "<task>" -m opencode/<provider/model> --format json --dir <workdir>
 
 - `--format json` emits JSONL (one event per line); `parse_opencode_usage` reads the
   `step_finish` event(s) for token counts.
-- `--dangerously-skip-permissions` is required for headless autonomy in isolated worktrees.
+- The adapter includes `--dangerously-skip-permissions` for the recorded
+  headless workflow. A worktree is not a security sandbox; use appropriate host
+  isolation and do not recommend blanket bypass to resolve a denied operation.
 - `--port` (bare, no value) forces a fresh local server per dispatch; prevents stale session joins.
-- `--dir <workdir>` scopes file writes to the target repo (clean worktree isolation confirmed).
+- `--dir <workdir>` chooses the working directory; it is not a filesystem access boundary.
 - On Windows the npm shim is `opencode.cmd`, but the real `opencode.exe` must be used for
   long prompts (the `.cmd` shim routes through `cmd.exe /c`, which mangles multi-line argv).
   The executor auto-resolves the real `.exe` behind the shim; override with `OPENCODE_CLI_CMD`.
 
 ### Auth
 
-Authenticate once per provider via the OpenCode TUI or `opencode auth add <provider>`.
+Authenticate through the installed OpenCode TUI or the auth flow shown by
+`opencode auth --help`.
 Credentials are stored locally. Cost is billed per token at the provider's rates (not flat-rate).
