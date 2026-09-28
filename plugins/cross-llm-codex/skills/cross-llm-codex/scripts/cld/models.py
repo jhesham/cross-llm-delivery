@@ -4,18 +4,31 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple, Dict
 
 
+def split_executor_options(spec: str) -> tuple[str, dict]:
+    """Shared @effort[+fast] grammar; a tier is explicit and Codex-only."""
+    if "@" not in spec:
+        return spec, {}
+    base, suffix = spec.rsplit("@", 1)
+    parts = suffix.strip().split("+")
+    if not parts[0].strip():
+        raise ValueError("Empty executor effort")
+    options = {"effort": parts[0].strip()}
+    if len(parts) > 1:
+        provider = re.split(r"[:/]", base.strip(), maxsplit=1)[0].lower()
+        if provider != "codex" or len(parts) != 2 or parts[1] != "fast":
+            raise ValueError("Service tier suffix must be +fast on a codex executor")
+        options["service_tier"] = "fast"
+    return base.strip(), options
+
+
 def resolve_spec(spec: str) -> tuple[str, str, dict]:
     """Resolve a provider default or explicit ID without substituting providers."""
     from cld.providers_api import get_provider, default_workhorse
     value = (spec or default_workhorse()).strip()
     if not value:
         raise ValueError("No executor model default is configured; pass --executor codex:<exact-model-id>@<effort>")
-    effort = None
-    if "@" in value:
-        value, effort = value.rsplit("@", 1)
-        if not effort.strip():
-            raise ValueError("Empty executor effort")
-        effort = effort.strip()
+    value, options = split_executor_options(value)
+    effort = options.get("effort")
     if ":" in value:
         name, model = value.split(":", 1)
     elif "/" in value:
@@ -35,7 +48,12 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     kwargs = {"model": model}
     if effort:
         kwargs["effort"] = effort
-    return name + ":" + model + ("@" + effort if effort else ""), name, kwargs
+    if "service_tier" in options:
+        kwargs["service_tier"] = options["service_tier"]
+    canonical = name + ":" + model + ("@" + effort if effort else "")
+    if "service_tier" in kwargs:
+        canonical += "+" + kwargs["service_tier"]
+    return canonical, name, kwargs
 
 
 def model_policy(spec):

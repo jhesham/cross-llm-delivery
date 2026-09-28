@@ -96,6 +96,7 @@ def _compose_skill_codex(provider: str, out: Path) -> None:
     executor_policy = (
         "An exact model ID is required for each build; this provider has no default model. "
         "Pass `--executor codex:<model-id>@<effort>` explicitly."
+        " For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier."
         if provider == "codex" else
         f"The default workhorse is `{_provider_default_workhorse(provider)}`."
     )
@@ -231,12 +232,16 @@ def _vendor_driver(out: Path) -> None:
     shutil.copy2(SKILL_SRC / "scripts" / "run_delivery.py", out / "scripts" / "run_delivery.py")
 
 
-def _vendor_aux(out: Path) -> None:
+def _vendor_aux(out: Path, provider: str) -> None:
     """Copy references/ and examples/ if they exist in the skill source."""
     _ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
     refs = SKILL_SRC / "references"
     if refs.exists():
         shutil.copytree(refs, out / "references", ignore=_ignore)
+    # Provider details are available to Claude by reference as well as inline.
+    (out / "references").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(PROVIDERS_DIR / provider / "setup.md", out / "references" / "provider-setup.md")
+    shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", out / "references" / "provider.md")
     examples = SKILL_SRC / "examples"
     if examples.exists():
         shutil.copytree(examples, out / "examples", ignore=_ignore)
@@ -322,7 +327,7 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
         _compose_codex_agent_metadata(provider, out)
         _scaffold_codex(provider, out)
     else:
-        _vendor_aux(out)
+        _vendor_aux(out, provider)
         _compose_skill(provider, out)
         _scaffold(provider, out)
     if smoke:

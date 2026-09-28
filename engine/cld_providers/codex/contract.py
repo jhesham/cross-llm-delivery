@@ -73,7 +73,8 @@ def _single_line(name, value):
     return value
 
 
-def build_invocation(model, cwd, prompt, *, effort=None, sandbox="workspace-write", depth=0):
+def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
+                     sandbox="workspace-write", depth=0):
     """Fresh explicit invocation: no resume/--last, no positional prompt, no shell."""
     if type(depth) is not int or depth != 0:
         raise CodexContractError(f"Codex executors cannot dispatch recursively; depth must be 0, got {depth!r}")
@@ -84,6 +85,8 @@ def build_invocation(model, cwd, prompt, *, effort=None, sandbox="workspace-writ
         effort = _single_line("effort", effort)
         if effort not in _EFFORTS:
             raise CodexContractError(f"effort must be one of {_EFFORTS}, got {effort!r}")
+    if service_tier not in (None, "fast"):
+        raise CodexContractError("service_tier must be 'fast' or absent")
     if sandbox not in _SANDBOXES:
         raise CodexContractError(f"sandbox must be one of {_SANDBOXES}, got {sandbox!r}")
     if not isinstance(prompt, str) or not prompt.strip():
@@ -95,6 +98,8 @@ def build_invocation(model, cwd, prompt, *, effort=None, sandbox="workspace-writ
             "--sandbox", sandbox, "--cd", str(resolved), "--model", model]
     if effort is not None:
         argv += ["--config", f'model_reasoning_effort="{effort}"']
+    if service_tier is not None:
+        argv += ["--config", f'service_tier="{service_tier}"']
     argv.append("-")
     return CodexInvocation(argv=argv, stdin=_ROLE + "\n" + prompt,
                            cwd=str(resolved), env={"CLD_EXECUTOR_DEPTH": "1"})
@@ -112,7 +117,7 @@ def _failure(error):
     return CodexExecOutcome(ok=False, error=error)
 
 
-def parse_exec_output(stdout, stderr, returncode, *, process_error=None):
+def parse_exec_output(stdout, stderr, returncode, *, process_error=None, service_tier=None):
     """Parse a complete ``codex exec --json`` stream; failures never become success."""
     if process_error:
         return _failure(str(process_error))
@@ -135,6 +140,21 @@ def parse_exec_output(stdout, stderr, returncode, *, process_error=None):
             return _failure("malformed_output")
         events.append(event)
     types = [event["type"] for event in events]
+    if service_tier is not None:
+        # An explicit tier must never become a successful downgraded candidate.
+        # Unknown control warnings fail closed; assistant prose is not a warning.
+        if any(event["type"] in ("warning", "config.warning")
+               or (event["type"] in ("item.started", "item.updated", "item.completed")
+                   and isinstance(event.get("item"), dict)
+                   and event["item"].get("type") == "warning") for event in events):
+            return _failure("service_tier_warning")
+        if re.search(r"(?i)\bservice[ _-]?tier\b|\bfast (?:mode|tier)\b", stderr or ""):
+            return _failure("service_tier_warning")
+        # Some CLIs report the actual request tier (fast maps to priority).
+        # Missing tier is unverified, not an inferred downgrade or guarantee.
+        for event in events:
+            if "service_tier" in event and event["service_tier"] not in ("fast", "priority"):
+                return _failure("service_tier_mismatch")
     if "turn.failed" in types:
         return _failure("turn_failed")
     if "error" in types:

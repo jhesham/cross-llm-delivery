@@ -53,13 +53,14 @@ class CodexExecutor:
     travel over stdin, never argv or process metadata.
     """
 
-    def __init__(self, *, model, effort=None, sandbox="workspace-write",
+    def __init__(self, *, model, effort=None, service_tier=None, sandbox="workspace-write",
                  runner=run_process, git_runner=run_process,
                  timeout=None, cancel=None, artifact_dir=None):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("CodexExecutor requires an explicit, nonempty model id")
         self._model = model
         self._effort = effort
+        self._service_tier = service_tier
         self._sandbox = sandbox
         self._runner = runner
         self._git_runner = git_runner
@@ -105,7 +106,8 @@ class CodexExecutor:
         prompt = self._build_prompt(task, feedback)
         try:
             invocation = build_invocation(self._model, cwd, prompt,
-                                          effort=self._effort, sandbox=self._sandbox)
+                                          effort=self._effort, service_tier=self._service_tier,
+                                          sandbox=self._sandbox)
         except CodexContractError as exc:
             return ExecutorResult(ok=False, diff="",
                                   raw_log=f"Refusing to build a Codex dispatch: {exc}",
@@ -151,7 +153,7 @@ class CodexExecutor:
         raw_log = process_feedback(output, metadata)
 
         outcome = parse_exec_output(proc.stdout, proc.stderr, proc.returncode,
-                                    process_error=proc.error)
+                                    process_error=proc.error, service_tier=self._service_tier)
         if not outcome.ok:
             error = outcome.error or "malformed_output"
             if error in _STRUCTURAL_ERRORS or error.startswith("event_cardinality"):
