@@ -13,6 +13,10 @@ Red baseline `eef006b`; core source/test `032cc26` passed
 [Windows/Ubuntu Python 3.11/3.14 full CI and artifact gates](https://github.com/jhesham/cross-llm-delivery/actions/runs/36392139614).
 The closing commit adds the relative local-remote repair, its real-Git test,
 unchanged-mirror/fetch/multiple-URL checks and final progress/preview evidence.
+The initial closing CI exposed a Windows 3.11 fixture startup race; the repair
+makes cancellation wait for emitted output and permits valid empty startup-
+timeout logs without changing production deadlines. Keep the final CI gate open
+until all four jobs and artifact steps pass; see evidence for the failed run.
 All 59 focused local checks pass. Checked native commands, complete matching
 host manifest sets, owned recovery worktrees, literal notes, exact-SHA CI and
 explicit atomic expected-SHA publishing replace unchecked scripts. Previews

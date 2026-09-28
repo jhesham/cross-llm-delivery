@@ -63,6 +63,23 @@ stops before staging, and multiple push URLs are rejected. The relative-path
 fixture was rerun after making its version independent of future source bumps
 (one passing case).
 
+The first closing run at `1e085c1`
+([36394848030](https://github.com/jhesham/cross-llm-delivery/actions/runs/36394848030))
+passed both Ubuntu jobs and Windows 3.14; Windows 3.11 exposed an existing
+`test_provider_default_runner_lifecycle[timeout-opencode-OpenCodeExecutor]`
+fixture race. Its 0.8-second deadline expired before the child emitted output,
+which is a valid startup timeout, but the test required nonempty streams.
+The fixture now records a child-ready marker after flushing both streams,
+cancels only after readiness, allows bounded startup for exit-mode cases,
+and requires retained partial output only when it was actually emitted.
+The same requested timeout must reach the native runner, timeout/error
+classification and single-dispatch/no-diff assertions remain, and the separate
+real-process descendant/partial-log tests still verify retention and cleanup.
+Production process/provider code was unchanged. Final exact-SHA CI must pass
+after this fixture repair; the failed run is not counted as closing proof.
+`python -m pytest tests/executors/test_process_contract.py tests/test_process.py
+-o addopts= -q`: **32 passed** locally after the repair.
+
 ## Dogfood and usage
 
 Exact executor: `opencode:opencode/kimi-k3` (installed model listing confirmed).
