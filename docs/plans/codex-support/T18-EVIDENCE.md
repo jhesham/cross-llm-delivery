@@ -68,8 +68,10 @@ fixture was rerun after making its version independent of future source bumps
 Exact executor: `opencode:opencode/kimi-k3` (installed model listing confirmed).
 Run `901f496d00b54ceea68595cb6c6a6b88`, ledger `.cld/t18/ledger.json`, retained
 worktree `.cld/worktrees/T18-901f496d-b1b727ef38244ea5b35c35a569aeeaeb`.
-Validation passed with 11,113 input + 649 output + 48,640 cached-read tokens =
-**60,535 reported provider tokens**, **USD 0.059661**. Production timed out after
+Validation passed with 11,113 input + 649 output + 48,640 cached-read + 133
+reasoning tokens = **60,535 reported provider tokens**, **USD 0.059661**.
+The saved OpenCode step-finish events report reasoning separately from output;
+the ledger preserves their provider-reported total. Production timed out after
 **600.004988 seconds**, with empty stdout/stderr and **no file changes**. No
 candidate was accepted. Production usage/cost are **unknown**, not zero; the
 reported validation values are only known lower bounds for the combined spend.
