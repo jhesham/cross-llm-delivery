@@ -446,3 +446,54 @@ def test_skills_copy_checks_failure_and_overlap(tmp_path, monkeypatch):
     monkeypatch.setattr(module().shutil, "copytree", denied)
     with pytest.raises(module().CommandError, match="copy permission failure"):
         module()._copy_skills(root, destination)
+
+
+def test_unchanged_existing_mirror_still_pushes_and_checks_exact_ci(repository):
+    root, remote = repository
+    runner = Commands(root)
+    first = module().sync_public(root, **options(remote, runner))
+    runner.calls.clear()
+    second = module().sync_public(root, **options(remote, runner))
+    assert first["pushed_sha"] == second["pushed_sha"]
+    assert any(a[:2] == ["git", "fetch"] for a,c in runner.calls)
+    assert any(a[:2] == ["git", "push"] for a,c in runner.calls)
+    gh_calls = [a for a,c in runner.calls if a[0] == "gh"]
+    assert len(gh_calls) == 1 and second["pushed_sha"] in gh_calls[0]
+    assert not any("commit" in a for a,c in runner.calls)
+    assert must_git(root, "for-each-ref", "--format=%(refname)", "refs/cld/release/") == ""
+
+
+def test_fetch_failure_stops_before_worktree_or_push(repository):
+    root, remote = repository
+    module().sync_public(root, **options(remote, Commands(root)))
+    runner = Commands(root, fail=lambda a: a[:2] == ["git", "fetch"])
+    with pytest.raises(module().CommandError, match="T18 injected native failure"):
+        module().sync_public(root, **options(remote, runner))
+    assert runner.calls[-1][0][:2] == ["git", "fetch"]
+
+
+def test_multiple_push_urls_rejected_before_generation(repository):
+    root, remote = repository
+    must_git(root, "remote", "set-url", "--add", "--push", "public", str(remote))
+    must_git(root, "remote", "set-url", "--add", "--push", "public", str(root.parent / "unintended.git"))
+    runner = Commands(root)
+    with pytest.raises(module().CommandError, match="Unexpected remote URL"):
+        module().sync_public(root, **options(remote, runner))
+    assert not any(a[0] == sys.executable or "push" in a for a,c in runner.calls)
+
+
+def test_relative_local_publish_remote_keeps_same_destination(repository, monkeypatch):
+    root, remote = repository
+    fixture_version = (root / "VERSION").read_text().strip()
+    monkeypatch.setattr(publish, "REPO_ROOT", root)
+    def bundle(provider, *, out_root, host):
+        path = Path(out_root) / ("codex" if host == "codex" else "") / f"cross-llm-{provider}"
+        path.mkdir(parents=True)
+        (path / "SKILL.md").write_text(f"<!-- GENERATED (provider: {provider}, v{fixture_version}) -->\nfixture")
+        return path
+    monkeypatch.setattr(publish, "build_one", bundle)
+    plan = publish.publish_one("cursor", targets={"cursor": os.path.relpath(remote,root)},
+        version=fixture_version, execute=True, runner=git)
+    assert plan["repo"] == str(remote.resolve())
+    assert must_git(root, "ls-remote", str(remote), "refs/heads/main")
+    assert must_git(root, "ls-remote", str(remote), "refs/tags/v" + fixture_version)

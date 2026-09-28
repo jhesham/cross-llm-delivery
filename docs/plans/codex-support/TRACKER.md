@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T17 and M1–M4 plus optional M6 complete. T18 is in progress; implementation and local regressions are under review before exact-SHA four-job CI. Do not start T19.
+Status: T01 through T18 and M1–M4 plus optional M6 complete. T19 is next; stop for the user token-availability checkpoint. The T18 closing push must pass exact-SHA four-job CI before handing off.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -32,7 +32,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T17A — Wheel/sdist resources and isolated core
   - [x] T17B — Bundle matrix and tracked freshness (source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md); Windows/Ubuntu CI green)
   - [x] T17C — CI matrix and compatibility gate ([evidence](T17C-EVIDENCE.md); Python 3.11/3.14 × Windows/Ubuntu green)
-- [ ] T18 — Checked release automation
+- [x] T18 — Checked release automation
 - [ ] T19 — Migration and interruption rehearsal
 - [ ] T20 — Documentation and release candidate
 
@@ -57,7 +57,7 @@ The checklist above is the task-level completion record. The table below holds i
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Complete: [evidence](T15-EVIDENCE.md); source/test `63b5ed1`; [Windows/Ubuntu Python 3.11/3.14 CI plus generator smoke green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36102993135). Synthetic fixtures only; live Codex remains T16. |
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Complete: source/test `e64d12f`; [Windows canary and Kimi dogfood evidence](T16-EVIDENCE.md); [Windows/Ubuntu Python 3.11/3.14 CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). |
 | [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Complete: [T17A](T17A-EVIDENCE.md), [T17B](T17B-EVIDENCE.md), [T17C](T17C-EVIDENCE.md); T17C source `465b698`, race repair `5a5e68e`, [Python 3.11/3.14 × Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; T14 is next. |
-| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | In progress — checked operations, guarded publishing and local failure/race regressions; CI pending |
+| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Complete — [evidence](T18-EVIDENCE.md), 59 local checks and four-job source CI; closing push gate before handoff |
 | [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
 | [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | 6–10k | Not started |
 
