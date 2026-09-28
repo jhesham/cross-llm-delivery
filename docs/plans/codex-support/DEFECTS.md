@@ -29,7 +29,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | A05: platform claims exceed CI evidence | Offline CI now covers Python 3.11/3.14 × Windows/Ubuntu, with six bundles and plugin gates; README/INSTALL/KNOWN-ISSUES distinguish historical Windows live calls, offline Ubuntu tests, and unverified macOS/POSIX live dispatch. [T17C evidence](T17C-EVIDENCE.md). T14/T19 may add new evidence. | T17C |
 | [x] | A06: Antigravity tokens absent | Parse only if observable from a verified fixture; otherwise label token data unavailable and correct documentation. | T10, T20 |
 | [x] | A07: evidence store concurrent writes | Atomic replace plus synchronization; distinct records survive concurrent validation; corruption surfaced. | T09 |
-| [ ] | A08: skill frontmatter/install contradictions | Put frontmatter first; generated bundles must not require editable install or a source-relative driver path. | T12, T13 |
+| [x] | A08: skill frontmatter/install contradictions | Eight generated bundles are YAML-first and load only vendored code outside the checkout. Source instructions name the generated skill cwd or an absolute installed driver. T13/T14 discovery and T17 bundle help checks need no editable install; [T19B replay/evidence](T19B-EVIDENCE.md) verifies the eight-bundle boundary. | T12, T13, T14, T19B |
 | [x] | A09: trace overwritten between runs | T05 preserves per-run artifacts/current pointer and history. Bounded status indexing remains a T10 follow-up. | T05 complete; T10 follow-up |
 
 **Closing evidence template**
