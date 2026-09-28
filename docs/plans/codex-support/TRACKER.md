@@ -34,6 +34,8 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T17C — CI matrix and compatibility gate ([evidence](T17C-EVIDENCE.md); Python 3.11/3.14 × Windows/Ubuntu green)
 - [x] T18 — Checked release automation
 - [ ] T19 — Migration and interruption rehearsal
+  - [ ] T19A — Fresh-process migration, abrupt interruption and locking rehearsal (in progress; committed acceptance before Kimi K3 dispatch)
+  - [ ] T19B — Host/provider evidence matrix, usage measurements and rollback guidance
 - [ ] T20 — Documentation and release candidate
 
 The checklist above is the task-level completion record. The table below holds its dependencies, estimates, and evidence. Budgets are estimated **lead-agent input + output tokens per sitting**, excluding separately reported executor/model usage. They are neither context-window sizes nor a hard runtime limit. See [session rules](SESSION-GUIDE.md).
