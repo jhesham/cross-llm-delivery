@@ -19,14 +19,14 @@ Dependencies: T12. Estimate: 8–12k. Files: `pyproject.toml`, generators, `.git
 
 Dependencies: T17. Estimate: 8–12k. Files: `release.ps1`, `sync-public.ps1`, `generator/publish.py`, new release-script tests/fixtures.
 
-- [ ] Wrap or explicitly check every critical native command: generation, Git worktree/add/commit/tag/push, gh operations, and mirror/copy steps. Stop with the failing command/result before subsequent mutations.
-- [ ] Select CI by expected repository, workflow, branch, and exact pushed SHA. Handle no run found, queue delay, cancelled/failing runs, and timeout explicitly; never substitute the latest unrelated run.
-- [ ] Make dry-run fully reviewable with exact refs/artifacts/destinations. Ensure build/tag/version/manifest values agree and reject unintended existing tags or remotes.
-- [ ] Preserve preexisting environment/identity settings, validate worktree paths before cleanup, and recover correctly from failures halfway through staging. Do not delete working changes on generic errors.
-- [ ] Audit mirror publishing's forced history replacement: make target/ref and force semantics explicit, use a guarded expected remote state where appropriate, and do not infer authorization from a dry-run.
-- [ ] Test failure paths with fake native commands and local bare remotes only. Verify a failed push/tag/release returns nonzero and cannot print a final successful release result.
+- [x] Wrap or explicitly check every critical native command: generation, Git worktree/add/commit/tag/push, gh operations, and mirror/copy steps. Stop with the failing command/result before subsequent mutations.
+- [x] Select CI by expected repository, workflow, branch, and exact pushed SHA. Handle no run found, queue delay, cancelled/failing runs, and timeout explicitly; never substitute the latest unrelated run.
+- [x] Make dry-run fully reviewable with exact refs/artifacts/destinations. Ensure build/tag/version/manifest values agree and reject unintended existing tags or remotes.
+- [x] Preserve preexisting environment/identity settings, validate worktree paths before cleanup, and recover correctly from failures halfway through staging. Do not delete working changes on generic errors.
+- [x] Audit mirror publishing's forced history replacement: make target/ref and force semantics explicit, use a guarded expected remote state where appropriate, and do not infer authorization from a dry-run.
+- [x] Test failure paths with fake native commands and local bare remotes only. Verify a failed push/tag/release returns nonzero and cannot print a final successful release result.
 
-**Gate:** R13 passes without publishing anything. A concrete release-candidate preview can be produced for later authorized publication.
+**Gate:** R13 passes without publishing anything. [59 local checks and four-job source CI](T18-EVIDENCE.md) pass; a [concrete read-only preview](T18-PREVIEW.md) is ready for later authorized publication. The closing push must pass its own exact-SHA four-job CI before handoff.
 
 ## T19 — Migration and interruption rehearsal
 

@@ -1,6 +1,6 @@
 # Review defect register
 
-Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; T17A closes R07, and T17C closes A05. R13 remains open. T01 closed harness observation A04. Closing evidence is linked below.
+Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through R04 are closed by T02/T03/T04; T08 closes the R02 interruption/timeout follow-up and R10. R08 is closed by T05; R05 is closed by T06; R06/R11 are closed by T07; T09 closes R09 and A07; T10 closes R12 and A06; T17A closes R07, and T17C closes A05. T18 closes R13 with checked release operations and failure/race regressions. T01 closed harness observation A04. Closing evidence is linked below.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ Baseline: v0.2.0, commit `c3ced8a5fbbb964019352f04da8d509858644ee8`. R01 through
 | [x] | R10 P2: no executor timeout | `engine/cld/process.py`, provider default runners | Sleeping child and grandchild terminate within deadline; partial files and both streams survive; cleanup failure aborts without candidate inspection. [Evidence](T08-EVIDENCE.md). | T08 |
 | [x] | R11 P2: integration gate accepts errors | `engine/cld/integration_gate.py:22` | `__CLD_PYTEST_RC__=1` with `1 passed, 1 error` currently passes. Gate must use process RC and verified candidate. | T06, T07 |
 | [x] | R12 P2: retries/cost missing from usage | `engine/cld/orchestrator.py:183`, `engine/cld/usage.py:77` | Two attempts plus escalation and validation: cumulative totals survive resume, retain model attribution, cost unknown stays unknown. | T10 |
-| [ ] | R13 P2: release ignores failed native commands | `sync-public.ps1:100`, `release.ps1:73` | Fake Git push/tag/commit and gh failure stop later actions; CI result must match intended SHA/workflow. No remote needed. | T18 |
+| [x] | R13 P2: release ignores failed native commands | `sync-public.ps1:100`, `release.ps1:73` | Checked Git/generation/gh/copy/cleanup failures stop later actions; exact-SHA CI and atomic replacement/race probes. Local bare remotes only. [Evidence](T18-EVIDENCE.md), core source `032cc26` and closing T18 path repair. | T18 |
 
 **Additional findings included in this initiative**
 
