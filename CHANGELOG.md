@@ -6,6 +6,35 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### 0.3.0 candidate — 2026-09-29 (not published)
+
+- Codex CLI/IDE and Claude Code lead the same engine through independent
+  acceptance, durable state and verified integration. Eight standalone bundles
+  and four plugin packages per host; explicit Codex model selection is required.
+- Added the optional Codex executor with bounded ephemeral/stdin dispatch,
+  recursion refusal, feature checks and usage parsing. Explicit
+  `codex:gpt-6-luna@max+fast` preserves effort/tier and separate admission
+  evidence; exposed warning/fallback output fails before candidate capture.
+- Schema-2 build identity, atomic/locked persistence, explicit legacy migration,
+  plan reconciliation, per-attempt recovery evidence and checked durable refs.
+- Independently reconstructed candidate trees, protected committed acceptance
+  inputs, checked test collection/exit codes, dependency integration boundaries,
+  retained repair work and truthful JSON gates.
+- Context-bound model validation with explicit spend policy, persisted usage
+  reservations/unknown accounting, bounded process-tree termination and guarded
+  native-command/release/CI handling.
+- Concise YAML-first Claude entries; provider/setup detail loads by reference.
+  Documentation separates host/provider, acceptance/integration, candidate/release,
+  and offline/discovery/live evidence. VERSION/package/Codex plugin metadata is
+  0.3.0; Claude manifests retain their Git-commit update policy.
+- Full offline CI on Windows/Ubuntu and Python 3.11/3.14. Recorded live Windows
+  OpenCode and tier-unspecified Codex Luna/max remain distinct from unverified
+  fast service, live Claude-lead execution, live POSIX and macOS surfaces.
+- Fixed Claude marketplace omission of the fourth Codex plugin. Checked
+  release validation now accepts intentionally Git-versioned Claude manifests
+  only with a matching generated skill banner; stale/missing/null version
+  evidence still fails. Codex manifests keep explicit semantic versions.
+
 ### Added
 - Community scaffolding: SECURITY.md (private vulnerability reporting + threat-model notes),
   bug-report issue form (asks for `--status` + judge output up front), PR template carrying the

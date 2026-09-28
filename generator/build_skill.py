@@ -69,8 +69,16 @@ def _provider_default_workhorse(provider: str) -> str:
         return f"{provider}:unknown"
 
 
+def _executor_policy(provider: str) -> str:
+    if provider == "codex":
+        return ("An exact model ID is required; this provider has no default model. "
+                "Pass `--executor codex:<model-id>@<effort>` explicitly. "
+                "For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier.")
+    return f"The configured default workhorse is `{_provider_default_workhorse(provider)}`; preserve the user's selection."
+
+
 def _compose_skill(provider: str, out: Path) -> None:
-    """Compose SKILL.md from the template + provider fragment/setup, write to out."""
+    """Compose the concise Claude entry; provider detail is vendored by reference."""
     provider_template = PROVIDERS_DIR / provider / "SKILL.template.md"
     template = (provider_template if provider_template.is_file() else
                 SKILL_SRC / "SKILL.template.md").read_text(encoding="utf-8")
@@ -83,6 +91,7 @@ def _compose_skill(provider: str, out: Path) -> None:
         template
         .replace("{{PROVIDER_NAME}}", provider)
         .replace("{{DEFAULT_WORKHORSE}}", default_workhorse)
+        .replace("{{EXECUTOR_POLICY}}", _executor_policy(provider))
         .replace("{{PROVIDER_FRAGMENT}}", fragment)
         .replace("{{SETUP}}", setup)
         .replace("{{BANNER}}", banner)
@@ -93,18 +102,11 @@ def _compose_skill(provider: str, out: Path) -> None:
 def _compose_skill_codex(provider: str, out: Path) -> None:
     """Compose the Codex-host SKILL.md from its own concise YAML-first template."""
     template = (CODEX_HOST_SRC / "SKILL.template.md").read_text(encoding="utf-8")
-    executor_policy = (
-        "An exact model ID is required for each build; this provider has no default model. "
-        "Pass `--executor codex:<model-id>@<effort>` explicitly."
-        " For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier."
-        if provider == "codex" else
-        f"The default workhorse is `{_provider_default_workhorse(provider)}`."
-    )
     skill = (
         template
         .replace("{{PROVIDER_NAME}}", provider)
         .replace("{{DEFAULT_WORKHORSE}}", _provider_default_workhorse(provider))
-        .replace("{{EXECUTOR_POLICY}}", executor_policy)
+        .replace("{{EXECUTOR_POLICY}}", _executor_policy(provider))
         .replace("{{BANNER}}", _banner(provider))
     )
     (out / "SKILL.md").write_text(skill, encoding="utf-8")
@@ -119,6 +121,8 @@ def _vendor_codex_references(provider: str, out: Path) -> None:
     # The one shared, host-neutral reference (also vendored into Claude bundles).
     shutil.copy2(SKILL_SRC / "references" / "delivery-core.md",
                  refs / "delivery-core.md")
+    for name in ("authoring-plans.md", "architecture.md", "observability.md"):
+        shutil.copy2(SKILL_SRC / "references" / name, refs / name)
     shutil.copy2(PROVIDERS_DIR / provider / "setup.md", refs / "provider-setup.md")
     shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", refs / "provider.md")
 

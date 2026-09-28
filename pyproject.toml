@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cld"
-version = "0.2.0"
-description = "Route bulk implementation of large builds to cheap headless executor LLMs (opencode/antigravity/cursor) with Claude as architect + judge; committed failing tests are the merge gate."
+version = "0.3.0"
+description = "Codex or Claude Code leads cross-LLM delivery through isolated executor worktrees, independent acceptance, durable recovery and verified integration."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"

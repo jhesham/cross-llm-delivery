@@ -45,16 +45,12 @@ def _package_providers(dist_root: Path, *, host: str) -> tuple[str, ...]:
     host_root = dist_root / "codex" if host == "codex" else dist_root
     return PROVIDERS + (("codex",) if (host_root / "cross-llm-codex").is_dir() else ())
 DESCRIPTIONS = {
-    "antigravity": "Delegate bulk implementation to Google's Antigravity CLI (flat-rate Gemini/Claude models) with Claude as architect + judge; committed failing tests gate every merge.",
-    "opencode": "Delegate bulk implementation to OpenCode CLI models (free/cheap-metered: deepseek, kimi, GLM, ...) with Claude as architect + judge; committed failing tests gate every merge.",
-    "cursor": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Claude as architect + judge; committed failing tests gate every merge.",
-    "codex": "Delegate bulk implementation to an explicitly selected Codex CLI model with Claude as architect + judge; committed failing tests gate every merge.",
+    name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration."
+    for name in (*PROVIDERS, "codex")
 }
 CODEX_DESCRIPTIONS = {
-    "antigravity": "Delegate bulk implementation to Google's Antigravity CLI (flat-rate Gemini/Claude models) with Codex as architect + judge; committed failing tests gate every merge.",
-    "opencode": "Delegate bulk implementation to OpenCode CLI models (free/cheap-metered: deepseek, kimi, GLM, ...) with Codex as architect + judge; committed failing tests gate every merge.",
-    "cursor": "Delegate bulk implementation to Cursor's cursor-agent (composer-2.5) with Codex as architect + judge; committed failing tests gate every merge.",
-    "codex": "Delegate bulk implementation to an explicitly selected Codex CLI model with Codex as architect + judge; committed failing tests gate every merge.",
+    name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration."
+    for name in (*PROVIDERS, "codex")
 }
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 CODEX_CATALOG_NAME = "cross-llm-delivery-codex"

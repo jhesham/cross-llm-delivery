@@ -1,147 +1,56 @@
-# Codex-led cross-llm delivery workflow
+# Codex-led delivery workflow
 
-This reference expands the entry skill: how Codex leads a build that a headless
-provider executor implements slice by slice. Codex is the lead (decompose,
-contract, judge, integrate); the provider CLI is the implementation executor.
-Run commands from the installed skill directory with absolute plan and target
-repository paths. The driver is vendored under that directory:
+Codex authors the contract and committed acceptance tests; the chosen provider
+implements the slice. Use this bundle's `scripts/run_delivery.py` from the skill
+directory with absolute plan/repo paths, or invoke that driver by its absolute
+path. No target-machine package install is needed.
 
-```bash
-python scripts/run_delivery.py <plan.md> --repo <dir> <command> [--json]
-```
+Read [delivery-core.md](delivery-core.md) for JSON gates, spend/admission,
+budgets and recovery. Read [authoring-plans.md](authoring-plans.md) before
+authoring a plan: top-level slices, single-line briefs, protected tests and
+explicit dependencies. Read [provider-setup.md](provider-setup.md) when checking
+CLI/auth access and [provider.md](provider.md) for the selected adapter.
 
-No package install and no source checkout are required; the engine is vendored
-under `scripts/`. Prefer `--json` on every gate so the response is
-machine-checkable, and act on the exit code.
-
-## 1. Decompose the build into a plan (the lead's thinking)
-
-Author a plan markdown with one block per slice. Each slice is thin but
-end-to-end and independently testable, with a stable interface contract and a
-failing acceptance test the executor must make pass. Express dependencies so
-independent slices can run in parallel.
-
-```
-## SLICE: T1
-brief: Implement <X> so that tests/test_x.py passes. <contract details,
-  constraints, injectable boundaries, allowed files.>
-files: src/x.py, tests/test_x.py
-acceptance_test_path: tests/test_x.py
-deps:
-
-## SLICE: T2
-brief: Implement <Y> ...
-files: src/y.py
-acceptance_test_path: tests/test_y.py
-deps: T1
-```
-
-Author the acceptance tests first (committed, failing); they are the objective
-contract the executor is judged against. Slices are vertical, not horizontal,
-with injectable boundaries. Respect the user's existing project instructions
-when writing contracts; never overwrite them.
-
-## 2. Preview, then batch-step
-
-Always preview the layering first, then drive the build one DAG layer at a time
-so your context stays small and you can steer between phases:
+## Preview, step and integrate
 
 ```bash
 python scripts/run_delivery.py <plan.md> --repo <dir> --dry-run --json
-python scripts/run_delivery.py <plan.md> --repo <dir> --step --json [--workers N] [--executor <name>[:model][@effort]]
+python scripts/run_delivery.py <plan.md> --repo <dir> --step --workers 1 --executor <exact-spec> --validation-policy <deny|unmetered|allow> --budget-attempts <N> --json
+python scripts/run_delivery.py --status --repo <dir> --json
+python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <committed-selector> --json
 ```
 
-A step runs only the next pending layer (independent slices fan out
-concurrently in isolated worktrees), then exits with a short summary. Read the
-summary, relay it to the user, and act on the gate (exit code):
+Pick the exact executor/model/effort/tier under the user's existing
+authorization. A configured default or catalogue listing is not permission or
+proof of access. Present available choices only when the user has not already
+selected one. Codex has no static model catalog/default; accept an explicit
+user-selected supported spec. The production admission gate is
+`cld.admission.Admission`, not a hand-invoked legacy interactive helper.
 
-- 0: the operation succeeded; work remains.
-- 2: execution/test failure or dependency defer; inspect the named evidence.
-- 3: every slice is integrated and verified; review the recorded commit/ref.
-- 4: lead repair is required; follow the repair loop below.
-- 5: invalid plan/state, missing prerequisite, lock or policy block; resolve it.
-- 6: accepted commits await integration before dependent dispatch.
+A step runs a pending layer; validation/production/retries count against its
+cumulative limits. Do not silently substitute, retry paid work, raise budgets
+or remove a requested tier. Prefer one worker for a bounded sitting; CLI's
+default remains four. Every planned fallback rung still requires admission.
 
-For a cheap mid-run digest, poll `--status --json` between turns instead of
-reading raw logs. Per-slice detail lives under `<dir>/.cld/runs/<run-id>/`;
-open one evidence file only when the user asks for that slice.
+Inspect the returned gate: 0 work remains, 2 failure/defer, 3 integrated and
+verified, 4 repair, 5 blocked input/state/prerequisite/policy, 6 integration
+required. Accepted work must be integrated before dependent dispatch. Review
+the final recorded ref/SHA before merging into the intended user branch.
 
-## 3. Choosing the executor and model
+## Resume and repair
 
-Present the model shortlist once, before the first dispatch of a build, and let
-the user pick; a default existing is not permission to choose on the user's
-behalf. Do not silently choose or switch models. Skip the picker only when the
-user already named an executor this session; then echo that choice and proceed.
-The choice persists for all slices and re-dispatches of the build.
-
-Build the picker from the engine helpers and render the options verbatim --
-never hand-type, reorder, or recall them from memory:
-
-```python
-from cld.models import list_models, recommend, render_chat_picker
-recs = recommend(available_ids=list_models())
-print(render_chat_picker(recs))
-```
-
-Rules:
-
-- Use the provider's default only when one is configured. A provider without a
-  default requires an exact `--executor` model ID (see `references/provider.md`).
-- For a premium-metered model, confirm that billed dispatches are covered by
-  the user's existing authorization; ask if that is unclear. Declining falls
-  back to the default only with the user's agreement.
-- An untested model goes through `cld.validate.resolve_and_validate` (one
-  trivial slice as judge) before any real build trusts it; metered validation
-  requires authorization, which may already exist. Never claim discovery or capability has been verified
-  when it has not.
-- A slice may pin `executor: <name>:<model>` in its block; that slice runs on
-  it silently. Untagged slices use the build default.
-
-## 4. Acceptance and integration are separate
-
-After acceptance, integrate the exact recorded commits with an explicit suite:
+Keep the same bound plan/repo/ledger. Read the response's artifact paths and
+only the relevant attempt logs under `.cld/runs/<run-id>/`. Do not reset state
+to clear a failure. Follow the user's existing authorization and host policy
+when fixing retained source; keep protected tests/configuration unchanged.
 
 ```bash
-python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector> --json
+python scripts/run_delivery.py <plan.md> --repo <dir> --mark-repaired <slice-id> --json
+python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <committed-selector> --json
 ```
 
-The engine merges in an owned worktree, verifies the frozen candidate, and
-records its integration SHA. Subsequent slices branch from that SHA; the user's
-checkout is untouched. Failed or unintegrated dependencies block dispatch, and
-repeating a published integration is a no-op.
-
-## 5. The gate-4 repair loop (explicit authorization)
-
-Gate 4 means a slice needs lead repair or an integration candidate
-failed/conflicted. Failed worktrees are retained. Follow the user's existing
-authorization and the host's active approval policy before editing source;
-ask only if authorization is unclear. Never silently dispatch another paid attempt.
-
-1. Read that attempt's diagnostics under `.cld/runs/<run-id>/`.
-2. Fix the permitted source files in the recorded retained worktree; keep
-   committed acceptance tests and protected inputs unchanged.
-3. Verify the repair with the original plan:
-   ```bash
-   python scripts/run_delivery.py <plan.md> --repo <repo> --mark-repaired <slice_id> --ledger <path> --json
-   ```
-   This re-tests and collects a frozen repaired candidate in a new owned
-   worktree. Exit 6 means accepted and awaiting integration.
-4. Integrate with `--integrate --integration-tests <selector>`. For an
-   integration conflict, resolve and commit in the retained integration
-   worktree, then `--integrate --manual-integration <resolved-commit>`.
-5. Continue with `--step` only after successful integration.
-
-Repair verification and integration do not invoke the provider.
-
-## 6. Telemetry and usage
-
-Telemetry is always on and local: every build writes `<repo>/.cld/events.jsonl`;
-read it with `--status --json`. Exporting to an OTLP backend is opt-in via env
-vars. `--usage` renders a combined per-build and account usage table from the
-ledger plus provider aggregate stats; re-run to refresh.
-
-## Provider specifics
-
-- `references/provider-setup.md` -- install and verify the executor CLI.
-- `references/provider.md` -- locked invocation form, auth, cost, and platform
-  notes for the selected provider.
+Repair verification/integration do not invoke inference. Explicit legacy
+migration, changed-plan reconciliation and rollback limits are in the core
+reference. Missing usage stays unknown; a Git worktree is not a sandbox.
+Read [observability.md](observability.md) or [architecture.md](architecture.md)
+only when inspecting telemetry or extending/debugging the engine.

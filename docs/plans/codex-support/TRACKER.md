@@ -38,7 +38,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T19B — Host/provider matrix, measured overhead and rollback ([evidence](T19B-EVIDENCE.md); 11 unique local cases, source `d78c734`, all four CI jobs passed)
 - [ ] T20 — Documentation and release candidate
   - [x] T20A — Explicit Codex fast tier and coherent Claude installs ([evidence](T20A-EVIDENCE.md); engine source `6c814e5`, all four CI jobs passed)
-  - [ ] T20B — Concise entry skills, final documentation and release candidate
+  - [ ] T20B — Concise entry skills, final documentation and release candidate (in progress; 0.3.0 prepared, final source/candidate gates pending)
 
 The checklist above is the task-level completion record. The table below holds its dependencies, estimates, and evidence. Budgets are estimated **lead-agent input + output tokens per sitting**, excluding separately reported executor/model usage. They are neither context-window sizes nor a hard runtime limit. See [session rules](SESSION-GUIDE.md).
 

@@ -28,6 +28,54 @@ Acceptance and integration are separate: an accepted slice is not verified
 until `--integrate --integration-tests <selector>` has merged and re-tested
 the frozen candidate.
 
+## Validation and budget policy
+
+The production CLI admits the default, per-slice overrides and every planned
+fallback rung through `cld.admission.Admission`. Static catalog labels do not
+authorize dispatch. Validation defaults to `deny`; `unmetered` permits only
+catalogued free/flat probes, and `allow` permits metered/unknown-cost probes.
+Fresh evidence binds the exact executor spec, CLI/config/account context and
+maximum age (30 days by default). `--revalidate-models` still requires the
+selected validation-spend policy. Corrupt evidence blocks; no automatic paid
+validation is implied by first use or an outdated catalog.
+
+`--budget-attempts` counts validation, production and retries. Token/cost
+ceilings require positive `--attempt-tokens`/`--attempt-cost` reservations.
+Reservations admit calls; they cannot stop a running provider at an exact
+token/dollar boundary. Actual overruns block later calls. Missing usage remains
+unknown; under a ceiling it blocks by default, unless `--unknown-usage reserve`
+explicitly charges the recorded allowance. Never infer zero usage/cost from a
+subscription. Start with one worker and only the allowance needed for this
+sitting; public CLI defaults remain four workers.
+
+## Recovery and integration
+
+Use absolute plan/repo/ledger paths when changing cwd. Default state is
+`<repo>/.cld-ledger.json`; an explicit relative `--ledger` uses invocation cwd.
+Resume the original plan and bound repo; inspect `--status --json` first.
+Attempts and durable run events live under `.cld/runs/<run-id>/`. Status,
+integration, repair verification and explicit migration operations do not
+dispatch a provider.
+
+Legacy state requires `--migrate-ledger` with its original plan. Changed plans
+require `--reconcile-plan`; an intentional fresh run uses `--new-build`. These
+operations preserve backups and do not grant dispatch permission. Do not
+delete ledgers/worktrees/accepted refs or write a passing entry by hand.
+
+For gate 4, inspect the retained worktree, edit only authorized source files,
+then run `--mark-repaired <slice-id>` with the original plan. Gate 6 requires
+`--integrate --integration-tests <committed-selector>`. Integration checks the
+accepted frozen commits in an owned worktree; inspect its ref/SHA before an
+explicit merge into the user's intended branch. Failed collection, tests or
+integration retain evidence. Restore denied access through provider/host
+configuration rather than blanket permission bypass.
+
+Old engines cannot read schema-2 ledgers. Before rollback, stop writers and
+preserve byte-identical active state, migration backups, worktrees and refs.
+After new accepted work, retain schema-2 rather than restoring a stale backup
+and losing that progress. Source-repo recovery instructions are in
+`docs/MIGRATION.md` and `docs/plans/codex-support/T19B-ROLLBACK.md`.
+
 ## Explicit Codex service tier and deadline
 
 When the user selects Codex max effort with fast mode, preserve the full spec

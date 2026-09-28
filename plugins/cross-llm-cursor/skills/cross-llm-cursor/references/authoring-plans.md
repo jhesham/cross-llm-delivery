@@ -2,7 +2,22 @@
 
 The quality of a cross-llm-delivery run is determined almost entirely by the plan. The
 executor is reliable at *making a clear contract pass*; it cannot rescue a vague one. This
-is where Claude's leverage lives — spend the thinking here.
+is where the lead agent's planning matters.
+
+## Supported plan format
+
+Use top-level `## SLICE: <id>` blocks with one value per line. Required fields
+are `brief`, `files` and `acceptance_test_path`; `deps` defaults to no
+dependencies. Briefs are single lines; lists are comma-separated, distinct relative
+paths. Optional fields: `executor`, `complexity`, `protected_inputs`, and
+`allow_already_satisfied: true|false`. IDs must be unique; dependencies must
+exist and be acyclic. Unsafe paths, repeated/unknown fields, multiline briefs
+and nested `SUBSLICE` blocks are rejected before dispatch.
+
+Commit the acceptance tests, their configuration and other protected inputs.
+Keep them outside `files`: tests are not writable implementation targets.
+Pin an executor only under the user's selected model policy. `allow_already_satisfied`
+permits a passing baseline/no-change candidate, never a skipped acceptance run.
 
 ## Vertical slices, not horizontal layers
 
@@ -72,10 +87,9 @@ data because every test encoded the same assumptions. Plan for it explicitly:
 
 ## Right-sizing
 
-- Big enough that executor implementation tokens dwarf Claude's spec + judge tokens.
+- Large enough that delegation can justify its measured planning/validation overhead.
 - Small enough to stay independently testable and cap the blast radius of a bad slice.
-- Empirically, even "real" modules are often 30–120 lines — that's fine; the win on a
-  flat-rate executor is from $0-marginal typing, not from giant single dispatches.
+- Estimate both lead and executor overhead; do not infer free work from a subscription.
 
 ## Dependencies / the DAG
 
@@ -86,8 +100,9 @@ DAG (more parallelism) over a long chain where possible.
 ## Complexity (routing hint)
 
 Each slice carries an optional `complexity:` field that tells the router which rung of the
-executor ladder to start on. Set it honestly — cheap escalation between rungs is automatic
-and free, but a wrong-low guess adds a re-run cycle.
+executor ladder to start on. It is a routing hint, not an estimate of cost or
+permission for another dispatch. Explicit executor selections preserve the
+selected model; every planned rung still requires admission and budget capacity.
 
 | Value | When to use it |
 |----------|----------------|
@@ -95,9 +110,9 @@ and free, but a wrong-low guess adds a re-run cycle.
 | `standard` | A typical module with real logic and a few integrated pieces. **Use this when you are unsure** — it is the default. |
 | `complex` | Subtle algorithm, concurrency, gnarly edge cases, ambiguous spec, or high rework risk; even a good cheap model would likely struggle. Flagged `!` in the routing plan and routed to the workhorse; a failure escalates to orchestrator repair. |
 
-**Rule: never downgrade to `easy` or `standard` to save money when unsure — default to
-`standard`.** A wrong-low complexity guess only causes cheap-to-free escalations; the router
-handles them automatically. The cost of underestimating is a re-run cycle, not a surprise bill.
+Use `standard` when uncertain. Inspect the resolved routing plan rather than
+assuming a third heavy rung exists. Failed attempts and validation can consume
+paid tokens; do not silently retry or increase the user's limits.
 
 ```
 ## SLICE: T3
