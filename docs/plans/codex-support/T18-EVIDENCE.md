@@ -1,7 +1,12 @@
 # T18 — Checked release automation
 
-Implementation and 55 focused local checks pass; exact pushed-SHA four-job CI and
-clean-checkout previews are pending before task closure. No public main sync,
+Implementation and **59 focused local checks pass**. The checked CI helper verified
+[source/test SHA 032cc26 four-job CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36392139614):
+Windows/Ubuntu Python 3.11/3.14 full offline tests and all five artifact gates.
+[Clean-checkout previews](T18-PREVIEW.md) changed no local refs or tracked files.
+The closing push includes four final edge checks and the relative local-remote
+repair; its exact-SHA four-job CI must also pass before handing off or advancing
+to T19. Final metadata is retained in `.cld/t18/ci-final-jobs.json`. No public main sync,
 release tag, GitHub Release, provider mirror publication or global skill copy has
 been executed in this task.
 
@@ -35,7 +40,7 @@ Both host variants, four provider bundles and --all umbrella previews work.
 
 ## Verification
 
-`python -m pytest tests/test_t18_release.py tests/test_publish.py -q`: **55 passed**
+`python -m pytest tests/test_t18_release.py tests/test_publish.py -o addopts= -q`: **59 passed**
 on Windows Python 3.13. Real Git operations target disposable local bare repos;
 pytest/generators/gh are injected where release workflow sequencing is tested.
 Native push/add/commit/tag/generation/test/gh/worktree/CI/copy/cleanup failures
@@ -51,6 +56,12 @@ Lead review corrected two fixture defects after dogfood: fake generation now
 actually changes a plugin so add/commit failure checks execute; existing mirror
 clones explicitly select main instead of depending on a bare repo's default HEAD.
 The Windows cleanup defect found in the first run was repaired and reverified.
+Final review fixed relative local remote paths: resolve them against the source
+root before preflight/staging so cwd changes cannot redirect a push. Real-Git
+checks also prove unchanged mirrors still push/check exact CI, fetch failure
+stops before staging, and multiple push URLs are rejected. The relative-path
+fixture was rerun after making its version independent of future source bumps
+(one passing case).
 
 ## Dogfood and usage
 

@@ -63,6 +63,11 @@ def _publish(provider, *, targets, version, dist_root, execute, runner,
     repo = targets[provider]
     if not isinstance(repo, str) or not repo or repo.startswith("-") or any(c in repo for c in "\r\n\0"):
         raise ValueError("Publish remote must be an explicit single-line URL or path")
+    # Resolve local paths once, before changing cwd to isolated publishing staging.
+    # URLs and scp-style SSH destinations remain literal; aliases become local paths.
+    if not re.match(r"[A-Za-z][A-Za-z0-9+.-]*://", repo) and not (
+            re.match(r"(?:[^/@:\s]+@)?[^/:\s]+:[^\\\s]+", repo) and not Path(repo).drive):
+        repo = str((REPO_ROOT / repo).resolve())
     if expected_sha is not None and not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_sha):
         raise ValueError("expected_sha must be an exact 40/64-hex remote commit")
     if replace_history and expected_sha is None:
