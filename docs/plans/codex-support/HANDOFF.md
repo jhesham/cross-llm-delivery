@@ -1,15 +1,33 @@
 # Current handoff
 
-Updated 2026-09-26. **T01–T17, M1–M4 and optional M6 are complete. T18 is the next required task; stop until the user confirms token availability before starting it.** Branch `refactor/codex-support`, remote `public`. No main merge, release or user-global Codex skill installation. R13 release-command checking belongs to T18.
+Updated 2026-09-28. **T01–T17, M1–M4 and optional M6 complete. T18 in progress:
+implementation and 55 focused local regressions pass; exact pushed-SHA four-job
+CI and clean-checkout previews pending. Do not start T19.** Branch
+`refactor/codex-support`, remote `public`. No main merge/release/tag/public mirror
+or global skill installation has been authorized by this task.
 
-[T16 evidence](T16-EVIDENCE.md) records source/test `e64d12f`, exact `opencode:opencode/kimi-k3` adapter dogfood (401,147 reported tokens, USD 0.5116818), and the user-selected `codex:gpt-6-luna@max` Windows canary (two calls, 944,961 derived tokens, 841,984 cached input included in input, USD cost unknown). A budget deferral and per-attempt overrun block were resumed on the same ledger without extra calls; the candidate passed an independent one-file gate and fresh-process integration. This is Windows live proof only; live Ubuntu/macOS dispatch and a live mid-process kill/resume remain unverified. Four host/provider bundles per host, package resources, plugin/catalog smoke, and tracked Claude plugin freshness pass locally and in [Windows/Ubuntu Python 3.11/3.14 CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). The local full suite found one stale three-provider assertion; it was fixed, the 45-case focused provider/contract group passed, and all four CI jobs passed the full suite. Pause at this task boundary.
+Read [T18 evidence](T18-EVIDENCE.md), [tracker](TRACKER.md), and only
+[T18 requirements](06-PACKAGING-RELEASE.md#t18--checked-release-automation).
+The red contract/acceptance baseline is `eef006b`. Checked Python release
+operations and PowerShell forwarding wrappers replace unchecked native scripts;
+bundle mirror publishing uses explicit refs, atomic push and exact expected-SHA
+leases. Source versions and both generated plugin sets are checked. All 55
+focused Windows Python 3.13 release/publish checks pass, including concurrent
+remote updates, failure retention, literal notes, wrapper exit codes and
+read-only previews. Wait for full Windows/Ubuntu Python 3.11/3.14 CI plus all
+bundle/plugin/catalog steps, then close R13/T18 and commit the closure evidence.
 
-[T15 evidence](T15-EVIDENCE.md) records the optional offline Codex executor contract, synthetic JSONL fixtures, installed Windows `codex-cli 0.155.1` flag probe, 20 focused passing tests, and [four-job Windows/Ubuntu Python 3.11/3.14 CI plus generator smoke](https://github.com/jhesham/cross-llm-delivery/actions/runs/36102993135) at source/test commit `63b5ed1`. The exact `opencode:opencode/kimi-k3` dogfood implementation attempt timed out at the process deadline after passing its focused tests; CLD retained but did not accept the candidate, and production usage/cost are unknown. The lead reviewed and applied its contract diff, fixed additional edge cases, and verified it independently. T15 made no live Codex executor call or provider registration; T16's separate evidence above now covers the Windows live call and registration.
+Exact Kimi K3/OpenCode dogfood run `901f496d00b54ceea68595cb6c6a6b88` validated
+but timed out after 600 seconds with no changes/candidate. Validation reported
+60,535 provider tokens/USD 0.059661; production usage/cost unknown. Attempts
+exhausted after validation + production; no further provider call or substitute.
+Ledger `.cld/t18/ledger.json`; worktree and process metadata paths are in evidence.
+Lead usage unavailable; original 8–12k lead estimate exceeded. After T18 closure,
+stop for explicit user token confirmation before T19 migration/interruption
+rehearsal. T20 documentation/candidate follows T19. M5 remains open.
 
-Parent T17 closed in three children. [T17A](T17A-EVIDENCE.md) fixed missing provider Markdown resources in wheel/sdist. [T17B](T17B-EVIDENCE.md) verified six host/provider bundles and Codex plugin catalog, refreshed tracked Claude plugins, and added a CI freshness gate. [T17C](T17C-EVIDENCE.md) expanded CI to Python 3.11/3.14 on Windows/Ubuntu, added fixed plan/JSON-result/legacy-ledger fixtures and core-only installed-wheel smoke, and narrowed platform claims to their evidence level. Local Windows Python 3.13 full suite passed; [four-job CI on repaired source `5a5e68e`](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121) passed full offline tests, both generators, freshness and plugin/catalog smoke. An initial Ubuntu 3.11 failure was a timeout-test truncation race; the test writer was corrected without changing production process handling. Local wheel/sdist filenames and hashes are in T17C evidence. R07/A05 are closed; macOS and live POSIX provider dispatch remain unverified. No model call was made in T17B or T17C, so provider usage was zero; lead token counters are unavailable.
-
-Read [T14 closing evidence](T14-EVIDENCE.md) and [the tracker](TRACKER.md). The two-layer fake-provider stop/resume, six generated host/provider contracts, Codex CLI app-server discovery, Claude interactive skill discovery, driver previews, and containment/permission-path probes passed. Claude skill frontmatter ordering was repaired in source and tracked bundles. A legacy `untested` evidence record now requires revalidation without granting proof. The exact `opencode:opencode/kimi-k3` canary passed validation, one implementation attempt, stop and fresh-process integration (2 provider attempts, 100,318 reported tokens, USD 0.1057668). Code/test and partial evidence were committed and pushed as `55632ce`; [four-job Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36024793265) passed there.
-
-The final T14 IDE gate was observed in VS Code 1.139.0 with `openai.chatgpt` 26.917.62051 and Codex CLI 0.155.1. A repo-local skill was installed in a disposable Git workspace with spaces. The Codex panel offered `$cross-llm-opencode`, selected it as a skill chip, invoked the vendored driver, and reported its resolved path, `pending` gate and `[["A"], ["B"]]` layers. Screenshots are linked from T14 evidence. This dry run caused no new OpenCode/Kimi dispatch or delivery ledger. The IDE lead model label was `GPT-6 Astra Medium`; token/cost counters were unavailable. A separate Claude memory extension created an untracked `AGENTS.md` in the disposable workspace, with no tracked product change.
-
-T14's final documentation SHA `149a9b9` passed [Windows/Ubuntu CI and generator smoke](https://github.com/jhesham/cross-llm-delivery/actions/runs/36099567941). T15's source/test SHA `63b5ed1` passed the same four-job gate; the T15 closing documentation commit will trigger a final branch run. Preserve the Claude default and Codex ignored output routes, and never substitute the selected Kimi executor model. macOS and live POSIX provider dispatch remain unverified and are not claimed by M4 or T15.
+Previous proof is linked from [T14](T14-EVIDENCE.md), [T16](T16-EVIDENCE.md), and
+[T17C](T17C-EVIDENCE.md). Codex/Claude host discovery and Windows Codex executor
+canary passed; macOS, live POSIX providers and live process interruption remain
+unverified. Preserve exact model IDs, generated-file policy and one-slice
+checkpoints. Do not repeat broad paid calls to rediscover existing proof.
