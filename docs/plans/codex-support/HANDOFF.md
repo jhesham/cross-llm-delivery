@@ -1,17 +1,62 @@
 # Current handoff
 
-Updated 2026-09-29. **T01–T19 and T20A verified; M1–M4 and optional M6 complete. Parent T20 and M5 stay open. Stop for explicit token confirmation before T20B.** Branch `refactor/codex-support`, remote `public`.
+Updated 2026-09-29. **T01–T20 and M1–M6 complete**, including selected optional
+T15/T16. Branch `refactor/codex-support`, remote `public`. Stop at the token
+checkpoint. No implementation task remains in this plan; publication is separate.
 
-Read [T20A evidence](T20A-EVIDENCE.md), [tracker](TRACKER.md), then [T20B and final checklists](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate). Engine source `6c814e5e71de7e806a4ff7564c5c2b19cd3c3da2` passed [all four Windows/Ubuntu Python 3.11/3.14 jobs and all packaging gates](https://github.com/jhesham/cross-llm-delivery/actions/runs/36430643297). Exact metadata: `.cld/t20a/ci-final-jobs.json`. T19B source `d78c734` also passed [all four jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/36425920464); [matrix](T19B-MATRIX.md) and [rollback](T19B-ROLLBACK.md) remain the support/recovery evidence.
+Read [candidate/signoff](T20B-CANDIDATE.md), [tracker](TRACKER.md) and
+[support matrix](T19B-MATRIX.md). Final source/package-input commit:
+`59722b5c6868dc70a3f937c8aa2b9089dcd92a4b`. [All four Windows/Ubuntu Python
+3.11/3.14 jobs and every Test/generator/freshness/plugin/catalog gate passed](https://github.com/jhesham/cross-llm-delivery/actions/runs/36437852261).
+Exact metadata: `.cld/t20b/ci-final-jobs.json`. The later signoff commit changes
+planning documentation only; it does not change tested engine/package inputs.
 
-T20A implements `codex:gpt-6-luna@max+fast` through shared parsing, separate validation identity and literal effort/tier config arguments. Explicit-tier warning/fallback output cannot produce a candidate diff, including exit-zero completion. Actual-tier mismatch fails; missing telemetry cannot prove fast processing. Existing dispatch deadline remains 600 seconds with explicit `CLD_DISPATCH_TIMEOUT=1200` available for larger max slices; probes remain 30 seconds. No automatic timeout/budget increase or paid retry. Thirty new offline cases and existing parser/admission/model/generator/bundle contracts pass.
+Version **0.3.0 is prepared**, not published. Seven local artifacts are in
+`dist/candidate/`: committed source ZIP, wheel, sdist, both host skill ZIPs and
+both plugin ZIPs. Their hashes/build tools and reproducible-content commands are
+in the candidate document and `dist/candidate/manifest.json`. Isolated installed
+wheel, eight provider resources, four ZIP repeat checks, eight skill validators
+and two worked-example previews pass. Thirteen new packaging cases cover the
+missing Codex Claude catalog entry, concise entries and native release handling
+of Git-versioned Claude manifests; 64 focused release checks pass.
 
-All four **Claude Code global standalone skills** were regenerated from committed engine `6c814e5` and installed under `C:\Users\Administrator\.claude\skills\cross-llm-<provider>` (antigravity/cursor/opencode/codex). Installed file hashes match bundles; 38 shared engine Python files match across all four, installed help and exact Luna/max/fast factory checks pass. Backups and original/new SHA-256 manifests: `C:\Users\Administrator\.claude\skill-backups\t20a-20260928-234430-a211eefc`; duplicate local manifest `.cld/t20a/claude-install.json`. Restart Claude Code for discovery. Do not edit installed copies or mix cached old skill instructions/engines. Preserve active state before rollback; restoring old skills does not downgrade schema-2 ledgers.
+All four **Claude Code user-global standalone skills** now come from `59722b5`:
+`C:\Users\Administrator\.claude\skills\cross-llm-<provider>` for antigravity,
+cursor, opencode and codex. Entire installed inventories match generated hashes;
+38 shared core Python files match across all four; installed help and exact
+Luna/max/fast parser/factory checks pass. Backups and original/new hash manifests:
+`C:\Users\Administrator\.claude\skill-backups\t20b-20260929-004212-bb64c028`;
+duplicate `.cld/t20b/claude-install.json`. Restart Claude Code for discovery.
+Older Claude entry estimates fell from ~5.6–6.3k to ~1.2k (79–82% reduction);
+Codex-host entries are ~0.8k. Characters/4 are estimates, not billed usage;
+references consume additional context when opened. Preserve active ledger state
+before rollback; old engines cannot read schema-2 state. Do not mix bundle
+engine revisions on one ledger or hand-edit installed files.
 
-**T20B remaining (10–16k estimated lead tokens):** shrink older Claude entry skills from T19B's roughly 5.6–6.3k estimates to 1–2k by moving detail to references; preserve YAML-first discovery/vendored drivers; finish public install/plan/validation/budget/gate/resume/repair/migration docs and two worked examples; remove obsolete claims; finalize version/changelog and reproducible candidate hashes, checks, limits and target refs. Regenerate/recheck all artifacts, refresh the complete four-skill Claude set together if source changes, then update milestones and handoff. A static Luna picker entry is optional and cannot imply validation/entitlement.
+[T20A](T20A-EVIDENCE.md) implements `codex:gpt-6-luna@max+fast` with separate
+validation identity and explicit effort/tier config. Exposed unsupported/fallback
+warnings or actual-tier mismatch fail dispatch; missing tier telemetry cannot
+prove delivered fast processing. Deadline remains 600 seconds, explicitly
+configurable with `CLD_DISPATCH_TIMEOUT=1200`; probes remain 30 seconds. No
+automatic timeout/budget increase, silent tier/model substitution or paid retry.
 
-Evidence limits persist: recorded Windows host discovery at T13B/T14 versions, Windows live OpenCode and tier-unspecified Luna/max executor at T14/T16. New fast-tier live processing and new Claude skill picker discovery are unverified. Live Claude-lead execution, fourth Codex-plugin discovery, mid-process live provider interruption, Ubuntu Codex flags/live POSIX dispatch and macOS remain unverified. Do not generalize offline CI to live entitlement.
+Evidence limits: prior recorded Windows host discovery and live Kimi K3/OpenCode
+and tier-unspecified Luna/max executor evidence remain valid for their recorded
+versions. New fast-tier live service, refreshed Claude picker discovery, fourth
+Codex-plugin discovery, live Claude-lead execution, live provider mid-process
+interruption, Ubuntu Codex flags/live POSIX and macOS remain **unverified**.
+Offline CI cannot establish live entitlement. [Migration/recovery](../../MIGRATION.md)
+and [rollback evidence](T19B-ROLLBACK.md) retain the tested safety boundaries.
 
-T20A was direct lead work after T18/T19A/T19B's three documented Kimi no-candidate timeouts; no new paid call, substitute model or subagent. Additional provider usage/cost zero; lead counters unavailable (8–12k was a planning allowance). Reassess any future dogfood contribution before dispatch; no automatic retry or budget increase. Historical usage evidence remains in T19A/T19B documents.
+T20A/T20B were direct lead work after the earlier documented Kimi no-candidate
+timeouts. No new provider call or subagent; additional provider usage/cost zero;
+lead counters unavailable. Do not infer a future dogfood/canary authorization.
 
-Only the authorized refactor branch was pushed. No main merge/sync, tag/release, provider-mirror publication or Codex global installation. Final candidate preparation remains T20B; remote publication is a separate operation. **Pause here and request token availability; do not start T20B automatically.**
+Only the authorized refactor branch was pushed. No main merge/sync, tag/release,
+provider-mirror publication or Codex user-global install. Read-only preview:
+`.cld/t20b/publish-preview.json`; main was
+`67ad2f5815e106d0f2f84bfc9f896807411f81e6`, with no `v0.3.0` tag. Review current
+remote states again before any separately authorized promotion. The release
+helper only bumps to a newer version, so do not request prepared 0.3.0 through
+that bump path; see the candidate's publication boundary. No force-replacement
+or publication is authorized by these notes. **Pause here.**

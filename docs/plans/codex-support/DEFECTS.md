@@ -8,7 +8,9 @@ Claude manifests. `tests/test_t20b_entries.py` records both pre-fix failures;
 the catalog now resolves all four packages, and release validation requires a
 current generated Claude banner when the manifest omits version. Stale/missing
 and explicit null version evidence remain errors. This extends R13/A08 evidence
-without changing Claude's Git-commit update policy; final source CI is required.
+without changing Claude's Git-commit update policy. Source `59722b5` passed all
+four exact-source CI jobs and the actual package gate; [T20B signoff](T20B-CANDIDATE.md)
+records the 13 new cases, artifacts, coherent installs and remaining limitations.
 
 | Fixed | ID / severity | Current location | Reproduction / required regression | Owner tasks |
 |---|---|---|---|---|
