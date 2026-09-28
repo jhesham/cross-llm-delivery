@@ -32,9 +32,9 @@ Dependencies: T17. Estimate: 8–12k. Files: `release.ps1`, `sync-public.ps1`, `
 
 Executable children: [T19A evidence](T19A-EVIDENCE.md) covers the first three
 checklists and passed four-job CI at `24ae8f4`. [T19B evidence](T19B-EVIDENCE.md)
-covers the remaining matrix/measurement/rollback work; 11 new local cases pass,
-with final four-job closing-source CI required before signoff. Missing live and
-host-discovery surfaces remain explicit limitations. Stop before T20.
+covers the remaining matrix/measurement/rollback work; 11 new local cases and
+all four closing-source CI jobs passed at `d78c734`. Missing live and
+host-discovery surfaces remain explicit limitations.
 
 Dependencies: T14/T18. Estimate: 10–18k; split platform rehearsal if needed. Files: integration fixtures, host compatibility evidence, migration documentation; fix only failures demonstrated by rehearsal.
 
@@ -53,13 +53,15 @@ Dependencies: T14/T18. Estimate: 10–18k; split platform rehearsal if needed. F
 The 2026-09-28 user feedback adds a runtime/installation child before the final
 documentation candidate. Stop for token confirmation after each child.
 
-- [ ] **T20A — Explicit Codex fast tier and coherent Claude installs** (8–12k
+- [x] **T20A — Explicit Codex fast tier and coherent Claude installs** (8–12k
   estimated lead tokens): shared `@effort+fast` parsing; separate validation
   identity; explicit Codex config; reject warning/fallback completion; verify
   configurable max-effort deadlines; regenerate both hosts/plugins; install all
   four Claude skills from one committed engine with backups and hashes.
   Offline tests and exact-source four-job CI required. No new live call is
   implied; leave fast entitlement and actual host discovery unverified.
+  [Source `6c814e5`, installation hashes/backups and all four CI jobs](T20A-EVIDENCE.md)
+  verified 2026-09-29. Stop for token confirmation before T20B.
 - [ ] **T20B — Concise entry skills, final documentation and release candidate**
   (10–16k estimated lead tokens): the original checklists below, including
   commands, worked examples, version/changelog, candidate hashes/refs and

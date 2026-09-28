@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: T01 through T19 local implementation/rehearsals and M1–M4 plus optional M6 complete. T20 is next; stop for token availability. Closing T19B source must pass exact-SHA four-job CI before signoff; M5 stays open.
+Status: T01–T19 and T20A verified; M1–M4 and optional M6 complete. T19B source `d78c734` and T20A engine source `6c814e5` passed their exact-SHA four-job CI. T20B is next after explicit token confirmation; parent T20 and M5 stay open.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -33,11 +33,11 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T17B — Bundle matrix and tracked freshness (source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md); Windows/Ubuntu CI green)
   - [x] T17C — CI matrix and compatibility gate ([evidence](T17C-EVIDENCE.md); Python 3.11/3.14 × Windows/Ubuntu green)
 - [x] T18 — Checked release automation
-- [x] T19 — Migration and interruption rehearsal (local complete; final CI required before signoff)
+- [x] T19 — Migration and interruption rehearsal (all four closing-source CI jobs passed)
   - [x] T19A — Fresh-process migration, abrupt interruption and locking rehearsal ([evidence](T19A-EVIDENCE.md); source `24ae8f4`, all four CI jobs green)
-  - [x] T19B — Host/provider matrix, measured overhead and rollback ([evidence](T19B-EVIDENCE.md); 11 unique local cases, final four-job CI required)
+  - [x] T19B — Host/provider matrix, measured overhead and rollback ([evidence](T19B-EVIDENCE.md); 11 unique local cases, source `d78c734`, all four CI jobs passed)
 - [ ] T20 — Documentation and release candidate
-  - [ ] T20A — Explicit Codex fast tier and coherent Claude installs (in progress)
+  - [x] T20A — Explicit Codex fast tier and coherent Claude installs ([evidence](T20A-EVIDENCE.md); engine source `6c814e5`, all four CI jobs passed)
   - [ ] T20B — Concise entry skills, final documentation and release candidate
 
 The checklist above is the task-level completion record. The table below holds its dependencies, estimates, and evidence. Budgets are estimated **lead-agent input + output tokens per sitting**, excluding separately reported executor/model usage. They are neither context-window sizes nor a hard runtime limit. See [session rules](SESSION-GUIDE.md).
@@ -62,8 +62,8 @@ The checklist above is the task-level completion record. The table below holds i
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Complete: source/test `e64d12f`; [Windows canary and Kimi dogfood evidence](T16-EVIDENCE.md); [Windows/Ubuntu Python 3.11/3.14 CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). |
 | [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Complete: [T17A](T17A-EVIDENCE.md), [T17B](T17B-EVIDENCE.md), [T17C](T17C-EVIDENCE.md); T17C source `465b698`, race repair `5a5e68e`, [Python 3.11/3.14 × Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; T14 is next. |
 | [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Complete — [evidence](T18-EVIDENCE.md), 59 local checks and closing commit `593174a` passed all four CI jobs |
-| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Local complete: [T19A](T19A-EVIDENCE.md) four-job CI green at `24ae8f4`; [T19B](T19B-EVIDENCE.md) 11 new cases, explicit support levels, rollback and sizes. Closing-source CI required before signoff. A08 closed. Stop before T20. |
-| [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | T20A 8–12k; T20B 10–16k | In progress: user fast-tier/installation feedback adds T20A; final documentation/candidate T20B remains open. Estimates exclude provider usage. |
+| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Complete: [T19A](T19A-EVIDENCE.md) four-job CI green at `24ae8f4`; [T19B](T19B-EVIDENCE.md) 11 new cases and [all four closing-source jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/36425920464) green at `d78c734`. A08 closed. |
+| [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | T20A 8–12k; T20B 10–16k | [T20A](T20A-EVIDENCE.md) complete: exact Luna/max/fast syntax, coherent four-skill Claude installation/backups and four-job source CI at `6c814e5`. Stop for token confirmation before T20B final docs/candidate. Estimates exclude provider usage. |
 
 Default sitting order: **T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T17 → T14 → T18 → T19 → T20**. Optional T15/T16 can follow M5 or be inserted after T13 if the user wants the fourth provider in the same release. Do not let optional provider work defer review fixes.
 
