@@ -404,15 +404,12 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
     Forms: "gemini" -> ("gemini", {}); "gemini:gemini-3-pro-preview" ->
     ("gemini", {"model": "gemini-3-pro-preview"}). An optional @<effort> suffix
     (e.g. "cursor:claude-opus-4-8@low") is returned as kwargs["effort"].
+    Codex additionally accepts @<effort>+fast as kwargs["service_tier"].
     """
-    spec = (spec or _default_spec()).strip()
-    effort = None
-    if "@" in spec:
-        spec, effort = spec.rsplit("@", 1)
-        spec, effort = spec.strip(), (effort.strip() or None)
+    from cld.models import split_executor_options
+    spec, options = split_executor_options((spec or _default_spec()).strip())
     name, kwargs = _parse_name_model(spec)
-    if effort:
-        kwargs["effort"] = effort
+    kwargs.update(options)
     return name, kwargs
 
 
