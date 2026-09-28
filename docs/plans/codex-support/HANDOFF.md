@@ -1,40 +1,13 @@
 # Current handoff
 
-Updated 2026-09-28. **T01–T18, M1–M4 and optional M6 complete. T19 migration/
-interruption rehearsal is next; stop for explicit user token confirmation.**
-Branch `refactor/codex-support`, remote `public`. R13 is closed by T18. The T18
-closing push must pass exact-SHA four-job CI before handing off; verify its
-checks and `.cld/t18/ci-final-jobs.json`. No main merge/sync, tag, release,
-provider-mirror publication or global skill copy has been executed.
+Updated 2026-09-28. **T01–T18, M1–M4 and optional M6 complete. T19A local acceptance complete; T19B is next after the user's token checkpoint. Parent T19 and T20 remain open.** Branch `refactor/codex-support`, remote `public`. Stop after every child slice.
 
-Read [T18 evidence](T18-EVIDENCE.md), [preview](T18-PREVIEW.md), [tracker](TRACKER.md),
-then only [T19 requirements](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal).
-Red baseline `eef006b`; core source/test `032cc26` passed
-[Windows/Ubuntu Python 3.11/3.14 full CI and artifact gates](https://github.com/jhesham/cross-llm-delivery/actions/runs/36392139614).
-The closing commit adds the relative local-remote repair, its real-Git test,
-unchanged-mirror/fetch/multiple-URL checks and final progress/preview evidence.
-The initial closing CI exposed a Windows 3.11 fixture startup race; the repair
-makes cancellation wait for emitted output and permits valid empty startup-
-timeout logs without changing production deadlines. Keep the final CI gate open
-until all four jobs and artifact steps pass; see evidence for the failed run.
-All 59 focused local checks pass. Checked native commands, complete matching
-host manifest sets, owned recovery worktrees, literal notes, exact-SHA CI and
-explicit atomic expected-SHA publishing replace unchecked scripts. Previews
-changed no local refs/tracked files; full JSON/hash maps are in `.cld/t18/previews/`.
+Read [T19A evidence](T19A-EVIDENCE.md), [tracker](TRACKER.md), then [T19 requirements](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal). Baseline `ac7320a` committed acceptance before a bounded one-file Kimi dispatch. The lead finished directly after its no-candidate timeout. Closing source must pass all four Windows/Ubuntu Python 3.11/3.14 full-suite and artifact jobs before signoff; verify exact SHA via Actions and `.cld/t19a/ci-final-jobs.json`. T18 closing `593174a` was verified green in [run 36397220485](https://github.com/jhesham/cross-llm-delivery/actions/runs/36397220485).
 
-Exact Kimi K3/OpenCode run `901f496d00b54ceea68595cb6c6a6b88` validated but timed
-out after 600 seconds with no changes or accepted candidate. Validation reported
-60,535 provider tokens/USD 0.059661; production usage/cost unknown. Two admitted
-attempts including validation exhausted its budget; no extra call or substitute.
-The lead finished directly. Ledger `.cld/t18/ledger.json`; retained worktree and
-process paths are in evidence. Lead usage unavailable; original 8–12k estimate
-exceeded. Use smaller, bounded dogfood contracts for T19/T20; avoid repeating
-broad 600-second briefs or rediscovering existing live proof.
+T19A adds abrupt exit/fresh-process resume at six durable boundaries; legacy migration, backup, missing-ref, changed-plan and corruption rehearsals; writer exclusion, separate-build event isolation, active-write status reads and persisted budget admission. Eleven new cases and 78 existing regressions passed locally. No production defect was demonstrated; changes are test/tracking only. Unaccepted attempts deliberately retry from a fresh base while preserving prior work; accepted attempts recover without redispatch. State preparation deliberately emits no dispatch telemetry.
 
-T19 should author specific migration/interruption acceptance before dispatch.
-Keep host discovery proof separate from live executor proof; [T14](T14-EVIDENCE.md),
-[T16](T16-EVIDENCE.md) and [T17C](T17C-EVIDENCE.md) record existing coverage.
-macOS, live POSIX providers and live mid-process recovery remain unverified.
-T20 owns final documentation/version/release candidate; 0.3.0 in the T18 preview
-is only a proposed inspectable version. M5 remains open. Preserve exact models,
-generated-file policy, recovery artifacts and one-slice token checkpoints.
+Exact Kimi K3/OpenCode run `ce0dceafa02641c9b76690ac57121867` timed out at 600.005195 seconds without edits or acceptance. Valid admission was cached; only one paid call launched. Unknown usage blocked retry. Ledger `.cld/t19a/ledger.json` stays blocked; worktree/process evidence is retained. Local OpenCode export recovered a completed-message lower bound: **825,553 tokens / USD 0.900996**, including 667,450 cache-read tokens. Final interrupted response usage/cost remains unknown; ledger accounting was not replaced. This exceeds the 300k admission allowance within one call, which is not a hard generation cap. Lead usage unavailable; 7–11k was only an estimate.
+
+**T19B still required:** four recorded executors across both host bundles; independent CLI/IDE/plugin discovery evidence levels; rollback preserving schema-2 state and inspectable merge instructions; entry/status sizes and delegation overhead review. Existing [T14](T14-EVIDENCE.md), [T16](T16-EVIDENCE.md) and [T17C](T17C-EVIDENCE.md) proofs may be reused at their stated levels. macOS, live POSIX executor dispatch and live-provider mid-process interruption remain unverified. Do not infer coverage or repeat paid canaries merely to rediscover existing proof. Any new live Codex interruption run still needs explicit authorization. T19B is estimated 4–7k before contingency; choose a smaller bounded dogfood contribution after reviewing the timeout overhead.
+
+No main merge/sync, tag/release, provider-mirror publication or global skill copy was executed. T20 owns final docs/version/candidate, and M5 stays open. Stop now and request explicit token availability for T19B.

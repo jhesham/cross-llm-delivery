@@ -34,7 +34,7 @@ Tick a task only after its detailed checkboxes and acceptance gate pass. Add evi
   - [x] T17C — CI matrix and compatibility gate ([evidence](T17C-EVIDENCE.md); Python 3.11/3.14 × Windows/Ubuntu green)
 - [x] T18 — Checked release automation
 - [ ] T19 — Migration and interruption rehearsal
-  - [ ] T19A — Fresh-process migration, abrupt interruption and locking rehearsal (in progress; committed acceptance before Kimi K3 dispatch)
+  - [x] T19A — Fresh-process migration, abrupt interruption and locking rehearsal ([evidence](T19A-EVIDENCE.md); 11 new/78 existing local cases; closing-source four-job CI required before signoff)
   - [ ] T19B — Host/provider evidence matrix, usage measurements and rollback guidance
 - [ ] T20 — Documentation and release candidate
 
@@ -59,8 +59,8 @@ The checklist above is the task-level completion record. The table below holds i
 | [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Complete: [evidence](T15-EVIDENCE.md); source/test `63b5ed1`; [Windows/Ubuntu Python 3.11/3.14 CI plus generator smoke green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36102993135). Synthetic fixtures only; live Codex remains T16. |
 | [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Complete: source/test `e64d12f`; [Windows canary and Kimi dogfood evidence](T16-EVIDENCE.md); [Windows/Ubuntu Python 3.11/3.14 CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). |
 | [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Complete: [T17A](T17A-EVIDENCE.md), [T17B](T17B-EVIDENCE.md), [T17C](T17C-EVIDENCE.md); T17C source `465b698`, race repair `5a5e68e`, [Python 3.11/3.14 × Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; T14 is next. |
-| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Complete — [evidence](T18-EVIDENCE.md), 59 local checks and four-job source CI; closing push gate before handoff |
-| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Not started |
+| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Complete — [evidence](T18-EVIDENCE.md), 59 local checks and closing commit `593174a` passed all four CI jobs |
+| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | T19A local acceptance complete ([evidence](T19A-EVIDENCE.md)); closing-source four-job CI required before signoff. T19B environment matrix, usage and rollback guidance remains (4–7k). Token checkpoint after each child. |
 | [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | 6–10k | Not started |
 
 Default sitting order: **T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T17 → T14 → T18 → T19 → T20**. Optional T15/T16 can follow M5 or be inserted after T13 if the user wants the fourth provider in the same release. Do not let optional provider work defer review fixes.
