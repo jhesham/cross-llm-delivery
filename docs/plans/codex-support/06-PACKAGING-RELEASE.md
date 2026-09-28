@@ -61,8 +61,8 @@ documentation candidate. Stop for token confirmation after each child.
   Offline tests and exact-source four-job CI required. No new live call is
   implied; leave fast entitlement and actual host discovery unverified.
   [Source `6c814e5`, installation hashes/backups and all four CI jobs](T20A-EVIDENCE.md)
-  verified 2026-09-29. Stop for token confirmation before T20B.
-- [ ] **T20B — Concise entry skills, final documentation and release candidate**
+  verified 2026-09-29; T20B is closed below.
+- [x] **T20B — Concise entry skills, final documentation and release candidate**
   (10–16k estimated lead tokens): the original checklists below, including
   commands, worked examples, version/changelog, candidate hashes/refs and
   support limitations. Refresh all four installed Claude skills together again
@@ -71,15 +71,23 @@ documentation candidate. Stop for token confirmation after each child.
 
 Dependencies: T19. Estimate: 6–10k. Files: `README.md`, `INSTALL.md`, `CONTRIBUTING.md`, `SECURITY.md`, `KNOWN-ISSUES.md`, shared/host skill references, changelog/version, tracker and defect register.
 
-- [ ] Rewrite the product description around a lead agent (Codex or Claude Code) and deterministic acceptance. Keep host and implementation-provider choices distinct in examples.
+- [x] Rewrite the product description around a lead agent (Codex or Claude Code) and deterministic acceptance. Keep host and implementation-provider choices distinct in examples.
   Reduce older Claude entry skills from roughly 5.6–6.3k estimated tokens to
   around 1–2k by moving long provider/setup material to references. Preserve
   discovery and vendored-driver behavior; regenerate and check all artifacts.
-- [ ] Document both install paths, generated bundle commands, real supported plan format, model validation/cost policy, JSON gates, integration, resume, repair, budgets, and migration. All displayed commands must exist at release time.
-- [ ] Remove obsolete SUBSLICE/heavy-rung/automatic-probe/token/platform claims unless the implemented version now supports them. Explain unavailable provider usage and optional behavioral grading accurately.
-- [ ] Describe actual sandbox/write boundaries and limitations; a Git worktree is not a security sandbox. Include recovery paths for denied permissions and failed collection without recommending blanket bypass.
-- [ ] Add two short worked examples: Codex lead with an existing provider; Claude lead with the same engine. Include optional Codex executor only if T15/T16 are selected and gated.
-- [ ] Close each R/A item with regression and commit evidence. Regenerate final artifacts after source/docs/version changes, verify freshness, and assemble a release candidate with hashes, migration notes, checks, remaining limitations, and target refs.
-- [ ] Update milestones, tracker, and handoff. Keep optional deferred tasks visible. Record publication separately; preparing a candidate is complete even if remote release awaits authorization.
+- [x] Document both install paths, generated bundle commands, real supported plan format, model validation/cost policy, JSON gates, integration, resume, repair, budgets, and migration. All displayed commands must exist at release time.
+- [x] Remove obsolete SUBSLICE/heavy-rung/automatic-probe/token/platform claims unless the implemented version now supports them. Explain unavailable provider usage and optional behavioral grading accurately.
+- [x] Describe actual sandbox/write boundaries and limitations; a Git worktree is not a security sandbox. Include recovery paths for denied permissions and failed collection without recommending blanket bypass.
+- [x] Add two short worked examples: Codex lead with an existing provider; Claude lead with the same engine. Include optional Codex executor only if T15/T16 are selected and gated.
+- [x] Close each R/A item with regression and commit evidence. Regenerate final artifacts after source/docs/version changes, verify freshness, and assemble a release candidate with hashes, migration notes, checks, remaining limitations, and target refs.
+- [x] Update milestones, tracker, and handoff. Keep optional deferred tasks visible. Record publication separately; preparing a candidate is complete even if remote release awaits authorization.
 
 **Gate:** M5 complete: 18 required tasks verified, all review items addressed, host compatibility retained, release candidate reproducible. Public push/tag/release is a distinct operation and is not performed merely by checking this task off.
+
+
+T20B/T20/M5 closed 2026-09-29 against source `59722b5`, all four exact-source
+CI jobs and artifact gates, isolated wheel, seven artifact hashes and coherent
+four-skill Claude refresh. [Candidate/signoff evidence](T20B-CANDIDATE.md) records
+entry size reductions, packaging regressions, backups and publication boundaries.
+No live/discovery scope is inferred from offline success. Stop at this task
+checkpoint; publication is separate.
