@@ -110,3 +110,9 @@ new bounded dogfood contribution rather than increasing spend automatically.
 
 T19A's closing source `24ae8f4` passed every job/gate in
 [run 36421323442](https://github.com/jhesham/cross-llm-delivery/actions/runs/36421323442).
+
+Verified closing source `d78c7349578b8672ea2332dd029b88451549dc30` passed
+all four full-suite jobs and all generator/plugin gates in
+[run 36425920464](https://github.com/jhesham/cross-llm-delivery/actions/runs/36425920464).
+Exact metadata: `.cld/t19b/ci-final-jobs.json`. Refreshed during T20A; no runtime
+change to the T19B rehearsal was needed.
