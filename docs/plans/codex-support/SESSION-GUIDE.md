@@ -29,6 +29,23 @@ The 18 required task ranges total approximately **162–262k lead-agent tokens**
 
 **Keep runtime token use small**
 
+T19 rehearsal adjustment: default maintenance planning to **one worker and one
+production attempt**, with a separate allowance only when validation is actually
+required. Keep the current engine's admission rules; do not raise budgets or
+timeouts automatically after a no-candidate timeout. For a documentary draft,
+prefer an isolated cwd, a supplied facts-only brief, denied tools and a native
+90-second deadline, then independent lead review. T19B's isolated draft also
+timed out, so this is a cost-containment measure, not a proven latency fix.
+No further provider retry is automatic. Reassess whether delegation is worthwhile
+before the next live call; preserve exact-model choice and report failed-call
+usage as unknown. These maintainer defaults do not change the public CLI's
+existing `--workers` default or turn admission budgets into generation caps.
+
+T19 measured Codex entry skills at roughly 0.8k tokens, while the older three
+Claude entries were roughly 5.6–6.3k using characters/4. T20 should move lengthy
+provider/setup detail to references while preserving discovery and behavior.
+Character estimates are not tokenizer or provider billing counts.
+
 - Use one provider/model per bounded slice unless the approved escalation policy calls for a switch. Do not assume subscription usage is free or unlimited.
 - Begin live canaries with one worker, one trivial slice, and one attempt. Increase to two workers only after the first real result; four workers are a later opt-in measurement, not the baseline.
 - Keep the generated entry skill around 1–2k tokens; move model catalogs, long examples, repair instructions, and setup detail to references loaded on demand.

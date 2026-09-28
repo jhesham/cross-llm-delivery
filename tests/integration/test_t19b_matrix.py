@@ -19,6 +19,7 @@ pytestmark = pytest.mark.integration
 @pytest.mark.parametrize("provider", ["antigravity", "opencode", "cursor", "codex"])
 def test_recorded_fixtures_in_isolated_host_bundle(tmp_path, host, provider):
     bundle = build_one(provider, out_root=tmp_path / "bundles", host=host, smoke=False)
+    assert (bundle / "SKILL.md").read_text(encoding="utf-8").startswith("---\n")
     repo = Path(init_repo(tmp_path / "fixture repo with spaces"))
     (repo / "value.py").write_text("VALUE = 0\n")
     (repo / "test_value.py").write_text("def test_value(): pass\n")
