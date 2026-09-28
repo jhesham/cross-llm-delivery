@@ -30,6 +30,11 @@ Dependencies: T17. Estimate: 8–12k. Files: `release.ps1`, `sync-public.ps1`, `
 
 ## T19 — Migration and interruption rehearsal
 
+Executable children: [T19A evidence](T19A-EVIDENCE.md) covers the first three
+checklists below; T19B owns the remaining environment/usage/rollback work.
+T19A has 11 new and 78 existing passing local cases, with four-job closing-source
+CI required before signoff. Stop for token confirmation after each child.
+
 Dependencies: T14/T18. Estimate: 10–18k; split platform rehearsal if needed. Files: integration fixtures, host compatibility evidence, migration documentation; fix only failures demonstrated by rehearsal.
 
 - [ ] Rehearse legacy ledger with accepted/unmerged branches, partially failed build, missing ref, dirty original checkout, changed plan, corrupt state, and existing traces. Backups and reconciliation instructions must work.

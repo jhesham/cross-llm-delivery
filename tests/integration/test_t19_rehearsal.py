@@ -77,17 +77,24 @@ def test_abrupt_death_resumes_without_loss_duplicate_or_skipped_dependency(rehea
     assert result["integrated_sha"] == ledger.build["integrated_sha"]
     assert ledger.get("A").status == ledger.get("B").status == "integrated"
     accepted = {sid: ledger.get(sid).commit for sid in ("A", "B")}
-    assert [e["slice"] for e in executions(repo)] == ["A", "B"]
+    expected_calls = ["A", "A", "B"] if phase in ("dispatch", "verified", "commit") else ["A", "B"]
+    assert [e["slice"] for e in executions(repo)] == expected_calls
     assert len({e["pid"] for e in executions(repo)}) == 2
     for sid, commit in accepted.items():
         checked_git(["merge-base", "--is-ancestor", commit, result["integrated_sha"]], repo)
         assert checked_git(["show", f"{commit}:{sid.lower()}.py"], repo) == "VALUE = 42\n"
     if phase == "commit":
-        assert accepted["A"] == crash["head"], "resume must reuse the collected commit"
+        assert checked_git(["show", f"{crash['head']}:a.py"], repo) == "VALUE = 42\n"
+    if phase in ("dispatch", "verified", "commit"):
+        records = [json.loads(path.read_text()) for path in (repo / ".cld/runs").glob("*/A/*/outcome.json")]
+        prior = [record for record in records if record["state"] != "collected"]
+        assert len(prior) == 1 and Path(prior[0]["worktree"]).is_dir()
+        assert (Path(prior[0]["worktree"]) / "a.py").read_text() == "VALUE = 42\n"
+        assert checked_git(["show", f"{prior[0]['recovery_ref']}:a.py"], repo) == "VALUE = 42\n"
     again = driver(repo, "resume")
     assert again["integrated_sha"] == result["integrated_sha"]
     assert {sid: Ledger.load(ledger.path).get(sid).commit for sid in accepted} == accepted
-    assert len(executions(repo)) == 2
+    assert len(executions(repo)) == len(expected_calls)
     refs = checked_git(["for-each-ref", "--format=%(refname)", "refs/cld/accepted"], repo).splitlines()
     assert len(refs) == 2, "one accepted ref per slice"
     assert checked_git(["rev-parse", "HEAD"], repo) == head
@@ -173,6 +180,27 @@ def test_status_under_writer_and_separate_cli_build_isolation(rehearsal_repo):
         assert Path(current.path).read_bytes() == before
         first_events = repo / ".cld/runs" / current.build["run_id"] / "events.jsonl"
         second_events = repo / ".cld/runs" / second.build["run_id"] / "events.jsonl"
+        # State preparation deliberately emits no delivery telemetry. Start a
+        # second run-scoped sink in its own process without accessing a provider.
+        assert not second_events.exists()
+        first_trace = first_events.read_bytes()
+        code = '''
+import sys
+from cld.cli import _install_telemetry
+from cld.ledger import Ledger
+from cld import telemetry
+repo, path = sys.argv[1:]
+ledger = Ledger.load(path)
+with ledger.writer():
+    _install_telemetry(repo, ledger, repo + "/plan.md", "fixture:offline")
+    telemetry.emit("t19_separate_build")
+    telemetry.set_sink(None)
+    telemetry.set_run_id(None)
+'''
+        emitted = subprocess.run([sys.executable, "-c", code, str(repo), str(other)],
+                                 env=child_env(), capture_output=True, text=True, timeout=30)
+        assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+        assert first_events.read_bytes() == first_trace
         for path, run_id in ((first_events, current.build["run_id"]), (second_events, second.build["run_id"])):
             assert all(json.loads(line)["run_id"] == run_id for line in path.read_text().splitlines())
         assert not executions(repo)
