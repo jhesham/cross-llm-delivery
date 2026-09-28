@@ -28,6 +28,23 @@ Acceptance and integration are separate: an accepted slice is not verified
 until `--integrate --integration-tests <selector>` has merged and re-tested
 the frozen candidate.
 
+## Explicit Codex service tier and deadline
+
+When the user selects Codex max effort with fast mode, preserve the full spec
+`codex:gpt-6-luna@max+fast` on default, per-slice and rung selections. Only
+Codex accepts `+fast`; invalid suffixes fail locally. Validation evidence for
+this spec is separate from `codex:gpt-6-luna@max`. CLD sends explicit effort
+and service-tier config arguments, rejects warning/fallback diagnostics before
+Git diff capture, and never retries after silently removing the tier. Missing
+actual-tier telemetry cannot prove server-side fast processing.
+
+The shared `CLD_DISPATCH_TIMEOUT` environment setting defaults to 600 seconds.
+For a longer max-effort slice the lead can explicitly set a finite positive
+value, such as 1200 seconds, under the user's existing budget authorization.
+Read-only probes keep their separate `CLD_PROBE_TIMEOUT` (default 30 seconds).
+This does not raise attempt or token limits or authorize another paid call.
+See `references/provider-setup.md` for shell examples.
+
 ## Authorization guidance (all hosts)
 
 - **The user picks the executor and model.** Present the shortlist once,

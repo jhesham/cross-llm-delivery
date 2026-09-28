@@ -50,6 +50,23 @@ Dependencies: T14/T18. Estimate: 10–18k; split platform rehearsal if needed. F
 
 ## T20 — Documentation and release candidate
 
+The 2026-09-28 user feedback adds a runtime/installation child before the final
+documentation candidate. Stop for token confirmation after each child.
+
+- [ ] **T20A — Explicit Codex fast tier and coherent Claude installs** (8–12k
+  estimated lead tokens): shared `@effort+fast` parsing; separate validation
+  identity; explicit Codex config; reject warning/fallback completion; verify
+  configurable max-effort deadlines; regenerate both hosts/plugins; install all
+  four Claude skills from one committed engine with backups and hashes.
+  Offline tests and exact-source four-job CI required. No new live call is
+  implied; leave fast entitlement and actual host discovery unverified.
+- [ ] **T20B — Concise entry skills, final documentation and release candidate**
+  (10–16k estimated lead tokens): the original checklists below, including
+  commands, worked examples, version/changelog, candidate hashes/refs and
+  support limitations. Refresh all four installed Claude skills together again
+  if source changes. A static Luna picker entry is optional; never label an
+  unvalidated model as verified or available based on its name.
+
 Dependencies: T19. Estimate: 6–10k. Files: `README.md`, `INSTALL.md`, `CONTRIBUTING.md`, `SECURITY.md`, `KNOWN-ISSUES.md`, shared/host skill references, changelog/version, tracker and defect register.
 
 - [ ] Rewrite the product description around a lead agent (Codex or Claude Code) and deterministic acceptance. Keep host and implementation-provider choices distinct in examples.
