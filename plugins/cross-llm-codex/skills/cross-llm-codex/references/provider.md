@@ -1,6 +1,13 @@
 ## Codex CLI executor
 
-Choose an exact Codex CLI model ID and optional supported effort for every build, for example `--executor codex:<model-id>@<effort>`. This provider has no default model and no static model catalog. A CLI catalog listing is not proof of account entitlement or a successful headless build; CLD's normal validation gate applies before production.
+Choose an exact Codex CLI model ID and supported effort for every build, for example `--executor codex:<model-id>@<effort>`. This provider has no default model and no static model catalog. Run `python scripts/list_models.py --json` for the read-only picker: it uses the installed CLI's bundled catalog without refresh or inference. A listing is not proof of account entitlement or a successful headless build; CLD's normal validation gate applies before production.
+
+The picker offers exact visible IDs and only CLD-supported efforts listed for
+that model. Its effort default is explicit `low`, or `medium` if low is absent;
+it never defaults to max/ultra, including for Sol and Astra. All discovered
+choices remain untested with unknown metered cost. Standard tier is the default;
+fast remains opt-in. Preserve a user's existing selection. See the executor
+picker section in `references/delivery-core.md` for chat browsing and fallback.
 
 An explicit fast request uses `--executor codex:gpt-6-luna@max+fast`.
 CLD separates effort and service tier, preserves the full spec in validation

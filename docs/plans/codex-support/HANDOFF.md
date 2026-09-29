@@ -1,5 +1,22 @@
 # Current handoff
 
+## Active follow-up: P02 executor picker (2026-09-29)
+
+Codex executor model-picker support is authorized. The implementation discovers
+only the local bundled CLI catalog, adds exact IDs/efforts to the shared index
+and CLI browse/search, and vendors a read-only `scripts/list_models.py --json`
+entrypoint for both lead hosts. Codex defaults explicitly to low where listed,
+otherwise medium; max/ultra and fast are opt-in. Catalog rows are advisory,
+untested and metered-unknown; model-only evidence never admits a new effort/tier.
+Lead selection remains outside CLD. No inference/validation calls authorized.
+
+Offline picker/model checks: 84 passed; initial CLI/contract checks: 141 passed
+(before five added picker tests). Both generated Codex-host/Claude-host Codex
+bundles list the installed CLI's exact visible models without a package install
+or inference. Full suite, exact-source CI, coherent installation and publication
+signoff are pending. Follow [P02 checklist](POST-RELEASE-FIXES.md#p02-codex-executor-model-picker).
+Stop after completion and obtain token-availability confirmation before more work.
+
 Updated 2026-09-29. **T01–T20 and M1–M6 complete; v0.3.0 published and promoted;
 post-release P01 complete.**
 [Release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0) · [publication evidence](PUBLICATION-0.3.0.md).
