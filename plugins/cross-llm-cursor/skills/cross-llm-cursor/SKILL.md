@@ -30,6 +30,10 @@ existing authorization for billed validation and implementation; ask only
 when it is unclear. Do not silently substitute models, remove a tier, increase
 budgets or retry paid work. Preserve existing project instructions.
 
+For executor choices, run `python scripts/list_models.py --json` and follow
+the picker section of `references/delivery-core.md`. Present exact returned
+IDs and supported efforts; discovery does not authorize dispatch.
+
 ## Plan and run
 
 Author and commit failing acceptance tests first. Keep tests and pytest

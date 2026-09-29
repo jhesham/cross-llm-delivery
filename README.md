@@ -36,6 +36,14 @@ python generator/build_plugins.py --host codex        # Codex plugins/catalog
 CLI/IDE and the separate Codex plugin surface. Provider catalog entries are
 snapshots; select an exact supported CLI model rather than assuming an account
 can run every entry. Codex has no guessed model default or static catalog.
+
+The Codex executor picker uses the installed CLI's local bundled catalog:
+run `python scripts/list_models.py --json` inside the `cross-llm-codex` skill.
+It offers exact visible model IDs and supported efforts; choices remain
+untested until admission. The picker pins `low` where supported (otherwise
+`medium`), including for Sol and Astra. Higher effort and `+fast` are opt-in.
+The source CLI's interactive Browse option also includes Codex and search.
+Discovery does not invoke a model, refresh the catalog or establish pricing.
 For the requested Luna setting, use `codex:gpt-6-luna@max+fast`;
 unknown tiers fail locally and exposed tier warnings/fallbacks fail dispatch.
 Actual fast processing remains unverified when CLI telemetry cannot establish it.

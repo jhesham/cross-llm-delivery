@@ -78,6 +78,34 @@ and losing that progress. Source-repo recovery instructions are in
 
 ## Explicit Codex service tier and deadline
 
+### Executor picker (read-only discovery)
+
+Run `python scripts/list_models.py --json` from the installed skill directory
+to build the agent's model menu from its vendored provider. The source checkout
+discovers all installed provider modules; standalone skills include only their
+own executor. For Codex, use the `cross-llm-codex` skill. Present the returned
+exact IDs and efforts, let the user choose, and pass that explicit spec to the
+delivery driver. Host/lead models are selected in Claude Code or Codex itself,
+not through this executor menu.
+
+Codex discovery uses `codex debug models --bundled` under `CLD_PROBE_TIMEOUT`.
+It makes no inference call or catalog refresh. The installed binary's catalog
+can be stale and does not establish account access, successful validation or
+price. Hidden entries are excluded. Missing/older CLI discovery yields no
+Codex rows; the user can still enter an exact `codex:<model-id>@<effort>` spec.
+Do not invent other family/version combinations or substitute a listed ID.
+
+Codex rows stay `untested` / `metered-unknown`: model-only evidence does not
+validate another effort, tier or current context. In the chat browse/search
+helpers use `headless_only=False` to show them, with the untested label.
+`spec_with_effort` retains the explicit Codex effort even for the picker default.
+The CLI's Browse option offers executor, provider, model, effort, then tier.
+The default effort is `low` if supported, otherwise `medium`; if neither is
+listed, require an explicit effort choice. This applies to Sol and Astra too.
+Higher effort, including `max`/`ultra`, is an explicit choice. Tier defaults to
+standard (no override); `+fast` is opt-in and is not proof of access or pricing.
+Honor an existing exact user selection rather than resetting it to these defaults.
+
 When the user selects Codex max effort with fast mode, preserve the full spec
 `codex:gpt-6-luna@max+fast` on default, per-slice and rung selections. Only
 Codex accepts `+fast`; invalid suffixes fail locally. Validation evidence for

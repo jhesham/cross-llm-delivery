@@ -1,5 +1,30 @@
 # Post-release fixes
 
+## P02: Codex executor model picker
+
+Authorized 2026-09-29. Scope: executor selection for both lead hosts, with
+exact CLI-listed IDs and explicit cost-sensitive effort choices. Lead models
+remain host selections. No model inference or validation dispatch is authorized
+by this task. Use only the local bundled catalog, without a network refresh.
+
+- [x] Add bounded advisory Codex discovery; reject malformed/hidden entries,
+  duplicate IDs and unsupported efforts; preserve explicit-ID fallback.
+- [x] Add Codex to the unified index and CLI browse/search path, without a
+  static default model or a claim of account access/validation/price.
+- [x] Default to explicit low where supported, otherwise medium; never
+  implicitly select max/ultra. Higher effort and fast remain opt-in.
+- [x] Add the read-only installed `scripts/list_models.py --json` entrypoint
+  and instructions for Claude and Codex leads.
+- [x] Cover exact ID/effort/tier preservation, invalid navigation, discovery
+  failure, model-only evidence boundaries and CLI/JSON wiring offline.
+- [ ] Complete full offline suite and regenerate all eight standalone bundles
+  plus Claude/Codex plugins; verify provider isolation and plugin freshness.
+- [ ] Publish the narrow source change; wait for all four cross-platform CI
+  jobs, all 24 required test/generator/plugin steps and CodeQL.
+- [ ] Refresh the four owned Claude standalone installations from one checked
+  commit, with backups/hashes and no active delivery writer.
+- [ ] Record source/CI/install evidence in HANDOFF.md and stop for token check.
+
 ## P01: Windows restricted-token workspace compatibility
 
 Authorized 2026-09-29 after the published Windows sandbox troubleshooting

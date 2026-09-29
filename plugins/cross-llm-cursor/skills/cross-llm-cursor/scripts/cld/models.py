@@ -317,12 +317,14 @@ def render_chat_picker(recs: List["Recommendation"]) -> str:
     return "\n".join(lines)
 
 
-def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
+def pick_executor(recs, *, index=None, input_fn=input, output_fn=print) -> str:
     """Interactive picker: show the shortlist, read a choice, return an executor spec.
 
     - Pressing enter selects the default (verified workhorse).
     - A number selects that line; a premium-metered pick (confirm_cost) requires a
       y/N confirmation — declining falls back to the default.
+    - An optional index enables browse/search and exact-spec input; invalid
+      navigation fails instead of silently selecting a different model.
     - input_fn/output_fn are injected for testing (default to builtin input/print).
     Returns a spec string suitable for parse_executor_spec / --executor.
     """
@@ -331,12 +333,27 @@ def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
         output_fn(ln)
 
     default_rec = next((r for r in ordered if r.is_default), ordered[0] if ordered else None)
-    if default_rec is None:
+    if index is not None:
+        output_fn(f"    {len(ordered) + 1}) Browse all models...")
+        output_fn(f"    {len(ordered) + 2}) Other (type an exact executor spec)")
+    if default_rec is None and index is None:
         raise ValueError("No model shortlist is available; pass an explicit --executor model ID")
 
     raw = (input_fn("Pick one [default: workhorse]: ") or "").strip()
     if not raw:
+        if default_rec is None:
+            raise ValueError("No default model; choose a model or pass --executor")
         return _spec_for(default_rec)
+
+    if index is not None:
+        if raw == str(len(ordered) + 1):
+            return pick_from_index(index, input_fn=input_fn, output_fn=output_fn)
+        if raw == str(len(ordered) + 2):
+            raw = (input_fn("Exact executor spec: ") or "").strip()
+        if ":" in raw:
+            return resolve_spec(raw)[0]
+        if not raw.isdigit() or not 1 <= int(raw) <= len(ordered):
+            raise ValueError("Invalid picker selection; no model was substituted")
 
     try:
         choice = int(raw)
@@ -362,7 +379,7 @@ def pick_executor(recs, *, input_fn=input, output_fn=print) -> str:
 
 
 
-def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelChoice]:
+def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=()) -> List[ModelChoice]:
     from cld.providers_api import load_providers, catalog, default_workhorse
     load_providers()
     _catalog = catalog()
@@ -484,6 +501,13 @@ def build_model_index(*, opencode_ids, cursor_models, evidence) -> List[ModelCho
             )
         )
 
+    for model in codex_models:
+        efforts = list(model.efforts)
+        default = next((e for e in ("low", "medium") if e in efforts), None)
+        out.append(ModelChoice(spec="codex:" + model.id, executor="codex",
+            provider=_provider_of(model.id), model=model.id, label=model.label,
+            cost_class="metered-unknown", headless_status="untested",
+            efforts=efforts, default_effort=default))
     return out
 
 
@@ -582,11 +606,59 @@ def render_effort_level(choice):
 
 
 def spec_with_effort(choice, effort) -> str:
-    """The choice's base spec, plus @<effort> UNLESS effort is None or the CLI default
-    (default = bare spec, so the CLI's own default applies)."""
+    """Codex always pins the selected/default effort; Cursor keeps its CLI default."""
+    if choice.executor == "codex":
+        selected = effort or choice.default_effort
+        if selected not in choice.efforts:
+            raise ValueError("Choose an explicit supported Codex effort")
+        return f"{choice.spec}@{selected}"
     if not effort or effort == choice.default_effort:
         return choice.spec
     return f"{choice.spec}@{effort}"
+
+
+def pick_from_index(index, *, input_fn=input, output_fn=print):
+    """CLI drill-down; optional discovery never bypasses model admission."""
+    def choose(lines, ordered, prompt, *, default=None):
+        for line in lines:
+            output_fn(line)
+        raw = (input_fn(prompt) or "").strip()
+        if not raw and default is not None:
+            return default
+        if not raw.isdigit() or not 1 <= int(raw) <= len(ordered):
+            raise ValueError("Invalid picker selection; no model was substituted")
+        return ordered[int(raw) - 1]
+
+    lines, executors = render_executor_level(index)
+    for line in lines:
+        output_fn(line)
+    raw = (input_fn("Executor number or S to search: ") or "").strip()
+    if raw.lower() == "s":
+        query = (input_fn("Search models: ") or "").strip()
+        models = search_models(index, query, headless_only=False) if query else []
+        lines = [f"  {i}) {m.spec} ({m.headless_status}, {m.cost_class})" for i, m in enumerate(models, 1)]
+        model = choose(lines, models, "Model number: ")
+    else:
+        if not raw.isdigit() or not 1 <= int(raw) <= len(executors):
+            raise ValueError("Invalid picker selection; no model was substituted")
+        executor = executors[int(raw) - 1]
+        lines, providers = render_provider_level(index, executor=executor)
+        provider = choose(lines[:-1], providers, "Provider number: ")
+        lines, models = render_model_level(index, executor=executor, provider=provider,
+            headless_only=False, n=len(index))
+        model = choose(lines[:-1], models, "Model number: ")
+    if model.headless_status == "untested":
+        output_fn("Untested selection; exact effort/tier and current context still require admission.")
+    lines, efforts = render_effort_level(model)
+    effort = choose(lines, efforts, "Effort number [enter for shown default]: ",
+        default=model.default_effort) if efforts else None
+    spec = spec_with_effort(model, effort)
+    if model.executor == "codex":
+        tier = choose(["  1) Standard (default; no tier override)", "  2) Fast (opt-in; access/cost unknown)"],
+            ["standard", "fast"], "Tier number [default: standard]: ", default="standard")
+        if tier == "fast":
+            spec += "+fast"
+    return spec
 
 
 def render_routing_plan(slices, *, provider: str, evidence: dict, available_ids: list) -> str:

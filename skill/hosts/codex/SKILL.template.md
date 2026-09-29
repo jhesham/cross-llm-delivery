@@ -17,6 +17,10 @@ git worktrees. The vendored `cld` engine and driver under `scripts/` run
 in place -- no package install and no source checkout are needed.
 {{EXECUTOR_POLICY}}
 
+For executor choices, run `python scripts/list_models.py --json` and follow
+the picker section of `references/delivery-core.md`. Present exact returned
+IDs and supported efforts; discovery does not authorize dispatch.
+
 ## When to use (and when not to)
 
 - **Use it** on a large build expressed as a plan of independently testable
