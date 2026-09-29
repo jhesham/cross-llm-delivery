@@ -34,5 +34,33 @@ unverified. [Support matrix](T19B-MATRIX.md) and
 600 seconds with explicit timeout configuration; no automatic usage/deadline
 increase or silent model/tier substitution.
 
-No planned implementation or publication work remains. **Pause at the token
-checkpoint; do not start another task or canary automatically.**
+## Post-release Windows environment follow-up (2026-09-29)
+
+The completed T01–T20 release remains unchanged. A subsequent user build
+reported failed Codex shell startup outside CLD; CLD correctly blocks admission.
+Local model-free checks reproduce elevated-helper failure on standalone CLI
+0.158.0 / Windows Server 2025. Logs point to runtime access validation of a
+291-character path; the specific CLI-version regression remains unproven.
+
+With explicit user approval, backed up the global Codex config and changed
+only `windows.sandbox` from `elevated` to `unelevated`. Backup:
+`C:\Users\Administrator\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
+Verified all other parsed settings unchanged. Shell execution and file
+create/edit/read/delete pass with a workspace directory's inherited ACLs.
+All checks used `codex sandbox`, without model calls.
+
+**Remaining operational blocker:** the installed Python 3.13.13 creates
+private `tempfile.mkdtemp` ACLs. CLD's validation `probe-*/repo` layout starts
+in the unelevated sandbox but cannot edit `calc.py` (`PermissionError`).
+Normal-workspace success is not a successful CLD validation canary.
+See [known issues](../../../KNOWN-ISSUES.md#codex-windows-sandbox-setup).
+
+Next authorized slice should address temporary-repo/sandbox compatibility
+with a model-free regression before any paid retry. Also consider a model-free
+Codex shell/edit preflight to avoid spending on a broken local setup. No
+engine, generated bundle, installed skill, release or validation ledger was
+changed in this follow-up; no provider calls. Provider usage/cost zero;
+lead counters unavailable.
+
+**Pause at the token checkpoint; do not start the compatibility fix or a
+live canary automatically.**
