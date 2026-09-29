@@ -45,6 +45,9 @@ in generated `references/provider-setup.md`.
 
 ## Codex Windows sandbox setup
 
+For backup, fallback, model-free checks and rollback instructions, see
+[Codex Windows sandbox troubleshooting](docs/CODEX-WINDOWS-TROUBLESHOOTING.md).
+
 On one Windows Server 2025 machine, standalone Codex CLI 0.158.0 with
 `windows.sandbox = "elevated"` fails shell startup with
 `helper_unknown_error: setup refresh had errors`. The helper log reports
