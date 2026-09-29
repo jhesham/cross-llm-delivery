@@ -4,6 +4,12 @@ Created: 2026-09-09. Baseline: `c3ced8a5fbbb964019352f04da8d509858644ee8`, v0.2.
 
 **Outcome:** Codex and Claude Code can both plan, drive, inspect, integrate, and resume deliveries through the same reliable engine. The first release must close all 13 review findings and the associated plan/documentation gaps.
 
+Post-release [P01/P02](docs/plans/codex-support/POST-RELEASE-FIXES.md) are complete:
+Windows workspace compatibility and the Codex executor model picker. P02 source
+`49b1a3f` passed four-job CI; all four owned Claude skills were refreshed
+coherently. The picker pins low where supported, otherwise medium; higher effort
+and fast are opt-in. See [handoff](docs/plans/codex-support/HANDOFF.md) for proof.
+
 Implementation and publication are complete: **T01–T20 and M1–M6 verified; v0.3.0 published/promoted.** [Publication evidence](docs/plans/codex-support/PUBLICATION-0.3.0.md) records immutable tag/source `81327cc`, all four exact-main CI jobs and artifact gates, and nine downloaded asset hashes. [Support levels](docs/plans/codex-support/T19B-MATRIX.md) keep offline, discovery and live evidence separate; live fast-tier processing remains unverified. Stop at the token checkpoint; no planned implementation or publication work remains.
 
 **User-required token checkpoint.** After each slice, finish verification, commit its coherent changes and progress/handoff updates, then stop and ask the user to confirm token availability before starting the next slice. Treat each Txx task as one checkpoint until it is split into executable slices; if split, stop after every child slice as well. Do not auto-advance, queue another dispatch, or treat silence as confirmation. Report usage as measured, estimated, or unavailable.
