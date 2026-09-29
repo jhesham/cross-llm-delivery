@@ -1,8 +1,8 @@
 # Current handoff
 
-## Active follow-up: P02 executor picker (2026-09-29)
+## Completed follow-up: P02 executor picker (2026-09-29)
 
-Codex executor model-picker support is authorized. The implementation discovers
+Codex executor model-picker support is complete. The implementation discovers
 only the local bundled CLI catalog, adds exact IDs/efforts to the shared index
 and CLI browse/search, and vendors a read-only `scripts/list_models.py --json`
 entrypoint for both lead hosts. Codex defaults explicitly to low where listed,
@@ -10,15 +10,40 @@ otherwise medium; max/ultra and fast are opt-in. Catalog rows are advisory,
 untested and metered-unknown; model-only evidence never admits a new effort/tier.
 Lead selection remains outside CLD. No inference/validation calls authorized.
 
-Offline picker/model checks: 84 passed; initial CLI/contract checks: 141 passed
-(before five added picker tests). Both generated Codex-host/Claude-host Codex
-bundles list the installed CLI's exact visible models without a package install
-or inference. Full suite, exact-source CI, coherent installation and publication
-signoff are pending. Follow [P02 checklist](POST-RELEASE-FIXES.md#p02-codex-executor-model-picker).
-Stop after completion and obtain token-availability confirmation before more work.
+Runtime source: public/main `49b1a3fdf22de99eca8158d1989d9ff6c878dc09`
+(working-branch counterpart `7fb101a`). All 146 focused checks passed. The full
+local offline suite exited 0 (1,006 collected tests; four skips). All eight
+bundles share 40 core files, retain provider isolation and pass 16 isolated help
+checks. Both Codex bundles list exact visible CLI IDs without installation or
+inference. The installed local catalog includes GPT-6 Astra/Sol/Luna and
+GPT-5.6 Sol/Terra/Luna, with explicit low defaults; no other combinations guessed.
+
+[Exact-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36571779679)
+passed all four Windows/Ubuntu x Python 3.11/3.14 jobs and all 24 required
+test/generator/plugin steps; [CodeQL](https://github.com/jhesham/cross-llm-delivery/actions/runs/36571779516)
+passed. Two initial existing timing failures (Ubuntu release-wrapper startup
+timeout and Windows concurrent-reader progress assertion) cleared on the
+targeted failed-job retry with no source changes. Both also passed local
+focused rechecks and the full suite. CI proof checks each job's latest attempt.
+
+All four owned global Claude standalone skills match generated `@49b1a3f`
+bundles byte-for-byte. Eight installed isolated help checks and the read-only
+Codex picker check passed (seven advisory rows). Installation found no active
+delivery writer. Former `@84dd85a` installations are preserved at:
+`C:\Users\Administrator\.claude\skill-backups\p02-20260929-230108-898da3374e9d40efb874adf554af8cae`.
+Restart Claude Code to load the updated entry instructions. No new global
+Codex skill installation or release-asset replacement was requested.
+
+Local evidence: `.cld/environment/p02-local-results.json`, `p02-bundle-proof.json`,
+`p02-ci-final.json`, `p02-install.json` and `p02-installed-proof.json`. No model
+inference, admission update or production dispatch; executor usage/cost zero,
+lead counters unavailable. Live menu UI and newly selected models require their
+own evidence; discovery is not admission or an entitlement/pricing claim.
+See the [completed P02 checklist](POST-RELEASE-FIXES.md#p02-codex-executor-model-picker).
+**Stop here and obtain token-availability confirmation before another task.**
 
 Updated 2026-09-29. **T01–T20 and M1–M6 complete; v0.3.0 published and promoted;
-post-release P01 complete.**
+post-release P01 and P02 complete.**
 [Release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0) · [publication evidence](PUBLICATION-0.3.0.md).
 
 Immutable tag/source: `81327cc90271bd6126e85e20533e1d9bb874ed08`.
@@ -37,10 +62,10 @@ The corrected promoted/tagged commit passed the full four-job suite. No force
 push, provider-mirror publication, global installation change or model call.
 Lead counters unavailable; provider usage/cost zero.
 
-All four installed Claude standalone skills now come coherently from P01
-source `84dd85a`, with their former `59722b5` copies backed up and hashes
+All four installed Claude standalone skills now come coherently from P02
+source `49b1a3f`, with their former `84dd85a` copies backed up and hashes
 verified. Downloadable v0.3.0 bundles still come from the tagged revision and
-predate P01. Restart the host to load the updated skills. Preserve active state
+predate P01/P02. Restart the host to load the updated skills. Preserve active state
 before rollback; old engines cannot read schema-2 ledgers. Installed-copy edits
 and mixed engine versions remain unsupported.
 

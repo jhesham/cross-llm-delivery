@@ -1,5 +1,11 @@
 # Progress tracker
 
+Post-release [P01/P02](POST-RELEASE-FIXES.md) are also complete. P02 executor
+picker source `49b1a3f` passed four-job CI and all 24 required steps; the four
+owned Claude skills now match that commit, with backups and installed checks.
+Low/medium defaults preserve the cost-saving intent; max/ultra and fast remain
+opt-in. Full evidence is in [HANDOFF.md](HANDOFF.md). Stop at the token checkpoint.
+
 Status: **T01–T20 and M1–M6 complete; v0.3.0 published/promoted.** [Publication evidence](PUBLICATION-0.3.0.md): exact tag/source `81327cc`, four main CI jobs and all artifact gates passed, nine downloaded asset hashes verified. Pause at the token checkpoint.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
