@@ -17,13 +17,24 @@ by this task. Use only the local bundled catalog, without a network refresh.
   and instructions for Claude and Codex leads.
 - [x] Cover exact ID/effort/tier preservation, invalid navigation, discovery
   failure, model-only evidence boundaries and CLI/JSON wiring offline.
-- [ ] Complete full offline suite and regenerate all eight standalone bundles
+- [x] Complete full offline suite and regenerate all eight standalone bundles
   plus Claude/Codex plugins; verify provider isolation and plugin freshness.
-- [ ] Publish the narrow source change; wait for all four cross-platform CI
+- [x] Publish the narrow source change; wait for all four cross-platform CI
   jobs, all 24 required test/generator/plugin steps and CodeQL.
-- [ ] Refresh the four owned Claude standalone installations from one checked
+- [x] Refresh the four owned Claude standalone installations from one checked
   commit, with backups/hashes and no active delivery writer.
-- [ ] Record source/CI/install evidence in HANDOFF.md and stop for token check.
+- [x] Record source/CI/install evidence in HANDOFF.md and stop for token check.
+
+Completed 2026-09-29. Runtime source: public/main `49b1a3f`
+(working-branch counterpart `7fb101a`). Local full suite exited 0; 146 focused
+checks passed. All eight bundles share 40 core files and pass 16 isolated help
+checks. [Exact-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36571779679)
+passed four jobs and 24 required steps after retrying two existing timing
+failures without source changes; CodeQL passed. All four owned Claude skills
+are installed at `@49b1a3f`, with backups, hashes and installed help/catalog
+checks verified. Evidence and backup paths are in [HANDOFF.md](HANDOFF.md).
+Executor usage/cost zero; lead counters unavailable. No new model admission,
+lead switching or release-asset replacement. Stop for token confirmation.
 
 ## P01: Windows restricted-token workspace compatibility
 
