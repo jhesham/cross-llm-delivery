@@ -161,3 +161,24 @@ that v0.3.0 downloads predate P01. #13 stays open for other provider contributio
 GitHub API readback verified the exact description and comment body; proof is
 `.cld/environment/issue13-metadata-verification.json`. No runtime changes or
 provider calls; lead counters unavailable. Stop at the token checkpoint.
+
+## PR #15: CI Python setup maintenance (complete, 2026-09-29)
+
+With explicit user authorization, refreshed the Dependabot PR against current
+main `1cdbdab` through GitHub's branch-update API. Its only diff remained
+`actions/setup-python@v6` to `@v7`; the current Windows/Ubuntu x Python 3.11/3.14
+matrix and all test/generator/plugin checks were preserved.
+[Fresh PR CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36565957054)
+passed all four jobs and all 24 required steps on head
+`915314830a7dbbdf2202c5dcb9d31fc083e261df`; CodeQL also passed. Merge guards
+required unchanged main/head and completed successful checks; no policy bypass.
+
+[PR #15](https://github.com/jhesham/cross-llm-delivery/pull/15) was squash-merged
+at `2026-09-29T12:29:52Z` as `1d929c1abdc5eea2af1c2b2e4505170d59081eba`.
+The merged tree matches the refreshed, tested head exactly. Synced the one-line
+workflow change to the local working branch (`1980ca8`) and the owned main
+worktree. The subsequent signoff changes this handoff only. Local proofs:
+`.cld/environment/pr15-refresh.json`, `pr15-ci-final.json` and `pr15-final.json`
+under the same directory. No CLD runtime or installed bundle update was needed;
+no provider calls, provider usage/cost zero, lead counters unavailable. Stop
+here and confirm token availability before another task.
