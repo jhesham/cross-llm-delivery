@@ -148,3 +148,16 @@ limitations are not inferred away. The audit publishes only aggregate evidence,
 not downstream code, prompts or raw logs. No provider dispatch was made for
 this audit. Provider usage/cost zero; lead counters unavailable. Stop at the
 token checkpoint before another task.
+
+## Codex availability metadata update (2026-09-29)
+
+At the user's request, updated the GitHub About description to list Codex among
+the four executor providers and Claude Code or Codex as architect/judge lead.
+Added a [maintainer comment to #13](https://github.com/jhesham/cross-llm-delivery/issues/13#issuecomment-5889824988)
+confirming the Codex adapter is available, its exact executor syntax and the
+recorded Windows live build. The comment distinguishes requested fast service
+from actual-tier acknowledgement, links installation/troubleshooting, and notes
+that v0.3.0 downloads predate P01. #13 stays open for other provider contributions.
+GitHub API readback verified the exact description and comment body; proof is
+`.cld/environment/issue13-metadata-verification.json`. No runtime changes or
+provider calls; lead counters unavailable. Stop at the token checkpoint.
