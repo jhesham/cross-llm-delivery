@@ -43,6 +43,32 @@ resolver/configuration and `CURSOR_AGENT_CMD`; do not assume the workaround
 applies to every CLI release. Provider-specific permission/auth caveats live
 in generated `references/provider-setup.md`.
 
+## Codex Windows sandbox setup
+
+On one Windows Server 2025 machine, standalone Codex CLI 0.158.0 with
+`windows.sandbox = "elevated"` fails shell startup with
+`helper_unknown_error: setup refresh had errors`. The helper log reports
+`CreateFileW` failure while validating a 291-character Codex runtime path.
+That directory opens with an extended-path prefix but not normally; this
+suggests a helper path-handling problem. It is not established as a
+0.158.0-specific regression or a failure on every Windows installation.
+
+Inspect `CODEX_HOME/.sandbox/` logs and use model-free `codex sandbox` checks
+before spending on another validation dispatch. On that machine, the
+operator-approved `unelevated` fallback restores shell execution and editing
+in a workspace directory with inherited ACLs. This changes native Codex
+isolation globally and is weaker than `elevated`; CLD must not switch it
+automatically. See [official OpenAI Windows sandbox guidance](https://learn.chatgpt.com/docs/windows/windows-sandbox).
+
+The fallback is not yet sufficient for CLD validation on this machine:
+Python 3.13.13 `tempfile.mkdtemp` creates private directory ACLs that exclude
+the sandbox's inherited write grants. A model-free check of CLD's
+`probe-*/repo` layout starts successfully but fails to edit `calc.py` with
+`PermissionError`. `engine/cld/validate.py` uses this layout. A targeted
+temporary-directory/sandbox compatibility fix and verification are pending;
+do not widen workspace ACLs globally or treat the passing normal-workspace
+check as a passing CLD admission probe. No paid retry was performed.
+
 ## State and acceptance
 
 Plans currently require top-level slice blocks and single-line values.
