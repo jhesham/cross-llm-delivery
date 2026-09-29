@@ -22,6 +22,7 @@ from cld.candidate import acceptance_args
 from cld.executors._capture import checked
 from cld.recovery import RecoverySession, atomic_write
 from cld.process import process_scope
+from cld._windows_workspace import prepare_windows_workspace
 
 _TEST_SRC = (
     "from calc import add\n\n"
@@ -58,6 +59,7 @@ def _pytest(workdir: str, test_path: str) -> TestRun:
 def _init_repo(repo: str, git_runner) -> None:
     """Real git repo with the failing acceptance test committed (HEAD exists)."""
     Path(repo).mkdir(parents=True, exist_ok=True)
+    prepare_windows_workspace(Path(repo).resolve(), parent=Path(repo).resolve().parent)
     for args in (
         ["git", "init", "-q"],
         ["git", "config", "user.email", "v@cld.test"],

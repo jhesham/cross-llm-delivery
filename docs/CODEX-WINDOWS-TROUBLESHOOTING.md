@@ -102,25 +102,49 @@ Shell startup and this ordinary-workspace edit check passed on the observed
 machine after the fallback. They do not prove that a paid CLD probe or live
 delivery succeeds.
 
-## Remaining validation-directory permission blocker
+## Workspace-permissions fix and older release bundles
 
 On the same machine with Python 3.13.13, `tempfile.mkdtemp` creates a private
-directory ACL that omits inherited sandbox write grants. CLD currently uses
-this function in `engine/cld/validate.py` and initializes the validation
-repository at `probe-*/repo` beneath that private directory.
+directory ACL. Administrator-created files can also depend on the
+Administrators group for write access; a restricted token disables that group.
+Consequently, creating and editing a new file inside the sandbox can work
+while editing a pre-existing probe or checkout file fails. CLD retains the
+private temporary parent and initializes the validation repository at
+`probe-*/repo` beneath it.
 
-A model-free check of that layout under the unelevated workspace sandbox
-starts the shell but editing `calc.py` fails with `PermissionError`. Thus
-the fallback resolves shell startup here but does **not** yet make CLD
-validation usable with this combination of Python and directory permissions.
-This compatibility issue remains open; no engine fix is included in this
-documentation update.
+The v0.3.0 packaged engine starts the shell under the unelevated workspace
+sandbox but fails to edit `calc.py` or pre-existing worktree files with
+`PermissionError`. The normal-workspace smoke above creates its file inside
+the sandbox and cannot detect that pre-existing-file failure.
 
-If you encounter this second error, stop paid retries and retain the probe
-evidence. Do not disable the sandbox, skip admission, manually mark the
-model verified, or grant broad write access across your workspace. Continue
-with another already-validated executor only if your project's model policy
-explicitly permits it, or wait for a targeted compatibility fix.
+**Updated repository source fixes CLD-owned workspace permissions.** Before
+dispatch, CLD adds inheritable Modify permission for the exact current-user
+SID to each newly created probe repo and Git worktree. It does not grant
+Everyone/Users access, change parent/evidence ACLs, reset existing denies,
+take ownership, or downgrade the sandbox configuration. Account lookup and
+permission-command failures stop before executor dispatch. Existing private
+temporary-directory creation is preserved on Windows and POSIX.
+
+Model-free local regressions cover editing pre-existing files, creating a
+file, protection of evidence and Git metadata, source checkout preservation,
+and exclusion of an external junction target from ACL changes. They exercise
+the installed sandbox and CLD validation/managed-worktree paths without
+calling a model or updating the real model-admission store.
+
+The downloadable v0.3.0 release bundles predate this fix. Use the source-build
+instructions in [INSTALL.md](../INSTALL.md#build-and-transfer-a-coherent-set)
+and replace the complete installed provider set from one updated commit,
+with backups and no active delivery writers. Restart your lead host and
+revalidate the actual executor/model under your project's approved validation
+policy. These model-free fixtures are not proof of a live model or fast-tier
+delivery. The elevated-helper runtime-path issue remains a separate local
+Codex setup problem; this engine fix does not repair it.
+
+If the error persists after the coherent update, stop paid retries and retain
+the probe evidence. Do not disable the sandbox, skip admission, manually mark
+the model verified, or grant broad write access across your workspace.
+Continue with another already-validated executor only if your project's model
+policy explicitly permits it, or report the retained failure for investigation.
 
 ## Rollback and reporting
 
