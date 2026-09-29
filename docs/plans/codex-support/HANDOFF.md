@@ -126,6 +126,25 @@ update; provider usage/cost zero, lead counters unavailable. Global Codex config
 still uses the approved `unelevated` setting, with all other settings preserved.
 
 The elevated-helper setup problem remains external; this engine fix does not
-repair it. Exact Luna/max/fast live delivery remains unverified, and v0.3.0
-release assets remain unchanged. A new release or live canary is separate work.
+repair it. At P01 closure, exact Luna/max/fast live delivery remained unverified;
+later downstream evidence is recorded below. v0.3.0 release assets remain
+unchanged. A new release remains separate work.
 Stop here; obtain token-availability confirmation before starting another task.
+
+## Public issue audit and later live-use evidence (2026-09-29)
+
+[Issue audit](ISSUE-AUDIT-2026-09-29.md) reviewed all seven open issues.
+Closed #11 (per-run telemetry) as completed after 14 focused status/history/
+build-isolation checks passed. #8–#10 and #12 still have unmet requirements;
+#13's Codex portion is complete but the broader adapter invitation remains;
+#14 is a living roadmap. Six issues remain open.
+
+A later downstream Windows build recorded three successful first-attempt
+production slices with `codex:gpt-6-luna@max+fast`, all 15 slice acceptance tests
+passing and verified integration complete. Live use with that requested
+combination is now observed. CLI logs provide no actual-tier acknowledgement,
+so backend fast service remains unproven; platform/discovery/interruption
+limitations are not inferred away. The audit publishes only aggregate evidence,
+not downstream code, prompts or raw logs. No provider dispatch was made for
+this audit. Provider usage/cost zero; lead counters unavailable. Stop at the
+token checkpoint before another task.
