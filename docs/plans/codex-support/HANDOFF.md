@@ -62,5 +62,13 @@ engine, generated bundle, installed skill, release or validation ledger was
 changed in this follow-up; no provider calls. Provider usage/cost zero;
 lead counters unavailable.
 
-**Pause at the token checkpoint; do not start the compatibility fix or a
-live canary automatically.**
+User requested publication of this known issue and workaround to the online
+repository. The public-facing guide is
+[Codex Windows sandbox troubleshooting](../../../docs/CODEX-WINDOWS-TROUBLESHOOTING.md),
+linked from README and known issues. It includes config backup, scoped fallback,
+model-free shell/edit checks, rollback and the unresolved private-directory
+blocker. Publish these documentation changes to `public/main` and the working
+branch; publication verification is retained under `.cld/environment/`.
+
+**Pause at the token checkpoint after documentation publication; do not start
+the compatibility fix or a live canary automatically.**

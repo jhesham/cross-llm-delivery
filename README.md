@@ -126,6 +126,10 @@ code with the host user's privileges; provider permission settings differ.
 CLD protects candidate collection and integration, not arbitrary host access.
 [SECURITY.md](SECURITY.md) and [KNOWN-ISSUES.md](KNOWN-ISSUES.md) state the limits.
 
+If Codex on Windows reports `helper_unknown_error: setup refresh had errors`,
+follow [the Windows sandbox troubleshooting guide](docs/CODEX-WINDOWS-TROUBLESHOOTING.md)
+before paying for another validation probe.
+
 Offline CI runs the full suite on **Windows/Ubuntu × Python 3.11/3.14**, builds
 all eight host/provider bundles, checks committed Claude plugins and packages
 the Codex catalog. Recorded Windows standalone CLI/IDE discovery, Claude plugin
