@@ -241,7 +241,9 @@ def sync_public(repo_root, *, message="sync: mirror master fixes to public",
                 raise CommandError("Remote changed during sync preflight; rerun after reviewing its state")
         checked(["git", "worktree", "add", "--detach", str(stage), old or sha], root, runner=runner)
         checked(["git", "read-tree", "--reset", "-u", sha], stage, runner=runner)
-        checked(["git", "rm", "-f", "--ignore-unmatch", "--", "SHIP-PLAN.md", "release.ps1", "sync-public.ps1"], stage, runner=runner)
+        # The public CI suite exercises these checked PowerShell entrypoints;
+        # retain them in the promoted tree. Only the private plan is omitted.
+        checked(["git", "rm", "-f", "--ignore-unmatch", "--", "SHIP-PLAN.md"], stage, runner=runner)
         if checked(["git", "status", "--porcelain"], stage, runner=runner).strip():
             checked([*_identity(), "commit", "-m", message], stage, runner=runner)
         pushed = checked(["git", "rev-parse", "HEAD"], stage, runner=runner).strip()

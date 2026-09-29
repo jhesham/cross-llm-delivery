@@ -205,7 +205,12 @@ def test_sync_local_bare_remote_uses_exact_ci_and_restores_environment(repositor
     assert not any("--force" in a or "--force-with-lease" in a for a,_ in runner.calls)
     clone = root.parent / "verify mirror"
     must_git(root.parent,"clone","--branch","main",str(remote),str(clone))
-    assert (clone / "payload.txt").is_file() and not (clone / "release.ps1").exists()
+    assert (clone / "payload.txt").is_file()
+    # The public suite invokes both checked wrappers. Promotion must retain
+    # them while excluding the private shipping plan.
+    assert (clone / "release.ps1").is_file()
+    assert (clone / "sync-public.ps1").is_file()
+    assert not (clone / "SHIP-PLAN.md").exists()
 
 
 @pytest.mark.parametrize("operation", ["tag", "push-tag", "gh-release"])
