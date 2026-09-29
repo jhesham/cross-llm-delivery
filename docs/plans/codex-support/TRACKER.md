@@ -1,0 +1,127 @@
+# Progress tracker
+
+Status: **T01–T20 and M1–M6 complete; v0.3.0 published/promoted.** [Publication evidence](PUBLICATION-0.3.0.md): exact tag/source `81327cc`, four main CI jobs and all artifact gates passed, nine downloaded asset hashes verified. Pause at the token checkpoint.
+
+User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
+
+Tick a task only after its detailed checkboxes and acceptance gate pass. Add evidence and a commit SHA, or explicitly record that the verified changes are still uncommitted. `blocked`, `in progress`, and `deferred` belong in the evidence column; an unchecked box must not be treated as completed. Update the matching milestone in [the overview](../../../IMPLEMENTATION_PLAN.md).
+
+**Task completion checklist**
+
+- [x] T01 — Baseline and real regressions
+- [x] T02 — Independent candidate verification
+- [x] T03 — Checked collection and preservation
+- [x] T04 — Resumable attempts and worktrees
+- [x] T05 — Build identity and ledger migration
+- [x] T06 — Dependency and integration lifecycle
+- [x] T07 — Validated plans and gate protocol
+- [x] T08 — Bounded subprocess execution
+- [x] T09 — Model validation and preflight
+- [x] T10 — Usage and admission budgets
+- [x] T11 — Host-neutral CLI interface
+- [x] T12 — Host-aware skill generation
+  - [x] T12A — Standalone Codex generator
+  - [x] T12B — Host metadata and parity
+- [x] T13 — Codex installation and discovery
+  - [x] T13A — Safe standalone installer
+  - [x] T13B — Marketplace and host discovery
+- [x] T14 — Cross-host acceptance
+- [x] T15 — Optional Codex executor contract
+- [x] T16 — Optional Codex executor implementation ([evidence](T16-EVIDENCE.md); source `e64d12f`, four-job CI green)
+- [x] T17 — Wheel, bundle, and CI coverage
+  - [x] T17A — Wheel/sdist resources and isolated core
+  - [x] T17B — Bundle matrix and tracked freshness (source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md); Windows/Ubuntu CI green)
+  - [x] T17C — CI matrix and compatibility gate ([evidence](T17C-EVIDENCE.md); Python 3.11/3.14 × Windows/Ubuntu green)
+- [x] T18 — Checked release automation
+- [x] T19 — Migration and interruption rehearsal (all four closing-source CI jobs passed)
+  - [x] T19A — Fresh-process migration, abrupt interruption and locking rehearsal ([evidence](T19A-EVIDENCE.md); source `24ae8f4`, all four CI jobs green)
+  - [x] T19B — Host/provider matrix, measured overhead and rollback ([evidence](T19B-EVIDENCE.md); 11 unique local cases, source `d78c734`, all four CI jobs passed)
+- [x] T20 — Documentation and release candidate
+  - [x] T20A — Explicit Codex fast tier and coherent Claude installs ([evidence](T20A-EVIDENCE.md); engine source `6c814e5`, all four CI jobs passed)
+  - [x] T20B — Concise entry skills, final documentation and release candidate ([signoff](T20B-CANDIDATE.md); source `59722b5`, all four CI jobs/artifact gates passed; four Claude skills refreshed with backups)
+
+The checklist above is the task-level completion record. The table below holds its dependencies, estimates, and evidence. Budgets are estimated **lead-agent input + output tokens per sitting**, excluding separately reported executor/model usage. They are neither context-window sizes nor a hard runtime limit. See [session rules](SESSION-GUIDE.md).
+
+| Task / suggested sitting | Depends on | Estimate | Evidence / commit |
+|---|---|---|---|
+| [T01 — baseline and real regressions](01-ACCEPTANCE-RECOVERY.md#t01--baseline-and-regression-harness) | — | 6–10k | Complete: [evidence](T01-EVIDENCE.md); 421 passed, 9 xfailed, 1 deselected; commit `ddd4333` |
+| [T02 — independent candidate verification](01-ACCEPTANCE-RECOVERY.md#t02--independent-candidate-verification) | T01 | 12–18k | Complete: [evidence](T02-EVIDENCE.md); 479 passed, 6 xfailed, 1 deselected; commit `a6b1b68` |
+| [T03 — checked collection and preservation](01-ACCEPTANCE-RECOVERY.md#t03--checked-collection-and-preservation) | T02 | 10–16k | Complete: [evidence](T03-EVIDENCE.md); 501 passed, 3 xfailed, 1 deselected; closing commit subject starts `fix: T03` |
+| [T04 — resumable attempts and worktrees](01-ACCEPTANCE-RECOVERY.md#t04--resumable-attempts-and-worktrees) | T03 | 10–16k | Complete: [evidence](T04-EVIDENCE.md); M1 513 passed, 2 xfailed, 1 deselected; closing commit subject starts `fix: T04` |
+| [T05 — build identity and ledger migration](02-STATE-ORCHESTRATION.md#t05--build-identity-and-ledger-migration) | T04 | 12–18k | Complete: [evidence](T05-EVIDENCE.md); 532 distinct tests verified across full run/follow-up, 2 T06 xfails; closing commit subject starts `fix: T05` |
+| [T06 — dependency and integration lifecycle](02-STATE-ORCHESTRATION.md#t06--dependency-and-integration-lifecycle) | T05 | 10–16k | Complete: [evidence](T06-EVIDENCE.md); 556 distinct passing tests, no xfails; closing subject starts `fix: T06` |
+| [T07 — validated plans and gate protocol](02-STATE-ORCHESTRATION.md#t07--validated-plans-and-gate-protocol) | T06 | 10–16k | Complete: [evidence](T07-EVIDENCE.md); 609 distinct passing tests across full run/follow-ups; closing subject starts `fix: T07` |
+| [T08 — bounded subprocess execution](03-EXECUTION-BUDGETS.md#t08--bounded-subprocess-execution) | T04 | 8–14k | Complete: [evidence](T08-EVIDENCE.md); Windows CI 645 passed, Ubuntu 642 passed/3 Windows-only skips; code/test head `53cc2c0` |
+| [T09 — model validation and preflight](03-EXECUTION-BUDGETS.md#t09--model-validation-and-preflight) | T07, T08 | 8–14k | Complete: [evidence](T09-EVIDENCE.md); Windows CI 685 passed, Ubuntu 682 passed/3 Windows-only skips; code/test head `3caf863` |
+| [T10 — usage and admission budgets](03-EXECUTION-BUDGETS.md#t10--usage-and-admission-budgets) | T05, T08, T09 | 8–12k | Complete: [evidence](T10-EVIDENCE.md); Windows CI 709 passed, Ubuntu 706 passed/3 Windows-only skips; code/test head `8f3c5db` |
+| [T11 — host-neutral CLI interface](04-CODEX-HOST.md#t11--host-neutral-cli-interface) | T07, T09, T10 | 8–14k | Complete: [evidence](T11-EVIDENCE.md); Windows 761 passed, Ubuntu 758 passed/3 Windows-only skips; both generator smoke checks passed; code/test head `8759ce7` |
+| [T12 — host-aware skill generation](04-CODEX-HOST.md#t12--host-aware-skill-generation) | T11 | 10–16k | Complete: [T12A](T12A-EVIDENCE.md), [T12B](T12B-EVIDENCE.md); final `3b1c0b9`, Windows/Ubuntu full CI plus both-host generator and Codex plugin smoke green |
+| [T13 — Codex installation and discovery](04-CODEX-HOST.md#t13--codex-installation-and-discovery) | T12 | 8–14k | Complete: [T13A](T13A-EVIDENCE.md), [T13B](T13B-EVIDENCE.md); T13B code/test merge `f4b9551`; installed Codex app-server found repo skill and all three local plugins from nested cwd; Windows/Ubuntu full CI and generator smoke green |
+| [T14 — cross-host acceptance](04-CODEX-HOST.md#t14--cross-host-acceptance) | T13, T17 | 10–16k | Complete: [offline flow, CLI and IDE host evidence, and pinned Kimi K3 canary](T14-EVIDENCE.md); CLI/IDE standalone skill invoked from disposable installs, Claude behavior verified. Closing evidence commit and final CI are recorded in T14 evidence. |
+| [T15 — optional Codex executor contract](05-CODEX-EXECUTOR.md#t15--codex-executor-contract-and-fixtures) | T08, T09, T11 | 8–12k | Complete: [evidence](T15-EVIDENCE.md); source/test `63b5ed1`; [Windows/Ubuntu Python 3.11/3.14 CI plus generator smoke green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36102993135). Synthetic fixtures only; live Codex remains T16. |
+| [T16 — optional Codex executor implementation](05-CODEX-EXECUTOR.md#t16--codex-provider-and-end-to-end-proof) | T15, T13 | 10–18k | Complete: source/test `e64d12f`; [Windows canary and Kimi dogfood evidence](T16-EVIDENCE.md); [Windows/Ubuntu Python 3.11/3.14 CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253). |
+| [T17 — wheel, bundle, and CI coverage](06-PACKAGING-RELEASE.md#t17--wheel-bundles-and-ci) | T12 | 8–12k | Complete: [T17A](T17A-EVIDENCE.md), [T17B](T17B-EVIDENCE.md), [T17C](T17C-EVIDENCE.md); T17C source `465b698`, race repair `5a5e68e`, [Python 3.11/3.14 × Windows/Ubuntu CI green](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; T14 is next. |
+| [T18 — checked release automation](06-PACKAGING-RELEASE.md#t18--checked-release-automation) | T17 | 8–12k | Complete — [evidence](T18-EVIDENCE.md), 59 local checks and closing commit `593174a` passed all four CI jobs |
+| [T19 — migration and interruption rehearsal](06-PACKAGING-RELEASE.md#t19--migration-and-interruption-rehearsal) | T14, T18 | 10–18k | Complete: [T19A](T19A-EVIDENCE.md) four-job CI green at `24ae8f4`; [T19B](T19B-EVIDENCE.md) 11 new cases and [all four closing-source jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/36425920464) green at `d78c734`. A08 closed. |
+| [T20 — documentation and release candidate](06-PACKAGING-RELEASE.md#t20--documentation-and-release-candidate) | T19 | T20A 8–12k; T20B 10–16k | Complete: [T20A](T20A-EVIDENCE.md) exact Luna/max/fast contract; [T20B signoff](T20B-CANDIDATE.md), concise eight-host/provider entries, public docs, 0.3.0 seven-artifact candidate and coherent four-skill Claude installation. Source `59722b5`; all four exact-source CI jobs and artifact gates passed. Lead usage unavailable; no new paid call. |
+
+Default sitting order: **T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13 → T17 → T14 → T18 → T19 → T20**. Optional T15/T16 can follow M5 or be inserted after T13 if the user wants the fourth provider in the same release. Do not let optional provider work defer review fixes.
+
+The dependency graph permits some independent work, but does not authorize spawning agents. One implementer is the default. Any separately authorized parallel implementation must own disjoint files, and generated bundles should be regenerated by one owner after source changes settle.
+
+**Completion record template**
+
+```text
+Date / task:
+Changed files:
+Checks and results:
+Evidence path / commit:
+Lead token usage: measured / estimated / unavailable
+Executor usage and cost: measured / unknown / no dispatch
+Remaining limitation:
+Next task:
+```
+
+**Progress log**
+
+
+- 2026-09-09 — Planning files created from the full-build review and verified Codex documentation; local CLI reports 0.153.4. No implementation tasks completed and no live model calls made.
+- 2026-09-09 — User selected Kimi K3 via OpenCode for dogfooding. Codex retains lead/test/review responsibilities. Exact model ID remains to be verified; no automatic model substitution. The 20 task units have not yet been converted to executable acceptance-test-backed CLD slices.
+- 2026-09-09 — Prepared the 13-file planning baseline for commit before T01. User requires verification/commit and an explicit token-availability checkpoint after every slice; no implementation task started.
+- 2026-09-10 — T01 complete: shared production capture in integration harnesses; 11 portable regressions/control cases, including 9 strict expected failures verified with `--runxfail`. Final suite 421 passed, 9 xfailed, 1 deselected. No live model use; lead usage unavailable. Next T02 requires explicit user confirmation. Commit: `ddd4333` (T01).
+
+- 2026-09-10 — T02 complete: immutable base/candidate capture, protected acceptance preflight, isolated snapshot judging, rechecked collection tree and explicit simulation boundary. R01/R02 acceptance defects closed. Final suite 479 passed, 6 xfailed, 1 deselected; targeted post-dispatch capture fault passed separately. No live model dispatch; lead usage unavailable. Refactoring branch checkpoint is committed/pushed before pausing for T03.
+
+- 2026-09-10 — T03 complete: checked collection/ref persistence, per-attempt reconstructable recovery patches and diagnostics, final-ledger-save rollback/reconciliation, and delayed cleanup. R03 closed; final suite 501 passed, 3 xfailed, 1 deselected. CLI/summary follow-up: 34 passed. No live model dispatch; lead usage unavailable. Commit/push checkpoint then pause for T04.
+
+- 2026-09-11 — T04/M1 complete: unique run/session worktrees, configured roots, pre-creation reservation, bounded restart/escalation context, OS-held slice ownership and legacy preservation. Fixed a Windows parent-creation/path-resolution race found by the first full run. Final suite: 513 passed, 2 xfailed (T06), 1 deselected. No sub-agents/provider calls; lead usage unavailable. Codex sub-agent preference saved as `gpt-5.6-luna` at `max`. Commit/push then pause for T05.
+
+- 2026-09-11 — T05 complete: schema-2 identity, explicit backed-up migration/reconciliation/new builds, whole-operation writer ownership, stale-write rejection, repo-scoped default state and preserved run histories. Registry operations serialized after a real-Git race was exposed. Full run: 531 passed plus one outdated fixture corrected; CLI follow-up: 41 passed (532 distinct verified tests), 2 T06 xfails, 1 deselected. No sub-agents/provider calls; lead usage unavailable. Commit/push then pause for T06.
+
+- 2026-09-15 — T06 complete: verified dependency bases, build-owned integration worktrees/refs, explicit frozen suite, failure/interruption preservation, idempotent retry, manual verification and whole-plan integration. Full suite: 555 passed, 1 live eval deselected; follow-up: 3 passed, 556 distinct tests verified. Both R05 xfails removed. No sub-agents/provider calls; lead usage unavailable. Commit/push then pause for T07.
+
+- 2026-09-17 — T07/M2 complete: validated plans, structured RC-authoritative test results, verified repair, consistent gates and recorded status. Full offline run: 603 passed, three outdated test expectations corrected; final follow-up: 52 passed, selector follow-up: 68 passed. 609 distinct tests verified, no xfails, one live evaluation excluded. R06/R11/A01/A02 closed. No sub-agents/live model calls; lead usage unavailable. Commit/push then pause for T08.
+
+- 2026-09-18 — T09 complete: unified model/context admission, recorded validation spend policy, trusted isolated probes, synchronized atomic evidence and all-selected-provider preflight. R09/A07 closed. Final CI: Windows 685 passed; Ubuntu 682 passed/3 Windows-only skips; both generator smoke checks pass. Local full run plus follow-up covers 685 distinct tests. No sub-agents/live calls; executor usage zero, lead counters unavailable. Code/test head `3caf863`; closing docs subject starts `docs: close T09`. Pause before T10.
+
+- 2026-09-23 — T10/M3 complete: durable per-attempt usage, cumulative ledger totals, validation/retry/escalation budget reservations, explicit unknown policy, bounded status snapshots and sink cleanup. R12/A06 closed. CI: Windows 709 passed; Ubuntu 706 passed/3 Windows-only skips; both generator smoke checks passed. No live calls/sub-agents; executor usage zero, lead counters unavailable. Code/test head `8f3c5db`; closing docs subject starts `docs: close T10`. Pause before T11.
+
+- 2026-09-23 — T12A complete: Codex standalone skill generation for all three providers, YAML-first entry metadata, bundle references and isolated driver. Kimi K3/OpenCode timed out after producing the permitted draft; the lead corrected two faulty acceptance assertions and reviewed/manual-integrated the code. Nine corrected tests remained red on baseline; 25 focused passed on feature. Local full suite and Windows/Ubuntu CI with default generator smoke passed; Codex smoke passed locally. Code/test `8ef2a38`, [evidence](T12A-EVIDENCE.md). Production usage unknown, partial lower bounds retained. Parent T12 remains open; pause before T12B.
+
+- 2026-09-23 — T12B/T12 complete: pinned Kimi K3/OpenCode delivered seven allowed files; engine collection and independent integration passed. Lead review moved Codex plugin default output to ignored `dist/plugins/` and fixed a pre-existing cancellation-test race exposed by Ubuntu CI. 38 focused generator cases, local full suite and final Windows/Ubuntu CI (tests plus Claude/Codex generator and Codex plugin smoke) passed. Code/test `3b1c0b9`; [evidence](T12B-EVIDENCE.md). Complete usage 1,794,375 tokens/USD 1.0957002 including validation. Pause before T13.
+- 2026-09-24 — T13A complete: pinned Kimi K3/OpenCode delivered a standalone Codex installer and install guide, with committed red acceptance and independent integration. Lead review fixed containment, Python cache ownership, and cleanup outcome reporting. Local 13-case focused suite, generated-bundle disposable install/update/uninstall, full offline suite, and final Windows/Ubuntu CI with all generator smoke passed. Code/test `adbaf0c`; [evidence](T13A-EVIDENCE.md). Complete measured usage 641,634 tokens/USD 0.7045932 including validation. Parent T13 open; pause before T13B.
+- 2026-09-24 — T13B/T13 complete: pinned Kimi K3/OpenCode passed red preflight, one validation and one accepted production attempt, plus independent integration. The generated local Codex marketplace, repository AGENTS.md and docs were verified with installed Codex 0.155.1 app-server from a nested disposable repo; three plugins and the standalone skill discovered. Five focused tests, local full suite, and Windows/Ubuntu CI with all generator smoke passed. Code/test merge `f4b9551`; [evidence](T13B-EVIDENCE.md). Measured Kimi usage 542,087 tokens/USD 0.5650458 including validation. Pause before T17.
+- 2026-09-24 — T17A complete: wheel and sdist now include all six provider Markdown resources; a disposable installed wheel loads all three providers and CLI under `python -I -S` outside checkout. The pinned Kimi candidate was retained for lead repair because `pyproject.toml` is protected test configuration; lead reviewed and applied its package-data diff as `ae0556a`, without weakening the protection or dispatching a second model. Windows Python 3.11 CI exposed an older setuptools that rejected the existing SPDX license string during no-isolation artifact tests; `e979372` set the build/dev minimum to 77. Two focused artifact cases, local full suite, and final Windows/Ubuntu CI with generator smoke passed. [Evidence](T17A-EVIDENCE.md); measured Kimi usage 224,951 tokens/USD 0.3175866. Parent T17 open; pause before T17B.
+- 2026-09-24 — T17B complete: six fresh host/provider bundles passed isolated smoke and entrypoint checks; Codex manifests/catalog passed offline checks. Tracked Claude plugins were regenerated to close 48 missing/60 stale files, and CI now checks freshness without changing the tree. Focused and local full suites plus [Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35959871810) with generator smoke passed. Source `7997ecb`, `d09a2ab`; [evidence](T17B-EVIDENCE.md). No model call in this mechanical slice. Parent T17 open; pause before T17C.
+- 2026-09-24 — T17C/T17 complete: Python 3.11/3.14 × Windows/Ubuntu full offline CI and generator/plugin gates passed after correcting a timeout-test truncation race exposed on Ubuntu 3.11. Static plan, CLI-result and legacy-state fixtures pin compatibility; installed wheel and sdist include all six provider resources, with isolated core-only CLI smoke. README/install/known-issues platform claims now state evidence levels and macOS remains unverified. [Evidence](T17C-EVIDENCE.md), source `465b698`, repair `5a5e68e`, [CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/35972684121). R07/A05 closed; R13 remains T18. No Kimi call. Pause before T14.
+- 2026-09-25 — T14 partial: disposable two-layer real-Git fake-provider stop/resume and six generated host/provider contracts passed; Codex app-server and Claude interactive skill discovery/driver previews recorded. Claude skill frontmatter warning fixed in source and generated plugins. Legacy `untested` evidence now requires revalidation rather than blocking all dispatch; exact Kimi K3 canary validated, implemented, stopped, resumed and integrated with 2 provider attempts / 100,318 reported tokens / USD 0.1057668. IDE unavailable. [Evidence](T14-EVIDENCE.md). T14/M4 stay open; do not start T18.
+- 2026-09-25 — T14/M4 complete: the actual Codex VS Code panel offered the repo-installed `$cross-llm-opencode` skill and invoked its vendored driver in a disposable workspace with spaces. The IDE reported the resolved script path, `pending` gate and A/B layers with no executor dispatch. [Screenshots and full T14 evidence](T14-EVIDENCE.md). Final Windows/Ubuntu CI at the pushed closing SHA is recorded there. Stop for token confirmation before T18.
+- 2026-09-26 — T16/M6 complete: exact Kimi K3/OpenCode delivered the bounded adapter (401,147 reported tokens, USD 0.5116818); lead review registered the fourth provider, generated both host variants and refreshed tracked Claude plugins. The exact `codex:gpt-6-luna@max` Windows canary passed live validation, controlled budget stop/resume, independent one-file acceptance, and fresh-process integration (944,961 derived tokens; USD unknown; 44,961-token admission overrun recorded). [Evidence](T16-EVIDENCE.md), source `e64d12f`, [four-job Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253) green. Live POSIX dispatch and mid-process kill/resume remain unverified. Pause for token confirmation before T18.
+
+- 2026-09-29 — T20B/T20/M5 complete: concise eight entries (Claude ~1.2k estimates; older entries reduced 79–82%), both-host worked previews, final public/migration/security docs and 0.3.0 candidate. Fixed actual missing Codex Claude marketplace entry and native release version-policy mismatch; 13 new cases and 64 focused release checks passed. Source `59722b5` passed all four Windows/Ubuntu Python 3.11/3.14 CI jobs and all artifact gates. Seven artifact hashes, isolated installed-wheel check and four ZIP repeat checks recorded in [candidate/signoff](T20B-CANDIDATE.md). All four Claude skills installed coherently with backups/hashes. Direct lead work; no provider call/subagent; lead counters unavailable. All planned tasks complete. Pause at token checkpoint; no main/tag/release publication.
+
+2026-09-29 publication update: [v0.3.0 is published](PUBLICATION-0.3.0.md),
+with four-job exact-main CI at `81327cc` and nine downloaded asset hashes
+verified. The checked sync wrapper-preservation fix (`7c7abba`) is covered by
+the red/green local-remote regression and 64 focused release checks. Historical
+candidate hashes/installed skills remain distinct from final release assets.

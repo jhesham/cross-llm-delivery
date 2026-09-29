@@ -3,22 +3,27 @@
   "owner": {
     "name": "jhesham"
   },
-  "description": "Delegate bulk implementation to cheap executor CLIs with Claude as architect + judge - committed failing tests are the merge gate.",
+  "description": "Claude Code leads delivery through headless executors, independent acceptance and verified integration.",
   "plugins": [
     {
       "name": "cross-llm-opencode",
       "source": "./plugins/cross-llm-opencode",
-      "description": "OpenCode CLI executor (free/cheap-metered models: deepseek, kimi, GLM, ...). The proven cross-platform provider."
+      "description": "OpenCode CLI executor; select and validate an exact account-supported model."
     },
     {
       "name": "cross-llm-antigravity",
       "source": "./plugins/cross-llm-antigravity",
-      "description": "Antigravity (agy) executor - flat-rate Gemini/Claude models with a Google AI subscription. Windows-validated."
+      "description": "Antigravity agy executor; recorded Windows behavior, account/model validation required."
     },
     {
       "name": "cross-llm-cursor",
       "source": "./plugins/cross-llm-cursor",
-      "description": "Cursor cursor-agent executor (composer-2.5) with a Cursor subscription. Windows-validated."
+      "description": "Cursor cursor-agent executor; recorded Windows behavior, account/model validation required."
+    },
+    {
+      "name": "cross-llm-codex",
+      "source": "./plugins/cross-llm-codex",
+      "description": "Codex CLI executor with an explicit model, effort and optional fast tier; no guessed default."
     }
   ]
 }

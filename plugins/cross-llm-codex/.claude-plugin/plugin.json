@@ -1,0 +1,7 @@
+{
+  "name": "cross-llm-codex",
+  "description": "Claude Code leads codex CLI implementation with independent acceptance and verified integration.",
+  "author": {
+    "name": "cross-llm-delivery contributors"
+  }
+}

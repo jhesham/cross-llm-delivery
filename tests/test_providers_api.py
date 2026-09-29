@@ -83,7 +83,7 @@ def test_catalog_matches_all_providers():
 def test_all_providers_register_in_monorepo():
     from cld.providers_api import load_providers, all_providers, _REGISTRY
     _REGISTRY.clear(); load_providers()
-    assert sorted(p.name for p in all_providers()) == ["antigravity", "cursor", "opencode"]
+    assert sorted(p.name for p in all_providers()) == ["antigravity", "codex", "cursor", "opencode"]
 
 
 def test_assembled_catalog_has_expected_ids():

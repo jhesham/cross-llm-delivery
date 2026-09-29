@@ -30,24 +30,28 @@ def test_rerecord_overwrites_old_verdict(tmp_path):
     assert s.get("m")["status"] == "verified"
 
 
-def test_corrupt_or_missing_file_never_raises(tmp_path):
+def test_corrupt_file_is_not_a_cache_miss_or_silently_overwritten(tmp_path):
+    import pytest
+    from cld.evidence import EvidenceError
     p = tmp_path / "ev.json"
     p.write_text("{not json", encoding="utf-8")
     s = EvidenceStore(path=p)
-    assert s.get("anything") is None
-    assert s.statuses() == {}
-    s.record("m", "verified")  # still writable after corruption
-    assert EvidenceStore(path=p).get("m")["status"] == "verified"
+    for operation in (lambda: s.get("anything"), s.statuses, lambda: s.record("m", "verified")):
+        with pytest.raises(EvidenceError):
+            operation()
+    assert p.read_text(encoding="utf-8") == "{not json"
 
 
 def test_legacy_verdicts_migrate_on_load(tmp_path):
     p = tmp_path / "ev.json"
     p.write_text(json.dumps({
         "opencode/kimi-k2.6": {"status": "known-bad", "note": "x", "validated_at": "t"},
+        "opencode/kimi-k2.7": {"status": "untested", "note": "inconclusive", "validated_at": "t"},
         "gemini:gemini-3.1-pro-preview": {"status": "proven", "note": "", "validated_at": "t"},
     }), encoding="utf-8")
     st = EvidenceStore(path=p).statuses()
     assert st["opencode/kimi-k2.6"] == "revalidate"
+    assert st["opencode/kimi-k2.7"] == "revalidate"
     assert st["gemini:gemini-3.1-pro-preview"] == "verified"
 
 

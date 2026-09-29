@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cld"
-version = "0.2.0"
-description = "Route bulk implementation of large builds to cheap headless executor LLMs (opencode/antigravity/cursor) with Claude as architect + judge; committed failing tests are the merge gate."
+version = "0.3.0"
+description = "Codex or Claude Code leads cross-LLM delivery through isolated executor worktrees, independent acceptance, durable recovery and verified integration."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
@@ -15,11 +15,21 @@ dependencies = []
 # Dashboards (traces -> any OTLP backend: Phoenix / Langfuse / Honeycomb / Grafana).
 # Optional + guarded: absent SDK => OtelSink no-ops, the local JSONL stream is unaffected.
 otel = ["opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
-dev = ["pytest>=8", "deepeval>=1.0", "anthropic>=0.30",
-       "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+dev = ["pytest>=8", "setuptools>=77", "deepeval>=1.0", "anthropic>=0.30",
+       "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20",
+       "PyYAML>=6"]
 
 [tool.setuptools.packages.find]
 where = ["engine"]  # the importable packages (cld, cld_providers) live under engine/
+
+[tool.setuptools.package-data]
+# Provider Markdown resources are read at provider-import time via
+# Path(__file__).parent, so they must ship inside both wheel and sdist.
+# setuptools includes package_data files in sdists as well as wheels.
+"cld_providers.antigravity" = ["*.md"]
+"cld_providers.cursor" = ["*.md"]
+"cld_providers.opencode" = ["*.md"]
+"cld_providers.codex" = ["*.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]

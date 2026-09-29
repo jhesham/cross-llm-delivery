@@ -1,6 +1,6 @@
 ## SLICE: T1
 brief: Implement greet(name) in src/demo/greet.py returning "hello, <name>".
-files: src/demo/greet.py, tests/test_greet.py
+files: src/demo/greet.py
 acceptance_test_path: tests/test_greet.py
 deps:
 

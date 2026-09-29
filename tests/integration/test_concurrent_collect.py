@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors._capture import capture_diff
 from cld.ledger import Ledger
 from cld.orchestrator import run_plan_parallel
 from tests.integration.harness import init_repo, real_git_runner
@@ -34,10 +35,8 @@ class RealFileExecutor:
             dest = Path(workdir) / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(f"# {task.id}\nVALUE = '{task.id}'\n", encoding="utf-8")
-        real_git_runner(["git", "add", "--intent-to-add", "-A"], str(workdir))
-        _, names = real_git_runner(["git", "diff", "HEAD", "--name-only"], str(workdir))
-        files = [ln.strip() for ln in names.splitlines() if ln.strip()]
-        return ExecutorResult(ok=True, diff="d", files_changed=files,
+        diff, files = capture_diff(real_git_runner, str(workdir))
+        return ExecutorResult(ok=True, diff=diff, files_changed=files,
                               token_usage={}, raw_log="")
 
 
@@ -47,7 +46,7 @@ def _judge(files_changed, allowed, run_tests):
 
 
 def _always_pass_runner(workdir):
-    return "1 passed in 0.0s"
+    return "__CLD_PYTEST_RC__=0\n1 passed in 0.0s"
 
 
 def _branch_file_list(repo, branch):
@@ -58,6 +57,9 @@ def _branch_file_list(repo, branch):
 
 def test_concurrent_slices_isolated_and_collected(git_repo):
     repo = git_repo
+    Path(repo, "t.py").write_text("def test_ok(): assert True\n")
+    assert real_git_runner(["git", "add", "t.py"], repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance input"], repo)[0] == 0
     slices = [
         SliceTask(id="A", brief="b", files=["pkg/a.py"], acceptance_test_path="t.py"),
         SliceTask(id="B", brief="b", files=["pkg/b.py"], acceptance_test_path="t.py"),
@@ -72,10 +74,10 @@ def test_concurrent_slices_isolated_and_collected(git_repo):
         test_runner=_always_pass_runner,
     )
 
-    assert sorted(result.completed) == ["A", "B"]
+    assert sorted(result.completed) == ["A", "B"], result.details
 
-    files_a = _branch_file_list(repo, "slice-A")
-    files_b = _branch_file_list(repo, "slice-B")
+    files_a = _branch_file_list(repo, ledger.get("A").commit)
+    files_b = _branch_file_list(repo, ledger.get("B").commit)
 
     # (2) COLLECT: each slice's code survives on its branch
     assert "pkg/a.py" in files_a, "slice-A's code must persist on its branch"
