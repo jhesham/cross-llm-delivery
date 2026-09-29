@@ -62,13 +62,17 @@ engine, generated bundle, installed skill, release or validation ledger was
 changed in this follow-up; no provider calls. Provider usage/cost zero;
 lead counters unavailable.
 
-User requested publication of this known issue and workaround to the online
-repository. The public-facing guide is
+User-requested documentation is published to `public/main` in `2e4d7f7`
+(working-branch counterpart `ed99f09`). The public-facing guide is
 [Codex Windows sandbox troubleshooting](../../../docs/CODEX-WINDOWS-TROUBLESHOOTING.md),
 linked from README and known issues. It includes config backup, scoped fallback,
 model-free shell/edit checks, rollback and the unresolved private-directory
-blocker. Publish these documentation changes to `public/main` and the working
-branch; publication verification is retained under `.cld/environment/`.
+blocker. GitHub API downloads of all four documentation files match committed
+local content; relative links resolve and both documented smoke checks pass.
+[Exact documentation-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36538431225)
+and [CodeQL](https://github.com/jhesham/cross-llm-delivery/actions/runs/36538429129)
+provide automated results. Publication verification is retained under
+`.cld/environment/docs-publication-verification.json`.
 
 **Pause at the token checkpoint after documentation publication; do not start
 the compatibility fix or a live canary automatically.**
