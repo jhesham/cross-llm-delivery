@@ -74,5 +74,32 @@ and [CodeQL](https://github.com/jhesham/cross-llm-delivery/actions/runs/36538429
 provide automated results. Publication verification is retained under
 `.cld/environment/docs-publication-verification.json`.
 
-**Pause at the token checkpoint after documentation publication; do not start
-the compatibility fix or a live canary automatically.**
+## P01 Windows workspace compatibility fix (in progress)
+
+User explicitly authorized the compatibility fix after documentation publication.
+See [post-release checklist](POST-RELEASE-FIXES.md). Further diagnosis shows that
+administrator-created pre-existing files, including normal Git worktrees, also
+depend on an Administrators grant disabled by the restricted token. Merely
+creating ordinary inherited-permission directories is not sufficient.
+
+`cld._windows_workspace.prepare_windows_workspace` resolves the exact current
+user SID and adds only inheritable Modify access to a newly owned workspace.
+Validation and Git worktree creation call it before dispatch. Probe parents,
+evidence, other users, existing denies and global sandbox configuration are
+preserved. Setup failures block before a provider call and retain diagnostics.
+The helper respects the configured probe timeout.
+
+The two installed-Codex, model-free regressions were red before the change and
+green afterward. All 88 focused checks passed, including the three native
+sandbox checks for private probes, managed worktrees and junction safety.
+Account/SID/ACL errors prevent dispatch and retain diagnostics/candidates.
+Evidence: `.cld/environment/windows-workspace-focused.xml` and retained probes
+under `.cld/sandbox-regressions/`.
+
+All eight host/provider bundles were rebuilt; the four committed Claude plugin
+copies passed generator freshness. The four global Claude standalone engine
+copies still match their owned `59722b5` source (provider-pruned file counts
+38/39); no active installed delivery driver was observed. Await exact-source
+cross-platform CI before coherent installation with backups. No real model
+call or admission-store update. Do not start a live canary or another task
+at closure; v0.3.0 release assets remain unchanged.
