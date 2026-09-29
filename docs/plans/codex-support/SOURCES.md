@@ -1,0 +1,42 @@
+# Codex sources and compatibility baseline
+
+Checked 2026-09-09. Official URLs below were opened during planning; some older developers.openai.com Codex URLs redirect to learn.chatgpt.com. Recheck version-sensitive details at T13 and T15. Design choices in ARCHITECTURE.md are project proposals, not claims that OpenAI supplies those CLD features.
+
+**T13A refresh, 2026-09-23:** The [current Build skills guide](https://learn.chatgpt.com/docs/build-skills) confirms repository ancestor `.agents/skills` scanning through Git root, user `$HOME/.agents/skills`, explicit `/skills` or `$skill` invocation, and standalone skills in Codex CLI and IDE. The [plugin guide](https://learn.chatgpt.com/docs/plugins) confirms plugins are unavailable in the IDE extension; the [plugin packaging guide](https://developers.openai.com/plugins/build/plugins) describes repo marketplaces and portable root manifests. Installed read-only CLI evidence: `codex-cli 0.155.1`, `opencode 1.18.29`, exact model ID `opencode/kimi-k3` listed. T13A validated copy/install/update/uninstall and vendored script resolution in a disposable repo. Actual Codex skill discovery and plugin marketplace validation remain T13B.
+
+**T13B refresh, 2026-09-24:** The [Codex marketplace sample specification](https://github.com/openai/codex/blob/main/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md) confirms a repo catalog at `<repo>/.agents/plugins/marketplace.json` and local source paths relative to the marketplace root. [Codex app-server plugin-list tests](https://github.com/openai/codex/blob/main/codex-rs/app-server/tests/suite/v2/plugin_list.rs) show project marketplace discovery through the `cwds` request parameter. The installed Codex 0.155.1 app-server discovered the generated catalog's three local plugins and the separately installed repo skill from a nested disposable Git cwd, with no marketplace load errors. No user-global registration or Codex inference call was made for that host probe.
+
+**T15 refresh, 2026-09-25:** The current [Non-interactive mode guide](https://learn.chatgpt.com/docs/non-interactive-mode) documents `codex exec -` reading stdin, `--json` JSONL events, `--ephemeral` session behavior, and explicit read-only/workspace-write sandboxes. Its examples include `thread.started`, `turn.started`, `turn.completed`, `turn.failed`, `item.*`, `error`, and completion usage fields `input_tokens`, `cached_input_tokens`, `output_tokens`, and `reasoning_output_tokens`. The [developer command reference](https://learn.chatgpt.com/docs/developer-commands) lists the CLI flags; the [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference) documents `model_reasoning_effort` and notes model-dependent effort support. Windows `codex-cli 0.155.1` returned the required flags and stdin `-` behavior through `codex exec --help`; `check_capabilities` passed against that installed output after handling its wrapped help text. This is a feature-tested local compatibility point, **not** a universal minimum version or proof of authenticated execution. WSL is absent; Linux CLI flag behavior remains unprobed locally. The T15 fixtures are explicitly synthetic and no Codex model call was made.
+
+| Source | Verified point relevant to this plan |
+|---|---|
+| [Build skills](https://learn.chatgpt.com/docs/build-skills) | Skills contain SKILL.md with name/description, optional scripts/references and `agents/openai.yaml`. Codex supports standalone skills, progressive loading, explicit invocation, and repository/user `.agents/skills` discovery. |
+| [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) | Codex loads layered repository instructions. This supports a small maintainer entrypoint; it does not justify replacing a user's instructions. |
+| [Non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) | `codex exec` supports JSONL events and explicit sandbox settings. Successful turn events may include usage. This is the optional provider boundary, not a requirement for Codex as lead. |
+| [Plugins](https://learn.chatgpt.com/docs/plugins) | Plugin support differs by surface; current documentation excludes the IDE extension. Standalone skill support is therefore required for the IDE route. |
+| [Package your plugin](https://developers.openai.com/plugins/build/plugins) | Current docs describe portable root `plugin.json`, OpenAI-specific extensions, and supported `.codex-plugin/plugin.json` compatibility manifests. Marketplace resolution/layout is distinct from Claude's existing package. |
+
+**Local read-only evidence**
+
+`Get-Command codex` resolves to the installed Codex desktop bundle's `codex.exe`. `codex --version` reported **codex-cli 0.153.4**. The environment printed a home/PATH-alias warning under the sandbox; version/help were still available. Authentication and live execution were not tested, so installed does not mean ready for a paid or authenticated canary.
+
+The observed `codex exec --help` supports stdin via `-`, `--json`, `--cd`, `--model`, `--sandbox workspace-write`, `--ephemeral`, and `--output-last-message`. It also exposes dangerous bypass/config-skipping flags; their existence is not permission or a reason to use them. T15 must reconcile actual installed behavior with the current official contract rather than freeze all flags from this machine.
+
+**Compatibility decisions to verify in implementation**
+
+- Host scope: Codex CLI and IDE standalone skills are required. App/plugin support gets explicit surface/version evidence. Do not claim all ChatGPT surfaces can execute local shell scripts simply because a plugin is discoverable there.
+- Installer: repository `.agents/skills` is the primary documented path; user-scoped location and plugin marketplace schema must be verified on selected versions. Internal plugin caches are implementation details, not install targets.
+- Plugin format: select a validated portable or supported compatibility manifest at T13; record why. Do not create two conflicting sources of metadata or translate a Claude manifest by filename substitution alone.
+- Provider scope: Codex executor is optional. Exact model/effort availability and cost depend on installed CLI/config/account and require evidence; no model/pricing recommendation is embedded in this plan.
+- Permissions: local CLI help and docs establish flags, not whether a host policy permits them. Test restricted write roots and denied subprocess/network access explicitly.
+
+**Refresh record template**
+
+```text
+Date / task:
+CLI and host version / platform:
+Official page checked:
+Observed capability or changed field:
+Fixture / test / installer impact:
+Decision and limitation:
+```

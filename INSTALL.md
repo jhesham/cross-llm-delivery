@@ -1,151 +1,145 @@
-# Installing cross-llm-delivery skill(s) on another machine
+# Install Cross-LLM Delivery
 
-You install **one or more generated per-provider skills** by copying self-contained folders into
-`~/.claude/skills/`. Each folder vendors the whole engine (`scripts/cld/`) — **no `pip install`,
-no cloning, no building on the target**. You need Python 3.11+ and the executor CLI(s) for the
-provider(s) you install.
+Choose the **lead host** (Codex or Claude Code) and **executor provider**
+(antigravity, cursor, opencode or codex) independently. Each generated skill
+contains its selected provider and the same engine. Python 3.11+ and Git are
+required, together with the authenticated provider CLI. Node/npm requirements
+depend on the installed provider distribution.
 
-> `dist/` is gitignored build output. Always hand over a **freshly rebuilt** folder, never a
-> checked-out stale one. On the source machine: `python generator/build_skill.py --all`
-> (cross-platform; on Windows `pwsh ./rebuild-skills.ps1` is a clean-rebuild convenience wrapper).
+## Build and transfer a coherent set
 
-> **Platform note:** Windows is the validated platform for all three providers. On macOS/Linux the
-> engine/generator/tests are portable and **opencode** is the recommended (proven-path) executor;
-> antigravity and cursor dispatch on POSIX is experimental. See the README's Platform support section.
+Build from a committed source revision. `dist/` is ignored generated output;
+never copy a stale folder left from another engine version.
 
-## The runnable providers
+```bash
+python generator/build_skill.py --all
+python generator/build_skill.py --all --host codex
+python generator/build_plugins.py
+python generator/build_plugins.py --host codex
+python generator/check_plugins_fresh.py --dist-root dist --plugins-root plugins
+```
 
-| Provider | Folder to copy | Cost | Account needed |
-|---|---|---|---|
-| **opencode** | `dist/cross-llm-opencode` | **$0** with a free model (`opencode/deepseek-v4-flash-free`); metered otherwise | free opencode account |
-| **antigravity** | `dist/cross-llm-antigravity` | flat-rate ($0 marginal) | **Antigravity / Google-AI subscription** |
-| **cursor** | `dist/cross-llm-cursor` | metered | **Cursor subscription** |
+Claude bundles: `dist/cross-llm-<provider>`. Codex bundles:
+`dist/codex/cross-llm-<provider>`. Record the generated SKILL banner source SHA.
+When switching providers across slices sharing a ledger, update all installed
+bundles together from that revision. Provider-specific code differs; shared
+engine files must match. Stop active writers before replacing an installation
+and preserve the old folders/configuration as backups. Restart the lead host
+after installing/updating.
 
-These three are the only runnable executors. (The Composer model is reachable via the **cursor**
-provider as `cursor:composer-2.5`.)
+For version 0.3.0, download the coherent host bundle set from the
+[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0)
+and verify its SHA-256 manifest. The
+[candidate record](docs/plans/codex-support/T20B-CANDIDATE.md) retains preparation
+evidence; release assets are rebuilt from the tagged source revision.
 
-## Can I install several at once? Yes — they don't collide
+## Claude Code standalone skills
 
-The generated `dist/cross-llm-<provider>/` folders are **independent and self-contained**, so any
-number can live in `~/.claude/skills/` together:
+For a **new** installation, copy the chosen `dist/cross-llm-<provider>` folder
+into `~/.claude/skills/`. On Windows this is
+`%USERPROFILE%\.claude\skills\`.
 
-- **Distinct skill names** (`cross-llm-opencode`, `cross-llm-antigravity`, `cross-llm-cursor`) —
-  Claude Code registers each as its own skill.
-- **No shared package on a global path.** Each folder ships its own vendored `scripts/cld/`, and its
-  `run_delivery.py` puts *its own* `scripts/` dir first on `sys.path`. Each run is a separate process
-  using its own engine copy — no cross-contamination.
-- **No hooks, no shared filenames** between bundles (each is wholly under its own folder).
-- **Shared state is intentional and safe:** all skills read/write one global validation-evidence
-  file, `~/.cld/validation-evidence.json` — a *feature* (a model you validate once is known to every
-  skill), not a collision. The per-build ledger is `.cld-ledger.json` written in the build's working
-  directory (the repo you point `--repo` at), so it's scoped to the build, not the skill.
+```powershell
+$destination = Join-Path $env:USERPROFILE ".claude\skills"
+New-Item -ItemType Directory -Force $destination | Out-Null
+# Fresh destination only; move an existing installation to a backup first.
+Copy-Item -LiteralPath "<source>\dist\cross-llm-codex" -Destination $destination -Recurse
+```
 
-So: install one to start, or install all the runnable ones — your choice.
-
----
-
-## Install ALL runnable providers
-
-### 1. Copy the three provider skill folders
-
-macOS / Linux:
 ```bash
 mkdir -p ~/.claude/skills
-for p in opencode antigravity cursor; do
-  cp -r "<source>/dist/cross-llm-$p" ~/.claude/skills/cross-llm-$p
-done
-# sanity: each must have a vendored engine (not the deprecation stub)
-ls ~/.claude/skills/cross-llm-*/scripts/cld/__init__.py
+# Fresh destination only; back up an existing folder first.
+cp -R "<source>/dist/cross-llm-codex" ~/.claude/skills/
 ```
 
-Windows (PowerShell):
-```powershell
-$skills = "$env:USERPROFILE\.claude\skills"
-New-Item -ItemType Directory -Force $skills | Out-Null
-foreach ($p in "opencode","antigravity","cursor") {
-    Copy-Item -Recurse -Force "<source>\dist\cross-llm-$p" (Join-Path $skills "cross-llm-$p")
-}
-foreach ($p in "opencode","antigravity","cursor") {
-    Test-Path (Join-Path $skills "cross-llm-$p\scripts\cld\__init__.py")   # must be True for each
-}
+Use the same procedure for the other providers. Avoid overlay copies on an
+existing bundle: deleted engine files could remain and mix versions. The folder
+must contain YAML-first `SKILL.md` and `scripts/run_delivery.py`.
+In a new session ask Claude Code to use `cross-llm-codex` (or the chosen name).
+A copied file alone is not observed picker discovery.
+
+## Claude Code plugins
+
+The repo is also a Claude marketplace. In Claude Code:
+
+```text
+/plugin marketplace add jhesham/cross-llm-delivery
+/plugin install cross-llm-opencode@cross-llm-delivery
+/plugin install cross-llm-antigravity@cross-llm-delivery
+/plugin install cross-llm-cursor@cross-llm-delivery
+/plugin install cross-llm-codex@cross-llm-delivery
 ```
-(Replace `<source>` with the path to the freshly rebuilt repo `dist/`.)
 
-### 2. Install + authenticate each executor CLI
+Install only the providers you need. These commands follow the marketplace's
+default-branch version; use the tagged release artifacts to pin a fixed revision.
+The source generator produces all four Claude packages under `plugins/`.
+Claude manifests intentionally omit a fixed version so Git-commit updates
+remain available; generated skill banners record the engine/product version.
+Codex portable manifests carry the explicit 0.3.0 version.
 
-Requirements on the target machine: **Python ≥ 3.11**, **git**, and **Node/npm** (the executor
-CLIs are Node-based). Set up each provider you'll use (commands identical on all platforms):
+## Codex standalone skills: CLI and IDE
 
-**opencode** ($0 with the free model; free account):
+Use the safe installer with an explicit scope root. A repository root installs
+under `<repo>/.agents/skills/`; a user-home scope installs under
+`<home>/.agents/skills/`. No destination is inferred from environment variables.
+
 ```bash
-npm install -g opencode-ai
-opencode auth login
-opencode run "reply with the single word READY"   # headless verify -> should print output
+python generator/install_codex.py --preview --scope-root <target-repo> --bundle dist/codex/cross-llm-opencode
+python generator/install_codex.py --install --scope-root <target-repo> --bundle dist/codex/cross-llm-opencode
 ```
 
-**antigravity** (needs an Antigravity / Google-AI subscription; flat-rate):
+For a user install, explicitly replace `<target-repo>` with the user home.
+Modified/unowned/linked installations are refused; preserve changes and review
+the ownership manifest instead of forcing an overwrite. To remove a clean
+owned install:
+
 ```bash
-# install the Antigravity CLI so `agy` is on PATH (usually %LOCALAPPDATA%\agy\bin\agy.exe;
-# set AGY_CMD if it's elsewhere).
-agy --version        # confirms the BINARY only (says nothing about auth)
-
-# MANDATORY one-time interactive login BEFORE any headless use:
-agy                  # run it bare in a real terminal, complete the browser sign-in, then exit
+python generator/install_codex.py --uninstall --scope-root <target-repo> --name cross-llm-opencode
 ```
-**Auth caveats (read these — they save an hour):**
-- **Login is mandatory before headless use.** `agy` ships installed but **unauthenticated**; logging
-  in via the interactive `agy` is what writes its state under `%USERPROFILE%\.gemini\antigravity-cli\`.
-- **There is NO `whoami`/`status`/`auth` subcommand**, so there is no scriptable auth check. The only
-  thing safe to run non-interactively is `agy --version` (returns e.g. `1.0.10`) — and it proves only
-  that the binary exists, NOT that you're logged in. `agy models` requires an interactive terminal.
-- **A hang means "log in first," not "broken."** Both `agy models` and `agy -p "…"` **silently hang
-  with no error** if you're not authenticated (or if run without a real interactive TTY). If `agy`
-  appears to freeze, the cause is almost always missing login — do the interactive `agy` sign-in.
-- Confirm auth by running `agy` (or `agy models`) **interactively** once after login: it should list
-  your models instead of hanging. `agy -p` writes its reply to a transcript file (not stdout), so it
-  won't echo a one-liner — the skill's executor reads that transcript (and forces the working dir onto
-  C: for a Windows path quirk). The first real `--step` build is the true end-to-end headless proof.
 
-**cursor** (needs a Cursor subscription; metered):
+In a new Codex CLI or IDE session invoke `$cross-llm-opencode` (or the selected
+skill). Standalone skill discovery has recorded Windows CLI/VS Code evidence;
+inspect the actual host if discovery fails. The user's project instructions
+are retained. Do not install over `AGENTS.md`.
+
+## Codex plugin surface
+
+Packaging is distinct from host installation:
+
 ```bash
-# install cursor-agent so it's on PATH (the skill auto-resolves the versioned binary;
-# set CURSOR_AGENT_CMD to override). Then log in + verify reachability:
-cursor-agent --version
-cursor-agent about           # short call -> prints tier + model (confirms auth/reachable)
+python generator/build_plugins.py --host codex
+codex plugin marketplace add <absolute-path-to-dist/plugins>
+codex plugin list
 ```
-Long-prompt headless dispatch on Windows is handled by the skill via direct-node (validated).
 
-### 3. (single-provider only) If you want just one
+The generated root includes `.agents/plugins/marketplace.json` with contained
+local sources. Use the installed CLI's supported plugin installation flow.
+Recorded discovery covered the original three plugins on Windows; the fourth
+Codex plugin and IDE plugin surface remain unverified. For the IDE, use the
+standalone skill path above rather than assuming plugin discovery.
 
-Do step 1 for that one folder and step 2 for just that CLI. The recommended lowest-friction $0
-choice is **opencode** with `opencode/deepseek-v4-flash-free`.
+## Executor setup and read-only verification
 
----
+Read `references/provider-setup.md` in the chosen generated bundle. It preserves
+provider-specific authentication, command overrides and observed CLI caveats.
+CLI `--version`/`--help` checks do not establish model/account entitlement.
+A model listing is also not a successful validation.
 
-## Choosing which installed skill to use
+From the installed skill directory:
 
-With several installed, you select per build by **naming the skill** when you ask Claude Code — e.g.
-"use **cross-llm-opencode** to run this plan" or "drive this build with **cross-llm-antigravity**."
-Each skill drives the same engine; the only difference is which executor backend (and model picker)
-it exposes. Within a chosen skill, its first-dispatch picker still lets you pick the specific model.
-
-A rule of thumb: **opencode** for $0/free-tier work, **antigravity** for highest-quality flat-rate
-runs (if subscribed), **cursor** for Composer-based runs (if subscribed).
-
-## Running a build (any installed skill)
-
-From the installed skill folder (all platforms):
 ```bash
-python scripts/run_delivery.py <plan.md> --repo <target-repo> --step
+python scripts/run_delivery.py --help
+python scripts/run_delivery.py <absolute-plan.md> --repo <absolute-repo> --dry-run --json
 ```
-- `--dry-run` first prints the layers without dispatching (also confirms Python + the vendored
-  engine import cleanly — needs no executor CLI).
-- The picker offers that provider's models on the first dispatch.
 
-## If something's off
-- **`python` not found:** use `py` instead of `python`.
-- **Skill folder doesn't import / "no module named cld":** confirm you copied the *generated*
-  `dist/cross-llm-<provider>/` folder (it has `scripts/cld/`), NOT the repo's `skill/` folder
-  (that's a deprecation stub).
-- **Banner check:** `dist/cross-llm-<provider>/SKILL.md`'s first line should read
-  `GENERATED from cross-llm-delivery@<sha>` matching the source HEAD.
+These do not dispatch a provider. A real build requires an exact supported
+executor spec and an explicit validation policy under the user's existing
+authorization. Codex examples: `codex:gpt-6-luna@max` or, when explicitly
+requested, `codex:gpt-6-luna@max+fast`. There is no Codex default model or
+entitlement guarantee. For larger max-effort slices, explicitly set
+`CLD_DISPATCH_TIMEOUT=1200` before the driver; default dispatch/probe deadlines
+are 600/30 seconds. Do not automatically raise budgets or retry.
+
+See [worked examples](docs/WORKED-EXAMPLES.md), [migration](docs/MIGRATION.md)
+and [support limits](KNOWN-ISSUES.md). An older ledger is not made compatible
+by copying a newer skill over it; migrate with backups first.

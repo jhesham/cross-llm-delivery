@@ -6,7 +6,10 @@ from pathlib import Path
 import pytest
 
 from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors._capture import capture_diff
 from cld.ledger import Ledger
+from cld.integration import integrate
+from tests.integration.test_review_regressions import acceptance
 from cld.orchestrator import next_pending_layer, run_plan_parallel
 from cld.summary import summarize_layer
 from tests.integration.harness import init_repo, real_git_runner
@@ -20,10 +23,8 @@ class RealFileExecutor:
             p = Path(workdir) / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(f"# {task.id}\n", encoding="utf-8")
-        real_git_runner(["git", "add", "--intent-to-add", "-A"], str(workdir))
-        _, names = real_git_runner(["git", "diff", "HEAD", "--name-only"], str(workdir))
-        files = [ln.strip() for ln in names.splitlines() if ln.strip()]
-        return ExecutorResult(ok=True, diff="+x\n", files_changed=files,
+        diff, files = capture_diff(real_git_runner, str(workdir))
+        return ExecutorResult(ok=True, diff=diff, files_changed=files,
                               token_usage={}, raw_log="")
 
 
@@ -33,7 +34,7 @@ def _judge(files_changed, allowed, run_tests):
 
 
 def _pass(workdir):
-    return "1 passed in 0.0s"
+    return "__CLD_PYTEST_RC__=0\n1 passed in 0.0s"
 
 
 def _slices():
@@ -51,7 +52,7 @@ def _run_one_layer(slices, ledger, repo):
     layer = [s for s in slices if s.id in layer_ids]
     res = run_plan_parallel(layer, ledger, executor=RealFileExecutor(), judge_fn=_judge,
                             max_workers=2, repo_dir=repo, git_runner=real_git_runner,
-                            test_runner=_pass)
+                            test_runner=_pass, plan_slices=slices)
     nxt = next_pending_layer(slices, ledger)
     summary = summarize_layer(res, layer_index=idx, total_layers=total,
                               next_layer=(nxt[1] if nxt else []))
@@ -60,6 +61,9 @@ def _run_one_layer(slices, ledger, repo):
 
 def test_step_through_two_layers(git_repo):
     repo = git_repo
+    Path(repo, "t.py").write_text("def test_ok(): assert True\n")
+    assert real_git_runner(["git", "add", "t.py"], repo)[0] == 0
+    assert real_git_runner(["git", "commit", "-qm", "acceptance input"], repo)[0] == 0
     slices = _slices()
     ledger = Ledger(str(Path(repo) / ".cld-ledger.json"))
 
@@ -69,6 +73,9 @@ def test_step_through_two_layers(git_repo):
     assert "LAYER 1 of 2" in sum0
     assert "diff --git" not in sum0  # no raw output on the summary
     assert ledger.is_done("A") and not ledger.is_done("B")
+
+    assert integrate(slices, ledger, repo_dir=repo, git_runner=real_git_runner,
+                     test_runner=acceptance, selector="t.py").passed
 
     # layer 1: B (now unblocked)
     res1, sum1 = _run_one_layer(slices, ledger, repo)
@@ -83,5 +90,5 @@ def test_step_through_two_layers(git_repo):
     def files_on(branch):
         _, out = real_git_runner(["git", "ls-tree", "-r", "--name-only", branch], repo)
         return set(x.strip() for x in out.splitlines() if x.strip())
-    assert "pkg/a.py" in files_on("slice-A")
-    assert "pkg/b.py" in files_on("slice-B")
+    assert "pkg/a.py" in files_on(ledger.get("A").commit)
+    assert "pkg/b.py" in files_on(ledger.get("B").commit)

@@ -21,7 +21,7 @@ def test_run_plan_parallel_records_per_slice_detail(tmp_path):
         return j(files_changed=files_changed, allowed=allowed, run_tests=run_tests)
 
     slices = [SliceTask(id="A", brief="b", files=["src/x.py"], acceptance_test_path="t.py")]
-    res = run_plan_parallel(slices, led, executor=Ex(), judge_fn=judge, max_workers=1)
+    res = run_plan_parallel(slices, led, executor=Ex(), judge_fn=judge, max_workers=1, simulation=True)
     d = res.details["A"]
     assert isinstance(d, SliceDetail)
     assert d.status == "completed"

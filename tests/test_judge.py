@@ -1,3 +1,4 @@
+from cld.test_run import TestRun
 """Acceptance tests for the Judge module (T3.3 contract).
 
 Authored by Claude (architect) BEFORE implementation. The executor must make
@@ -86,7 +87,7 @@ def test_judge_clean_pass():
     res = judge(
         files_changed=["src/cld/judge.py"],
         allowed=["src/cld/judge.py"],
-        run_tests=lambda: "4 passed in 0.2s",
+        run_tests=lambda: TestRun(0, "4 passed in 0.2s"),
     )
     assert res.passed is True
     assert res.tests_passed == 4
@@ -100,7 +101,7 @@ def test_judge_fails_on_test_failure():
     res = judge(
         files_changed=["src/cld/judge.py"],
         allowed=["src/cld/judge.py"],
-        run_tests=lambda: "FAILED tests/t.py::test_a\n1 failed, 2 passed in 0.1s",
+        run_tests=lambda: TestRun(1, "FAILED tests/t.py::test_a\n1 failed, 2 passed in 0.1s"),
     )
     assert res.passed is False
     assert res.tests_failed == 1
@@ -111,7 +112,7 @@ def test_judge_fails_on_disallowed_edit():
     res = judge(
         files_changed=["src/cld/judge.py", "tests/test_judge.py"],
         allowed=["src/cld/judge.py"],
-        run_tests=lambda: "3 passed in 0.1s",
+        run_tests=lambda: TestRun(0, "3 passed in 0.1s"),
     )
     assert res.passed is False
     assert res.disallowed_edits == ["tests/test_judge.py"]
@@ -121,6 +122,6 @@ def test_judge_zero_collected_is_not_a_pass():
     res = judge(
         files_changed=["src/cld/judge.py"],
         allowed=["src/cld/judge.py"],
-        run_tests=lambda: "no tests ran in 0.01s",
+        run_tests=lambda: TestRun(5, "no tests ran in 0.01s"),
     )
     assert res.passed is False

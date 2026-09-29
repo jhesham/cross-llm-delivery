@@ -1,11 +1,4 @@
-"""B1.1 smoke test — proves the real-git harness functions.
-
-This does NOT yet assert the bug (that's B1.2). It only verifies the harness
-itself works: a real repo initializes, the file-creating fake executor actually
-writes a file into the workdir, and the real git_runner operates on it. It also
-records (without judging) what the real `git diff HEAD` capture reports — which is
-the exact surface B1.2 will turn into a failing assertion.
-"""
+"""Real-Git harness checks, including production capture of created files."""
 
 import pytest
 
@@ -45,17 +38,14 @@ def test_file_creating_executor_writes_a_real_file(git_repo):
     assert result.ok is True
 
 
-def test_harness_exposes_the_capture_surface_b12_will_assert(git_repo):
-    """Record (not judge) what `git diff HEAD` reports for a freshly CREATED file.
-
-    The created file is UNTRACKED, so `git diff HEAD --name-only` may not list it.
-    B1.1 only documents this surface exists and is observable; B1.2 makes it a
-    failing assertion against the bug.
-    """
-    ex = FileCreatingExecutor()
+def test_harness_captures_created_file_content(git_repo):
+    ex = FileCreatingExecutor(contents={"src/created.py": "VALUE = 42\n"})
     task = SliceTask(id="S1", brief="b", files=["src/created.py"],
                      acceptance_test_path="t.py")
     result = ex.run(task, git_repo)
-    # the harness gives us the real capture output to inspect — that's the point.
-    assert hasattr(result, "files_changed")
-    assert isinstance(result.files_changed, list)
+    from pathlib import Path
+    assert (Path(git_repo) / "src/created.py").read_text() == "VALUE = 42\n"
+    rc, status = real_git_runner(["git", "status", "--porcelain", "-uall"], git_repo)
+    assert rc == 0 and "src/created.py" in status
+    assert result.files_changed == ["src/created.py"]
+    assert "+VALUE = 42" in result.diff

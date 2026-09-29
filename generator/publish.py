@@ -1,427 +1,184 @@
-"""Publish targets loader + publish_one: regenerate & push a provider bundle."""
-
+"""Preview bundle hashes, then publish only explicit refs with checked commands."""
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
 import shutil
-import subprocess
+import stat
 import sys
 import tempfile
-from pathlib import Path
-
 import tomllib
 
-from generator.build_skill import REPO_ROOT, build_one, _git_sha, _known_providers
+from generator.build_skill import REPO_ROOT, build_one, _known_providers, HOSTS
+from generator.release import CommandError, checked, read_version, valid_ref, _remote_sha
 
-
-# ---------------------------------------------------------------------------
-# Load publish targets
-# ---------------------------------------------------------------------------
 
 def load_publish_targets(path) -> dict:
-    """
-    Load publish targets from a TOML file.
-
-    Args:
-        path: Path to the publish-targets.toml file.
-
-    Returns:
-        dict: Maps provider names to remote URLs, including "all" for umbrella.
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-        ValueError: If the file is malformed TOML.
-    """
-    path = Path(path)
-
-    if not path.exists():
-        raise FileNotFoundError(f"Publish targets file not found: {path}")
-
-    with open(path, "rb") as f:
-        targets = tomllib.load(f)
-
+    with Path(path).open("rb") as stream:
+        targets = tomllib.load(stream)
+    if any(not isinstance(k, str) or not isinstance(v, str) for k, v in targets.items()):
+        raise ValueError("Publish targets must map provider names to remote URL strings")
     return targets
 
 
-# ---------------------------------------------------------------------------
-# pycache strip helper
-# ---------------------------------------------------------------------------
-
-def _strip_pycache(path: Path) -> None:
-    """Walk *path* and remove every __pycache__ directory and *.pyc file."""
+def _strip_pycache(path):
     for item in sorted(path.rglob("__pycache__"), reverse=True):
         if item.is_dir():
             shutil.rmtree(item)
-
-    for pyc in path.rglob("*.pyc"):
-        try:
-            pyc.unlink()
-        except FileNotFoundError:
-            pass
+    for item in path.rglob("*.pyc"):
+        item.unlink(missing_ok=True)
 
 
-# ---------------------------------------------------------------------------
-# Default git runner (subprocess, utf-8/replace)
-# ---------------------------------------------------------------------------
-
-def _default_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Run a git command and return (returncode, combined_output)."""
-    p = subprocess.run(
-        args,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return (p.returncode, (p.stdout or "") + (p.stderr or ""))
-
-
-# ---------------------------------------------------------------------------
-# Shared git push helper
-# ---------------------------------------------------------------------------
-
-def _git_push_repo(
-    work: Path,
-    *,
-    commit_msg: str,
-    version: str,
-    repo: str,
-    runner,
-) -> None:
-    """Run the standard 7-step git sequence in *work* and push to *repo*.
-
-    Raises RuntimeError on any non-zero return code.
-    """
-    def run(args):
-        rc, out = runner(args, str(work))
-        return rc, out
-
-    rc, out = run(["git", "init"])
-    if rc != 0:
-        raise RuntimeError(f"git init failed: {out}")
-
-    rc, out = run(["git", "add", "-A"])
-    if rc != 0:
-        raise RuntimeError(f"git add failed: {out}")
-
-    rc, out = run(["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery", "commit", "-m", commit_msg])
-    if rc != 0:
-        raise RuntimeError(f"git commit failed: {out}")
-
-    rc, out = run(["git", "tag", f"v{version}"])
-    if rc != 0:
-        raise RuntimeError(f"git tag failed: {out}")
-
-    rc, out = run(["git", "remote", "add", "origin", repo])
-    if rc != 0:
-        raise RuntimeError(f"git remote add failed: {out}")
-
-    rc, out = run(["git", "push", "-u", "origin", "HEAD", "--force"])
-    if rc != 0:
-        raise RuntimeError(f"git push failed: {out}")
-
-    rc, out = run(["git", "push", "--tags"])
-    if rc != 0:
-        raise RuntimeError(f"git push --tags failed: {out}")
+def _remove_staging(path):
+    """Remove only our temporary root, including Windows read-only Git objects."""
+    path = Path(path)
+    if (path.is_symlink() or path.parent.resolve() != Path(tempfile.gettempdir()).resolve()
+            or not path.name.startswith("cld-publish-")):
+        raise CommandError(f"Unsafe staging cleanup target: {path}")
+    owned = path.resolve()
+    def retry_readonly(function, filename, error):
+        file = Path(filename)
+        if not isinstance(error[1], PermissionError) or not file.resolve().is_relative_to(owned):
+            raise error[1]
+        os.chmod(file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        function(filename)
+    shutil.rmtree(path, onerror=retry_readonly)
 
 
-# ---------------------------------------------------------------------------
-# publish_one
-# ---------------------------------------------------------------------------
-
-def publish_one(
-    provider: str,
-    *,
-    targets: dict,
-    version: str,
-    dist_root: str | Path = "dist",
-    execute: bool = False,
-    runner=None,
-) -> dict:
-    """Regenerate a provider bundle and optionally push to its mirror repo.
-
-    Args:
-        provider: Provider name (e.g. "cursor").
-        targets: Mapping of provider -> remote URL.
-        version: Release version string (e.g. "1.2.3").
-        dist_root: Output root for build_one (default "dist").
-        execute: If False (default), return the plan without touching git/network.
-                 If True, push via runner.
-        runner: Callable(args, cwd) -> (rc, output). Defaults to real git subprocess.
-
-    Returns:
-        plan dict: {"provider", "repo", "version", "files": N, "actions": [...]}
-    """
-    if runner is None:
-        runner = _default_runner
-
+def _publish(provider, *, targets, version, dist_root, execute, runner,
+             target_branch, expected_sha, replace_history, host):
+    if version != read_version(REPO_ROOT):
+        raise ValueError("Publish version must match source VERSION and pyproject.toml")
+    valid_ref(target_branch)
+    if host not in HOSTS:
+        raise ValueError(f"Unknown host: {host}")
+    providers = _known_providers() if provider == "all" else [provider]
+    if any(p not in _known_providers() for p in providers):
+        raise ValueError(f"Unknown provider: {provider}")
     repo = targets[provider]
-
-    # Regenerate the bundle (smoke check ON — never publish a broken bundle)
-    bundle: Path = build_one(provider, out_root=dist_root)
-
-    # Strip pycache (belt-and-suspenders alongside .gitignore)
-    _strip_pycache(bundle)
-
-    # Count files in the bundle
-    files = sum(1 for _ in bundle.rglob("*") if _.is_file())
-
-    # Build the intended git action list
-    sha = _git_sha()
-    commit_msg = f"release v{version} (generated from {sha})"
-    actions = [
-        "git init",
-        "git add -A",
-        f"git -c user.email=\"cross-llm-delivery@local\" -c user.name=\"cross-llm-delivery\" commit -m \"{commit_msg}\"",
-        f"git tag v{version}",
-        f"git remote add origin {repo}",
-        "git push -u origin HEAD --force",
-        "git push --tags",
-    ]
-
-    plan = {
-        "provider": provider,
-        "repo": repo,
-        "version": version,
-        "files": files,
-        "actions": actions,
-    }
-
-    if not execute:
-        return plan
-
-    # ---- Execute: push to the remote repo via runner ----
-    with tempfile.TemporaryDirectory() as tmpdir:
-        work = Path(tmpdir) / "work"
+    if not isinstance(repo, str) or not repo or repo.startswith("-") or any(c in repo for c in "\r\n\0"):
+        raise ValueError("Publish remote must be an explicit single-line URL or path")
+    # Resolve local paths once, before changing cwd to isolated publishing staging.
+    # URLs and scp-style SSH destinations remain literal; aliases become local paths.
+    if not re.match(r"[A-Za-z][A-Za-z0-9+.-]*://", repo) and not (
+            re.match(r"(?:[^/@:\s]+@)?[^/:\s]+:[^\\\s]+", repo) and not Path(repo).drive):
+        repo = str((REPO_ROOT / repo).resolve())
+    if expected_sha is not None and not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_sha):
+        raise ValueError("expected_sha must be an exact 40/64-hex remote commit")
+    if replace_history and expected_sha is None:
+        raise ValueError("History replacement requires an explicit expected_sha")
+    ref, tag = "refs/heads/" + target_branch, "v" + version
+    if execute:
+        old = _remote_sha(REPO_ROOT, repo, ref, runner)
+        if _remote_sha(REPO_ROOT, repo, "refs/tags/" + tag, runner):
+            raise CommandError(f"Release tag already exists: {tag}")
+        if old and not replace_history:
+            raise CommandError("Existing branch requires explicit replace_history and expected_sha")
+        if (expected_sha is not None and old != expected_sha) or (replace_history and not old):
+            raise CommandError(f"Remote state changed: expected {expected_sha}, found {old or '<absent>'}")
+    # Temporary output is isolated from existing dist artifacts in both modes.
+    source_sha = checked(["git", "rev-parse", "HEAD"], REPO_ROOT, runner=runner).strip()
+    temporary = Path(tempfile.mkdtemp(prefix="cld-publish-"))
+    work = temporary / "work"
+    try:
         work.mkdir()
-
-        # Copy the bundle contents as the repo root
-        for item in bundle.iterdir():
-            dst = work / item.name
-            if item.is_dir():
-                shutil.copytree(item, dst)
-            else:
-                shutil.copy2(item, dst)
-
-        # Strip pycache from the working copy too
-        _strip_pycache(work)
-
-        _git_push_repo(work, commit_msg=commit_msg, version=version, repo=repo, runner=runner)
-
-    return plan
-
-
-# ---------------------------------------------------------------------------
-# publish_umbrella
-# ---------------------------------------------------------------------------
-
-def publish_umbrella(
-    *,
-    targets: dict,
-    version: str,
-    dist_root: str | Path = "dist",
-    execute: bool = False,
-    runner=None,
-) -> dict:
-    """Assemble ALL providers' bundles into a cross-llm-all umbrella repo.
-
-    Each provider's bundle is placed as ``cross-llm-<provider>/`` at the root
-    of the umbrella.  A top-level ``README.md`` is also written.
-
-    Args:
-        targets: Mapping that must include ``"all"`` -> remote URL.
-        version: Release version string (e.g. "1.2.3").
-        dist_root: Output root passed to ``build_one`` per provider.
-        execute: If False (default), return the plan without touching git/network.
-                 If True, push via runner.
-        runner: Callable(args, cwd) -> (rc, output). Defaults to real git subprocess.
-
-    Returns:
-        plan dict: {"repo", "version", "bundled": [...], "actions": [...]}
-    """
-    if runner is None:
-        runner = _default_runner
-
-    repo = targets["all"]
-    providers = _known_providers()
-
-    # Regenerate each provider bundle and collect paths
-    bundle_paths: dict[str, Path] = {}
-    for p in providers:
-        bundle_paths[p] = build_one(p, out_root=dist_root)
-        _strip_pycache(bundle_paths[p])
-
-    bundled = [f"cross-llm-{p}" for p in providers]
-
-    # Build the intended git action list
-    sha = _git_sha()
-    commit_msg = f"release v{version} (generated from {sha})"
-    actions = [
-        "git init",
-        "git add -A",
-        f"git -c user.email=\"cross-llm-delivery@local\" -c user.name=\"cross-llm-delivery\" commit -m \"{commit_msg}\"",
-        f"git tag v{version}",
-        f"git remote add origin {repo}",
-        "git push -u origin HEAD --force",
-        "git push --tags",
-    ]
-
-    plan = {
-        "repo": repo,
-        "version": version,
-        "bundled": bundled,
-        "actions": actions,
-    }
-
-    if not execute:
-        return plan
-
-    # ---- Execute: assemble umbrella + push to the remote repo via runner ----
-    with tempfile.TemporaryDirectory() as tmpdir:
-        work = Path(tmpdir) / "umbrella"
-        work.mkdir()
-
-        # Place each provider bundle as cross-llm-<provider>/ in the umbrella
         for p in providers:
-            dest = work / f"cross-llm-{p}"
-            shutil.copytree(bundle_paths[p], dest)
-            _strip_pycache(dest)
-
-        # Write the top-level README.md
-        readme = (
-            f"# cross-llm-all v{version}\n\n"
-            f"This umbrella bundles every cross-llm provider skill; "
-            f"copy the folder(s) you want — each `cross-llm-<provider>/` "
-            f"is a self-contained skill.\n\n"
-            f"Generated from cross-llm-delivery@{sha}.\n"
-        )
-        (work / "README.md").write_text(readme, encoding="utf-8")
-
-        _git_push_repo(work, commit_msg=commit_msg, version=version, repo=repo, runner=runner)
-
+            bundle = build_one(p, out_root=temporary / "build", host=host)
+            _strip_pycache(bundle)
+            # The generated banner includes the source release version.
+            if f"(provider: {p}, v{version})" not in (bundle / "SKILL.md").read_text(encoding="utf-8"):
+                raise CommandError(f"Generated bundle version mismatch: {bundle}")
+            destination = work / f"cross-llm-{p}" if provider == "all" else work
+            shutil.copytree(bundle, destination, dirs_exist_ok=True)
+        if provider == "all":
+            (work / "README.md").write_text(
+                f"# cross-llm-all v{version}\n\nSelf-contained {host} provider skills.\n\n"
+                f"Generated from cross-llm-delivery@{source_sha}.\n", encoding="utf-8")
+        hashes = {p.relative_to(work).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in sorted(work.rglob("*")) if p.is_file()}
+        commands = [
+            ["git", "init", "-b", target_branch], ["git", "add", "-A"],
+            ["git", "-c", "user.email=cross-llm-delivery@local", "-c", "user.name=cross-llm-delivery",
+             "commit", "-m", f"release v{version} (generated from {source_sha})"],
+            ["git", "tag", tag], ["git", "remote", "add", "origin", repo],
+            ["git", "push", "--atomic", *([f"--force-with-lease={ref}:{expected_sha}"] if replace_history else []),
+             "origin", f"HEAD:{ref}", f"refs/tags/{tag}:refs/tags/{tag}"]]
+        artifact = Path(dist_root).resolve() / ("codex" if host == "codex" else "") / f"cross-llm-{provider}"
+        plan = dict(provider=provider, repo=repo, version=version, host=host, source_sha=source_sha,
+                    target_ref=ref, tag=tag, expected_sha=expected_sha, replace_history=replace_history,
+                    files=len(hashes), file_hashes=hashes, artifact=str(artifact),
+                    artifact_note="logical output path; generated only in isolated temporary staging",
+                    actions=[shlex.join(a) for a in commands], dry_run=not execute)
+        if provider == "all":
+            plan["bundled"] = [f"cross-llm-{p}" for p in providers]
+        if execute:
+            for argv in commands:
+                checked(argv, work, runner=runner)
+    except Exception as exc:
+        if execute:
+            raise CommandError(f"{exc}\nRecovery staging retained: {temporary}") from exc
+        _remove_staging(temporary)
+        raise
+    try:
+        _remove_staging(temporary)
+    except OSError as exc:
+        raise CommandError(f"Staging cleanup failed: {temporary}: {exc}; pushed refs were not rolled back") from exc
     return plan
 
 
-# ---------------------------------------------------------------------------
-# main (CLI)
-# ---------------------------------------------------------------------------
+def publish_one(provider, *, targets, version, dist_root="dist", execute=False,
+                runner=None, target_branch="main", expected_sha=None,
+                replace_history=False, host="claude-code"):
+    return _publish(provider, targets=targets, version=version, dist_root=dist_root,
+                    execute=execute, runner=runner, target_branch=target_branch,
+                    expected_sha=expected_sha, replace_history=replace_history, host=host)
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Publish cross-llm-delivery skill bundles to mirror repos."
-    )
-    parser.add_argument(
-        "provider",
-        nargs="?",
-        help="Provider to publish (omit when using --all).",
-    )
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        dest="all_providers",
-        help="Publish for every provider in the targets file.",
-    )
-    parser.add_argument(
-        "--targets",
-        default="generator/publish-targets.toml",
-        help="Path to publish-targets.toml (default: generator/publish-targets.toml).",
-    )
-    parser.add_argument(
-        "--version",
-        default=None,
-        help="Release version (default: read from repo VERSION file).",
-    )
-    parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually push to remote repos (default: dry-run only).",
-    )
-    parser.add_argument(
-        "--dist-root",
-        default="dist",
-        help="Output root for generated bundles (default: dist).",
-    )
-    parser.add_argument(
-        "--umbrella",
-        action="store_true",
-        help="Publish only the umbrella cross-llm-all repo.",
-    )
+
+def publish_umbrella(*, targets, version, dist_root="dist", execute=False,
+                     runner=None, target_branch="main", expected_sha=None,
+                     replace_history=False, host="claude-code"):
+    return publish_one("all", targets=targets, version=version, dist_root=dist_root,
+                       execute=execute, runner=runner, target_branch=target_branch,
+                       expected_sha=expected_sha, replace_history=replace_history, host=host)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("provider", nargs="?")
+    parser.add_argument("--all", action="store_true", dest="all_providers")
+    parser.add_argument("--umbrella", action="store_true")
+    parser.add_argument("--targets", default="generator/publish-targets.toml")
+    parser.add_argument("--version")
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--dist-root", default="dist")
+    parser.add_argument("--target-branch", default="main")
+    parser.add_argument("--expected-sha")
+    parser.add_argument("--replace-history", action="store_true")
+    parser.add_argument("--host", choices=HOSTS, default="claude-code")
     args = parser.parse_args(argv)
-
-    # Resolve version
-    if args.version is None:
-        version_file = REPO_ROOT / "VERSION"
-        try:
-            version = version_file.read_text(encoding="utf-8").strip()
-        except FileNotFoundError:
-            version = "0.0.0"
-    else:
-        version = args.version
-
-    # Load targets
-    targets = load_publish_targets(args.targets)
-
-    if args.umbrella:
-        # Publish ONLY the umbrella
-        plan = publish_umbrella(
-            targets=targets,
-            version=version,
-            dist_root=args.dist_root,
-            execute=args.execute,
-        )
-        print("\n--- umbrella (cross-llm-all) ---")
-        print(f"  repo:    {plan['repo']}")
-        print(f"  version: {plan['version']}")
-        print(f"  bundled: {plan['bundled']}")
-        print("  actions:")
-        for action in plan["actions"]:
-            print(f"    {action}")
-        if not args.execute:
-            print("  (dry-run: no git/network operations performed)")
+    if sum(bool(v) for v in (args.provider, args.all_providers, args.umbrella)) != 1:
+        parser.error("Choose exactly one provider, --all, or --umbrella")
+    if args.all_providers and (args.replace_history or args.expected_sha):
+        parser.error("Replacement must be reviewed and executed separately for each remote")
+    try:
+        targets = load_publish_targets(args.targets)
+        providers = list(targets) if args.all_providers else ["all" if args.umbrella else args.provider]
+        # Include umbrella for --all in both preview and execution.
+        plans = []
+        for provider in providers:
+            plans.append(publish_one(provider, targets=targets, version=args.version or read_version(REPO_ROOT),
+                dist_root=args.dist_root, execute=args.execute, target_branch=args.target_branch,
+                expected_sha=args.expected_sha, replace_history=args.replace_history, host=args.host))
+        print(json.dumps(plans, indent=2))
         return 0
-
-    # Determine which providers to publish
-    if args.all_providers:
-        providers = [k for k in targets if k != "all"]
-    elif args.provider:
-        providers = [args.provider]
-    else:
-        parser.error("Provide a provider name or use --all.")
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        print(f"FAILED: {exc}", file=sys.stderr)
         return 1
-
-    for provider in providers:
-        plan = publish_one(
-            provider,
-            targets=targets,
-            version=version,
-            dist_root=args.dist_root,
-            execute=args.execute,
-        )
-        print(f"\n--- {provider} ---")
-        print(f"  repo:    {plan['repo']}")
-        print(f"  version: {plan['version']}")
-        print(f"  files:   {plan['files']}")
-        print("  actions:")
-        for action in plan["actions"]:
-            print(f"    {action}")
-        if not args.execute:
-            print("  (dry-run: no git/network operations performed)")
-
-    # --all --execute also publishes the umbrella after the per-provider repos
-    if args.all_providers and args.execute:
-        print("\n--- umbrella (cross-llm-all) ---")
-        plan = publish_umbrella(
-            targets=targets,
-            version=version,
-            dist_root=args.dist_root,
-            execute=True,
-        )
-        print(f"  repo:    {plan['repo']}")
-        print(f"  version: {plan['version']}")
-        print(f"  bundled: {plan['bundled']}")
-
-    return 0
 
 
 if __name__ == "__main__":

@@ -6,12 +6,55 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-29
+
+- Codex CLI/IDE and Claude Code lead the same engine through independent
+  acceptance, durable state and verified integration. Eight standalone bundles
+  and four plugin packages per host; explicit Codex model selection is required.
+- Added the optional Codex executor with bounded ephemeral/stdin dispatch,
+  recursion refusal, feature checks and usage parsing. Explicit
+  `codex:gpt-6-luna@max+fast` preserves effort/tier and separate admission
+  evidence; exposed warning/fallback output fails before candidate capture.
+- Schema-2 build identity, atomic/locked persistence, explicit legacy migration,
+  plan reconciliation, per-attempt recovery evidence and checked durable refs.
+- Independently reconstructed candidate trees, protected committed acceptance
+  inputs, checked test collection/exit codes, dependency integration boundaries,
+  retained repair work and truthful JSON gates.
+- Context-bound model validation with explicit spend policy, persisted usage
+  reservations/unknown accounting, bounded process-tree termination and guarded
+  native-command/release/CI handling.
+- Concise YAML-first Claude entries; provider/setup detail loads by reference.
+  Documentation separates host/provider, acceptance/integration, candidate/release,
+  and offline/discovery/live evidence. VERSION/package/Codex plugin metadata is
+  0.3.0; Claude manifests retain their Git-commit update policy.
+- Full offline CI on Windows/Ubuntu and Python 3.11/3.14. Recorded live Windows
+  OpenCode and tier-unspecified Codex Luna/max remain distinct from unverified
+  fast service, live Claude-lead execution, live POSIX and macOS surfaces.
+- Fixed Claude marketplace omission of the fourth Codex plugin. Checked
+  release validation now accepts intentionally Git-versioned Claude manifests
+  only with a matching generated skill banner; stale/missing/null version
+  evidence still fails. Codex manifests keep explicit semantic versions.
+
 ### Added
 - Community scaffolding: SECURITY.md (private vulnerability reporting + threat-model notes),
   bug-report issue form (asks for `--status` + judge output up front), PR template carrying the
   failing-test-first convention, and issue links routing questions to Discussions.
 
 ### Changed
+- T03 source engine: check collection commit/tree and durable refs before marking a slice
+  done. Commit-hook changes are rejected; valid no-op and executor-created commits are
+  reused. Worktree cleanup follows the final ledger save; failures retain their paths.
+- Per-attempt recovery evidence replaces overwritten slice-level patches/judge logs.
+  Binary patches are reconstructed against the original base for verification. A saved
+  collected outcome can repair an interrupted final ledger write without redispatching.
+- T02 source engine: real delivery now requires a Git runner and independent acceptance
+  runner. Report-only Python test doubles must opt into `simulation=True`; serial
+  `run_plan` uses the same verified worktree path as parallel delivery.
+- Acceptance inputs must be committed before dispatch. The engine checks the baseline,
+  captures changes against its original commit, and judges an isolated Git snapshot.
+  Tests, pytest configuration and declared `protected_inputs` cannot be executor edits.
+  No-change success requires `allow_already_satisfied: true` and a passing baseline.
+  See [T02 evidence](docs/plans/codex-support/T02-EVIDENCE.md) for compatibility limits.
 - Catalogued `opencode/glm-5.2` (validated in real dogfood builds: 5+ slices, all attempt-1) —
   it now appears in the picker and routing instead of requiring a manual tag.
 - README/CONTRIBUTING now state explicitly that **new models need no code changes** — any id the

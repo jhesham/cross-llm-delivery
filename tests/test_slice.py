@@ -35,9 +35,10 @@ def test_subslice_marker_is_not_special_anymore():
     from cld.plan.slice import load_slices
     md = ("## SLICE: P1\nbrief: p\nfiles: a.py\nacceptance_test_path: t.py\ndeps:\n\n"
           "## SUBSLICE: P1a\nbrief: c\nfiles: b.py\nacceptance_test_path: t.py\n")
-    slices = load_slices(md)
-    assert [s.id for s in slices] == ["P1"]          # P1a is NOT parsed as anything
-    assert not hasattr(slices[0], "subslices")        # field removed
+    import pytest
+    from cld.plan.slice import PlanError
+    with pytest.raises(PlanError, match="line 7: SUBSLICE"):
+        load_slices(md)
 
 
 def test_complexity_parsed_and_defaulted():

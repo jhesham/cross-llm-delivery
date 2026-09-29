@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "command": "preview",
+  "gate": "pending",
+  "gate_code": 0,
+  "next_action": "resume",
+  "layers": [["A"], ["B"]]
+}

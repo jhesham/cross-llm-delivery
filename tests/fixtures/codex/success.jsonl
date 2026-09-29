@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"synthetic-thread"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"type":"agent_message","text":"synthetic only"}}
+{"type":"future.telemetry","value":1}
+{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":45,"reasoning_output_tokens":10}}

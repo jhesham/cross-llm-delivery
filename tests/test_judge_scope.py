@@ -28,7 +28,7 @@ def test_test_runner_receives_acceptance_path():
     task = SliceTask(id="A", brief="b", files=["src/a.py"],
                      acceptance_test_path="tests/test_a.py")
     res = deliver_slice(task, executor=_Ex(), judge_fn=_judge, max_retries=0,
-                        workdir="/wt", test_runner=runner)
+                        workdir="/wt", test_runner=runner, simulation=True)
     assert res.accepted is True
     assert seen["workdir"] == "/wt"
     assert seen["path"] == "tests/test_a.py"  # the slice's test, NOT a whole-suite run
@@ -41,5 +41,5 @@ def test_legacy_one_arg_runner_still_works():
 
     task = SliceTask(id="A", brief="b", files=["src/a.py"], acceptance_test_path="t.py")
     res = deliver_slice(task, executor=_Ex(), judge_fn=_judge, max_retries=0,
-                        workdir="/wt", test_runner=runner)
+                        workdir="/wt", test_runner=runner, simulation=True)
     assert res.accepted is True

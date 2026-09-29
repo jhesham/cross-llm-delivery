@@ -6,6 +6,12 @@
 antigravity = "git@github.com:you/cross-llm-antigravity.git"
 # opencode = "git@github.com:you/cross-llm-opencode.git"
 # cursor = "git@github.com:you/cross-llm-cursor.git"
+# codex = "git@github.com:you/cross-llm-codex.git"
+
+# python -m generator.publish --all previews explicit main + source VERSION tags.
+# Add --host codex for Codex-host artifacts; use separate remote URLs per host.
+# Execution requires --execute. Existing branch replacement is per target only,
+# with --replace-history --expected-sha <exact-current-remote-sha>.
 
 # Umbrella repository (published output aggregates all providers)
 all = "git@github.com:you/cross-llm-all.git"
