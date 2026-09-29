@@ -1,6 +1,6 @@
 ## Codex CLI executor setup
 
-Install and sign in to a current Codex CLI through the official Codex setup instructions. Verify the installed binary with `codex --version` and `codex exec --help`; CLD feature-tests the required noninteractive flags before dispatch. On the target host, choose a model ID and supported effort explicitly, then run a preview with `--dry-run --json` and a budgeted one-slice build. `codex debug models` may show a catalog, but it is not a validation or entitlement guarantee.
+Install and sign in to a current Codex CLI through the official Codex setup instructions. Verify the installed binary with `codex --version` and `codex exec --help`; CLD feature-tests the required noninteractive flags before dispatch. Run `python scripts/list_models.py --json` from the skill directory for advisory picker choices, then choose a model ID and supported effort explicitly. The picker uses `codex debug models --bundled` without refresh or inference; a listing is not a validation or entitlement guarantee. Older CLIs without that optional command can still use an explicit ID. Preview with `--dry-run --json` before a budgeted one-slice build.
 
 Codex uses the current user's documented CLI authentication and configuration. CLD does not read or copy credentials, and the prompt travels on stdin. The default write sandbox is `workspace-write`; this adapter does not enable full-access or approval-bypass flags. Keep CLD's worktree root inside the selected repository and retain the independent acceptance/integration gate.
 

@@ -24,6 +24,7 @@ from .contract import (
     check_capabilities,
     parse_exec_output,
 )
+from .catalog import list_models
 
 # Structural JSONL failures mean the event stream itself cannot be trusted, so
 # they collapse to one actionable error. Semantic failures (turn_failed,
@@ -188,7 +189,7 @@ PROVIDER = Provider(
     make_executor=lambda **kwargs: CodexExecutor(**kwargs),
     catalog=(),
     default_workhorse="",  # Exact model selection is mandatory.
-    list_models=lambda runner: [],  # No authoritative account-scoped list in this contract.
+    list_models=list_models,  # Advisory catalog; admission remains independent.
     account_stats=None,
     account_block=None,
     cli_invocation=lambda: ["codex"],

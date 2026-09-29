@@ -520,6 +520,9 @@ def _available_ids_for(provider: str) -> list:
         if provider == "cursor":
             from cld_providers.cursor.provider import _default_runner as _cursor_runner
             return p.list_models(_cursor_runner)
+        if provider == "codex":
+            from cld_providers.codex.catalog import _default_runner as _codex_runner
+            return p.list_models(_codex_runner)
         return p.list_models(lambda args, cwd: (0, ""))
     except Exception:
         return []
@@ -654,21 +657,14 @@ def prepare_dispatch(args, slices, ledger):
 
 
 def prompt_for_executor() -> str:
-    """Interactive model picker (the CLI surface). Degrades gracefully: if OpenCode
-    isn't installed, the shortlist falls back to just the default workhorse."""
+    """Shortlist plus discovered-model browse/search and explicit-ID fallback."""
     from cld.models import pick_executor, recommend
 
-    try:
-        from cld_providers.opencode.provider import _default_runner
-        p = get_provider("opencode")
-        available = p.list_models(_default_runner)
-    except Exception:
-        available = []
-
+    from cld.picker import discover_model_index
+    index = discover_model_index()
+    available = [m.spec.split(":", 1)[1] for m in index if m.executor == "opencode"]
     recs = recommend(available_ids=available)
-    if not recs:
-        return _default_spec()
-    return pick_executor(recs)
+    return pick_executor(recs, index=index)
 
 
 # ---------------------------------------------------------------------------
