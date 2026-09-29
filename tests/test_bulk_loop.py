@@ -75,7 +75,8 @@ class FakeRunner:
         return (self.rc, self.output)
 
 
-def test_worktree_adds_and_removes():
+def test_worktree_adds_and_removes(monkeypatch):
+    monkeypatch.setattr("cld.worktree.prepare_windows_workspace", lambda *args, **kwargs: None)
     runner = FakeRunner()
     with worktree("/repo", "feat-x", runner=runner) as path:
         assert isinstance(path, str)
@@ -88,7 +89,8 @@ def test_worktree_adds_and_removes():
     assert "remove" in remove_args
 
 
-def test_worktree_retains_on_exception():
+def test_worktree_retains_on_exception(monkeypatch):
+    monkeypatch.setattr("cld.worktree.prepare_windows_workspace", lambda *args, **kwargs: None)
     runner = FakeRunner()
     try:
         with worktree("/repo", "feat-y", runner=runner):

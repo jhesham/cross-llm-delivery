@@ -63,14 +63,22 @@ in a workspace directory with inherited ACLs. This changes native Codex
 isolation globally and is weaker than `elevated`; CLD must not switch it
 automatically. See [official OpenAI Windows sandbox guidance](https://learn.chatgpt.com/docs/windows/windows-sandbox).
 
-The fallback is not yet sufficient for CLD validation on this machine:
-Python 3.13.13 `tempfile.mkdtemp` creates private directory ACLs that exclude
-the sandbox's inherited write grants. A model-free check of CLD's
-`probe-*/repo` layout starts successfully but fails to edit `calc.py` with
-`PermissionError`. `engine/cld/validate.py` uses this layout. A targeted
-temporary-directory/sandbox compatibility fix and verification are pending;
-do not widen workspace ACLs globally or treat the passing normal-workspace
-check as a passing CLD admission probe. No paid retry was performed.
+Version 0.3.0 release bundles also have a Windows workspace-permissions
+compatibility issue: Python 3.13.13 private temporary directories and
+administrator-created files can lack write permission for the restricted
+token's current-user account. Creating a new sandbox-owned file can succeed
+while editing pre-existing `calc.py` or a checked-out file fails.
+
+Repository source now grants inheritable Modify permission to the exact current
+user on newly created CLD probe repos and worktrees, before dispatch. It keeps
+private probe parents/evidence unchanged, preserves existing denies, and blocks
+dispatch on permission-setup failure. Model-free regressions exercise the
+installed sandbox's edits and protection of source, Git metadata and evidence.
+The elevated-helper failure is separate and still requires local setup repair
+or an operator-selected fallback. Existing v0.3.0 release assets predate this
+source fix: build a coherent set from updated source; do not edit installed
+engine files individually or mark a real model verified from these offline
+fixture checks. No paid retry was performed.
 
 ## State and acceptance
 

@@ -4,6 +4,7 @@ import re
 
 from cld.executors._capture import CaptureError, checked
 from cld.locking import file_owner
+from cld._windows_workspace import prepare_windows_workspace
 
 
 @contextlib.contextmanager
@@ -71,6 +72,7 @@ def worktree(repo_dir: str, branch: str, *, runner, cleanup: bool = True,
         raise RuntimeError(f"worktree creation failed at {path}: {output}")
 
     try:
+        prepare_windows_workspace(Path(path), parent=Path(path).parent)
         yield path
     except BaseException as exc:
         exc.add_note(f"Worktree retained at {path}")
