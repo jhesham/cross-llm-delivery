@@ -20,11 +20,22 @@ preserve existing denies. No paid provider dispatch or model substitution.
   88 passed locally, including three opt-in native sandbox checks.
 - [x] Regenerate all four Claude and four Codex host bundles from the same source;
   refresh committed Claude plugins through the generator.
-- [ ] Publish the source fix and updated troubleshooting docs to the online repo.
-- [ ] Wait for Windows/Ubuntu x Python 3.11/3.14 CI and generator/plugin checks.
-- [ ] Refresh the four owned Claude standalone installations coherently with
+- [x] Publish the source fix and updated troubleshooting docs to the online repo.
+- [x] Wait for Windows/Ubuntu x Python 3.11/3.14 CI and generator/plugin checks.
+- [x] Refresh the four owned Claude standalone installations coherently with
   backups, hash checks and no active delivery writer.
-- [ ] Record final commit, CI and installation evidence in HANDOFF.md, then stop.
+- [x] Record final commit, CI and installation evidence in HANDOFF.md, then stop.
+
+Completed 2026-09-29. Runtime source: public/main `84dd85a`
+(working-branch counterpart `c68c0c5`).
+[Exact-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36542440084)
+passed all four jobs and all 24 required test/generator/plugin steps; CodeQL
+also passed. All four installed Claude standalone skills now carry `@84dd85a`
+and match the generated files byte-for-byte. Their isolated driver-help checks
+and three native sandbox checks against the installed vendored engine passed.
+Backups, source hashes and local evidence are recorded in [HANDOFF.md](HANDOFF.md).
+Provider calls and model usage/cost: zero; lead counters unavailable. Stop at
+this task boundary and obtain token-availability confirmation before more work.
 
 The elevated Codex helper's runtime-path problem remains external. Existing
 v0.3.0 release assets are immutable and do not include P01; a new release is
