@@ -6,7 +6,7 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
-### 0.3.0 candidate — 2026-09-29 (not published)
+## [0.3.0] — 2026-09-29
 
 - Codex CLI/IDE and Claude Code lead the same engine through independent
   acceptance, durable state and verified integration. Eight standalone bundles
