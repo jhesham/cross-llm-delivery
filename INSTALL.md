@@ -27,9 +27,11 @@ engine files must match. Stop active writers before replacing an installation
 and preserve the old folders/configuration as backups. Restart the lead host
 after installing/updating.
 
-Version 0.3.0 is a candidate until separately published. The public default
-branch marketplace may serve an older version; the candidate bundle set and
-hashes are in [the candidate record](docs/plans/codex-support/T20B-CANDIDATE.md).
+For version 0.3.0, download the coherent host bundle set from the
+[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0)
+and verify its SHA-256 manifest. The
+[candidate record](docs/plans/codex-support/T20B-CANDIDATE.md) retains preparation
+evidence; release assets are rebuilt from the tagged source revision.
 
 ## Claude Code standalone skills
 
@@ -69,11 +71,11 @@ The repo is also a Claude marketplace. In Claude Code:
 ```
 
 Install only the providers you need. These commands follow the marketplace's
-default-branch version; they do not publish/install this candidate automatically.
+default-branch version; use the tagged release artifacts to pin a fixed revision.
 The source generator produces all four Claude packages under `plugins/`.
 Claude manifests intentionally omit a fixed version so Git-commit updates
 remain available; generated skill banners record the engine/product version.
-Codex portable manifests carry the explicit 0.3.0 candidate version.
+Codex portable manifests carry the explicit 0.3.0 version.
 
 ## Codex standalone skills: CLI and IDE
 
