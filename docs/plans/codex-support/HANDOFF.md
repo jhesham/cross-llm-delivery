@@ -1,6 +1,7 @@
 # Current handoff
 
-Updated 2026-09-29. **T01–T20 and M1–M6 complete; v0.3.0 published and promoted.**
+Updated 2026-09-29. **T01–T20 and M1–M6 complete; v0.3.0 published and promoted;
+post-release P01 complete.**
 [Release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0) · [publication evidence](PUBLICATION-0.3.0.md).
 
 Immutable tag/source: `81327cc90271bd6126e85e20533e1d9bb874ed08`.
@@ -8,8 +9,9 @@ Immutable tag/source: `81327cc90271bd6126e85e20533e1d9bb874ed08`.
 required steps passed](https://github.com/jhesham/cross-llm-delivery/actions/runs/36531725348). Seven release artifacts plus manifest/checksums
 were uploaded; all nine downloads match local SHA-256 hashes. Local files:
 `dist/release-v0.3.0/`; operational evidence: `.cld/publication/`.
-The publication signoff commit changes planning documents only; current main
-may carry those docs after the immutable release source.
+The release publication signoff changed planning documents only. Main now also
+carries the separately checked P01 runtime fix below; the immutable v0.3.0
+release source and assets are unchanged.
 
 The initial promotion exposed wrapper removal from the public tree. Fix
 `7c7abba` retains checked release/sync wrappers; the real local-remote regression
@@ -18,10 +20,10 @@ The corrected promoted/tagged commit passed the full four-job suite. No force
 push, provider-mirror publication, global installation change or model call.
 Lead counters unavailable; provider usage/cost zero.
 
-All four previously installed Claude standalone skills remain coherently from
-`59722b5` with their T20B backups/hashes; release engine/skill sources match that
-candidate. New downloadable bundles all come from the tagged revision. Restart
-the host after replacing a complete coherent skill set. Preserve active state
+All four installed Claude standalone skills now come coherently from P01
+source `84dd85a`, with their former `59722b5` copies backed up and hashes
+verified. Downloadable v0.3.0 bundles still come from the tagged revision and
+predate P01. Restart the host to load the updated skills. Preserve active state
 before rollback; old engines cannot read schema-2 ledgers. Installed-copy edits
 and mixed engine versions remain unsupported.
 
@@ -45,36 +47,37 @@ Local model-free checks reproduce elevated-helper failure on standalone CLI
 With explicit user approval, backed up the global Codex config and changed
 only `windows.sandbox` from `elevated` to `unelevated`. Backup:
 `C:\Users\Administrator\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
-Verified all other parsed settings unchanged. Shell execution and file
-create/edit/read/delete pass with a workspace directory's inherited ACLs.
+Verified all other parsed settings unchanged. Shell execution and
+sandbox-created-file create/edit/read/delete pass in an ordinary workspace.
 All checks used `codex sandbox`, without model calls.
 
-**Remaining operational blocker:** the installed Python 3.13.13 creates
+**Pre-P01 operational blocker (resolved below):** Python 3.13.13 creates
 private `tempfile.mkdtemp` ACLs. CLD's validation `probe-*/repo` layout starts
 in the unelevated sandbox but cannot edit `calc.py` (`PermissionError`).
 Normal-workspace success is not a successful CLD validation canary.
 See [known issues](../../../KNOWN-ISSUES.md#codex-windows-sandbox-setup).
 
-Next authorized slice should address temporary-repo/sandbox compatibility
-with a model-free regression before any paid retry. Also consider a model-free
-Codex shell/edit preflight to avoid spending on a broken local setup. No
-engine, generated bundle, installed skill, release or validation ledger was
-changed in this follow-up; no provider calls. Provider usage/cost zero;
+The next authorized slice was temporary-repo/sandbox compatibility, completed
+as P01 below with a model-free regression before any paid retry. A model-free
+Codex shell/edit preflight remains a possible follow-up. The initial environment
+follow-up changed no engine, bundle, skill, release or validation ledger;
+no provider calls. Provider usage/cost zero;
 lead counters unavailable.
 
-User-requested documentation is published to `public/main` in `2e4d7f7`
+User-requested documentation was published to `public/main` in `2e4d7f7`
 (working-branch counterpart `ed99f09`). The public-facing guide is
 [Codex Windows sandbox troubleshooting](../../../docs/CODEX-WINDOWS-TROUBLESHOOTING.md),
-linked from README and known issues. It includes config backup, scoped fallback,
-model-free shell/edit checks, rollback and the unresolved private-directory
-blocker. GitHub API downloads of all four documentation files match committed
+linked from README and known issues. The original guide included config backup,
+scoped fallback, model-free shell/edit checks, rollback and the then-unresolved
+workspace blocker. P01 updates it with the source fix. At original publication,
+GitHub API downloads of all four documentation files matched committed
 local content; relative links resolve and both documented smoke checks pass.
 [Exact documentation-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36538431225)
 and [CodeQL](https://github.com/jhesham/cross-llm-delivery/actions/runs/36538429129)
 provide automated results. Publication verification is retained under
 `.cld/environment/docs-publication-verification.json`.
 
-## P01 Windows workspace compatibility fix (in progress)
+## P01 Windows workspace compatibility fix (complete)
 
 User explicitly authorized the compatibility fix after documentation publication.
 See [post-release checklist](POST-RELEASE-FIXES.md). Further diagnosis shows that
@@ -96,10 +99,33 @@ Account/SID/ACL errors prevent dispatch and retain diagnostics/candidates.
 Evidence: `.cld/environment/windows-workspace-focused.xml` and retained probes
 under `.cld/sandbox-regressions/`.
 
-All eight host/provider bundles were rebuilt; the four committed Claude plugin
-copies passed generator freshness. The four global Claude standalone engine
-copies still match their owned `59722b5` source (provider-pruned file counts
-38/39); no active installed delivery driver was observed. Await exact-source
-cross-platform CI before coherent installation with backups. No real model
-call or admission-store update. Do not start a live canary or another task
-at closure; v0.3.0 release assets remain unchanged.
+Published runtime source: public/main
+`84dd85acefd8f64a1d1e26dfd991ca2848f5a0eb`; working-branch counterpart
+`c68c0c5b30768c215fca819510fc9914bdbb13fe`.
+[Exact-source CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36542440084)
+passed Windows/Ubuntu x Python 3.11/3.14: all four jobs and all 24 required
+test/generator/plugin steps. [CodeQL](https://github.com/jhesham/cross-llm-delivery/actions/runs/36542439735)
+passed. The closure commit changes planning documents only.
+
+All eight host/provider bundles were rebuilt from `84dd85a`; 39 shared core
+Python files match across them, and committed Claude plugin freshness passed.
+After CI passed and confirming no active delivery writer, installed all four
+global Claude standalone skills coherently from that source. Installed files
+match generated hashes; all four isolated driver-help checks passed. Three
+model-free sandbox checks against the installed Codex skill's vendored engine
+also passed: private-probe edits/evidence protection, managed-worktree edits/
+source preservation, and exclusion of external junction targets from ACL changes.
+
+The four previous `59722b5` installations are backed up at
+`C:\Users\Administrator\.claude\skill-backups\p01-20260929-183119-51a8549158404fca9d87db6c1fc10f41`.
+Retained local proofs: `.cld/environment/p01-ci-final.json`,
+`p01-bundle-coherence.json`, `p01-install.json`, `p01-installed-smoke.json`,
+`p01-config-check.json` and `p01-final.json` under the same directory. Restart
+Claude Code to load the new skills. No real model call or admission-store
+update; provider usage/cost zero, lead counters unavailable. Global Codex config
+still uses the approved `unelevated` setting, with all other settings preserved.
+
+The elevated-helper setup problem remains external; this engine fix does not
+repair it. Exact Luna/max/fast live delivery remains unverified, and v0.3.0
+release assets remain unchanged. A new release or live canary is separate work.
+Stop here; obtain token-availability confirmation before starting another task.
