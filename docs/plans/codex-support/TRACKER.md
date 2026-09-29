@@ -1,6 +1,6 @@
 # Progress tracker
 
-Status: **T01–T20 and M1–M6 complete**, including selected optional T15/T16. Final T20B source `59722b5` passed four-job Windows/Ubuntu Python 3.11/3.14 CI and all artifact gates. [0.3.0 candidate/signoff](T20B-CANDIDATE.md) is assembled; public main/tag/release publication remains separate. Stop at the token checkpoint.
+Status: **T01–T20 and M1–M6 complete; v0.3.0 published/promoted.** [Publication evidence](PUBLICATION-0.3.0.md): exact tag/source `81327cc`, four main CI jobs and all artifact gates passed, nine downloaded asset hashes verified. Pause at the token checkpoint.
 
 User checkpoint policy: verify and commit each slice, then stop and obtain explicit confirmation of token availability before the next. Apply this to every Txx task and any child slices. Do not auto-advance.
 
@@ -119,3 +119,9 @@ Next task:
 - 2026-09-26 — T16/M6 complete: exact Kimi K3/OpenCode delivered the bounded adapter (401,147 reported tokens, USD 0.5116818); lead review registered the fourth provider, generated both host variants and refreshed tracked Claude plugins. The exact `codex:gpt-6-luna@max` Windows canary passed live validation, controlled budget stop/resume, independent one-file acceptance, and fresh-process integration (944,961 derived tokens; USD unknown; 44,961-token admission overrun recorded). [Evidence](T16-EVIDENCE.md), source `e64d12f`, [four-job Windows/Ubuntu CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/36156180253) green. Live POSIX dispatch and mid-process kill/resume remain unverified. Pause for token confirmation before T18.
 
 - 2026-09-29 — T20B/T20/M5 complete: concise eight entries (Claude ~1.2k estimates; older entries reduced 79–82%), both-host worked previews, final public/migration/security docs and 0.3.0 candidate. Fixed actual missing Codex Claude marketplace entry and native release version-policy mismatch; 13 new cases and 64 focused release checks passed. Source `59722b5` passed all four Windows/Ubuntu Python 3.11/3.14 CI jobs and all artifact gates. Seven artifact hashes, isolated installed-wheel check and four ZIP repeat checks recorded in [candidate/signoff](T20B-CANDIDATE.md). All four Claude skills installed coherently with backups/hashes. Direct lead work; no provider call/subagent; lead counters unavailable. All planned tasks complete. Pause at token checkpoint; no main/tag/release publication.
+
+2026-09-29 publication update: [v0.3.0 is published](PUBLICATION-0.3.0.md),
+with four-job exact-main CI at `81327cc` and nine downloaded asset hashes
+verified. The checked sync wrapper-preservation fix (`7c7abba`) is covered by
+the red/green local-remote regression and 64 focused release checks. Historical
+candidate hashes/installed skills remain distinct from final release assets.

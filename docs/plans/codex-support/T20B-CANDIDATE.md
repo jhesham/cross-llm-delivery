@@ -1,5 +1,8 @@
 # T20B — 0.3.0 release candidate
 
+Historical preparation record. The subsequently published release has its own
+[source/CI and asset hashes](PUBLICATION-0.3.0.md).
+
 Version 0.3.0 is prepared on `refactor/codex-support`, remote `public` at
 `https://github.com/jhesham/cross-llm-delivery.git`. Candidate assembly, exact-source CI and
 installation checks are complete. T20/M5 are closed; no release/tag/default-branch
@@ -182,3 +185,10 @@ publication or Codex user-global install has been performed for this candidate.
   with backups and installed hash checks.
 - [x] Original review items and T20/M5 tracker closed against this evidence;
   missing live/discovery surfaces retained as limitations.
+
+
+2026-09-29 publication update: [v0.3.0 is published](PUBLICATION-0.3.0.md),
+with four-job exact-main CI at `81327cc` and nine downloaded asset hashes
+verified. The checked sync wrapper-preservation fix (`7c7abba`) is covered by
+the red/green local-remote regression and 64 focused release checks. Historical
+candidate hashes/installed skills remain distinct from final release assets.

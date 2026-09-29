@@ -70,3 +70,10 @@ Original local review and probe files remain under `D:\claude_server\cld-review-
 **T09 closing evidence (2026-09-18):** [T09-EVIDENCE.md](T09-EVIDENCE.md) and [contract](T09-CONTRACT.md) close R09 and evidence-store concurrency A07. Defaults/tags/unknown IDs/escalation cannot bypass admission; failed/forced/expired/context-changed evidence, noninteractive policy blocks and concurrent atomic writes have offline regressions. Windows CI 685 passed; Ubuntu 682 passed/3 Windows-only skips. Code/test head `3caf863`. Architecture decision A07 (full CLI JSON) remains T11 work.
 
 **T10/M3 closing evidence (2026-09-23):** [T10-EVIDENCE.md](T10-EVIDENCE.md) and [contract](T10-CONTRACT.md) close R12/A06. Per-attempt journals retain failed/retried/escalated/validation usage and cost provenance; shared reservations prevent concurrent budget oversubscription. Interrupted unknown usage is not free. Ledger/status totals agree. Antigravity usage is explicitly unavailable; no unsupported parser or zero-cost claim. Final CI: Windows 709 passed; Ubuntu 706 passed/3 Windows-only skips; both generator smoke checks passed. Code/test head `8f3c5db`. A09 artifact/recovery preservation remains covered.
+
+
+2026-09-29 publication update: [v0.3.0 is published](PUBLICATION-0.3.0.md),
+with four-job exact-main CI at `81327cc` and nine downloaded asset hashes
+verified. The checked sync wrapper-preservation fix (`7c7abba`) is covered by
+the red/green local-remote regression and 64 focused release checks. Historical
+candidate hashes/installed skills remain distinct from final release assets.
