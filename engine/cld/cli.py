@@ -613,7 +613,8 @@ def prepare_dispatch(args, slices, ledger):
         if not command:
             raise AdmissionBlocked(f"CLI disappeared for {provider}")
         return validation_context(spec, cli_paths=[command, *invocation[1:]],
-            config_paths=config_paths, extra=args.validation_context, repo=args.repo)
+            config_paths=config_paths, extra=args.validation_context, repo=args.repo,
+            env_patterns=get_provider(provider).context_env)
 
     def validate(spec):
         _, provider, kwargs = resolve_spec(spec)

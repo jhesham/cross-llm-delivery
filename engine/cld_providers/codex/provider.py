@@ -193,6 +193,7 @@ PROVIDER = Provider(
     account_stats=None,
     account_block=None,
     cli_invocation=lambda: ["codex"],
+    context_env=("CODEX_HOME", "CODEX_CLI_CMD", "OPENAI_*"),
     skill_fragment=(_HERE / "SKILL.fragment.md").read_text(encoding="utf-8"),
     setup_notes=(_HERE / "setup.md").read_text(encoding="utf-8"),
 )
