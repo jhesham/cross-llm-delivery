@@ -102,7 +102,8 @@ four workers; the example explicitly limits concurrency to one.
 A step does not merge into the user's checkout. Integration verifies accepted
 commits in an owned worktree and records its ref/SHA. Review that ref and merge
 explicitly into the intended clean branch. Dependent slices wait for verified
-integration. [Two worked host examples](docs/WORKED-EXAMPLES.md).
+integration. `--gc --repo <dir> --json` previews safe cleanup of CLD-managed
+worktrees; add `--apply` to remove them. [Two worked host examples](docs/WORKED-EXAMPLES.md).
 
 ## Validation, costs and recovery
 
@@ -118,7 +119,9 @@ expires after 30 days by default. Catalog labels alone cannot bypass validation.
 hard caps; overruns block subsequent calls. Missing usage is **unknown**, never
 zero or inferred from a subscription. Under a usage ceiling, unknown completed
 usage blocks by default; `--unknown-usage reserve` explicitly charges the
-recorded allowance. [Budget details](skill/references/delivery-core.md).
+recorded allowance. Errors that cannot succeed on retry (authentication,
+launch, timeout, network, Codex tier warnings) cost one dispatch and stop with
+gate 5. [Budget details](skill/references/delivery-core.md).
 
 Resume the same plan/repo/ledger. `--status --json` reads durable state without
 inference. `--migrate-ledger`, `--reconcile-plan` and `--new-build` are explicit
