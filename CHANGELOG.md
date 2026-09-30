@@ -6,6 +6,38 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-09-30
+
+### Fixed
+- Validation evidence is keyed only on provider-declared environment variables
+  plus proxy/certificate settings. Per-session host variables no longer force a
+  paid revalidation in every new lead session. Context contract 2: existing
+  evidence is stale once.
+- New, untracked tool caches and packaging metadata (`.mypy_cache`,
+  `.ruff_cache`, `.hypothesis`, `.tox`, `.nox`, `htmlcov`, `.eggs`,
+  `*.egg-info`, `.coverage*`, `CACHEDIR.TAG` directories) no longer reject a
+  correct slice. The judge snapshot checks tracked candidate files only, so
+  projects whose tests write `.hypothesis` or `.coverage` can use CLD; new
+  judge-created files are listed in attempt evidence.
+- Final executor errors (authentication, missing binary, access denied, launch,
+  missing capability, invalid invocation, recursion, Codex service-tier
+  warning/mismatch, timeout, network unavailable, diff capture) cost one
+  dispatch: no retry, no escalation, gate 5, slice resumable.
+- The Codex executor resolves the native binary without a shell
+  (`CODEX_CLI_CMD`, `codex.exe`, or the npm package's native executable); a
+  shim-only Windows install blocks with an actionable message instead of a
+  false "missing binary".
+- Codex picker labels keep their text (no cp1252 re-encoding).
+- `deliver_slice` no longer fabricates a Gemini model name; an explicit
+  `--executor` is recorded as source `chosen` (#12).
+
+### Added
+- `--gc` previews safe cleanup of CLD-managed worktrees; `--gc --apply` removes
+  integrated and superseded integration worktrees (`--include-previous` adds
+  clean earlier-build ones). Evidence and refs are never removed.
+- Codex-lead guidance: dispatching commands need network access; CLD blocks
+  before dispatch when `CODEX_SANDBOX_NETWORK_DISABLED=1`.
+
 ## [0.3.0] — 2026-09-29
 
 - Codex CLI/IDE and Claude Code lead the same engine through independent

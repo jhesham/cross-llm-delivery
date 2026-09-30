@@ -22,7 +22,16 @@ python -m cld --repo PROJECT --status --slice A --json
 python -m cld --repo PROJECT --usage --slice A --attempt ATTEMPT_ID --json
 python -m cld plan.md --repo PROJECT --mark-repaired A --json
 python -m cld plan.md --repo PROJECT --reconcile-plan --json
+python -m cld --repo PROJECT --gc --json
+python -m cld --repo PROJECT --gc --apply --include-previous --json
 ```
+
+`--gc` lists CLD-managed worktrees under the worktree root with `remove`/`keep` and a reason in
+`details.worktrees`; it changes nothing. `--apply` removes only integrated slices' worktrees and
+integration worktrees superseded by the recorded integration, then prunes stale registrations;
+`--include-previous` also removes earlier-build worktrees without uncommitted changes. Failed,
+blocked, repair-pending and in-progress work, run evidence and `refs/cld/*` are never removed.
+Results are in `details.results`; a failed removal returns gate 5.
 
 `EXACT_MODEL_ID` is a placeholder, not an admitted model. The validation policy still defaults to
 `deny`: establish trusted validation evidence or explicitly authorize the applicable validation flow.
@@ -37,7 +46,7 @@ Every response includes:
 | Field | Meaning |
 | --- | --- |
 | `schema_version` | Integer 1 |
-| `command` | preview, step, plan, integrate, repair, reconcile, migrate, new-build, status, usage, or help |
+| `command` | preview, step, plan, integrate, repair, reconcile, migrate, new-build, status, usage, gc, or help |
 | `gate`, `gate_code`, `next_action` | Outcome and action from the table below |
 | `run_id` | Persisted build identity, or null if no run is bound |
 | `repository`, `ledger` | Resolved absolute paths; explicit relative ledger paths use invocation cwd |

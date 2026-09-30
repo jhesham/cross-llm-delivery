@@ -39,6 +39,9 @@ IDs and supported efforts; discovery does not authorize dispatch.
   covered by the user's existing authorization; ask only if that is unclear.
 - For gate-4 repairs, follow the user's authorization and the host's active
   approval policy. Never silently dispatch another paid attempt.
+- `--step` and validation make paid network calls through the executor CLI.
+  Codex's default `workspace-write` sandbox has no network: run dispatching
+  commands with network-enabled or escalated permissions.
 
 ## Drive the build
 
