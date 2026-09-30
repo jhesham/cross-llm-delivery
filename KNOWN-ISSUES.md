@@ -21,7 +21,9 @@ a provider at an exact token/dollar boundary.
 
 The dispatch default is 600 seconds, probe default 30 seconds. Explicitly
 configure `CLD_DISPATCH_TIMEOUT` for a larger slice; preserve failure evidence
-and do not automatically retry or increase limits. Recent Kimi dogfood attempts
+and do not automatically retry or increase limits. Since 0.3.1 a timeout, like
+authentication, launch, capability, network and Codex service-tier errors, is
+a final executor error: one dispatch, no retry or escalation, gate 5. Recent Kimi dogfood attempts
 timed out without a candidate; that history is not a reason to substitute models
 or treat incomplete usage as free.
 
@@ -36,6 +38,11 @@ Provider catalogs/setup notes describe observed snapshots, not guaranteed
 current availability. Inspect the installed CLI and explicitly validate a
 changed model/account/configuration under the authorized policy. The default
 policy denies validation spend; first use is not an automatic paid probe.
+
+The Codex adapter launches the native binary without a shell: `CODEX_CLI_CMD`,
+then `codex.exe` on PATH, then the native executable inside an npm install. A
+shim-only install blocks dispatch with a message naming `CODEX_CLI_CMD`. The
+npm package layout is an observed snapshot and may change.
 
 The Cursor adapter works around the recorded long-prompt Windows shim issue
 by resolving the versioned Node entrypoint. If that layout changes, inspect the
@@ -82,6 +89,13 @@ fixture checks. No paid retry was performed.
 
 ## State and acceptance
 
+Candidate capture ignores new, untracked tool caches and packaging metadata
+(`__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.hypothesis`,
+`.tox`, `.nox`, `htmlcov`, `.eggs`, `*.egg-info`, `.coverage*` and
+`CACHEDIR.TAG` directories); tracked files with those names are still judged.
+The judge snapshot checks tracked candidate files only: new files a test run
+creates are listed in attempt evidence rather than rejected.
+
 Plans currently require top-level slice blocks and single-line values.
 Nested sub-slices and multiline briefs are unsupported. Behavioral grading is
 an optional library facility; it is not wired into the delivery acceptance gate
@@ -94,5 +108,6 @@ states. See [migration/recovery](docs/MIGRATION.md).
 
 Run events/artifacts are retained per run under `.cld/runs/<run-id>/`; compatibility
 event/summary paths may also exist. Starting a new build does not authorize
-deleting previous run evidence. Optional OTLP export is separate from local
+deleting previous run evidence. `--gc` removes only CLD-managed worktrees that
+are safe to remove (preview by default); it never deletes run evidence or refs. Optional OTLP export is separate from local
 durable state and should be enabled only under the user's data-sharing policy.

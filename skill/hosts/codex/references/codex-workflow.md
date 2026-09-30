@@ -28,7 +28,11 @@ user-selected supported spec. The production admission gate is
 `cld.admission.Admission`, not a hand-invoked legacy interactive helper.
 
 A step runs a pending layer; validation/production/retries count against its
-cumulative limits. Do not silently substitute, retry paid work, raise budgets
+cumulative limits. Dispatching commands (`--step`, validation) need network
+access through the executor CLI: inside your own `workspace-write` sandbox run
+them with network-enabled or escalated permissions. CLD blocks before dispatch
+when `CODEX_SANDBOX_NETWORK_DISABLED=1` is set, and a connection failure is a
+final `network_unavailable` error (gate 5, no retry), not a model verdict. Do not silently substitute, retry paid work, raise budgets
 or remove a requested tier. Prefer one worker for a bounded sitting; CLI's
 default remains four. Every planned fallback rung still requires admission.
 
