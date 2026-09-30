@@ -93,14 +93,16 @@ def test_invalid_browse_selection_never_silently_selects_workhorse():
             input_fn=lambda _: next(answers), output_fn=lambda _: None)
 
 
-def test_medium_fallback_and_cp1252_safe_labels():
+def test_medium_fallback_and_unicode_labels_preserved():
+    # v0.3.1: labels keep their text; encoding safety applies where text is printed
+    # (cli.main reconfigures stdout/stderr to UTF-8; list_models.py emits ASCII JSON).
     data = json.loads(catalog("gpt-6-sol", efforts=("medium", "max")))
     data["models"][0]["display_name"] = "Sol \U0001f680"
     idx = choices(json.dumps(data))
     m = next(m for m in idx if m.executor == "codex")
     assert m.default_effort == "medium"
     assert spec_with_effort(m, None) == "codex:gpt-6-sol@medium"
-    m.label.encode("cp1252")
+    assert m.label == "Sol \U0001f680"
 
 
 def test_provider_discovery_does_not_create_a_static_default():
