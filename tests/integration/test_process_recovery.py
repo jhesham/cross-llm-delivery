@@ -58,7 +58,10 @@ def test_partial_process_work_retained_and_never_accepted(delivery_repo, mode):
             run(delivery_repo, executor=Executor())
     else:
         result = run(delivery_repo, executor=Executor())
-        assert result.failed == ["A"] and not result.completed
+        # v0.3.1: a timeout is a final executor error — resumable and blocked (gate 5),
+        # never retried or escalated; partial work is still retained, never accepted.
+        assert result.blocked == ["A"] and result.deferred == ["A"]
+        assert not result.completed and not result.failed
     assert len(calls) == 1
     wd = Path(calls[0])
     assert wd.is_dir() and (wd / "implementation.py").read_text() == BODY

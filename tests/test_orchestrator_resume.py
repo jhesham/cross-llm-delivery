@@ -124,4 +124,5 @@ def test_run_plan_persists_usage_to_ledger(tmp_path):
     e = Ledger.load(p).get("A")
     assert e.status == "done"
     assert e.token_usage == {"total": 7}
-    assert e.model
+    # v0.3.1: no fabricated model name when the caller supplied none.
+    assert e.model is None
