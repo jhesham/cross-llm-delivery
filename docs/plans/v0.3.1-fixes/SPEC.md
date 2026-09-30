@@ -166,9 +166,11 @@ worktrees are removed. Observed: 18 leftover worktrees, 29 registrations,
 - `run_delivery.py --gc --repo <dir> [--json]` previews and changes nothing.
   `--apply` performs removal. JSON lists each candidate with reason and action.
 - Eligible: worktrees of slices `integrated` in the current build; integration
-  worktrees whose transaction is `passed` and superseded by the recorded
-  integration, or `failed` and superseded by a later passed one; stale
-  registrations (`git worktree prune`).
+  worktrees whose transaction is `passed` but is not the recorded integration,
+  or `failed` once a passed integration is recorded (transaction records carry
+  no timestamps, so "superseded" means a recorded pass exists); stale
+  registrations (`git worktree prune`). The recorded integration's own worktree
+  and transactions in any other state are kept.
 - Earlier builds' worktrees are listed and removed only with
   `--include-previous`, and only when they have no uncommitted changes.
 - Never removed: worktrees of failed, blocked, needs-repair or in-progress
@@ -182,8 +184,9 @@ are refused.
 
 ## Fix 7 — leftovers
 
-- `deliver_slice` drops its stale `gemini-3.1-pro-preview` default; `model` is
-  required.
+- `deliver_slice` drops its stale `gemini-3.1-pro-preview` default; `model`
+  defaults to `None` (no fabricated model name). Seventeen existing tests call
+  it without a model, so it is not made mandatory.
 - Telemetry/ledger `source`: explicit `--executor` → `"chosen"`, slice tag →
   `"tag"`, true build default → `"default"`, escalation → `"escalated"`.
   Closes issue #12 (credit the original contributor).
