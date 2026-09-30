@@ -25,11 +25,41 @@ from .contract import (
     parse_exec_output,
 )
 from .catalog import list_models
+from .launcher import CodexLauncherError, resolve_codex_command
 
 # Structural JSONL failures mean the event stream itself cannot be trusted, so
 # they collapse to one actionable error. Semantic failures (turn_failed,
 # authentication, timeout, ...) already name the actionable cause.
 _STRUCTURAL_ERRORS = ("malformed_output", "event_order", "invalid_usage")
+
+
+def resolved_runner(runner, resolve=None):
+    """Wrap a process runner with the resolved native Codex command."""
+    def run(argv, cwd, **kwargs):
+        resolver = resolve if resolve is not None else resolve_codex_command
+        command = resolver()
+        command_argv = list(argv)
+        if command_argv and command_argv[0] == "codex":
+            command_argv[0] = command.path
+        call_env = {**command.env, **(kwargs.pop("env", None) or {})}
+        return runner(command_argv, cwd, env=call_env, **kwargs)
+
+    return run
+
+
+def _launch_problem():
+    try:
+        resolve_codex_command()
+    except CodexLauncherError as exc:
+        return str(exc)
+    return None
+
+
+def _cli_invocation():
+    try:
+        return [resolve_codex_command().path]
+    except CodexLauncherError:
+        return ["codex"]
 
 
 def _ambient_depth() -> int:
@@ -65,6 +95,7 @@ class CodexExecutor:
         self._sandbox = sandbox
         self._runner = runner
         self._git_runner = git_runner
+        self._uses_default_process_runners = runner is run_process and git_runner is run_process
         self._timeout = timeout
         self._cancel = cancel
         self._artifact_dir = artifact_dir
@@ -86,10 +117,11 @@ class CodexExecutor:
             )
         return prompt
 
-    def _probe(self, argv: list[str], cwd: str):
+    def _probe(self, argv: list[str], cwd: str, runner=None):
         """Read-only capability probe with a finite deadline; never inference."""
-        return self._runner(argv, cwd, timeout=deadline_seconds(),
-                            cancel=self._cancel, artifact_dir=self._artifact_dir)
+        runner = self._runner if runner is None else runner
+        return runner(argv, cwd, timeout=deadline_seconds(),
+                      cancel=self._cancel, artifact_dir=self._artifact_dir)
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
@@ -114,8 +146,17 @@ class CodexExecutor:
                                   raw_log=f"Refusing to build a Codex dispatch: {exc}",
                                   process={"error": "invalid_invocation"})
 
+        process_runner = self._runner
+        if self._uses_default_process_runners:
+            try:
+                command = resolve_codex_command()
+            except CodexLauncherError as exc:
+                return ExecutorResult(ok=False, diff="", raw_log=str(exc),
+                                      process={"error": "missing_binary"})
+            process_runner = resolved_runner(self._runner, resolve=lambda: command)
+
         # Capability gate: feature-test the installed CLI, never infer support.
-        version = self._probe(["codex", "--version"], cwd)
+        version = self._probe(["codex", "--version"], cwd, runner=process_runner)
         for label, probe in (("codex --version", version),):
             if probe.error or probe.returncode != 0:
                 error = probe.error or "nonzero_exit"
@@ -125,7 +166,7 @@ class CodexExecutor:
                              f"repair the Codex CLI and ensure it is on PATH."),
                     process={**probe.metadata(), "error": error},
                 )
-        help_out = self._probe(["codex", "exec", "--help"], cwd)
+        help_out = self._probe(["codex", "exec", "--help"], cwd, runner=process_runner)
         for label, probe in (("codex exec --help", help_out),):
             if probe.error or probe.returncode != 0:
                 error = probe.error or "nonzero_exit"
@@ -143,7 +184,7 @@ class CodexExecutor:
                                   process={**help_out.metadata(), "error": "missing_capability"})
 
         # Fresh isolated session: prompt on stdin ('-'), no resume/--last, no shell.
-        proc = self._runner(
+        proc = process_runner(
             invocation.argv, invocation.cwd,
             stdin=invocation.stdin, env=invocation.env,
             timeout=deadline_seconds(self._timeout, dispatch=True),
@@ -192,8 +233,9 @@ PROVIDER = Provider(
     list_models=list_models,  # Advisory catalog; admission remains independent.
     account_stats=None,
     account_block=None,
-    cli_invocation=lambda: ["codex"],
+    cli_invocation=_cli_invocation,
     context_env=("CODEX_HOME", "CODEX_CLI_CMD", "OPENAI_*"),
+    launch_problem=_launch_problem,
     skill_fragment=(_HERE / "SKILL.fragment.md").read_text(encoding="utf-8"),
     setup_notes=(_HERE / "setup.md").read_text(encoding="utf-8"),
 )
