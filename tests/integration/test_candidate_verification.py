@@ -92,6 +92,12 @@ def test_test_time_mutations_rejected(delivery_repo, location, name):
         judge_fn=judge, workdir=str(delivery_repo), git_runner=real_git_runner,
         test_runner=tests, max_retries=0)
     assert len(seen) == 2 and all(Path(wd) != delivery_repo for wd in seen)
+    if location == "snapshot" and name == "injected.py":
+        # v0.3.1: a NEW untracked file written in the judge snapshot cannot alter the
+        # frozen, tree-based candidate (test databases/coverage do this); tracked
+        # candidate files and executor-worktree changes are still rejected.
+        assert result.accepted
+        return
     assert not result.accepted
 
 

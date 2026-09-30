@@ -90,3 +90,46 @@ def test_cache_roots_lists_cachedir_tag_directories(tmp_path):
     write(tmp_path, "a/CACHEDIR.TAG", TAG)
     write(tmp_path, "b/c/CACHEDIR.TAG", TAG)
     assert cache_roots(str(tmp_path)) == frozenset({"a", "b/c"})
+
+
+def _snapshot_with(root, writer):
+    verifier = CandidateVerifier(git, str(root), TASK)
+    candidate = verifier.capture()
+    with verifier.snapshot(candidate) as snap:
+        writer(Path(snap))
+    return verifier
+
+
+@pytest.mark.parametrize("name", [".hypothesis/examples/x", ".coverage", "tmp_output.txt"])
+def test_judge_may_create_untracked_files(tmp_path, name):
+    root = make_repo(tmp_path)
+    fix(root)
+    verifier = _snapshot_with(root, lambda snap: write(snap, name, "db"))
+    assert name in verifier.judge_untracked
+
+
+def test_tracked_file_mutation_in_snapshot_still_fails(tmp_path):
+    root = make_repo(tmp_path)
+    fix(root)
+    with pytest.raises(CaptureError, match="mutated the frozen candidate"):
+        _snapshot_with(root, lambda snap: write(snap, "src/calc.py", "def add(a, b):\n    return 3\n"))
+
+
+def test_tracked_file_deletion_in_snapshot_still_fails(tmp_path):
+    root = make_repo(tmp_path)
+    fix(root)
+    with pytest.raises(CaptureError, match="mutated the frozen candidate"):
+        _snapshot_with(root, lambda snap: (snap / "tests/test_calc.py").unlink())
+
+
+def test_baseline_preflight_tolerates_hypothesis_db(tmp_path):
+    root = make_repo(tmp_path)
+    verifier = CandidateVerifier(git, str(root), TASK)
+
+    def red_run(directory):
+        write(Path(directory), ".hypothesis/examples/y", "db")
+        from cld.test_run import TestRun
+        return TestRun(1, "FAILED tests/test_calc.py::test_add - AssertionError: assert 0 == 3\n1 failed in 0.01s")
+
+    verifier.preflight(red_run)
+    assert verifier.baseline_passed is False
