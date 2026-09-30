@@ -13,7 +13,7 @@ import re
 import shlex
 from tempfile import TemporaryDirectory
 
-from cld.executors._capture import CaptureError, Runner, _is_noise, checked, nul_names
+from cld.executors._capture import CaptureError, Runner, _is_noise, cache_roots, checked, nul_names
 from cld.judge import parse_pytest_output
 from cld.test_run import test_result
 
@@ -95,6 +95,7 @@ def capture_tree(runner, cwd, base):
     for path in Path(cwd).rglob("*"):
         if _is_link(path):
             raise CaptureError(f"Symlink/junction in candidate: {path.name!r}")
+    roots = cache_roots(cwd)
     tracked = nul_names(checked(runner, cwd, "ls-files", "-z"))
     for start in range(0, len(tracked), 100):
         # update-index selects one flag operation per invocation. Combining
@@ -107,12 +108,12 @@ def capture_tree(runner, cwd, base):
                                 "--exclude-standard", "-z"))
     for name in ignored:
         safe_path(name)
-        if not _is_noise(name):
+        if not _is_noise(name, roots):
             checked(runner, cwd, "--literal-pathspecs", "add", "--force", "--", name)
     staged = nul_names(checked(runner, cwd, "ls-files", "-z"))
     for name in staged:
         safe_path(name)
-        if name not in baseline and _is_noise(name):
+        if name not in baseline and _is_noise(name, roots):
             checked(runner, cwd, "--literal-pathspecs", "rm", "--cached", "--force", "--", name)
     tree = checked(runner, cwd, "write-tree").strip()
     return tree
