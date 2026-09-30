@@ -16,8 +16,34 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Mapping
 
 _scope = ContextVar("cld_process_scope", default={})
+
+
+_NETWORK_ERROR_PATTERNS = re.compile(
+    r"getaddrinfo|enotfound|eai_again|dns resolution (?:failed|failure)|"
+    r"could not resolve (?:host|hostname)|failed to resolve|"
+    r"name resolution (?:failed|failure)|temporary failure in name resolution|"
+    r"econnrefused|connection refused|enetunreach|network (?:is )?unreachable|no route to host|"
+    r"os error 10013|winerror 10013|wsaeacces|stream disconnected before completion",
+    re.IGNORECASE,
+)
+
+
+def network_error(text: str) -> bool:
+    """Return whether output contains a known network connection failure."""
+    return bool(_NETWORK_ERROR_PATTERNS.search(text or ""))
+
+
+def network_block_reason(env: Mapping[str, str]) -> str | None:
+    """Explain the sandbox network gate when Codex reports networking disabled."""
+    if env.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1":
+        return (
+            "Network access is disabled in this Codex sandbox; rerun with network-enabled "
+            "or escalated permissions before dispatching."
+        )
+    return None
 
 
 class ProcessCleanupError(BaseException):

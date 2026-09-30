@@ -28,6 +28,23 @@ Acceptance and integration are separate: an accepted slice is not verified
 until `--integrate --integration-tests <selector>` has merged and re-tested
 the frozen candidate.
 
+## Final executor errors and network access
+
+Some executor errors cannot succeed on retry: authentication, missing binary,
+access denied, launch error, missing capability, invalid invocation, recursive
+dispatch, Codex service-tier warning/mismatch, timeout, network unavailable and
+diff capture. Each costs at most one dispatch: CLD stops the slice without
+retrying or escalating to another model, keeps its worktree and evidence, and
+returns gate 5 with the action to take. The slice stays pending; resume after
+fixing the cause.
+
+`--step`, validation and every other dispatching command make paid network
+calls through the executor CLI. Inside a Codex sandbox (default
+`workspace-write` has no network), run them with network-enabled or escalated
+permissions. CLD blocks before dispatch when `CODEX_SANDBOX_NETWORK_DISABLED=1`
+is set, and treats connection failures as `network_unavailable` instead of
+retrying.
+
 ## Validation and budget policy
 
 The production CLI admits the default, per-slice overrides and every planned
@@ -35,7 +52,9 @@ fallback rung through `cld.admission.Admission`. Static catalog labels do not
 authorize dispatch. Validation defaults to `deny`; `unmetered` permits only
 catalogued free/flat probes, and `allow` permits metered/unknown-cost probes.
 Fresh evidence binds the exact executor spec, CLI/config/account context and
-maximum age (30 days by default). `--revalidate-models` still requires the
+maximum age (30 days by default). Only provider-declared environment variables
+and proxy/certificate settings enter that context; per-session host variables
+do not, so evidence carries across lead sessions. `--revalidate-models` still requires the
 selected validation-spend policy. Corrupt evidence blocks; no automatic paid
 validation is implied by first use or an outdated catalog.
 
@@ -61,6 +80,10 @@ Legacy state requires `--migrate-ledger` with its original plan. Changed plans
 require `--reconcile-plan`; an intentional fresh run uses `--new-build`. These
 operations preserve backups and do not grant dispatch permission. Do not
 delete ledgers/worktrees/accepted refs or write a passing entry by hand.
+`--gc --json` previews which CLD-managed worktrees are safe to remove;
+`--gc --apply` removes only integrated slices' and superseded integration
+worktrees (`--include-previous` adds clean earlier-build worktrees). It never
+removes failed or repair-pending worktrees, run evidence or `refs/cld/*`.
 
 For gate 4, inspect the retained worktree, edit only authorized source files,
 then run `--mark-repaired <slice-id>` with the original plan. Gate 6 requires
@@ -119,6 +142,7 @@ For a longer max-effort slice the lead can explicitly set a finite positive
 value, such as 1200 seconds, under the user's existing budget authorization.
 Read-only probes keep their separate `CLD_PROBE_TIMEOUT` (default 30 seconds).
 This does not raise attempt or token limits or authorize another paid call.
+A timeout is a final error: the slice stops instead of retrying the same config.
 See `references/provider-setup.md` for shell examples.
 
 ## Authorization guidance (all hosts)

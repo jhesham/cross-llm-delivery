@@ -39,13 +39,37 @@ def file_identity(path):
     return {"path": str(path.resolve()), "sha256": digest}
 
 
-def validation_context(spec, *, cli_paths, config_paths=(), extra="", repo=""):
-    # No environment values or config contents enter the stored diagnostic record.
-    data = dict(contract=1, spec=spec, cli=[file_identity(p) for p in cli_paths],
+BASE_CONTEXT_ENV = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+                    "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS")
+
+
+def selected_environment(patterns, environ=None):
+    """Only variables that can change a provider CLI's identity, account or routing.
+
+    Names match case-insensitively (Windows env names are); a pattern ending in
+    '*' is a prefix. Session-specific host variables are deliberately excluded,
+    otherwise every new lead session would invalidate validation evidence.
+    """
+    environ = os.environ if environ is None else environ
+    wanted = tuple(p.upper() for p in (*BASE_CONTEXT_ENV, *patterns))
+    selected = {}
+    for name, value in environ.items():
+        key = name.upper()
+        if any(key == p or (p.endswith("*") and key.startswith(p[:-1])) for p in wanted):
+            selected[name] = value
+    return dict(sorted(selected.items()))
+
+
+def validation_context(spec, *, cli_paths, config_paths=(), extra="", repo="", env_patterns=()):
+    # Environment values are hashed, never stored; only selected names are recorded.
+    environment = selected_environment(env_patterns)
+    data = dict(contract=2, spec=spec, cli=[file_identity(p) for p in cli_paths],
         config=[file_identity(p) for p in config_paths], extra=extra,
-        repo=str(Path(repo).resolve()), environment=sorted(os.environ.items()))
-    return {"contract": 1, "cli_fingerprint": hashlib.sha256(json.dumps(data["cli"], sort_keys=True).encode("utf-8")).hexdigest(), "fingerprint": hashlib.sha256(
-        json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()}
+        repo=str(Path(repo).resolve()), environment=environment)
+    return {"contract": 2,
+            "cli_fingerprint": hashlib.sha256(json.dumps(data["cli"], sort_keys=True).encode("utf-8")).hexdigest(),
+            "fingerprint": hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest(),
+            "env_names": list(environment)}
 
 
 class Admission:
