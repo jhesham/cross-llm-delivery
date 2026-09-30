@@ -366,6 +366,7 @@ _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
 PROVIDER = Provider(
     cli_invocation=lambda: [_oc_cmd()],
+    context_env=("OPENCODE_*",),
     name="opencode",
     make_executor=lambda **k: OpenCodeExecutor(**k),
     catalog=_OPENCODE_CATALOG,
