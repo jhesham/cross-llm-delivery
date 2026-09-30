@@ -1,5 +1,10 @@
 # Current handoff
 
+> **Superseded (2026-10-01):** v0.3.1 is published. Current work lives in
+> [docs/plans/v0.3.1-fixes/](../v0.3.1-fixes/) — see its
+> [publication record](../v0.3.1-fixes/PUBLICATION-0.3.1.md). Next: the Claude
+> Code executor (v0.4.0). The history below is retained unchanged.
+
 ## Completed follow-up: P02 executor picker (2026-09-29)
 
 Codex executor model-picker support is complete. The implementation discovers
