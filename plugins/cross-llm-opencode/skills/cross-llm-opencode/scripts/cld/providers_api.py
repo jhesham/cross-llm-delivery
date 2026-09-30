@@ -33,6 +33,10 @@ class Provider:
                       (non-None means the provider cannot be used right now).
     skill_fragment  : markdown fragment injected into skill docs for this provider.
     setup_notes     : human-readable installation / setup instructions.
+    context_env     : env names or PREFIX_* patterns that affect this CLI's identity,
+                      account or routing; only these key validation evidence.
+    launch_problem  : optional callable() -> str | None; non-None blocks dispatch
+                      before any spend (e.g. an unlaunchable CLI shim).
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -45,6 +49,8 @@ class Provider:
     skill_fragment: str = ""
     setup_notes: str = ""
     cli_invocation: Optional[Callable] = None  # () -> argv prefix; no process launched
+    context_env: tuple = ()  # env names/PREFIX_* patterns keyed into validation evidence
+    launch_problem: Optional[Callable] = None  # () -> str | None; blocks dispatch before spend
 
 
 # ---------------------------------------------------------------------------

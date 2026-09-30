@@ -4,7 +4,7 @@ description: >-
   Run a multi-slice build with Claude Code as lead and the antigravity
   headless executor, using committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.3.0) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.3.1) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 
