@@ -101,7 +101,9 @@ def test_context_changes_with_cli_config_environment_and_effort(tmp_path, monkey
     cli, config = tmp_path / "cli", tmp_path / "config"
     cli.write_text("v1"); config.write_text("setting1")
     def context(spec=SPEC):
-        return validation_context(spec, cli_paths=[cli], config_paths=[config], repo=tmp_path)
+        # v0.3.1: only provider-declared variables key evidence (session vars must not).
+        return validation_context(spec, cli_paths=[cli], config_paths=[config], repo=tmp_path,
+                                  env_patterns=("CLD_FIXTURE_*",))
     values = [context()]
     cli.write_text("v2"); values.append(context())
     config.write_text("setting2"); values.append(context())

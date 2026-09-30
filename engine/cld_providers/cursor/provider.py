@@ -326,6 +326,7 @@ _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
 PROVIDER = Provider(
     cli_invocation=_cursor_invocation,
+    context_env=("CURSOR_*",),
     name="cursor",
     make_executor=lambda **k: CursorExecutor(**k),
     catalog=_CURSOR_CATALOG,
