@@ -477,7 +477,8 @@ def _preflight_executor(spec: str) -> str | None:
     provider = _provider_of_spec(spec)
     status = _hook("_executor_cli_status")()
     if status.get(provider):
-        return None
+        launch_problem = get_provider(provider).launch_problem
+        return launch_problem() if launch_problem else None
 
     msg = (f"Executor CLI not found for provider '{provider}'. "
            f"{_install_hint(provider)}")
@@ -564,6 +565,10 @@ def prepare_dispatch(args, slices, ledger):
 
     if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
         raise AdmissionBlocked("Recursive CLD dispatch blocked: CLD_EXECUTOR_DEPTH is set")
+    from cld.process import network_block_reason
+    reason = network_block_reason(os.environ)
+    if reason:
+        raise AdmissionBlocked(reason)
 
     selected = [s for s in slices if not ledger.is_done(s.id) and
                 not (ledger.get(s.id) and ledger.get(s.id).status == "needs_repair")]
@@ -751,6 +756,12 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
                    help="With --status/--usage: bounded detail for one slice.")
     p.add_argument("--attempt", default=None, metavar="ATTEMPT_ID",
                    help="With --status/--usage: select one retained usage record.")
+    p.add_argument("--gc", action="store_true",
+                   help="List CLD-managed worktrees and whether each is safe to remove; "
+                        "changes nothing unless --apply is given. Never touches evidence or refs.")
+    p.add_argument("--apply", action="store_true", help="With --gc: remove the worktrees marked remove.")
+    p.add_argument("--include-previous", action="store_true",
+                   help="With --gc: also remove clean worktrees from earlier builds.")
     return p
 
 
@@ -764,9 +775,11 @@ def _validate(args) -> None:
         raise StateError("--slice/--attempt require --status or --usage")
     if args.manual_integration and not args.integrate:
         raise StateError("--manual-integration requires --integrate")
+    if (args.apply or args.include_previous) and not args.gc:
+        raise StateError("--apply/--include-previous require --gc")
     if sum(bool(v) for v in (args.status, args.usage, args.watch, args.dry_run,
                             args.integrate, args.step, args.mark_repaired,
-                            args.migrate_ledger, args.reconcile_plan, args.new_build)) > 1:
+                            args.migrate_ledger, args.reconcile_plan, args.new_build, args.gc)) > 1:
         raise StateError("Choose one inspection/delivery/state action")
     if args.workers < 1 or args.interval < 1:
         raise StateError("Workers and interval must be positive")
@@ -777,10 +790,57 @@ def _resolve_paths(args) -> None:
     args.ledger = resolve_ledger(args.repo, args.ledger)
 
 
+def _gc_report(args):
+    """Preview (default) or apply cleanup of CLD-managed worktrees -> (exit code, details).
+
+    Holds the build writer lock so no delivery can run concurrently. Evidence
+    under .cld/runs and refs/cld/* are never touched.
+    """
+    from cld.gc import apply_gc, list_managed_worktrees, plan_gc, worktree_dirty
+    from cld.worktree import managed_location
+    git = _hook("git_runner")
+    ledger = Ledger.load(args.ledger)
+    with ledger.writer(refresh=True):
+        build = ledger.build or {}
+        run_id = build.get("run_id")
+        _, root, _ = managed_location(args.repo, args.worktree_root, run_id or "0" * 32, "gc", "0" * 32)
+        worktrees = list_managed_worktrees(args.repo, root, git)
+        states = {}
+        if run_id:
+            for path in (run_directory(args.repo, run_id) / "integration").glob("*/outcome.json"):
+                try:
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                if isinstance(record, dict) and isinstance(record.get("id"), str):
+                    states[record["id"]] = record.get("state")
+        dirty = {w.path for w in worktrees
+                 if args.include_previous and w.run_id != run_id and worktree_dirty(w.path, git)}
+        decisions = plan_gc(worktrees, run_id=run_id,
+                            slice_status={sid: entry.status for sid, entry in ledger.entries.items()},
+                            recorded_integration=(build.get("integration_proof") or {}).get("id"),
+                            integration_states=states, dirty=dirty, include_previous=args.include_previous)
+        results = apply_gc(args.repo, decisions, root=root, git_runner=git) if args.apply else []
+    details = {"applied": bool(args.apply), "root": root, "results": results,
+               "worktrees": [{"path": d.worktree.path, "action": d.action, "reason": d.reason}
+                             for d in decisions]}
+    return (5 if any(r["action"] == "failed" for r in results) else 0), details
+
+
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
     _validate(args)
     _resolve_paths(args)
+
+    if args.gc:
+        code, details = _gc_report(args)
+        for row in details["worktrees"]:
+            print(f"{row['action']:6} {row['path']}  ({row['reason']})")
+        for row in details["results"]:
+            print(f"{row['action']:7} {row['path']}" + (f": {row['error']}" if row.get("error") else ""))
+        if not details["applied"]:
+            print("Preview only; re-run with --gc --apply to remove the worktrees marked remove.")
+        return code
 
     if args.usage:
         from cld.usage import render_usage_table
@@ -937,6 +997,7 @@ def _execute(args, slices, ledger):
             accounting=getattr(args, "accounting", None),
             executor_factory=getattr(args, "admitted_factory", None),
             default_spec=args.executor or _default_spec(),
+        default_source="chosen" if args.executor else "default",
             rung_planner=getattr(args, "admitted_planner", None),
             judge_fn=judge_fn,
             max_workers=args.workers,
@@ -966,6 +1027,7 @@ def _execute(args, slices, ledger):
         accounting=getattr(args, "accounting", None),
         executor_factory=getattr(args, "admitted_factory", None),
         default_spec=args.executor or _default_spec(),
+        default_source="chosen" if args.executor else "default",
         rung_planner=getattr(args, "admitted_planner", None),
         judge_fn=judge_fn,
         max_workers=args.workers,
@@ -1010,6 +1072,7 @@ _ACTION_FLAGS = (
     ("--integrate", "integrate"), ("--mark-repaired", "repair"),
     ("--migrate-ledger", "migrate"), ("--reconcile-plan", "reconcile"),
     ("--new-build", "new-build"), ("--step", "step"), ("--dry-run", "preview"),
+    ("--gc", "gc"),
 )
 
 
@@ -1037,6 +1100,8 @@ def _command_of(args) -> str:
         return "usage"
     if args.watch:
         return "watch"
+    if args.gc:
+        return "gc"
     if args.integrate:
         return "integrate"
     if args.mark_repaired:
@@ -1247,6 +1312,18 @@ def _load_ledger_or_blocked(command, args):
         return None, _blocked(command, str(exc), raw_repo=args.raw_repo, raw_ledger=args.raw_ledger)
 
 
+def _json_gc(args) -> int:
+    try:
+        code, details = _gc_report(args)
+    except (StateError, OwnerBusy, CaptureError, ValueError, OSError) as exc:
+        return _blocked("gc", str(exc), raw_repo=args.raw_repo, raw_ledger=args.raw_ledger)
+    ledger = Ledger.load(args.ledger)
+    errors = None if code == 0 else [cli_response.make_error(
+        "Some worktrees could not be removed; see details.results")]
+    return _emit(_ledger_response("gc", "pending" if code == 0 else "blocked", args, ledger,
+                                  errors=errors, extra={"details": details}))
+
+
 def _json_status(args) -> int:
     ledger, blocked_rc = _load_ledger_or_blocked("status", args)
     if ledger is None:
@@ -1391,6 +1468,8 @@ def _main_json(argv) -> int:
     except (StateError, ValueError) as exc:
         return _blocked(_command_of(args), str(exc), raw_repo=args.raw_repo, raw_ledger=args.raw_ledger)
     _resolve_paths(args)
+    if args.gc:
+        return _json_gc(args)
     if args.status:
         return _json_status(args)
     if args.usage:
