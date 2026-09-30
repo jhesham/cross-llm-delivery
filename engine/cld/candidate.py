@@ -142,6 +142,7 @@ class CandidateVerifier:
         self.tests_fingerprint = hashlib.sha256(repr((self.selector, sorted(
             (p, self.entries[p]) for p in self.protected))).encode("utf-8")).hexdigest()
         self.baseline_passed = False
+        self.judge_untracked = ()
 
     def capture(self) -> Candidate:
         tree = capture_tree(self.runner, self.cwd, self.base)
@@ -164,32 +165,37 @@ class CandidateVerifier:
     def snapshot(self, candidate):
         # checkout-index materializes Git blobs, not a copy of executor files.
         # Assert the index still names the frozen tree on both sides of checkout.
+        # Only tracked candidate files decide acceptance; new untracked files a
+        # test run creates (databases, coverage) cannot alter the candidate.
         with TemporaryDirectory(prefix="cld-judge-") as directory:
             self._check_index(candidate)
             checked(self.runner, self.cwd, "checkout-index", "--all", "--force",
                     f"--prefix={Path(directory).as_posix()}/")
             self._check_index(candidate)
-            before = self._fingerprint(directory, candidate)
+            tracked = tree_entries(self.runner, self.cwd, candidate.tree)
+            before = self._fingerprint(directory, tracked)
             yield directory
-            if self._fingerprint(directory, candidate) != before:
+            if self._fingerprint(directory, tracked) != before:
                 raise CaptureError("Acceptance execution mutated the frozen candidate")
+            self.judge_untracked = tuple(sorted(
+                path.relative_to(directory).as_posix() for path in Path(directory).rglob("*")
+                if path.is_file() and path.relative_to(directory).as_posix() not in tracked))[:200]
 
     def _check_index(self, candidate):
         if checked(self.runner, self.cwd, "write-tree").strip() != candidate.tree:
             raise CaptureError("Index differs from frozen candidate")
 
-    def _fingerprint(self, directory, candidate):
-        tracked = tree_entries(self.runner, self.cwd, candidate.tree)
-        digest = hashlib.sha256()
-        for path in sorted(Path(directory).rglob("*")):
-            name = path.relative_to(directory).as_posix()
+    def _fingerprint(self, directory, tracked):
+        for path in Path(directory).rglob("*"):
             if _is_link(path):
                 raise CaptureError("Acceptance execution created a symlink/junction")
-            if not path.is_file():
-                continue
-            if name not in tracked and _is_noise(name):
-                continue
+        digest = hashlib.sha256()
+        for name in sorted(tracked):
+            path = Path(directory) / name
             digest.update(name.encode("utf-8") + b"\0")
+            if not path.is_file():
+                digest.update(b"<missing>\0")
+                continue
             digest.update(str(path.stat().st_mode & 0o111).encode() + b"\0")
             digest.update(hashlib.sha256(path.read_bytes()).digest())
         return digest.digest()

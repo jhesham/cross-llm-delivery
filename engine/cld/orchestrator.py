@@ -211,6 +211,8 @@ def deliver_slice(
                     authoritative = judge(files_changed, list(verifier.allowed), run_tests=lambda: outputs[0])
                     if not authoritative.passed:
                         judge_result = authoritative
+                if evidence is not None and verifier.judge_untracked:
+                    evidence.write("judge-untracked.txt", "\n".join(verifier.judge_untracked) + "\n")
                 verifier.verify_unchanged(candidate)
         except CaptureError as exc:
             judge_result = JudgeResult(False, 0, 0, failing_tests=[str(exc)])
