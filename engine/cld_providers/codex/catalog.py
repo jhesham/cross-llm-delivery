@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cld.process import deadline_seconds, run_process
+from .launcher import CodexLauncherError, resolve_codex_command
 
 _EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 
@@ -19,7 +20,11 @@ class CodexModel:
 
 
 def _default_runner(argv, cwd):
-    result = run_process(argv, cwd, timeout=deadline_seconds())
+    command = resolve_codex_command()
+    command_argv = list(argv)
+    if command_argv and command_argv[0] == "codex":
+        command_argv[0] = command.path
+    result = run_process(command_argv, cwd, env=command.env, timeout=deadline_seconds())
     return result.returncode, result.stdout if not result.error else ""
 
 
@@ -37,7 +42,7 @@ def list_codex_models(runner=_default_runner) -> list[CodexModel]:
         data = json.loads(raw)
         if not isinstance(data, dict) or not isinstance(data.get("models"), list):
             return []
-    except (OSError, ValueError, TypeError):
+    except (CodexLauncherError, OSError, ValueError, TypeError):
         return []
     out, seen = [], set()
     for row in data["models"]:
@@ -56,7 +61,6 @@ def list_codex_models(runner=_default_runner) -> list[CodexModel]:
         label = row.get("display_name")
         if not isinstance(label, str) or not label.strip() or any(ord(c) < 32 for c in label):
             label = id
-        label = label.encode("cp1252", errors="replace").decode("cp1252")
         out.append(CodexModel(id, label, efforts))
         seen.add(id)
     return out
