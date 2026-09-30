@@ -149,3 +149,27 @@ def test_catalog_keeps_unicode_labels():
                                   "supported_reasoning_levels": [{"effort": "low"}]}]})
     models = list_codex_models(runner=lambda argv, cwd: (0, raw))
     assert models[0].label == "GPT-X ✦"
+
+
+def test_default_discovery_without_resolvable_cli_still_uses_process_runner(monkeypatch):
+    """CI has no Codex CLI: an unresolvable binary must not hide an injected process runner."""
+    from cld_providers.codex import catalog as module
+    launcher = _launcher()
+    raw = json.dumps({"models": [{"slug": "gpt-x", "visibility": "list", "display_name": "GPT-X",
+                                  "supported_reasoning_levels": [{"effort": "low"}]}]})
+    calls = []
+
+    class Result:
+        returncode, stdout, error = 0, raw, None
+
+    def process(argv, cwd, **kwargs):
+        calls.append((argv, kwargs))
+        return Result()
+
+    def boom():
+        raise launcher.CodexLauncherError("not installed; set CODEX_CLI_CMD")
+
+    monkeypatch.setattr(module, "resolve_codex_command", boom)
+    monkeypatch.setattr(module, "run_process", process)
+    assert [m.id for m in module.list_codex_models()] == ["gpt-x"]
+    assert calls[0][0][0] == "codex" and "env" not in calls[0][1]

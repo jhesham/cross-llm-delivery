@@ -20,11 +20,17 @@ class CodexModel:
 
 
 def _default_runner(argv, cwd):
-    command = resolve_codex_command()
+    # Unresolvable CLI: keep the logical name; launching then fails as a missing
+    # binary and discovery yields [], exactly as before the launcher existed.
+    try:
+        command = resolve_codex_command()
+    except CodexLauncherError:
+        command = None
     command_argv = list(argv)
-    if command_argv and command_argv[0] == "codex":
+    if command is not None and command_argv and command_argv[0] == "codex":
         command_argv[0] = command.path
-    result = run_process(command_argv, cwd, env=command.env, timeout=deadline_seconds())
+    extra = {"env": command.env} if command is not None and command.env else {}
+    result = run_process(command_argv, cwd, timeout=deadline_seconds(), **extra)
     return result.returncode, result.stdout if not result.error else ""
 
 
