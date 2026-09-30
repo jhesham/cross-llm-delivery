@@ -10,14 +10,14 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from cld.dag import parallel_batches
-from cld.executors.base import ExecutorResult, SliceTask
+from cld.executors.base import ExecutorResult, FINAL_EXECUTOR_ERRORS, SliceTask, final_error_message
 from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge
 from cld.test_run import test_result, legacy_result
-from cld.process import process_scope, ProcessCleanupError
+from cld.process import process_scope, ProcessCleanupError, network_error
 from cld.admission import AdmissionBlocked
-from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, StateError
+from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, PENDING, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
 from cld.telemetry import emit
@@ -40,6 +40,15 @@ def _effort_of(spec: str | None) -> str | None:
         eff = spec.rsplit("@", 1)[1].strip()
         return eff or None
     return None
+
+
+def slice_source(*, tag: str | None, rung_index: int, default_source: str) -> str:
+    """Label whether a slice used an explicit tag, escalation, or build default."""
+    if tag:
+        return "tag"
+    if rung_index > 0:
+        return "escalated"
+    return default_source
 
 
 def next_pending_layer(slices: list[SliceTask], ledger: Ledger) -> tuple[int, list[str], int] | None:
@@ -72,6 +81,7 @@ class DeliverResult:
     worktree_root: str | None = None
     branch: str | None = None
     intervened: bool = False
+    final_error: str | None = None
 
 
 def _accepts(fn, *args, **kwargs):
@@ -89,7 +99,7 @@ def deliver_slice(
     judge_fn: Callable,
     max_retries: int = 2,
     workdir: str | None = None,
-    model: str = "gemini-3.1-pro-preview",
+    model: str | None = None,
     test_runner: Callable[[str], str] | None = None,
     source: str | None = None,
     rung: str | None = None,
@@ -174,20 +184,39 @@ def deliver_slice(
         # whole suite billed a paid LLM if the target repo's tests call one, and a
         # hang anywhere froze the build). New runners take (workdir, path); legacy
         # one-arg runners (workdir) are adapted by signature inspection.
+        classified_error = None
+        if (isinstance(result, ExecutorResult) and type(result.ok) is bool and not result.ok
+                and isinstance(result.raw_log, str)):
+            process_error = result.process.get("error") if isinstance(result.process, dict) else None
+            error = process_error or "executor_error"
+            if isinstance(error, str) and error in FINAL_EXECUTOR_ERRORS:
+                classified_error = error
+            elif (isinstance(error, str) and error in {"nonzero_exit", "turn_failed", "error_event"}
+                  and network_error(result.raw_log)):
+                classified_error = "network_unavailable"
         try:
-            if verifier is not None:
-                candidate = verifier.capture()
-                files_changed, diff = list(candidate.files_changed), candidate.diff
             if (not isinstance(result, ExecutorResult) or type(result.ok) is not bool
                     or not isinstance(result.raw_log, str) or not isinstance(result.diff, str)
                     or not isinstance(result.files_changed, list)
                     or not all(isinstance(p, str) for p in result.files_changed)
                     or not isinstance(result.token_usage, dict)):
                 raise CaptureError("Malformed executor completion")
+            if verifier is not None:
+                candidate = verifier.capture()
+                files_changed, diff = list(candidate.files_changed), candidate.diff
             if not result.ok:
-                error = result.process.get("error") or "executor_error"
-                raise CaptureError(f"Executor dispatch failed ({error}): " + result.raw_log[-500:])
-            if verifier is None:
+                process_error = result.process.get("error") if isinstance(result.process, dict) else None
+                error = process_error or "executor_error"
+                if classified_error is not None:
+                    judge_result = JudgeResult(
+                        False, 0, 0,
+                        failing_tests=[final_error_message(classified_error) + ": " + result.raw_log[-500:]],
+                    )
+                else:
+                    raise CaptureError(f"Executor dispatch failed ({error}): " + result.raw_log[-500:])
+            if classified_error is not None:
+                pass
+            elif verifier is None:
                 # Compatibility for synthetic callers with no Git boundary.
                 files_changed, diff = result.files_changed, result.diff
                 judge_result = judge_fn(files_changed=files_changed, allowed=task.files,
@@ -215,7 +244,13 @@ def deliver_slice(
                     evidence.write("judge-untracked.txt", "\n".join(verifier.judge_untracked) + "\n")
                 verifier.verify_unchanged(candidate)
         except CaptureError as exc:
-            judge_result = JudgeResult(False, 0, 0, failing_tests=[str(exc)])
+            if classified_error is not None:
+                judge_result = JudgeResult(
+                    False, 0, 0,
+                    failing_tests=[final_error_message(classified_error) + ": " + result.raw_log[-500:]],
+                )
+            else:
+                judge_result = JudgeResult(False, 0, 0, failing_tests=[str(exc)])
 
         history.append(judge_result)
         final_judge_result = judge_result
@@ -226,6 +261,21 @@ def deliver_slice(
         emit("judge_verdict", slice_id=task.id, passed=judge_result.passed,
              reason=("; ".join(_verdict_failing) if _verdict_failing else ""),
              attempt=attempt)
+
+        if classified_error is not None:
+            return DeliverResult(
+                accepted=False,
+                attempts=attempt,
+                final=final_judge_result,
+                history=history,
+                files_changed=list(files_changed),
+                diff_lines=_count_diff_lines(diff),
+                model=model,
+                final_error=classified_error,
+                effort=_effort_of(model),
+                token_usage=_tok,
+                candidate=candidate,
+            )
 
         if judge_result.passed:
             return DeliverResult(
@@ -384,6 +434,7 @@ def run_plan_parallel(
     executor: Any = None,
     executor_factory: Callable[[str], Any] | None = None,
     default_spec: str = "gemini",
+    default_source: str = "default",
     judge_fn: Callable,
     max_retries: int = 2,
     max_workers: int = 4,
@@ -513,7 +564,7 @@ def run_plan_parallel(
                 worktree=wt, recovery_path=res.recovery_path, state=session.record["state"],
                 recovery_ref=session.record.get("recovery_ref"), collection=res.collection))
             ledger.save()
-        if not res.accepted and res.final is not None:
+        if not res.accepted and res.final_error is None and res.final is not None:
             res.final.failing_tests.append(f"Worktree retained at {wt}; evidence: {res.recovery_path}")
         return res
 
@@ -545,7 +596,7 @@ def run_plan_parallel(
             ex, spec = _executor_for(task)
             if accounting is not None:
                 ex = accounting.wrap(ex, spec)
-            source = "tag" if task.executor else "default"
+            source = slice_source(tag=task.executor, rung_index=0, default_source=default_source)
             if not simulation:
                 return _worktree_delivery(task, ex, spec, max_retries, source, "workhorse")
             return deliver_slice(task, executor=ex, judge_fn=judge_fn, max_retries=max_retries,
@@ -556,7 +607,7 @@ def run_plan_parallel(
         for i, (rung, spec, budget) in enumerate(rungs):
             if i:
                 emit("escalate", slice_id=task.id, from_rung=rungs[i - 1][0], to_rung=rung)
-            source = "tag" if task.executor else ("escalated" if i else "default")
+            source = slice_source(tag=task.executor, rung_index=i, default_source=default_source)
             ex = executor_factory(spec) if executor_factory is not None else executor
             if accounting is not None:
                 ex = accounting.wrap(ex, spec)
@@ -568,6 +619,9 @@ def run_plan_parallel(
                     source=source, rung=rung, simulation=True)
             last = res
             if res.accepted:
+                res.final_rung = rung
+                return res
+            if res.final_error is not None:
                 res.final_rung = rung
                 return res
         emit("needs_repair", slice_id=task.id)
@@ -622,9 +676,11 @@ def run_plan_parallel(
 
         with ledger_lock:
             failing = list(deliver_res.final.failing_tests) if deliver_res.final is not None else []
-            status = "needs_repair" if deliver_res.needs_repair else (
-                "completed" if deliver_res.accepted else "failed")
-            persisted_status = DONE if status == "completed" else status
+            status = "deferred" if deliver_res.final_error is not None else (
+                "needs_repair" if deliver_res.needs_repair else (
+                    "completed" if deliver_res.accepted else "failed"))
+            persisted_status = DONE if status == "completed" else (
+                PENDING if deliver_res.final_error is not None else status)
             previous = deepcopy(ledger.get(task.id))
             ledger.set(task.id, status=persisted_status, attempts=deliver_res.attempts,
                        model=deliver_res.model, effort=deliver_res.effort,
@@ -662,8 +718,12 @@ def run_plan_parallel(
                                         root=deliver_res.worktree_root, branch=deliver_res.branch)
                 except Exception as exc:
                     detail.cleanup_warning = f"Cleanup incomplete; worktree retained at {wt}: {exc}"
-            {"completed": result.completed, "failed": result.failed,
-             "needs_repair": result.needs_repair}[status].append(task.id)
+            if deliver_res.final_error is not None:
+                result.deferred.append(task.id)
+                result.blocked.append(task.id)
+            else:
+                {"completed": result.completed, "failed": result.failed,
+                 "needs_repair": result.needs_repair}[status].append(task.id)
             result.details[task.id] = detail
             emit("slice_done", slice_id=task.id, status=status)
 
