@@ -15,7 +15,9 @@ from cld.validate import _pytest
 EXPECTED = {"authentication", "missing_binary", "access_denied", "launch_error",
             "missing_capability", "invalid_invocation", "recursive_dispatch",
             "service_tier_warning", "service_tier_mismatch", "timeout",
-            "network_unavailable", "diff_capture"}
+            "network_unavailable", "diff_capture",
+            # v0.4.0 Claude executor additions
+            "usage_limit", "model_mismatch", "not_logged_in"}
 
 
 def _attr(module, name):

@@ -36,6 +36,13 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     else:
         name, model = value, ""
     name, model = name.strip().lower(), model.strip()
+    if name == "claude":
+        # Exact IDs only: aliases like "sonnet" move under stored validation evidence.
+        if not re.fullmatch(r"claude-[a-z0-9][a-z0-9.-]*", model):
+            raise ValueError("claude requires an exact model ID such as claude-sonnet-5; aliases are not accepted")
+        if effort not in ("low", "medium", "high", "xhigh", "max"):
+            raise ValueError("claude requires an explicit effort: --executor "
+                             "claude:<exact-model-id>@<low|medium|high|xhigh|max>")
     provider = get_provider(name)
     if not model:
         if not provider.default_workhorse:
