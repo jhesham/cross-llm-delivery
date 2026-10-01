@@ -16,6 +16,9 @@ FINAL_EXECUTOR_ERRORS: frozenset[str] = frozenset({
     "timeout",
     "network_unavailable",
     "diff_capture",
+    "usage_limit",
+    "model_mismatch",
+    "not_logged_in",
 })
 
 
@@ -34,6 +37,9 @@ def final_error_message(error: str) -> str:
         "timeout": "Set an appropriate CLD_DISPATCH_TIMEOUT, then resume the slice.",
         "network_unavailable": "Run with network access or network-enabled/escalated permissions, then resume the slice.",
         "diff_capture": "Inspect the retained worktree and evidence, fix diff capture, then resume the slice.",
+        "usage_limit": "The subscription usage limit was reached; wait for the limit window to reset, then resume the slice.",
+        "model_mismatch": "The requested model did not run (the CLI reported a different model); choose an available model or resolve access, then resume.",
+        "not_logged_in": "The provider CLI is not logged in; run `claude auth login`, then resume the slice.",
     }
     return messages.get(error, f"Resolve executor error '{error}', then resume the slice.")
 
