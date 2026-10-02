@@ -1,1 +1,3 @@
-"""Claude Code executor provider (registration lands with provider.py)."""
+"""Claude Code executor provider; importing this package registers it with CLD."""
+
+from . import provider  # noqa: F401

@@ -1,0 +1,1 @@
+{"type": "result", "subtype": "success", "is_error": false, "result": "done", "num_turns": 4, "total_cost_usd": 0.0412, "usage": {"input_tokens": 2100, "output_tokens": 640, "cache_read_input_tokens": 18000, "cache_creation_input_tokens": 1200}, "modelUsage": {"claude-sonnet-5": {"inputTokens": 2100, "outputTokens": 640}}}
