@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-03
+
 ### Added
 - **Claude Code executor** (`--executor claude:<exact-model-id>@<effort>`): Codex
   or Claude leads dispatch slices to Claude models through the logged-in
