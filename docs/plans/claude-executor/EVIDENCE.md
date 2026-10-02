@@ -57,3 +57,21 @@ present, CLD preflight clean.
   `--no-session-persistence` confirmed).
 - The captured result replaced the synthetic `tests/fixtures/claude/success.json`;
   all provider tests pass against it.
+
+## Sitting 3 — validation and first delivery (2026-10-02)
+
+Source driver, throwaway repo with one red slice (`add` in `calc.py`),
+`--executor claude:claude-sonnet-5@low --validation-policy allow --budget-attempts 3`,
+launched detached. Run `f861dbf727b04b6690929a43b8efeb76`:
+
+| Dispatch | Kind | Outcome | Tokens (input+output) | CLI estimate |
+|---|---|---|---|---|
+| 1 | validation | verified | 313 | USD 0.0686 |
+| 2 | slice ADD | accepted, attempt 1 | 358 | USD 0.0221 |
+
+- Usage complete for both dispatches: input 12, output 659, cache read 70,566,
+  cache write 16,918; CLD cost unknown by design (estimates kept as raw usage).
+- `--integrate --integration-tests tests/test_calc.py`: gate 3, verified commit
+  `6624c51` (`refs/cld/integration/f861dbf…/0a9c89a…`).
+- Validation evidence stored for `claude:claude-sonnet-5@low` (status `verified`,
+  context contract 2 with the subscription account identity).
