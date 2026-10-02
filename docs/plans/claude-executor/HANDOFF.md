@@ -18,10 +18,8 @@
 
 ## Release gate (v0.4.0)
 
-Do not tag until review findings R01–R06
-([REVIEW-2026-10-01](../v0.3.1-fixes/REVIEW-2026-10-01.md)) are fixed as their
-own sub-project. Until then, avoid `--gc --apply` (especially with
-`--include-previous`) on repositories with retained delivery work.
+Review findings R01–R06 are fixed (see
+[v0.4.0-review-fixes](../v0.4.0-review-fixes/SPEC.md)); tag only on the user's go-ahead.
 
 Open evidence gaps: sandboxed Codex lead (canary ran `danger-full-access`),
 live POSIX/macOS, live mid-process interruption.
