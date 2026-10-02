@@ -1,5 +1,12 @@
 # Current handoff
 
+> **Review checkpoint (2026-10-01):** Claude Code's v0.3.1 updates were reviewed
+> through `453e31e`. Seven open findings, including two high-priority GC safety
+> defects, are recorded in [the review](../v0.3.1-fixes/REVIEW-2026-10-01.md).
+> Focused checks: 148 passed; published four-platform jobs and packaging checks
+> are green. Engine and release unchanged; no provider inference performed.
+> Fix implementation has not started. Token usage for this review is unavailable.
+
 > **Superseded (2026-10-01):** v0.3.1 is published. Current work lives in
 > [docs/plans/v0.3.1-fixes/](../v0.3.1-fixes/) — see its
 > [publication record](../v0.3.1-fixes/PUBLICATION-0.3.1.md). Next: the Claude

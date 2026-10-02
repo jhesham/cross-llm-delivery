@@ -126,5 +126,8 @@ states. See [migration/recovery](docs/MIGRATION.md).
 Run events/artifacts are retained per run under `.cld/runs/<run-id>/`; compatibility
 event/summary paths may also exist. Starting a new build does not authorize
 deleting previous run evidence. `--gc` removes only CLD-managed worktrees that
-are safe to remove (preview by default); it never deletes run evidence or refs. Optional OTLP export is separate from local
+are safe to remove (preview by default): the slice must be proven from recovery
+evidence and not actively owned, the worktree must hold no changes or ignored
+non-cache data, and the ledger must belong to `--repo`. Anything unprovable is
+kept. It never deletes run evidence or refs. Optional OTLP export is separate from local
 durable state and should be enabled only under the user's data-sharing policy.
