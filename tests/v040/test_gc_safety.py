@@ -165,3 +165,77 @@ def test_long_ids_sharing_slug_prefix(tmp_path):
     bind_ledger(repo, ledger, statuses={long_a: "in_progress", long_b: "integrated"})
     code, payload = gc_json(repo, ledger, "--apply")
     assert code == 0 and w1.exists() and not w2.exists(), payload
+
+
+HOLD = """
+import sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from cld.attempts import slice_owner
+from cld.cli import git_runner
+with slice_owner(sys.argv[2], sys.argv[3], git_runner):
+    Path(sys.argv[4]).write_text("held")
+    while not Path(sys.argv[5]).exists():
+        time.sleep(0.05)
+"""
+
+
+def test_active_owner_keeps_worktree(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    session = "9" * 32
+    wt = add_worktree(repo, "A", session, run=OLD)
+    write_evidence(repo, OLD, "A", session, wt)
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger)
+    ready, stop = tmp_path / "ready", tmp_path / "stop"
+    engine = str(Path(cli.__file__).resolve().parents[1])
+    holder = subprocess.Popen([sys.executable, "-c", HOLD, engine, str(repo), "A", str(ready), str(stop)])
+    try:
+        for _ in range(400):
+            if ready.exists():
+                break
+            time.sleep(0.05)
+        assert ready.exists()
+        code, payload = gc_json(repo, ledger, "--apply", "--include-previous")
+        assert code == 0 and wt.exists()
+        reasons = [w["reason"] for w in payload["details"]["worktrees"]]
+        assert any("active owner" in r for r in reasons), reasons
+    finally:
+        stop.write_text("x")
+        holder.wait(timeout=30)
+
+
+def test_previous_run_untouched_without_include_previous(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    session = "c" * 32
+    wt = add_worktree(repo, "A", session, run=OLD)
+    write_evidence(repo, OLD, "A", session, wt)
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger)
+    code, _ = gc_json(repo, ledger, "--apply")
+    assert code == 0 and wt.exists()
+
+
+def test_unowned_clean_previous_slice_is_removed(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    session = "d" * 32
+    wt = add_worktree(repo, "A", session, run=OLD)
+    write_evidence(repo, OLD, "A", session, wt)
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger)
+    code, _ = gc_json(repo, ledger, "--apply", "--include-previous")
+    assert code == 0 and not wt.exists()
+
+
+def test_earlier_integration_needs_terminal_state(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    merging, done = "1" * 31 + "a", "1" * 31 + "b"
+    w1, w2 = add_worktree(repo, "integration", merging, run=OLD), add_worktree(repo, "integration", done, run=OLD)
+    for sess, state in ((merging, "merging"), (done, "passed")):
+        d = repo / ".cld" / "runs" / OLD / "integration" / sess
+        d.mkdir(parents=True)
+        (d / "outcome.json").write_text(json.dumps({"id": sess, "state": state}))
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger)
+    code, payload = gc_json(repo, ledger, "--apply", "--include-previous")
+    assert code == 0 and w1.exists() and not w2.exists(), payload["details"]

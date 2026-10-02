@@ -814,10 +814,11 @@ def _check_gc_binding(args, build):
 def _gc_report(args):
     """Preview (default) or apply cleanup of CLD-managed worktrees -> (exit code, details).
 
-    Holds the build writer lock so no delivery can run concurrently. Evidence
-    under .cld/runs and refs/cld/* are never touched.
+    Holds this ledger's writer lock, and each slice's owner lock while deciding
+    and removing its worktree, so active deliveries of any build are left alone.
+    Evidence under .cld/runs and refs/cld/* are never touched.
     """
-    from cld.gc import apply_gc, list_managed_worktrees, plan_gc, resolve_slice_id, worktree_dirty
+    from cld.gc import collect
     from cld.worktree import managed_location
     git = _hook("git_runner")
     ledger = Ledger.load(args.ledger)
@@ -826,24 +827,11 @@ def _gc_report(args):
         _check_gc_binding(args, build)
         run_id = build.get("run_id")
         _, root, _ = managed_location(args.repo, args.worktree_root, run_id or "0" * 32, "gc", "0" * 32)
-        worktrees = list_managed_worktrees(args.repo, root, git)
-        states = {}
-        for prior in {w.run_id for w in worktrees if w.slug == "integration"}:
-            for path in (run_directory(args.repo, prior) / "integration").glob("*/outcome.json"):
-                try:
-                    record = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    continue
-                if isinstance(record, dict) and isinstance(record.get("id"), str):
-                    states[record["id"]] = record.get("state")
-        dirty = {w.path for w in worktrees if worktree_dirty(w.path, git)}
-        slice_ids = {w.path: resolve_slice_id(args.repo, w) for w in worktrees if w.slug != "integration"}
-        decisions = plan_gc(worktrees, run_id=run_id,
-                            slice_status={sid: entry.status for sid, entry in ledger.entries.items()},
-                            recorded_integration=(build.get("integration_proof") or {}).get("id"),
-                            integration_states=states, dirty=dirty, include_previous=args.include_previous,
-                            slice_ids=slice_ids)
-        results = apply_gc(args.repo, decisions, root=root, git_runner=git) if args.apply else []
+        decisions, results = collect(
+            args.repo, root, git, run_id=run_id,
+            slice_status={sid: entry.status for sid, entry in ledger.entries.items()},
+            recorded_integration=(build.get("integration_proof") or {}).get("id"),
+            include_previous=args.include_previous, apply=args.apply)
     details = {"applied": bool(args.apply), "root": root, "results": results,
                "worktrees": [{"path": d.worktree.path, "action": d.action, "reason": d.reason}
                              for d in decisions]}
