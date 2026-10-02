@@ -6,6 +6,26 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Added
+- **Claude Code executor** (`--executor claude:<exact-model-id>@<effort>`): Codex
+  or Claude leads dispatch slices to Claude models through the logged-in
+  `claude` CLI on the user's subscription. Each dispatch is an isolated
+  `claude -p --safe-mode --restricted` session (no hooks, plugins, skills, MCP,
+  CLAUDE.md or saved session), prompt on stdin, API-key variables removed,
+  exact IDs only (aliases rejected), curated picker menu, model-free login and
+  capability preflight, account-aware validation evidence. New final errors:
+  `usage_limit`, `model_mismatch`, `not_logged_in`. Live-verified on Windows,
+  including a Codex-lead two-slice build.
+- Shared native-CLI launcher used by the Codex and Claude providers.
+
+### Fixed
+- Codex native launching no longer depends on the Git runner (review R07).
+- Wheel/sdist package data includes the Claude provider's resources.
+
+### Documentation
+- Layered plans: the frozen integration selector must stay green after every
+  layer. Codex leads on Windows act on the JSON `gate_code`, not the shell exit.
+
 ## [0.3.1] — 2026-09-30
 
 ### Fixed
