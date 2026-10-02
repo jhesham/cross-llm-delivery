@@ -143,3 +143,15 @@ def test_invalid_usage():
 def test_process_error_and_nonzero_exit():
     assert _parse("", process_error="timeout").error == "timeout"
     assert _parse("", stderr="boom", rc=2).error == "nonzero_exit"
+
+
+def test_success_text_mentioning_login_is_not_misclassified():
+    """A successful result may legitimately talk about auth (e.g. a slice writing preflight code)."""
+    outcome = _parse(_result(result="Added a hint to run `claude auth login`; handles invalid API key."))
+    assert outcome.ok is True and outcome.error is None
+
+
+def test_login_text_in_failed_stdout_or_error_result_is_not_logged_in():
+    assert _parse("Not logged in. Please run /login", rc=1).error == "not_logged_in"
+    assert _parse(_result(is_error=True, subtype="error_during_execution",
+                          result="Invalid API key · Please run /login")).error == "not_logged_in"
