@@ -96,3 +96,25 @@ def test_text_mode_mismatch_is_gate_5(tmp_path, capsys):
     bind_ledger(repo_a, ledger)
     code = cli.main(["--gc", "--repo", str(repo_b), "--ledger", str(ledger), "--apply", "--include-previous"])
     assert code == 5 and wt.exists()
+
+
+def test_ignored_local_data_is_dirty(tmp_path):
+    from cld.gc import worktree_dirty
+    repo = make_repo(tmp_path / "R")
+    wt = add_worktree(repo, "S", "2" * 32)
+    runner = cli.git_runner
+    assert worktree_dirty(str(wt), runner) is False
+    (wt / "cache").mkdir()
+    (wt / "cache" / "retained.db").write_text("data")
+    assert worktree_dirty(str(wt), runner) is True
+
+
+def test_disposable_caches_are_not_dirty(tmp_path):
+    from cld.gc import worktree_dirty
+    repo = make_repo(tmp_path / "R")
+    wt = add_worktree(repo, "S", "3" * 32)
+    (wt / "__pycache__").mkdir()
+    (wt / "__pycache__" / "m.pyc").write_bytes(b"x")
+    (wt / ".pytest_cache" / "v").mkdir(parents=True)
+    (wt / ".pytest_cache" / "v" / "x").write_text("x")
+    assert worktree_dirty(str(wt), cli.git_runner) is False
