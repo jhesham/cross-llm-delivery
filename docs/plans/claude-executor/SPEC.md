@@ -51,8 +51,8 @@ One fresh, non-interactive session per dispatch, cwd = the slice worktree:
 - `--safe-mode` disables CLAUDE.md, skills, installed plugins, hooks, MCP
   servers, custom agents and commands, while auth and model selection still
   work. `--restricted` confines file tools to the working directory, refuses
-  `bypassPermissions`, and denies headless writes to settings, git and
-  tool-configuration files. `--strict-mcp-config` with an empty config is
+  `bypassPermissions`, and gates writes to settings and git files.
+  `--strict-mcp-config` with an empty config is
   defence in depth. Never `bypassPermissions` or `--dangerously-skip-permissions`.
 - The prompt travels on **stdin**, never argv: a role preamble (exactly one
   slice; only the allowed files; no git commit/push or other Git mutation; do
@@ -67,9 +67,10 @@ One fresh, non-interactive session per dispatch, cwd = the slice worktree:
 - Capability gate (model-free, before dispatch): `claude --version` must name
   Claude Code with a semantic version; `claude --help` must list every flag
   above. Missing → final `missing_capability`.
-- Known limit: `--restricted` may deny edits to tool-configuration files; a
-  slice whose allowlist includes such a file can fail. Verified by the live
-  probe and documented.
+- Live probe (2026-10-02, CLI 2.1.286): `--restricted` did **not** block an
+  edit to `pyproject.toml`, so slices may edit project configuration files on
+  their allowlist; CLD's allowlist and protected-input checks still govern
+  what can be accepted. The earlier assumed limit does not apply.
 
 ## Results, accounting and errors
 
