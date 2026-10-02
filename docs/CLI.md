@@ -15,6 +15,7 @@ provider, authorize a model, or change acceptance. It is cleared after each invo
 ```text
 python -m cld plan.md --repo PROJECT --dry-run --json
 python -m cld plan.md --repo PROJECT --step --executor opencode:EXACT_MODEL_ID --json --host codex
+python -m cld plan.md --repo PROJECT --step --executor claude:claude-sonnet-5@low --validation-policy allow --json
 python -m cld plan.md --repo PROJECT --integrate --integration-tests tests/test_build.py --json
 python -m cld --repo PROJECT --status --json
 python -m cld --repo PROJECT --usage --json

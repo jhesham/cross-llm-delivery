@@ -10,10 +10,12 @@ The lead host and implementation provider are separate choices:
 
 | Lead host | Implementation provider |
 |---|---|
-| Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor or Codex CLI |
-| Claude Code, using a Claude skill or plugin | The same four providers and engine |
+| Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
+| Claude Code, using a Claude skill or plugin | The same five providers and engine |
 
-Version **0.3.1** supports both lead hosts and all four executor providers.
+Version **0.3.1** supports both lead hosts and four executor providers; the
+Claude Code CLI executor (your Claude subscription, an isolated `claude -p`
+session per slice) is on `main` for the next release — see the CHANGELOG.
 Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.1)
 for a fixed source revision; marketplace installs follow `main`.
 [Candidate verification record](docs/plans/codex-support/T20B-CANDIDATE.md).
