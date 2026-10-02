@@ -75,3 +75,42 @@ launched detached. Run `f861dbf727b04b6690929a43b8efeb76`:
   `6624c51` (`refs/cld/integration/f861dbf…/0a9c89a…`).
 - Validation evidence stored for `claude:claude-sonnet-5@low` (status `verified`,
   context contract 2 with the subscription account identity).
+
+## Sitting 3 — Codex-lead canary (2026-10-02)
+
+Codex-host `cross-llm-claude` bundle (built from `85d9aea`) installed with
+`generator/install_codex.py` into a throwaway repo's `.agents/skills`; lead
+`codex exec --model gpt-6.1-sol -c model_reasoning_effort="high"`, launched
+detached, instructed to follow the skill's driver sequence with
+`--executor claude:claude-sonnet-5@low --validation-policy allow --budget-attempts 5`.
+The lead ran with `--sandbox danger-full-access`: non-interactive `codex exec`
+cannot request escalation, and CLD must write outside the repo (validation
+evidence, process temp, Claude config). A sandboxed lead with explicit
+writable roots remains unverified.
+
+**First run (stopped correctly at gate 4).** Preview 0 → step A 6 → integrate 4.
+The canary prompt used `--integration-tests tests`, which includes slice B's
+still-red test; integration correctly refused ("baseline failure persists").
+The lead stopped as instructed and reported accurately. Claude usage: one
+validation probe (evidence is keyed per repository) and slice A, ~700 tokens +
+~98K cache, CLI estimate ~USD 0.046. Codex lead: input 384,044 (361,344 cached),
+output 1,972.
+
+**Re-run (`--new-build`, selector `tests/test_names.py`), run
+`a878967f79be49c0af99a50075c60c52`.** Lead gates: preview 0 → step A 6 →
+integrate A 0 → step B 6 → integrate B 3. Both slices accepted by the Claude
+executor on attempt 1; validation evidence reused (no probe). Verified
+independently: ledger both `integrated`; integration ref
+`refs/cld/integration/a878967f…/9f786e69…` = `c0ccbdf`; at that commit both
+acceptance tests pass with correct implementations.
+
+| Party | Usage |
+|---|---|
+| Claude executor (2 dispatches) | 1,049 tokens; cache read 114,623, cache write 5,272; CLI estimate USD 0.0567 |
+| Codex lead (gpt-6.1-sol, high) | input 316,160 (292,608 cached), output 1,793 |
+
+**Lessons for documentation:** (1) a layered plan's integration selector must
+stay green after every layer — select already-satisfiable or earlier-layer
+tests, never later slices' red tests; (2) on Windows the Codex lead runs the
+driver through `pwsh -Command`, whose process exit is 1 for any non-zero native
+exit, so leads must act on the JSON `gate_code`, not the shell exit code.
