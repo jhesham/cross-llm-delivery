@@ -118,3 +118,50 @@ def test_disposable_caches_are_not_dirty(tmp_path):
     (wt / ".pytest_cache" / "v").mkdir(parents=True)
     (wt / ".pytest_cache" / "v" / "x").write_text("x")
     assert worktree_dirty(str(wt), cli.git_runner) is False
+
+
+def test_resolve_slice_id_from_evidence(tmp_path):
+    from cld.gc import list_managed_worktrees, resolve_slice_id
+    repo = make_repo(tmp_path / "R")
+    s1, s2 = "4" * 32, "5" * 32
+    w1, w2 = add_worktree(repo, "A_B", s1), add_worktree(repo, "A_B", s2)
+    write_evidence(repo, RUN, "A.B", s1, w1)
+    write_evidence(repo, RUN, "A_B", s2, w2)
+    found = {w.session_id: w for w in list_managed_worktrees(str(repo), str(repo / ".cld/worktrees"), cli.git_runner)}
+    assert resolve_slice_id(str(repo), found[s1]) == "A.B"
+    assert resolve_slice_id(str(repo), found[s2]) == "A_B"
+
+
+def test_missing_evidence_keeps_worktree(tmp_path):
+    from cld.gc import list_managed_worktrees, resolve_slice_id
+    repo = make_repo(tmp_path / "R")
+    add_worktree(repo, "S", "6" * 32)
+    (wt,) = list_managed_worktrees(str(repo), str(repo / ".cld/worktrees"), cli.git_runner)
+    assert resolve_slice_id(str(repo), wt) is None
+
+
+def test_slug_collision_never_removes_unfinished_slice(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    s1, s2 = "7" * 32, "8" * 32
+    w1, w2 = add_worktree(repo, "A_B", s1), add_worktree(repo, "A_B", s2)
+    write_evidence(repo, RUN, "A.B", s1, w1)
+    write_evidence(repo, RUN, "A_B", s2, w2)
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger, statuses={"A.B": "needs_repair", "A_B": "integrated"})
+    code, payload = gc_json(repo, ledger, "--apply")
+    assert code == 0
+    assert w1.exists(), payload
+    assert not w2.exists()
+
+
+def test_long_ids_sharing_slug_prefix(tmp_path):
+    repo = make_repo(tmp_path / "R")
+    long_a, long_b = "X" * 40 + "a", "X" * 40 + "b"
+    s1, s2 = "f" * 32, "0" * 32
+    w1, w2 = add_worktree(repo, "X" * 40, s1), add_worktree(repo, "X" * 40, s2)
+    write_evidence(repo, RUN, long_a, s1, w1)
+    write_evidence(repo, RUN, long_b, s2, w2)
+    ledger = tmp_path / "ledger.json"
+    bind_ledger(repo, ledger, statuses={long_a: "in_progress", long_b: "integrated"})
+    code, payload = gc_json(repo, ledger, "--apply")
+    assert code == 0 and w1.exists() and not w2.exists(), payload

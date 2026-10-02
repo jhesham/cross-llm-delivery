@@ -51,7 +51,9 @@ def test_slug_matches_managed_location():
 
 def test_plan_gc_removes_integrated_slice_worktree():
     wt = _wt("A", 1)
-    assert _plan([wt], slice_status={"A": "integrated"}) == {wt.path: "remove"}
+    # v0.4.0 R01: identity comes from recovery evidence (slice_ids), never the slug.
+    assert _plan([wt], slice_status={"A": "integrated"}, slice_ids={wt.path: "A"}) == {wt.path: "remove"}
+    assert _plan([wt], slice_status={"A": "integrated"}) == {wt.path: "keep"}
 
 
 @pytest.mark.parametrize("status", ["pending", "in_progress", "done", "failed", "needs_repair", "blocked", None])
@@ -79,7 +81,8 @@ def test_plan_gc_failed_integration_kept_without_a_passed_one():
 def test_plan_gc_previous_builds():
     clean, dirty = _wt("A", 1, run=OLD), _wt("B", 2, run=OLD)
     assert _plan([clean, dirty]) == {clean.path: "keep", dirty.path: "keep"}
-    assert _plan([clean, dirty], include_previous=True, dirty={dirty.path}) == {
+    ids = {clean.path: "A", dirty.path: "B"}
+    assert _plan([clean, dirty], include_previous=True, dirty={dirty.path}, slice_ids=ids) == {
         clean.path: "remove", dirty.path: "keep"}
 
 
