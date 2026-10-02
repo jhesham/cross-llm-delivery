@@ -8,9 +8,12 @@ previous evidence.
 """
 from dataclasses import dataclass
 from pathlib import Path
+import json
+import os
 import re
 
 from cld.executors._capture import CaptureError, _is_noise
+from cld.ledger import StateError
 from cld.worktree import remove_worktree, validate_location
 
 _BRANCH = re.compile(r"refs/heads/cld/([0-9a-f]{32})/([A-Za-z0-9_-]{1,40})/([0-9a-f]{32})")
@@ -76,20 +79,53 @@ def worktree_dirty(path, git_runner) -> bool:
     return False
 
 
+def resolve_slice_id(repo_dir, worktree) -> str | None:
+    """True slice ID from this session's recovery evidence; None when not provable (R01).
+
+    The branch slug is sanitized and truncated, so distinct slice IDs can share
+    it; only an outcome.json naming this session and this worktree path counts.
+    """
+    from cld.build_state import run_directory
+    try:
+        base = run_directory(repo_dir, worktree.run_id)
+    except StateError:
+        return None
+    target = os.path.normcase(os.path.realpath(worktree.path))
+    found = set()
+    for record_path in base.glob(f"*/{worktree.session_id}/outcome.json"):
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if (isinstance(record, dict) and record.get("session_id") == worktree.session_id
+                and isinstance(record.get("slice_id"), str) and isinstance(record.get("worktree"), str)
+                and os.path.normcase(os.path.realpath(record["worktree"])) == target):
+            found.add(record["slice_id"])
+    return found.pop() if len(found) == 1 else None
+
+
 def plan_gc(worktrees, *, run_id, slice_status, recorded_integration, integration_states,
-            dirty, include_previous) -> list[GcDecision]:
-    status_by_slug = {slug_for(sid): status for sid, status in slice_status.items()}
+            dirty, include_previous, slice_ids=None) -> list[GcDecision]:
+    """Decide keep/remove per worktree. `slice_ids` maps worktree path -> proven slice ID."""
+    slice_ids = slice_ids or {}
     decisions = []
     for wt in worktrees:
-        if wt.run_id != run_id:
+        state = integration_states.get(wt.session_id)
+        if wt.path in dirty:
+            action, reason = "keep", "uncommitted or ignored local data"
+        elif wt.run_id != run_id:
             if not include_previous:
                 action, reason = "keep", "earlier build; pass --include-previous to remove"
-            elif wt.path in dirty:
-                action, reason = "keep", "earlier build with uncommitted changes"
+            elif wt.slug == "integration":
+                if state in ("passed", "failed"):
+                    action, reason = "remove", f"earlier build, integration {state}"
+                else:
+                    action, reason = "keep", f"earlier build, integration state {state or 'unknown'}"
+            elif slice_ids.get(wt.path) is None:
+                action, reason = "keep", "slice identity not provable from evidence"
             else:
-                action, reason = "remove", "earlier build, no uncommitted changes"
+                action, reason = "remove", "earlier build, no local data"
         elif wt.slug == "integration":
-            state = integration_states.get(wt.session_id)
             if wt.session_id == recorded_integration:
                 action, reason = "keep", "recorded integration"
             elif state == "passed":
@@ -99,11 +135,13 @@ def plan_gc(worktrees, *, run_id, slice_status, recorded_integration, integratio
             else:
                 action, reason = "keep", f"integration state {state or 'unknown'}"
         else:
-            status = status_by_slug.get(wt.slug)
-            if status == "integrated":
+            sid = slice_ids.get(wt.path)
+            if sid is None:
+                action, reason = "keep", "slice identity not provable from evidence"
+            elif slice_status.get(sid) == "integrated":
                 action, reason = "remove", "slice integrated"
             else:
-                action, reason = "keep", f"slice status {status or 'unknown'}"
+                action, reason = "keep", f"slice status {slice_status.get(sid) or 'unknown'}"
         decisions.append(GcDecision(wt, action, reason))
     return decisions
 

@@ -43,6 +43,11 @@ def test_gc_apply_with_include_previous_removes_clean_earlier_build(tmp_path, ca
     repo = tmp_path / "repo"
     init_repo(repo)
     path = _worktree(repo)
+    # v0.4.0 R01: removal needs recovery evidence proving the worktree's slice.
+    evidence = repo / ".cld" / "runs" / RUN / "A" / f"{1:032x}"
+    evidence.mkdir(parents=True)
+    (evidence / "outcome.json").write_text(json.dumps(dict(
+        session_id=f"{1:032x}", slice_id="A", worktree=str(path.resolve()), state="failed")))
     code, payload = _json(["--gc", "--apply", "--include-previous", "--repo", str(repo)], capsys)
     assert code == 0
     assert [r["action"] for r in payload["details"]["results"]] == ["removed"]
