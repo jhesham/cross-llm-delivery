@@ -625,9 +625,12 @@ def prepare_dispatch(args, slices, ledger):
         command = _hook("_resolve_cli")(invocation[0])
         if not command:
             raise AdmissionBlocked(f"CLI disappeared for {provider}")
+        descriptor = get_provider(provider)
+        patterns = descriptor.context_env + (
+            tuple(descriptor.config_env(config_paths)) if descriptor.config_env else ())
         return validation_context(spec, cli_paths=[command, *invocation[1:]],
-            config_paths=config_paths, extra=_validation_extra(args.validation_context, get_provider(provider)),
-            repo=args.repo, env_patterns=get_provider(provider).context_env)
+            config_paths=config_paths, extra=_validation_extra(args.validation_context, descriptor),
+            repo=args.repo, env_patterns=patterns)
 
     def validate(spec):
         _, provider, kwargs = resolve_spec(spec)
