@@ -146,7 +146,7 @@ def plan_gc(worktrees, *, run_id, slice_status, recorded_integration, integratio
     return decisions
 
 
-def apply_gc(repo_dir, decisions, *, root, git_runner) -> list[dict]:
+def apply_gc(repo_dir, decisions, *, root, git_runner, prune=True) -> list[dict]:
     """Remove only 'remove' decisions, each identity-checked; then prune stale registrations."""
     results = []
     for decision in decisions:
@@ -159,5 +159,58 @@ def apply_gc(repo_dir, decisions, *, root, git_runner) -> list[dict]:
             results.append({"path": path, "action": "removed"})
         except (CaptureError, RuntimeError, OSError) as exc:
             results.append({"path": path, "action": "failed", "error": str(exc)})
-    git_runner(["git", "worktree", "prune"], repo_dir)
+    if prune:
+        git_runner(["git", "worktree", "prune"], repo_dir)
     return results
+
+
+def _integration_state(repo_dir, worktree):
+    """State recorded by the integration transaction whose id is this session (None if unknown)."""
+    from cld.build_state import run_directory
+    try:
+        for path in (run_directory(repo_dir, worktree.run_id) / "integration").glob("*/outcome.json"):
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(record, dict) and record.get("id") == worktree.session_id:
+                return record.get("state")
+    except (OSError, ValueError, StateError):
+        return None
+    return None
+
+
+def collect(repo_dir, root, git_runner, *, run_id, slice_status, recorded_integration,
+            include_previous, apply, owner=None):
+    """Decide (and optionally remove) each worktree under its slice's owner lock (R02).
+
+    The lock is the repository-wide nonblocking lock delivery holds while a
+    slice runs, so a held lock means an active owner and the worktree is kept.
+    Eligibility (status, dirty state) is decided under that lock, immediately
+    before removal. Earlier builds are not locked unless --include-previous.
+    """
+    from contextlib import nullcontext
+    from cld.attempts import ActiveAttempt, slice_owner
+    owner = owner or slice_owner
+    decisions, results = [], []
+    for wt in list_managed_worktrees(repo_dir, root, git_runner):
+        candidate = wt.run_id == run_id or include_previous
+        sid, lock, states = None, nullcontext(), {}
+        if wt.slug == "integration":
+            states = {wt.session_id: _integration_state(repo_dir, wt)}
+        else:
+            sid = resolve_slice_id(repo_dir, wt)
+            if sid is not None and candidate:
+                lock = owner(repo_dir, sid, git_runner)
+        try:
+            with lock:
+                dirty = {wt.path} if candidate and worktree_dirty(wt.path, git_runner) else set()
+                (decision,) = plan_gc([wt], run_id=run_id, slice_status=slice_status,
+                                      recorded_integration=recorded_integration,
+                                      integration_states=states, dirty=dirty,
+                                      include_previous=include_previous, slice_ids={wt.path: sid})
+                if apply and decision.action == "remove":
+                    results += apply_gc(repo_dir, [decision], root=root, git_runner=git_runner, prune=False)
+        except ActiveAttempt:
+            decision = GcDecision(wt, "keep", "active owner holds this slice")
+        decisions.append(decision)
+    if apply:
+        git_runner(["git", "worktree", "prune"], repo_dir)
+    return decisions, results
