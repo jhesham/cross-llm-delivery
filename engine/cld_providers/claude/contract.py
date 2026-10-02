@@ -166,24 +166,29 @@ def parse_result(stdout, stderr, returncode, *, model, process_error=None):
 
     stdout_text = _text(stdout)
     stderr_text = _text(stderr)
-    if _LOGIN_RE.search(stderr_text) or _LOGIN_RE.search(stdout_text):
+    # Login text on stdout only counts on a failure path: a successful result's
+    # model text may legitimately mention auth (e.g. a slice writing preflight code).
+    stdout_login = _LOGIN_RE.search(stdout_text) is not None
+    if _LOGIN_RE.search(stderr_text):
         return _failure("not_logged_in")
     if _USAGE_LIMIT_RE.search(stderr_text):
         return _failure("usage_limit")
     if type(returncode) is not int or returncode != 0:
-        return _failure("nonzero_exit")
+        return _failure("not_logged_in" if stdout_login else "nonzero_exit")
 
     try:
         result = json.loads(stdout_text)
     except (TypeError, ValueError):
-        return _failure("malformed_output")
+        return _failure("not_logged_in" if stdout_login else "malformed_output")
     if not isinstance(result, dict) or result.get("type") != "result":
-        return _failure("malformed_output")
+        return _failure("not_logged_in" if stdout_login else "malformed_output")
 
     result_text = _text(result.get("result"))
     if result.get("is_error") is not False or result.get("subtype") != "success":
         if _USAGE_LIMIT_RE.search(result_text):
             return _failure("usage_limit")
+        if _LOGIN_RE.search(result_text):
+            return _failure("not_logged_in")
         return _failure("turn_failed")
 
     model_usage = result.get("modelUsage")
