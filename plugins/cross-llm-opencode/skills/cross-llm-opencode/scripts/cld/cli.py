@@ -451,6 +451,8 @@ def _install_hint(provider: str) -> str:
         "opencode": "Install OpenCode: npm install -g opencode-ai (or set OPENCODE_CLI_CMD).",
         "cursor": "Install Cursor and ensure `cursor-agent` is on PATH (or set CURSOR_AGENT_CMD).",
         "codex": "Install Codex CLI, sign in, and ensure `codex` is on PATH.",
+        "claude": "Install Claude Code, run `claude auth login` with your subscription, and ensure "
+                  "`claude` is on PATH (or set CLAUDE_CLI_CMD).",
     }
     return hints.get(provider, f"Install the {provider} CLI.")
 
@@ -553,6 +555,12 @@ def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2
     return planner
 
 
+def _validation_extra(base, provider):
+    """User-supplied context plus the provider's account identity (never secrets)."""
+    extra = provider.context_extra() if getattr(provider, "context_extra", None) else ""
+    return "\n".join(part for part in (base, extra) if part)
+
+
 def prepare_dispatch(args, slices, ledger):
     """Freeze all selected rungs, preflight all providers, then admit all models."""
     from cld.admission import Admission, AdmissionBlocked, validation_context, writable_directory
@@ -618,8 +626,8 @@ def prepare_dispatch(args, slices, ledger):
         if not command:
             raise AdmissionBlocked(f"CLI disappeared for {provider}")
         return validation_context(spec, cli_paths=[command, *invocation[1:]],
-            config_paths=config_paths, extra=args.validation_context, repo=args.repo,
-            env_patterns=get_provider(provider).context_env)
+            config_paths=config_paths, extra=_validation_extra(args.validation_context, get_provider(provider)),
+            repo=args.repo, env_patterns=get_provider(provider).context_env)
 
     def validate(spec):
         _, provider, kwargs = resolve_spec(spec)
