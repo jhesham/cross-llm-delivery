@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from cld.executors._capture import CaptureError
+from cld.executors._capture import CaptureError, _is_noise
 from cld.worktree import remove_worktree, validate_location
 
 _BRANCH = re.compile(r"refs/heads/cld/([0-9a-f]{32})/([A-Za-z0-9_-]{1,40})/([0-9a-f]{32})")
@@ -59,9 +59,21 @@ def list_managed_worktrees(repo_dir, root, git_runner) -> list[ManagedWorktree]:
 
 
 def worktree_dirty(path, git_runner) -> bool:
-    """True when a worktree has uncommitted changes; an unreadable status counts as dirty."""
-    rc, output = git_runner(["git", "status", "--porcelain"], str(path))
-    return rc != 0 or bool(output.strip())
+    """Tracked/untracked changes or ignored non-cache data; an unreadable status counts as dirty.
+
+    Plain `git status --porcelain` omits ignored files, so an otherwise clean
+    worktree holding ignored local data looked safe to force-remove (R05).
+    """
+    rc, output = git_runner(["git", "status", "--porcelain", "--ignored"], str(path))
+    if rc != 0:
+        return True
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        if line.startswith("!! ") and _is_noise(line[3:].strip().strip('"')):
+            continue
+        return True
+    return False
 
 
 def plan_gc(worktrees, *, run_id, slice_status, recorded_integration, integration_states,
