@@ -13,7 +13,7 @@ def discover_model_index():
     """Discover only bundled providers; never run inference or update evidence."""
     load_providers()
     providers = {p.name for p in all_providers()}
-    opencode, cursor, codex = [], [], []
+    opencode, cursor, codex, claude = [], [], [], []
     if "opencode" in providers:
         from cld_providers.opencode.provider import list_models, _default_runner
         opencode = list_models(_default_runner)
@@ -23,8 +23,11 @@ def discover_model_index():
     if "codex" in providers:
         from cld_providers.codex.catalog import list_codex_models
         codex = list_codex_models()
+    if "claude" in providers:
+        from cld_providers.claude.catalog import CLAUDE_MODELS
+        claude = CLAUDE_MODELS
     return build_model_index(opencode_ids=opencode, cursor_models=cursor,
-        codex_models=codex, evidence={})
+        codex_models=codex, claude_models=claude, evidence={})
 
 
 def main(argv=None):

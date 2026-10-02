@@ -1,0 +1,3 @@
+## Claude Code CLI executor
+
+Choose an exact Claude model ID and effort for every build, for example `--executor claude:claude-sonnet-5@low`. This provider has no default model. Run `python scripts/list_models.py --json` for the curated menu (`claude-sonnet-5`, `claude-opus-5-5`, `claude-fable-5-1`, `claude-haiku-4-5`; default effort `low`); listings are untested and do not prove your plan's access. Billing is your Claude subscription only; a usage limit stops the slice with gate 5. Each dispatch is an isolated `claude -p --safe-mode --restricted` session whose shell is not sandboxed. See `references/provider-setup.md`.

@@ -1,0 +1,7 @@
+{
+  "name": "cross-llm-claude",
+  "description": "Claude Code leads claude CLI implementation with independent acceptance and verified integration.",
+  "author": {
+    "name": "cross-llm-delivery contributors"
+  }
+}
