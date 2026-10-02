@@ -798,6 +798,19 @@ def _resolve_paths(args) -> None:
     args.ledger = resolve_ledger(args.repo, args.ledger)
 
 
+def _check_gc_binding(args, build):
+    """GC must operate only on the repository its ledger is bound to (R04)."""
+    bound = build.get("repo")
+    if not bound:
+        return
+    def norm(path):
+        return os.path.normcase(os.path.realpath(path))
+    rc, out = _hook("git_runner")(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], args.repo)
+    if (rc != 0 or norm(bound) != norm(args.repo)
+            or norm(build.get("git_common_dir") or "") != norm(out.strip())):
+        raise StateError(f"Ledger is bound to a different repository ({bound}); refusing --gc on {args.repo}")
+
+
 def _gc_report(args):
     """Preview (default) or apply cleanup of CLD-managed worktrees -> (exit code, details).
 
@@ -810,6 +823,7 @@ def _gc_report(args):
     ledger = Ledger.load(args.ledger)
     with ledger.writer(refresh=True):
         build = ledger.build or {}
+        _check_gc_binding(args, build)
         run_id = build.get("run_id")
         _, root, _ = managed_location(args.repo, args.worktree_root, run_id or "0" * 32, "gc", "0" * 32)
         worktrees = list_managed_worktrees(args.repo, root, git)
