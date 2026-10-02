@@ -51,6 +51,7 @@ class Provider:
     cli_invocation: Optional[Callable] = None  # () -> argv prefix; no process launched
     context_env: tuple = ()  # env names/PREFIX_* patterns keyed into validation evidence
     launch_problem: Optional[Callable] = None  # () -> str | None; blocks dispatch before spend
+    context_extra: Optional[Callable] = None  # () -> str; account/plan identity keyed into validation evidence
 
 
 # ---------------------------------------------------------------------------

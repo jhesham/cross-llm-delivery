@@ -26,7 +26,10 @@ code:
 
 Acceptance and integration are separate: an accepted slice is not verified
 until `--integrate --integration-tests <selector>` has merged and re-tested
-the frozen candidate.
+the frozen candidate. The selector is frozen for the build and every selected
+test must pass after each layer is integrated: for a layered plan, choose tests
+that are already green or belong to earlier layers, never a later slice's
+still-red acceptance test.
 
 ## Final executor errors and network access
 

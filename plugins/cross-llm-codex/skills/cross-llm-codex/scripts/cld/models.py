@@ -36,6 +36,13 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     else:
         name, model = value, ""
     name, model = name.strip().lower(), model.strip()
+    if name == "claude":
+        # Exact IDs only: aliases like "sonnet" move under stored validation evidence.
+        if not re.fullmatch(r"claude-[a-z0-9][a-z0-9.-]*", model):
+            raise ValueError("claude requires an exact model ID such as claude-sonnet-5; aliases are not accepted")
+        if effort not in ("low", "medium", "high", "xhigh", "max"):
+            raise ValueError("claude requires an explicit effort: --executor "
+                             "claude:<exact-model-id>@<low|medium|high|xhigh|max>")
     provider = get_provider(name)
     if not model:
         if not provider.default_workhorse:
@@ -379,7 +386,7 @@ def pick_executor(recs, *, index=None, input_fn=input, output_fn=print) -> str:
 
 
 
-def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=()) -> List[ModelChoice]:
+def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=(), claude_models=()) -> List[ModelChoice]:
     from cld.providers_api import load_providers, catalog, default_workhorse
     load_providers()
     _catalog = catalog()
@@ -508,6 +515,12 @@ def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=())
             provider=_provider_of(model.id), model=model.id, label=model.label,
             cost_class="metered-unknown", headless_status="untested",
             efforts=efforts, default_effort=default))
+
+    for model in claude_models:
+        out.append(ModelChoice(spec="claude:" + model.id, executor="claude",
+            provider="claude", model=model.id, label=model.label + " (subscription)",
+            cost_class="metered-unknown", headless_status="untested",
+            efforts=list(model.efforts), default_effort="low"))
     return out
 
 
@@ -606,11 +619,12 @@ def render_effort_level(choice):
 
 
 def spec_with_effort(choice, effort) -> str:
-    """Codex always pins the selected/default effort; Cursor keeps its CLI default."""
-    if choice.executor == "codex":
+    """Codex and Claude pin effort; Cursor keeps its CLI default."""
+    if choice.executor in ("codex", "claude"):
         selected = effort or choice.default_effort
         if selected not in choice.efforts:
-            raise ValueError("Choose an explicit supported Codex effort")
+            name = "Claude" if choice.executor == "claude" else "Codex"
+            raise ValueError(f"Choose an explicit supported {name} effort")
         return f"{choice.spec}@{selected}"
     if not effort or effort == choice.default_effort:
         return choice.spec
