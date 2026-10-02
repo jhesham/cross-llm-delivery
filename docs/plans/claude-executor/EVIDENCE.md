@@ -35,3 +35,25 @@ CLD slices. Full offline suite afterwards: 1108 passed; the 46 failures were the
 - Lead review found one defect inherited from the plan's interface text:
   `parse_result` classified login phrases in a *successful* result's text as
   `not_logged_in`. Fixed red-first (`test_success_text_mentioning_login_is_not_misclassified`).
+
+## Sitting 3 — live isolation probe (2026-10-02)
+
+One `claude-haiku-4-5@low` session (CLI 2.1.286, Pro subscription) in a
+throwaway repo, launched with the exact contract argv through the native
+`claude.exe` resolved behind the npm shim, prompt on stdin, API-key variables
+unset. Model-free preflight beforehand: subscription login, every required flag
+present, CLD preflight clean.
+
+- Result: exit 0, one JSON object, `subtype: success`, `is_error: false`,
+  `num_turns: 5`, 8.9 s; `hello.txt` created; `python -c "print(1)"` ran.
+- `modelUsage` keys: `claude-haiku-4-5` and `claude-haiku-4-5-20251001`
+  (exact and dated forms both appear; the contract accepts either).
+- Usage reported in full: input 26, output 719, cache read 21,797, cache
+  write 11,569; CLI cost estimate USD 0.0300 (recorded as an estimate only).
+- `--restricted` did **not** block appending to `pyproject.toml`; the spec's
+  assumed configuration-file limit was removed from SPEC and setup notes.
+- Isolation: no claude-mem session or prompt referenced the probe, no
+  `~/.claude/projects` folder or transcript was created (`--safe-mode`,
+  `--no-session-persistence` confirmed).
+- The captured result replaced the synthetic `tests/fixtures/claude/success.json`;
+  all provider tests pass against it.
