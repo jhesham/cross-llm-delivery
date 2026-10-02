@@ -70,10 +70,12 @@ def _provider_default_workhorse(provider: str) -> str:
 
 
 def _executor_policy(provider: str) -> str:
-    if provider == "codex":
-        return ("An exact model ID is required; this provider has no default model. "
-                "Pass `--executor codex:<model-id>@<effort>` explicitly. "
-                "For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier.")
+    if provider in ("codex", "claude"):
+        policy = ("An exact model ID is required; this provider has no default model. "
+                  f"Pass `--executor {provider}:<model-id>@<effort>` explicitly.")
+        if provider == "codex":
+            policy += " For requested fast mode, use `codex:gpt-6-luna@max+fast`; do not silently drop the tier."
+        return policy
     return f"The configured default workhorse is `{_provider_default_workhorse(provider)}`; preserve the user's selection."
 
 

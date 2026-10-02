@@ -41,6 +41,7 @@ SUPPORTED_NAMES = frozenset({
     "cross-llm-antigravity",
     "cross-llm-cursor",
     "cross-llm-codex",
+    "cross-llm-claude",
 })
 
 MANIFEST_NAME = ".cld-install.json"

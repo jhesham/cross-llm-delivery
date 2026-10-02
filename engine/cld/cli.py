@@ -451,6 +451,8 @@ def _install_hint(provider: str) -> str:
         "opencode": "Install OpenCode: npm install -g opencode-ai (or set OPENCODE_CLI_CMD).",
         "cursor": "Install Cursor and ensure `cursor-agent` is on PATH (or set CURSOR_AGENT_CMD).",
         "codex": "Install Codex CLI, sign in, and ensure `codex` is on PATH.",
+        "claude": "Install Claude Code, run `claude auth login` with your subscription, and ensure "
+                  "`claude` is on PATH (or set CLAUDE_CLI_CMD).",
     }
     return hints.get(provider, f"Install the {provider} CLI.")
 

@@ -10,14 +10,14 @@ from generator.build_skill import build_one
 from generator.release import CommandError, _validate_manifests
 
 ROOT = Path(__file__).resolve().parents[1]
-PROVIDERS = ("antigravity", "cursor", "opencode", "codex")
+PROVIDERS = ("antigravity", "cursor", "opencode", "codex", "claude")
 
 
 def test_claude_marketplace_resolves_all_four_committed_plugins():
     catalog = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
     entries = catalog["plugins"]
     assert {entry["name"] for entry in entries} == {"cross-llm-" + p for p in PROVIDERS}
-    assert len(entries) == 4
+    assert len(entries) == len(PROVIDERS)
     for entry in entries:
         source = (ROOT / entry["source"]).resolve()
         assert source.is_relative_to(ROOT)

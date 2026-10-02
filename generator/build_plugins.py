@@ -41,16 +41,16 @@ PROVIDERS = ("antigravity", "opencode", "cursor")
 
 
 def _package_providers(dist_root: Path, *, host: str) -> tuple[str, ...]:
-    """Keep the three established packages; include optional Codex when built."""
+    """Keep the three established packages; include optional Codex/Claude when built."""
     host_root = dist_root / "codex" if host == "codex" else dist_root
-    return PROVIDERS + (("codex",) if (host_root / "cross-llm-codex").is_dir() else ())
+    return PROVIDERS + tuple(p for p in ("codex", "claude") if (host_root / f"cross-llm-{p}").is_dir())
 DESCRIPTIONS = {
     name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration."
-    for name in (*PROVIDERS, "codex")
+    for name in (*PROVIDERS, "codex", "claude")
 }
 CODEX_DESCRIPTIONS = {
     name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration."
-    for name in (*PROVIDERS, "codex")
+    for name in (*PROVIDERS, "codex", "claude")
 }
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 CODEX_CATALOG_NAME = "cross-llm-delivery-codex"

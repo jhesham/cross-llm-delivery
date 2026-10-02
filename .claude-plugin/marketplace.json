@@ -24,6 +24,11 @@
       "name": "cross-llm-codex",
       "source": "./plugins/cross-llm-codex",
       "description": "Codex CLI executor with an explicit model, effort and optional fast tier; no guessed default."
+    },
+    {
+      "name": "cross-llm-claude",
+      "source": "./plugins/cross-llm-claude",
+      "description": "Claude Code CLI executor on your Claude subscription; exact model and effort, isolated session, no default."
     }
   ]
 }
