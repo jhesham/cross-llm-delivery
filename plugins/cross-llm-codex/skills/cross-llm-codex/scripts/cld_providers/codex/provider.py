@@ -26,6 +26,7 @@ from .contract import (
 )
 from .catalog import list_models
 from .launcher import CodexLauncherError, resolve_codex_command
+from cld.native_cli import resolved_runner as _native_resolved_runner
 
 # Structural JSONL failures mean the event stream itself cannot be trusted, so
 # they collapse to one actionable error. Semantic failures (turn_failed,
@@ -35,16 +36,9 @@ _STRUCTURAL_ERRORS = ("malformed_output", "event_order", "invalid_usage")
 
 def resolved_runner(runner, resolve=None):
     """Wrap a process runner with the resolved native Codex command."""
-    def run(argv, cwd, **kwargs):
-        resolver = resolve if resolve is not None else resolve_codex_command
-        command = resolver()
-        command_argv = list(argv)
-        if command_argv and command_argv[0] == "codex":
-            command_argv[0] = command.path
-        call_env = {**command.env, **(kwargs.pop("env", None) or {})}
-        return runner(command_argv, cwd, env=call_env, **kwargs)
-
-    return run
+    # The module-global resolver is looked up at call time so tests can patch it.
+    return _native_resolved_runner(
+        runner, lambda: (resolve if resolve is not None else resolve_codex_command)(), "codex")
 
 
 def _launch_problem():
@@ -95,7 +89,8 @@ class CodexExecutor:
         self._sandbox = sandbox
         self._runner = runner
         self._git_runner = git_runner
-        self._uses_default_process_runners = runner is run_process and git_runner is run_process
+        # R07: Git diff injection must not decide how the Codex binary launches.
+        self._uses_default_process_runners = runner is run_process
         self._timeout = timeout
         self._cancel = cancel
         self._artifact_dir = artifact_dir

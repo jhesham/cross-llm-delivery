@@ -6,6 +6,41 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-03
+
+### Added
+- **Claude Code executor** (`--executor claude:<exact-model-id>@<effort>`): Codex
+  or Claude leads dispatch slices to Claude models through the logged-in
+  `claude` CLI on the user's subscription. Each dispatch is an isolated
+  `claude -p --safe-mode --restricted` session (no hooks, plugins, skills, MCP,
+  CLAUDE.md or saved session), prompt on stdin, API-key variables removed,
+  exact IDs only (aliases rejected), curated picker menu, model-free login and
+  capability preflight, account-aware validation evidence. New final errors:
+  `usage_limit`, `model_mismatch`, `not_logged_in`. Live-verified on Windows,
+  including a Codex-lead two-slice build.
+- Shared native-CLI launcher used by the Codex and Claude providers.
+
+### Fixed
+- `--gc` safety (review R01, R02, R04, R05): a worktree's slice is identified
+  from its recovery evidence, never the truncated branch slug, and is kept when
+  that is not provable; each candidate is decided and removed under its slice's
+  owner lock, so an active delivery's worktree is kept; a ledger bound to a
+  different repository blocks (gate 5) with no removals; ignored local data
+  counts as dirty (disposable tool caches excepted) for every candidate; an
+  earlier build's integration worktree is removed only after it passed or failed.
+- OpenCode credentials and endpoints referenced from its config as
+  `{env:NAME}` now key validation evidence (values hashed, never stored)
+  through a new provider `config_env` hook (review R03).
+- Network failures printed late in long output, or on stderr, are classified
+  from the retained full stdout/stderr tails, so they stop after one dispatch
+  instead of retrying and escalating (review R06).
+- Codex native launching no longer depends on the Git runner (review R07).
+- Wheel/sdist package data includes the Claude provider's resources.
+
+### Documentation
+- Layered plans: the frozen integration selector must stay green after every
+  layer. Codex leads on Windows act on the JSON `gate_code`, not the shell exit.
+
 ## [0.3.1] — 2026-09-30
 
 ### Fixed

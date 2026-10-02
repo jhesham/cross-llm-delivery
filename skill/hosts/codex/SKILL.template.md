@@ -47,7 +47,9 @@ IDs and supported efforts; discovery does not authorize dispatch.
 
 Run these commands from the installed skill directory, using absolute plan and
 target-repo paths. The driver is vendored in this bundle. Prefer `--json` for
-machine-checkable gates and act on the exit code.
+machine-checkable gates and act on the JSON `gate_code`. On Windows a shell
+wrapper (`pwsh -Command`) can report exit 1 for any non-zero driver exit, so
+the JSON gate, not the shell's exit status, is authoritative.
 
 ```bash
 python scripts/run_delivery.py <plan.md> --repo <dir> --dry-run --json  # preview layers

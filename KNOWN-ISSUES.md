@@ -87,6 +87,23 @@ source fix: build a coherent set from updated source; do not edit installed
 engine files individually or mark a real model verified from these offline
 fixture checks. No paid retry was performed.
 
+## Claude Code executor
+
+The `claude` executor bills only the logged-in Claude subscription
+(`authMethod: "claude.ai"`); API-key variables are removed from its
+environment. Its shell is **not sandboxed** and runs with the user's
+privileges, like OpenCode, Cursor and Antigravity. Each dispatch is an isolated
+`claude -p --safe-mode --restricted` session with no hooks, plugins, skills,
+MCP servers, CLAUDE.md or saved session. The CLI's dollar figure is recorded as
+an estimate only; CLD cost stays unknown, so use token and attempt budgets.
+Plan usage limits stop a slice with the final `usage_limit` error.
+
+Live evidence (Windows, CLI 2.1.286): an isolation probe, a validation plus
+one-slice delivery, and a Codex-lead (`gpt-6.1-sol`) two-slice build to gate 3.
+The canary lead ran unsandboxed (`--sandbox danger-full-access`); a sandboxed
+Codex lead with explicit writable roots, live POSIX/macOS and live
+mid-process interruption remain unverified.
+
 ## State and acceptance
 
 Candidate capture ignores new, untracked tool caches and packaging metadata
@@ -109,5 +126,8 @@ states. See [migration/recovery](docs/MIGRATION.md).
 Run events/artifacts are retained per run under `.cld/runs/<run-id>/`; compatibility
 event/summary paths may also exist. Starting a new build does not authorize
 deleting previous run evidence. `--gc` removes only CLD-managed worktrees that
-are safe to remove (preview by default); it never deletes run evidence or refs. Optional OTLP export is separate from local
+are safe to remove (preview by default): the slice must be proven from recovery
+evidence and not actively owned, the worktree must hold no changes or ignored
+non-cache data, and the ledger must belong to `--repo`. Anything unprovable is
+kept. It never deletes run evidence or refs. Optional OTLP export is separate from local
 durable state and should be enabled only under the user's data-sharing policy.

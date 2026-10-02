@@ -92,6 +92,28 @@ def _accepts(fn, *args, **kwargs):
         return False
     return True
 
+def _failure_text(result, limit=65536):
+    """raw_log plus bounded tails of the retained full stdout/stderr (R06).
+
+    raw_log keeps only the start of the output, so a network error printed
+    late, or on stderr after long stdout, was invisible to classification.
+    """
+    parts = [result.raw_log or ""]
+    process = result.process if isinstance(result.process, dict) else {}
+    for key in ("stdout_path", "stderr_path"):
+        path = process.get(key)
+        if not isinstance(path, str) or not path:
+            continue
+        try:
+            with open(path, "rb") as stream:
+                stream.seek(0, 2)
+                stream.seek(max(0, stream.tell() - limit))
+                parts.append(stream.read().decode("utf-8", errors="replace"))
+        except OSError:
+            continue
+    return "\n".join(parts)
+
+
 def deliver_slice(
     task: SliceTask,
     *,
@@ -192,7 +214,7 @@ def deliver_slice(
             if isinstance(error, str) and error in FINAL_EXECUTOR_ERRORS:
                 classified_error = error
             elif (isinstance(error, str) and error in {"nonzero_exit", "turn_failed", "error_event"}
-                  and network_error(result.raw_log)):
+                  and network_error(_failure_text(result))):
                 classified_error = "network_unavailable"
         try:
             if (not isinstance(result, ExecutorResult) or type(result.ok) is not bool

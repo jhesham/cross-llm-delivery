@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Callable, List, Tuple
@@ -364,9 +365,28 @@ _HERE = Path(__file__).parent
 _SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
 _SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
 
+_ENV_REF = re.compile(r"\{env:([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _config_env(paths) -> tuple:
+    """Env names OpenCode configs reference via {env:NAME}; admission hashes their values.
+
+    A credential or gateway URL supplied this way changes which account/route
+    validation ran against, so it must key validation evidence (R03).
+    """
+    names = set()
+    for path in paths:
+        try:
+            names.update(_ENV_REF.findall(Path(path).read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError):
+            continue
+    return tuple(sorted(names))
+
+
 PROVIDER = Provider(
     cli_invocation=lambda: [_oc_cmd()],
     context_env=("OPENCODE_*",),
+    config_env=_config_env,
     name="opencode",
     make_executor=lambda **k: OpenCodeExecutor(**k),
     catalog=_OPENCODE_CATALOG,

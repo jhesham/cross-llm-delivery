@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = ("antigravity", "cursor", "opencode")
-ALL_PROVIDERS = (*PROVIDERS, "codex")
+ALL_PROVIDERS = (*PROVIDERS, "codex", "claude")
 
 
 def _run(*args, cwd=ROOT):

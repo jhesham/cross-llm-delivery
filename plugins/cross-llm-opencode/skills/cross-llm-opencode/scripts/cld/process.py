@@ -166,7 +166,8 @@ def _stop_posix(process, timeout=5):
         time.sleep(0.01)
 
 
-def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, artifact_dir=None):
+def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, artifact_dir=None,
+                unset_env=()):
     """Run synchronously; never return while owned descendants can still write.
 
     cancel is a threading.Event-compatible object. KeyboardInterrupt is re-raised
@@ -190,7 +191,13 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
             if cancel is not None and cancel.is_set():
                 error = "cancelled"
             else:
-                options = dict(cwd=cwd, env={**os.environ, **(env or {})}, stdout=out, stderr=err)
+                # unset_env removes names (case-insensitively, as Windows does)
+                # after explicit env is applied, e.g. credentials an executor
+                # child must never see.
+                merged = {**os.environ, **(env or {})}
+                drop = {name.upper() for name in (unset_env or ())}
+                merged = {key: value for key, value in merged.items() if key.upper() not in drop}
+                options = dict(cwd=cwd, env=merged, stdout=out, stderr=err)
                 if os.name == "nt":
                     from cld._windows_job import Job
                     job = Job()

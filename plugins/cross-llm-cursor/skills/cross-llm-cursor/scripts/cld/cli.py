@@ -451,6 +451,8 @@ def _install_hint(provider: str) -> str:
         "opencode": "Install OpenCode: npm install -g opencode-ai (or set OPENCODE_CLI_CMD).",
         "cursor": "Install Cursor and ensure `cursor-agent` is on PATH (or set CURSOR_AGENT_CMD).",
         "codex": "Install Codex CLI, sign in, and ensure `codex` is on PATH.",
+        "claude": "Install Claude Code, run `claude auth login` with your subscription, and ensure "
+                  "`claude` is on PATH (or set CLAUDE_CLI_CMD).",
     }
     return hints.get(provider, f"Install the {provider} CLI.")
 
@@ -553,6 +555,12 @@ def build_rung_planner(default_spec: str, *, evidence=None, max_retries: int = 2
     return planner
 
 
+def _validation_extra(base, provider):
+    """User-supplied context plus the provider's account identity (never secrets)."""
+    extra = provider.context_extra() if getattr(provider, "context_extra", None) else ""
+    return "\n".join(part for part in (base, extra) if part)
+
+
 def prepare_dispatch(args, slices, ledger):
     """Freeze all selected rungs, preflight all providers, then admit all models."""
     from cld.admission import Admission, AdmissionBlocked, validation_context, writable_directory
@@ -617,9 +625,12 @@ def prepare_dispatch(args, slices, ledger):
         command = _hook("_resolve_cli")(invocation[0])
         if not command:
             raise AdmissionBlocked(f"CLI disappeared for {provider}")
+        descriptor = get_provider(provider)
+        patterns = descriptor.context_env + (
+            tuple(descriptor.config_env(config_paths)) if descriptor.config_env else ())
         return validation_context(spec, cli_paths=[command, *invocation[1:]],
-            config_paths=config_paths, extra=args.validation_context, repo=args.repo,
-            env_patterns=get_provider(provider).context_env)
+            config_paths=config_paths, extra=_validation_extra(args.validation_context, descriptor),
+            repo=args.repo, env_patterns=patterns)
 
     def validate(spec):
         _, provider, kwargs = resolve_spec(spec)
@@ -790,37 +801,40 @@ def _resolve_paths(args) -> None:
     args.ledger = resolve_ledger(args.repo, args.ledger)
 
 
+def _check_gc_binding(args, build):
+    """GC must operate only on the repository its ledger is bound to (R04)."""
+    bound = build.get("repo")
+    if not bound:
+        return
+    def norm(path):
+        return os.path.normcase(os.path.realpath(path))
+    rc, out = _hook("git_runner")(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], args.repo)
+    if (rc != 0 or norm(bound) != norm(args.repo)
+            or norm(build.get("git_common_dir") or "") != norm(out.strip())):
+        raise StateError(f"Ledger is bound to a different repository ({bound}); refusing --gc on {args.repo}")
+
+
 def _gc_report(args):
     """Preview (default) or apply cleanup of CLD-managed worktrees -> (exit code, details).
 
-    Holds the build writer lock so no delivery can run concurrently. Evidence
-    under .cld/runs and refs/cld/* are never touched.
+    Holds this ledger's writer lock, and each slice's owner lock while deciding
+    and removing its worktree, so active deliveries of any build are left alone.
+    Evidence under .cld/runs and refs/cld/* are never touched.
     """
-    from cld.gc import apply_gc, list_managed_worktrees, plan_gc, worktree_dirty
+    from cld.gc import collect
     from cld.worktree import managed_location
     git = _hook("git_runner")
     ledger = Ledger.load(args.ledger)
     with ledger.writer(refresh=True):
         build = ledger.build or {}
+        _check_gc_binding(args, build)
         run_id = build.get("run_id")
         _, root, _ = managed_location(args.repo, args.worktree_root, run_id or "0" * 32, "gc", "0" * 32)
-        worktrees = list_managed_worktrees(args.repo, root, git)
-        states = {}
-        if run_id:
-            for path in (run_directory(args.repo, run_id) / "integration").glob("*/outcome.json"):
-                try:
-                    record = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    continue
-                if isinstance(record, dict) and isinstance(record.get("id"), str):
-                    states[record["id"]] = record.get("state")
-        dirty = {w.path for w in worktrees
-                 if args.include_previous and w.run_id != run_id and worktree_dirty(w.path, git)}
-        decisions = plan_gc(worktrees, run_id=run_id,
-                            slice_status={sid: entry.status for sid, entry in ledger.entries.items()},
-                            recorded_integration=(build.get("integration_proof") or {}).get("id"),
-                            integration_states=states, dirty=dirty, include_previous=args.include_previous)
-        results = apply_gc(args.repo, decisions, root=root, git_runner=git) if args.apply else []
+        decisions, results = collect(
+            args.repo, root, git, run_id=run_id,
+            slice_status={sid: entry.status for sid, entry in ledger.entries.items()},
+            recorded_integration=(build.get("integration_proof") or {}).get("id"),
+            include_previous=args.include_previous, apply=args.apply)
     details = {"applied": bool(args.apply), "root": root, "results": results,
                "worktrees": [{"path": d.worktree.path, "action": d.action, "reason": d.reason}
                              for d in decisions]}

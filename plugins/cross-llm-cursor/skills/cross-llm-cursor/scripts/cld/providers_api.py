@@ -37,6 +37,9 @@ class Provider:
                       account or routing; only these key validation evidence.
     launch_problem  : optional callable() -> str | None; non-None blocks dispatch
                       before any spend (e.g. an unlaunchable CLI shim).
+    config_env      : optional callable(config paths) -> env names the provider's
+                      config files reference (e.g. OpenCode `{env:NAME}`); they
+                      key validation evidence like context_env (values hashed).
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -51,6 +54,8 @@ class Provider:
     cli_invocation: Optional[Callable] = None  # () -> argv prefix; no process launched
     context_env: tuple = ()  # env names/PREFIX_* patterns keyed into validation evidence
     launch_problem: Optional[Callable] = None  # () -> str | None; blocks dispatch before spend
+    context_extra: Optional[Callable] = None  # () -> str; account/plan identity keyed into validation evidence
+    config_env: Optional[Callable] = None  # (config paths) -> tuple of env names referenced by provider config
 
 
 # ---------------------------------------------------------------------------
