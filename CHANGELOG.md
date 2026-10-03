@@ -7,6 +7,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Fixed
+- OpenCode uses one native launcher for dispatch, discovery, stats and preflight
+  (review N07): explicit absolute override, Windows `opencode.exe` on PATH, then
+  npm's installed native target. Native-only installations are recognized;
+  incomplete installs and Windows `.cmd`/`.bat` overrides fail with native-path
+  guidance. No shell fallback; long/multiline argv and injected runners remain
+  compatible. The shared Codex/Claude launcher also rejects Windows shim overrides.
 - All five executors mark production children with `CLD_EXECUTOR_DEPTH=1`
   and reject nested direct dispatch before probes or artifact creation (review
   N06). Only an absent marker or literal `0` identifies a lead. OpenCode, Cursor
