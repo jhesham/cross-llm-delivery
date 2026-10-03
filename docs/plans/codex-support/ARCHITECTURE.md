@@ -177,4 +177,13 @@ use, so configuration selection cannot remain frozen in an old admitted context.
 
 **A11 — Optional Codex executor stays optional.** Implement only after the shared execution contracts stabilize. Use capability-checked local CLI flags and sanitized real JSONL fixtures. Prefer stdin for long prompts, explicit model/config, `workspace-write`, and bounded process lifecycle. Do not guess currently available model IDs, claim a flat/free cost, inherit an unrelated interactive session, or recursively invoke CLD from the executor prompt. Authentication remains with the user's CLI, not a bundled secret.
 
+All five direct provider entrypoints use the shared recursion predicate before
+probes, dispatch or artifact creation. Only an absent or literal `0` ambient
+marker admits a lead; other values fail closed, including malformed markers.
+Every production executor child has `CLD_EXECUTOR_DEPTH=1`, with provider-specific
+environment adjustments preserved. The legacy two-argument injected-runner
+contract remains unchanged; production legacy runners accept an environment
+overlay through the shared dispatch helper. Every executor prompt prohibits
+recursive delegation. This is a spending defense, not an OS isolation boundary.
+
 **A12 — Migration and release discipline.** Track state/schema changes in the changelog; test upgrade and interrupted recovery with fixtures. Do not downgrade state in place; retain backups and record the compatible engine version. Public release staging must explicitly exclude machine-local evidence/credentials. Plan documents contain no secrets and can be version-controlled. Exact shipping version is chosen at T20 based on compatibility changes, not precommitted here.
