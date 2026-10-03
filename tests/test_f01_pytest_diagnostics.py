@@ -67,7 +67,7 @@ def test_frozen_candidate_accepts_red_and_green_with_diagnostic_item(project, ad
     candidate = verifier.capture()
     with verifier.snapshot(candidate) as frozen:
         result = runner(frozen, task.acceptance_test_path)
-        verdict = judge(files_changed=list(candidate.files), allowed=task.files, run_tests=lambda: result)
+        verdict = judge(files_changed=list(candidate.files_changed), allowed=task.files, run_tests=lambda: result)
     assert result.passed and verdict.passed
     verifier.verify_unchanged(candidate)
 
