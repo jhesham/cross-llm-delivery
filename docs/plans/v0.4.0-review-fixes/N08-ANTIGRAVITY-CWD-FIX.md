@@ -65,10 +65,9 @@ checks do not establish live Antigravity provider behavior on POSIX or macOS.
 Counts overlap; do not sum the groups as distinct cases. Pushed source/artifacts
 `a5337f964600a985f21ba0fb537b26d4e92bc8a3` to public `refactor/codex-support`.
 Exact-source [CI run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723)
-passed both Ubuntu Python 3.11/3.14 full-suite/generation/packaging jobs. This
-verifies the real native POSIX default-home child, which is not skipped on Ubuntu.
-Both Windows full-suite jobs are still running; require their green results before
-final closure or further implementation/promotion. The follow-up checkpoint
+passed all four Ubuntu/Windows Python 3.11/3.14 jobs, verified before the F01
+live call on 2026-10-04. The Ubuntu jobs verify the real native POSIX default-home
+child, which is not skipped there. N08 is closed; the subsequent checkpoint
 changes documentation only.
 
 ## Measured usage
@@ -80,7 +79,9 @@ changes documentation only.
 One live call, no canary, retry or substitution. Uncached input: 18,929 tokens.
 Cached input is included in input, not added again. The cumulative admission
 estimate was 1,200,000 tokens, with a 600,000 attempt reservation, one-call limit
-and 900-second dispatch deadline. Actual usage exceeded neither reservation;
+and the shared default 600-second dispatch deadline. The earlier receipt stated
+900 seconds incorrectly: `CLD_DISPATCH_TIMEOUT` was unset for N08. F01 later
+pinned 900 seconds explicitly. Actual N08 usage exceeded neither reservation;
 the ledger has zero attempt overruns or active calls. Cost and lead usage are
 unavailable. Exact max/fast completed without a surfaced tier failure; actual
 priority routing has no independent telemetry.
@@ -92,7 +93,8 @@ call was performed.
 
 ## Next sitting
 
-Stop after N08 and confirm token availability before further work. N04–N08 are
-implemented on the working branch; N08's two pending Windows results must be checked.
-The separate [F01 pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
-remains unimplemented. These fixes are unreleased; public main remains v0.4.1.
+N08's four CI jobs are green and N04–N08 are implemented on the working branch.
+The user subsequently authorized F01, now implemented and independently verified:
+[F01 evidence](F01-PYTEST-DIAGNOSTICS-FIX.md). These fixes are unreleased; the
+latest verified public main remains v0.4.1. Stop at each authorized slice and
+confirm token availability before further work.
