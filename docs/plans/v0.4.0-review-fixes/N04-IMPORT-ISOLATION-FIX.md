@@ -38,8 +38,9 @@ the existing repair and integration judging paths.
 - Branch push: `215bae10dcc88b04e5383cfd6dcdeb9a1c4247bb` on public
   `refactor/codex-support` includes the runtime, regressions and generated plugins.
 - Exact-source [CI run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230)
-  was queued at the stopping checkpoint. Full Windows/Ubuntu × Python 3.11/3.14
-  results remain pending; no full-suite or cross-platform pass is claimed yet.
+  passed all four Windows/Ubuntu × Python 3.11/3.14 jobs. Each job passed its full
+  offline suite, both host generators, tracked-plugin freshness, Codex packaging
+  and marketplace checks. Verified before N05's first live call.
 
 ## Boundaries and restart
 

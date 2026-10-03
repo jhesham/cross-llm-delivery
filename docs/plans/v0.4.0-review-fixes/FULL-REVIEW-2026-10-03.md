@@ -7,8 +7,8 @@ The preceding N01–N03 fixes are present, with regression coverage. They are no
 listed as open below. The original GC collision/ownership cases also have their
 fixes and regressions. This wider review found **one P1 and four P2 findings**.
 
-Implementation update (2026-10-03): N04 is fixed and locally verified; full
-cross-platform CI is pending. See [N04 evidence](N04-IMPORT-ISOLATION-FIX.md)
+Implementation update (2026-10-03): N04 is fixed and its four full
+cross-platform CI jobs passed. See [N04 evidence](N04-IMPORT-ISOLATION-FIX.md)
 and the [N04–N08 implementation checkpoints](REMEDIATION-N04-N08.md).
 N05–N08 remain open. The original review and release observations below are
 historical; v0.4.1 has since been published.
@@ -58,7 +58,7 @@ against the wrong code. The same runner supplies repair and integration tests.
 - [x] Apply the import policy consistently to delivery, repair, and integration.
 - [x] Prove external source changes cannot affect the candidate verdict; regenerate
       all affected bundles/plugins.
-- [ ] Run the full cross-platform gates against the pushed implementation.
+- [x] Run the full cross-platform gates against the pushed implementation.
 
 Temporary mitigation: use committed pytest import configuration pointing at the
 snapshot's source roots, and exclude original-checkout paths from the judging
