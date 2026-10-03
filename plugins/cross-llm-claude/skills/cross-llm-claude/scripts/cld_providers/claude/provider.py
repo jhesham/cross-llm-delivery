@@ -8,13 +8,13 @@ decides acceptance. There is no default model; callers pin an exact ID and effor
 from __future__ import annotations
 
 from functools import lru_cache
-import os
 from pathlib import Path
 
 from cld.executors._capture import CaptureError, capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
 from cld.native_cli import resolved_runner
-from cld.process import deadline_seconds, feedback as process_feedback, run_process
+from cld.process import (deadline_seconds, feedback as process_feedback, run_process,
+                         executor_depth_blocked)
 from cld.providers_api import Provider, register_provider
 
 from .catalog import list_models
@@ -24,17 +24,6 @@ from .preflight import account_context, run_auth_preflight
 
 # Structural output failures mean the result itself cannot be trusted.
 _STRUCTURAL = ("malformed_output", "invalid_usage")
-
-
-def _ambient_depth() -> int:
-    """Ambient CLD_EXECUTOR_DEPTH; anything but absent/zero blocks dispatch."""
-    value = os.environ.get("CLD_EXECUTOR_DEPTH")
-    if value is None:
-        return 0
-    try:
-        return int(value)
-    except ValueError:
-        return -1
 
 
 def _fail(error, log, metadata=None):
@@ -64,7 +53,7 @@ class ClaudeExecutor:
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
-        if _ambient_depth() != 0:
+        if executor_depth_blocked():
             return _fail("recursive_dispatch", "Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is "
                          "already set; refusing to start another executor.")
         cwd = str(Path(workdir).resolve())

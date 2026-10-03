@@ -9,8 +9,8 @@ must stop dispatch rather than silently using standard service.
 | Slice | Scope | Method | Status |
 |---|---|---|---|
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
-| N05 | Codex configuration identity | CLD / exact Luna max + fast | Pushed and locally verified; CI queued |
-| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Pending |
+| N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
+| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Locally verified; push/CI pending |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pending |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
 
@@ -80,7 +80,7 @@ N04 verification and runtime provenance:
 - [x] Push the working branch and record exact-source CI (`0d2eb08`,
       [run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253),
       queued at checkpoint).
-- [ ] Confirm all four cross-platform jobs before the next live slice.
+- [x] Confirm all four cross-platform jobs before the next live slice.
 - [x] Record measured executor usage and stop for the user's token checkpoint.
 
 [N05 evidence](N05-CODEX-CONFIG-FIX.md) records validation run
@@ -91,5 +91,29 @@ Final runtime is `8320281`; implementation accepted at `0294ab6`, integrated at
 cached input tokens. This exceeded the 1,200,000 admission estimate; cost and
 lead usage are unavailable. No additional provider call followed the overrun.
 
-N06 must check evidence against the final automatic input set; the earlier
-canary context is stale. Stop here until the user confirms token availability.
+N06 checked final automatic inputs and performed one fresh canary after token
+availability was confirmed; see its checkpoint below.
+
+## N06 closure
+
+- [x] Confirm N05's four CI jobs passed before live calls.
+- [x] Commit scoped assertion-red tests, a six-file contract and exact-model plan.
+- [x] Verify the baseline with real frozen CLD preflight (29 failed, 24 passed).
+- [x] Make one canary and one exact Luna/max/fast implementation call; preserve
+      config identity and resume production under `deny` without another probe.
+- [x] Review the accepted six-file diff and integrate via checked CLD gate 3.
+- [x] Record the broad-baseline diagnostic false-positive and checked ledger
+      reconciliation, retaining the accepted commit and all prior evidence.
+- [x] Pass 53 frozen N06 tests, 232 adjacent checks and 18 packaging/bundle checks.
+- [x] Regenerate ten bundles and both plugin formats from source `7b1ab0e`;
+      verify core/provider parity and ten standalone recursion checks.
+- [ ] Push the working branch and record exact-source CI.
+- [ ] Confirm all four cross-platform jobs before the next live slice.
+- [x] Record full measured usage, update handoff and stop after N06.
+
+[N06 evidence](N06-RECURSION-FIX.md): accepted `102de90`, integrated `c3e7486`.
+Measured executor total **862,345**, including **759,040** cached input tokens;
+within the 1.2m cumulative estimate, with one per-attempt reservation overrun.
+No further provider calls. N07/N08 remain pending until the next user checkpoint.
+The separate [F01 pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
+is documented and unimplemented.

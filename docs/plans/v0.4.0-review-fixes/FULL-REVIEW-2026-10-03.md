@@ -10,8 +10,11 @@ fixes and regressions. This wider review found **one P1 and four P2 findings**.
 Implementation update (2026-10-03): N04 is fixed and its four full
 cross-platform CI jobs passed. See [N04 evidence](N04-IMPORT-ISOLATION-FIX.md)
 and the [N04–N08 implementation checkpoints](REMEDIATION-N04-N08.md).
-N05 is implemented and locally verified; exact-source CI is pending. See
-[N05 evidence](N05-CODEX-CONFIG-FIX.md). N06–N08 remain open.
+N05 is implemented and its four cross-platform CI jobs passed. See
+[N05 evidence](N05-CODEX-CONFIG-FIX.md). N06 is implemented and locally verified;
+exact-source CI is pending. See [N06 evidence](N06-RECURSION-FIX.md).
+N07/N08 remain open. An additional [pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
+was observed during N06 integration and remains pending.
 The original review and release observations below are
 historical; v0.4.1 has since been published.
 
@@ -124,12 +127,12 @@ executor children from a lead. No nested provider spend was attempted.
 This is a missing defense against accidental recursion and separately accounted
 nested builds, not a claim that a worktree is an OS security sandbox.
 
-- [ ] Set the child depth marker on every provider dispatch, preserving other
+- [x] Set the child depth marker on every provider dispatch, preserving other
       provider environment adjustments and the legacy injected-runner contract.
-- [ ] Make direct provider entrypoints reject an already-marked executor context
+- [x] Make direct provider entrypoints reject an already-marked executor context
       consistently, before probes or inference.
-- [ ] Add the executor-role prohibition to the three older prompts.
-- [ ] Test child environments and nested CLI rejection for all five providers,
+- [x] Add the executor-role prohibition to the three older prompts.
+- [x] Test child environments and nested CLI rejection for all five providers,
       using local subprocesses only.
 
 ### N07 — P2: Windows native-only OpenCode installations are reported missing

@@ -16,7 +16,8 @@ from typing import Callable, List, Tuple
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         executor_depth_blocked)
 from cld.models import ModelInfo
 from cld.providers_api import Provider, register_provider
 
@@ -124,6 +125,8 @@ class OpenCodeExecutor:
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
         prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
@@ -164,11 +167,17 @@ class OpenCodeExecutor:
         return dispatch
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
         dispatch = self._build_dispatch(prompt, cwd)
         rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, cwd,
-                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                env={"CLD_EXECUTOR_DEPTH": "1"})
 
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
