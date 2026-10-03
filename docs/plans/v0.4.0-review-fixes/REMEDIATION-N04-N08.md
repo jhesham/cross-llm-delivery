@@ -9,7 +9,7 @@ must stop dispatch rather than silently using standard service.
 | Slice | Scope | Method | Status |
 |---|---|---|---|
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
-| N05 | Codex configuration identity | CLD / exact Luna max + fast | Locally verified; push/CI pending |
+| N05 | Codex configuration identity | CLD / exact Luna max + fast | Pushed and locally verified; CI queued |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Pending |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pending |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
@@ -77,7 +77,9 @@ N04 verification and runtime provenance:
 - [x] Verify final focused checks (84 passed), packaging/bundle checks (18 passed),
       ten-bundle core parity and both standalone Codex configuration guards.
 - [x] Regenerate all five providers for both hosts from runtime `8320281`.
-- [ ] Push the working branch and record exact-source CI.
+- [x] Push the working branch and record exact-source CI (`0d2eb08`,
+      [run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253),
+      queued at checkpoint).
 - [ ] Confirm all four cross-platform jobs before the next live slice.
 - [x] Record measured executor usage and stop for the user's token checkpoint.
 
