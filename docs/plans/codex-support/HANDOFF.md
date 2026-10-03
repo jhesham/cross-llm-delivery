@@ -11,7 +11,10 @@
 > tracked plugins are fresh, and both Codex bundles pass standalone offline guards.
 > [Evidence and usage](../v0.4.0-review-fixes/N05-CODEX-CONFIG-FIX.md),
 > [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Working-branch push and exact-source CI identification are pending at this edit.
+> Pushed source/artifacts `0d2eb08` to public `refactor/codex-support`.
+> [Exact-source CI run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253)
+> is queued; all four cross-platform results remain pending. The follow-up
+> checkpoint commit changes documentation only.
 > Two live calls total: one validation, one implementation; **2,457,594** executor
 > tokens, including **2,220,544** cached input. This exceeded the 1,200,000 admission
 > estimate; cost and lead usage unavailable. No paid retry or substitution.
