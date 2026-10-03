@@ -70,7 +70,11 @@ N07 resolver and N08 cwd behavior were deliberately outside this slice.
    and catalog regenerated. Artifact checks performed no inference.
 
 Counts overlap: the 53 N06 cases are included in the 232-test adjacent group.
-Cross-platform N06 CI: pending push/run identification at this checkpoint.
+Pushed source/artifacts `7212bca320ae41d4c4c74c111fb6830e356425bf` to public
+`refactor/codex-support`. Exact-source
+[N06 CI run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883)
+is running; all four platform results remain pending at this checkpoint.
+The follow-up checkpoint commit changes documentation only.
 
 ## Measured usage
 
