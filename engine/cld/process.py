@@ -180,6 +180,8 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
     only after containment cleanup. artifact_dir is a parent OUTSIDE the candidate;
     default is the OS temp area. Each invocation reserves its own retained directory.
     POSIX descendants must stay in the new process group (no daemonization).
+    classify_output defaults to provider diagnostics; pytest disables it to use
+    return codes without interpreting test text. Lifecycle errors are preserved.
     """
     seconds = deadline_seconds(timeout)
     cancel = cancel if cancel is not None else _scope.get().get("cancel")
