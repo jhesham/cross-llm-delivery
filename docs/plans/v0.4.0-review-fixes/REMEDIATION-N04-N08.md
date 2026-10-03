@@ -11,8 +11,8 @@ must stop dispatch rather than silently using standard service.
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pushed and locally verified; CI running |
-| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
+| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Complete; four-job CI green |
+| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Locally verified; push/CI checkpoint below |
 
 Detailed requirements and corrective checklists:
 [full review](FULL-REVIEW-2026-10-03.md).
@@ -137,12 +137,44 @@ is documented and unimplemented.
 - [x] Verify all five tracked plugin packages are fresh.
 - [x] Push the working branch and record exact-source CI (`54b41d0`,
       [run 37136806667](https://github.com/jhesham/cross-llm-delivery/actions/runs/37136806667),
-      running at checkpoint).
-- [ ] Confirm all four cross-platform jobs before N08.
+      all four jobs passed before N08).
+- [x] Confirm all four cross-platform jobs before N08.
 - [x] Record measured usage, update handoff and stop after N07.
 
 [N07 evidence](N07-OPENCODE-NATIVE-FIX.md): baseline `504da9c`, accepted `45a52f7`,
 integrated `80acbf9`, generation source `ba4482d`. One live call used **434,929**
 tokens, including **361,728** cached input; no reservation overruns. Cost/lead
 usage unavailable; actual fast routing lacks independent telemetry. Global config
-is unchanged. N08 and F01 remain pending; no release promotion or global install.
+is unchanged. N08 continued after the user's checkpoint; F01 remains pending.
+No release promotion or global install.
+
+## N08 closure
+
+- [x] Confirm N07's four exact-source CI jobs passed before dispatch.
+- [x] Commit scoped tests, a two-file contract and exact-model plan (`44fdc2e`).
+- [x] Verify frozen assertion-red baseline: five failed, four passed, one native
+      POSIX case skipped on Windows; existing Windows path behavior passes.
+- [x] Reuse current exact-spec validation evidence under `deny`, with one
+      implementation call allowed; no canary, retry or substitution.
+- [x] Review the two-file accepted diff and fast-forward the working branch to
+      the checked integration commit, after the precise frozen selector passed.
+- [x] Preserve the Windows SystemDrive workaround and explicit home overrides;
+      return native home on POSIX and give platform-aware transcript guidance.
+- [x] Pass nine frozen cases plus one platform skip, then 270 adjacent checks
+      plus that skip on final source; counts overlap.
+- [x] Regenerate ten bundles and both plugin formats from committed `d5cd59d`;
+      verify 40-file core/provider parity, ten standalone recursion guards and
+      both standalone Antigravity N08 suites (nine passed, one skip each).
+- [x] Verify both standalone OpenCode suites and five tracked plugin packages.
+- [x] Pass final packaging/bundle checks: 18 passed.
+- [ ] Push the working branch and record exact-source CI.
+- [ ] Verify the native POSIX default-home child on Ubuntu CI.
+- [ ] Confirm all four cross-platform jobs before further implementation/promotion.
+- [x] Record measured usage, update handoff and stop after N08.
+
+[N08 evidence](N08-ANTIGRAVITY-CWD-FIX.md): accepted `f51b1d9`, integrated
+`79031cf`, final generation source `d5cd59d`. One implementation call used
+**144,751** tokens, including **121,344** cached input; no reservation overrun.
+Cost/lead usage unavailable; actual fast routing lacks independent telemetry.
+Global config is unchanged. F01 remains pending. N04–N08 are working-branch
+fixes; no release promotion, install or live POSIX/macOS provider verification.
