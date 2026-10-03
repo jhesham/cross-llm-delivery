@@ -11,7 +11,9 @@ def _absolute_codex_home() -> Path:
     raw_home = os.environ.get("CODEX_HOME")
     if raw_home is None:
         return (Path.home() / ".codex").resolve()
-    home = Path(raw_home).expanduser()
+    # A literal '~' in an environment variable is still a relative path. Do
+    # not fingerprint a home different from the CLI's actual selection.
+    home = Path(raw_home)
     if not home.is_absolute():
         raise ValueError("CODEX_HOME must be an absolute path for stable Codex validation")
     return home.resolve()
