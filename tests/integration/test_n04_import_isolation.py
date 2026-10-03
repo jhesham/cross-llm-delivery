@@ -5,10 +5,12 @@ import os
 import pytest
 
 from cld.candidate import CandidateVerifier
+from cld.acceptance import snapshot_imports
 from cld.cli import pytest_test_runner
 from cld.executors.base import SliceTask
 from cld.judge import judge
 from cld.recovery import RecoverySession
+from cld.validate import _pytest as validation_pytest
 from tests.integration.harness import init_repo, real_git_runner
 from tests.integration.test_review_regressions import checked_git
 
@@ -63,24 +65,29 @@ def import_environment(project, monkeypatch, style):
             f"        if fullname == {MODULE!r}:\n"
             f"            return importlib.util.spec_from_file_location(fullname, {str(source / (MODULE + '.py'))!r})\n"
             "sys.meta_path.append(EditableFinder())\n", encoding="utf-8")
+    elif style == "installed":
+        (dependencies / f"{MODULE}.py").write_text("VALUE = 0\n", encoding="utf-8")
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join(paths))
 
 
-@pytest.mark.parametrize("style", ["pythonpath", "pth", "pep660"])
+@pytest.mark.parametrize("style", ["pythonpath", "pth", "pep660", "installed"])
 @pytest.mark.parametrize("candidate_correct", [False, True])
-def test_live_checkout_cannot_supply_acceptance(project, monkeypatch, style, candidate_correct):
-    repo, wt, _, task = project
+@pytest.mark.parametrize("runner", [pytest_test_runner, validation_pytest])
+def test_live_checkout_cannot_supply_acceptance(project, monkeypatch, style, candidate_correct, runner):
+    repo, wt, dependencies, task = project
     import_environment(project, monkeypatch, style)
     verifier = CandidateVerifier(real_git_runner, str(wt), task)
-    verifier.preflight(lambda where: pytest_test_runner(where, task.acceptance_test_path))
+    verifier.preflight(lambda where: runner(where, task.acceptance_test_path))
     assert not verifier.baseline_passed
     value = int(candidate_correct)
     (wt / task.files[0]).write_text(f"VALUE = {value}\n# executor candidate\n", encoding="utf-8")
     # The lead checkout disagrees with the candidate, in both directions.
     (repo / task.files[0]).write_text(f"VALUE = {1 - value}\n", encoding="utf-8")
+    if style == "installed":
+        (dependencies / f"{MODULE}.py").write_text(f"VALUE = {1 - value}\n", encoding="utf-8")
     candidate = verifier.capture()
     with verifier.snapshot(candidate) as frozen:
-        result = pytest_test_runner(frozen, task.acceptance_test_path)
+        result = runner(frozen, task.acceptance_test_path)
         verdict = judge(list(candidate.files_changed), task.files, run_tests=lambda: result)
     assert verdict.passed is candidate_correct, result.output
     verifier.verify_unchanged(candidate)
@@ -89,6 +96,35 @@ def test_live_checkout_cannot_supply_acceptance(project, monkeypatch, style, can
         collection = session.collect(candidate)
         assert collection.ok, collection.error
         assert "VALUE = 1" in checked_git(["show", f"{collection.commit}:{task.files[0]}"], repo)
+
+
+def test_editable_namespace_locations_are_snapshot_owned(project, monkeypatch):
+    repo, wt, dependencies, _ = project
+    for root in (repo, wt):
+        (root / "src/n04_namespace").mkdir()
+        (root / "src/n04_namespace/value.py").write_text("VALUE = 0\n", encoding="utf-8")
+    (wt / "tests/test_value.py").write_text(
+        "from n04_namespace.value import VALUE\ndef test_value(): assert VALUE == 1\n", encoding="utf-8")
+    checked_git(["add", "."], wt)
+    checked_git(["commit", "-qm", "trusted namespace baseline"], wt)
+    (dependencies / "sitecustomize.py").write_text(
+        "import sys, importlib.abc, importlib.machinery\n"
+        "class NamespaceFinder(importlib.abc.MetaPathFinder):\n"
+        "    def find_spec(self, fullname, path=None, target=None):\n"
+        "        if fullname == 'n04_namespace':\n"
+        "            spec = importlib.machinery.ModuleSpec(fullname, None, is_package=True)\n"
+        f"            spec.submodule_search_locations = [{str(repo / 'src/n04_namespace')!r}]\n"
+        "            return spec\n"
+        "sys.meta_path.insert(0, NamespaceFinder())\n", encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(dependencies))
+    task = SliceTask("N04", "Implement the value", ["src/n04_namespace/value.py"], "tests/test_value.py")
+    verifier = CandidateVerifier(real_git_runner, str(wt), task)
+    verifier.preflight(lambda where: pytest_test_runner(where, task.acceptance_test_path))
+    (wt / task.files[0]).write_text("VALUE = 1\n", encoding="utf-8")
+    candidate = verifier.capture()
+    with verifier.snapshot(candidate) as frozen:
+        result = pytest_test_runner(frozen, task.acceptance_test_path)
+    assert result.passed, result.output
 
 
 def test_module_loaded_from_live_source_at_startup_blocks_acceptance(project, monkeypatch):
@@ -129,3 +165,18 @@ def test_test_time_import_loader_cannot_bypass_snapshot_policy(project, monkeypa
         result = pytest_test_runner(frozen, task.acceptance_test_path)
     assert not result.passed, result.output
     assert "outside the frozen candidate" in result.output
+
+
+def test_large_checkout_inventory_does_not_hit_windows_argv_limit(project, monkeypatch):
+    repo, wt, _, task = project
+    import_environment(project, monkeypatch, "pythonpath")
+    (wt / task.files[0]).write_text("VALUE = 1\n", encoding="utf-8")
+    verifier = CandidateVerifier(real_git_runner, str(wt), task)
+    candidate = verifier.capture()
+    # A realistic long inventory must not be placed in a Windows command line.
+    sources = [str(repo), str(wt)] + [str(repo.parent / ("registered-checkout-" + str(i) + "x" * 100))
+                                     for i in range(300)]
+    assert sum(len(p) for p in sources) > 32767
+    with verifier.snapshot(candidate) as frozen, snapshot_imports(frozen, sources):
+        result = pytest_test_runner(frozen, task.acceptance_test_path)
+    assert result.passed, result.output

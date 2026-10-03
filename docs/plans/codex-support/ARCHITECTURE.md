@@ -19,6 +19,17 @@ The lead-authored acceptance tests must exist at the baseline and remain unchang
 
 Run judging on a frozen candidate snapshot with the trusted test inputs. Detect and reject test-time changes to candidate source; never stage unverified files created after the earlier diff check. Verification records a tree hash; collection must persist exactly that tree, not a later `git add -A` of arbitrary content. A worktree is Git isolation, not an OS security sandbox: provider execution must respect the actual host permission boundary.
 
+**N04 import boundary:** production pytest runners use the snapshot's root and
+standard `src` layout, remap project-local import paths from all registered Git
+checkouts, and redirect editable finders (including namespace locations) to
+snapshot files. Other source layouts can use committed pytest import configuration.
+External dependencies remain environment inputs. A project module already loaded
+from live source during Python startup, or supplied by an import hook added after
+judging starts, blocks acceptance. Frozen judging uses a trusted stdlib-only
+bootstrap and checks module origins before and after pytest. The snapshot context
+is local to the judging thread and restored on exit. Custom injected test runners
+remain trusted caller-owned boundaries; they must enforce equivalent isolation.
+
 T02 implementation decisions (2026-09-10): `CandidateVerifier` records the base before
 dispatch and retains it across retries. Checked NUL-delimited Git capture supplies the
 candidate tree and filenames; provider reports remain diagnostics. Judging materializes
