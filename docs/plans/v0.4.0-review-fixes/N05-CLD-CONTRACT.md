@@ -24,7 +24,10 @@ and prepare_dispatch, with offline CLI/executor seams. Do not weaken those tests
   are copied into that worktree. Untracked config/local executor overrides are
   outside this proof and must be supplied explicitly or pinned via context.
 - On POSIX include /etc/codex/config.toml, /etc/codex/requirements.toml and legacy
-  /etc/codex/managed_config.toml candidates even when missing. Other managed,
+  /etc/codex/managed_config.toml candidates even when missing. On Windows include
+  selected-home/managed_config.toml (conservatively default-home managed config
+  too if different), and ProgramData/OpenAI/Codex/requirements.toml when
+  ProgramData is supplied. Other managed,
   remote/workspace, command-backed auth and keychain inputs require explicit
   --validation-config / --validation-context. Do not pretend to discover them.
 - Parse Codex TOML to collect custom model provider env_key and env_http_headers
@@ -52,6 +55,8 @@ Official configuration guidance:
   describes CODEX_HOME and custom project-root markers.
 - [Configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
   defines model_providers env_key and env_http_headers inputs.
+- [Managed configuration](https://learn.chatgpt.com/docs/enterprise/managed-configuration)
+  describes Unix/Windows requirements and legacy managed config locations.
 
 These justify input discovery; the implementation need not clone the entire
 Codex configuration loader. No new runtime dependencies; Python 3.11+ stdlib.
