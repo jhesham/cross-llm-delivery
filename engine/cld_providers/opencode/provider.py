@@ -369,12 +369,14 @@ _ENV_REF = re.compile(r"\{env:([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _config_env(paths) -> tuple:
-    """Env names OpenCode configs reference via {env:NAME}; admission hashes their values.
+    """Env names file/inline configs reference; admission hashes their values.
 
     A credential or gateway URL supplied this way changes which account/route
     validation ran against, so it must key validation evidence (R03).
     """
-    names = set()
+    # Hashing OPENCODE_CONFIG_CONTENT alone only covers literal placeholders,
+    # not the credentials/endpoints substituted into them (review N03).
+    names = set(_ENV_REF.findall(os.environ.get("OPENCODE_CONFIG_CONTENT", "")))
     for path in paths:
         try:
             names.update(_ENV_REF.findall(Path(path).read_text(encoding="utf-8")))
