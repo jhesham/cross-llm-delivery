@@ -6,6 +6,13 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Fixed
+- Acceptance runs bind project imports to the frozen Git candidate, including
+  inherited `PYTHONPATH`, editable installs and namespace packages. Code loaded
+  from a live checkout at startup or through a late import hook blocks acceptance
+  instead of approving a different tree (review N04). External dependencies remain
+  available. Delivery, repair, integration and validation share this policy.
+
 ## [0.4.1] — 2026-10-03
 
 ### Fixed
