@@ -6,6 +6,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Fixed
+- Claude executor: the selected effort is authoritative. The child's
+  `CLAUDE_CODE_EFFORT_LEVEL` is pinned to the spec's effort, because Claude Code
+  gives that variable precedence over `--effort`; a lead session's ambient value
+  could otherwise run a `@low` executor at `max` (review N01).
+
 ## [0.4.0] — 2026-10-03
 
 ### Added

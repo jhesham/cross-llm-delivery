@@ -129,7 +129,9 @@ def build_invocation(model, cwd, prompt, *, effort):
         argv=argv,
         stdin=_ROLE + "\n" + prompt,
         cwd=str(resolved),
-        env={"CLD_EXECUTOR_DEPTH": "1"},
+        # Claude Code gives CLAUDE_CODE_EFFORT_LEVEL precedence over --effort, so pin it to
+        # the selected effort: a lead's ambient value must not change the executor (N01).
+        env={"CLD_EXECUTOR_DEPTH": "1", "CLAUDE_CODE_EFFORT_LEVEL": effort},
         unset_env=UNSET_ENV,
     )
 
