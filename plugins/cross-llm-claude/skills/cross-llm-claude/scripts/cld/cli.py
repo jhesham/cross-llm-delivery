@@ -372,7 +372,7 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     # Candidate preflight classifies failures from the real pytest summary.
     argv, env, payload = acceptance_command(workdir,
         ["-p", "no:cacheprovider", *target, "-vvv", "--tb=short"], env)
-    proc = _hook("run_process")(argv, workdir, env=env, timeout=600,
+    proc = _hook("run_process")(argv, workdir, env=env, timeout=600, classify_output=False,
                                **({"stdin": payload} if payload is not None else {}))
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
                    timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)

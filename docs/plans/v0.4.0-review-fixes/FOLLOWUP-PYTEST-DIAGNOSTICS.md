@@ -1,6 +1,8 @@
 # F01 — red pytest output can be misclassified as provider authentication
 
-Observed while integrating N06, 2026-10-03. **Pending; separate follow-up.**
+Observed while integrating N06, 2026-10-03. **Implemented 2026-10-04;
+exact-source CI pending.** See [F01 implementation evidence](F01-PYTEST-DIAGNOSTICS-FIX.md).
+The original diagnosis and receipts below remain historical evidence.
 This is a false rejection of valid assertion-red integration preflight, not
 evidence of false approval or an actual provider authentication failure.
 
@@ -23,21 +25,27 @@ after checked ledger reconciliation; the full adjacent group then passed all
 232 cases on integrated source. The failed transaction and backup remain intact.
 This contains the operational impact for N06 without changing diagnostic policy.
 
-## Actionable next slice
+## Completed F01 slice
 
-- [ ] Commit a local subprocess regression: pytest prints a passing item with an
+- [x] Commit a local subprocess regression: pytest prints a passing item with an
       authentication-like parameter label and an unrelated assertion fails.
       `CandidateVerifier.preflight` must recognize valid assertion-red output.
-- [ ] Separate lifecycle/launch errors from provider-output heuristics for the
+- [x] Separate lifecycle/launch errors from provider-output heuristics for the
       pytest adapter. Consider an explicit process classification option or
       narrowly handling documented pytest exits; do not globally disable genuine
       provider authentication diagnostics.
-- [ ] Keep collection/configuration failures, missing return codes, cancelled
+- [x] Keep collection/configuration failures, missing return codes, cancelled
       tests and timeouts fail-closed. Test actual provider authentication output
       still receives its final error and cannot trigger retries/escalation.
-- [ ] Re-run the original broad frozen integration baseline and final suite.
-- [ ] Regenerate affected bundles from committed source and record CI/handoff.
+- [x] Re-run the original broad frozen integration baseline and final suite.
+- [x] Regenerate affected bundles from committed source and record CI/handoff.
 
-Do not change frozen selectors silently or relabel saved evidence. Future slices
-can use their precise committed acceptance selector for CLD integration and run
-the broader adjacent tests independently on the integrated source until fixed.
+F01's 30 frozen cases pass. The original broad historical baseline now retains
+29 intended failures and 203 passes with no process error, and independent
+preflight accepts it as assertion-red. The same selector passes all 232 cases
+on final source. Genuine provider authentication remains final. Generation source:
+`6170865`; exact-source CI will be recorded at the stopping checkpoint.
+
+Do not change frozen selectors silently or relabel saved evidence. The earlier
+precise-selector workaround is no longer required for this diagnostic defect;
+changes to a bound acceptance contract still require checked reconciliation.
