@@ -54,11 +54,9 @@ def test_list_models_empty_on_failure():
     assert list_models(runner=boom) == []
 
 
-def test_list_models_resolves_platform_command(monkeypatch):
-    # On Windows the npm shim is opencode.cmd; bare "opencode" raises WinError 2.
-    # list_models must invoke the platform-correct command, not bare "opencode".
+def test_list_models_injected_runner_receives_logical_command():
+    # Production resolves a native binary; injected runners need no CLI install.
     import cld.models as m
-    monkeypatch.setattr(m.os, "name", "nt", raising=False)
     seen = {}
 
     def fake_runner(args, cwd):
@@ -66,7 +64,7 @@ def test_list_models_resolves_platform_command(monkeypatch):
         return (0, "opencode/gemini-3.1-pro\n")
 
     m.list_models(runner=fake_runner)
-    assert seen["cmd"] in ("opencode.cmd", "opencode")  # resolved, platform-aware
+    assert seen["cmd"] == "opencode"
 
 
 def test_list_models_survives_missing_cli():
