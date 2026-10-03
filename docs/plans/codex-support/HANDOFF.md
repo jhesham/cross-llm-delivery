@@ -21,9 +21,12 @@
 > pass freshness checks. No global installation or release promotion.
 > [Evidence](../v0.4.0-review-fixes/N08-ANTIGRAVITY-CWD-FIX.md),
 > [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Source/artifact push and exact-source CI will be recorded before stopping.
-> Require the actual native POSIX child to pass on Ubuntu, and all four CI jobs
-> green, before final closure/further implementation/promotion.
+> Pushed source/artifacts `a5337f9` to public `refactor/codex-support`.
+> [Exact-source CI run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723)
+> passed both Ubuntu 3.11/3.14 jobs, including the real native POSIX default-home
+> child and both-host generation/packaging. Both Windows full-suite jobs are still
+> running. This checkpoint changes documentation only. Require those remaining
+> jobs green before final closure/further implementation/promotion.
 > **Stop after N08.** N04–N08 are implemented but unreleased on
 > `refactor/codex-support`. F01 remains documented and unimplemented. Use precise
 > frozen slice integration selectors plus independent adjacent checks until it

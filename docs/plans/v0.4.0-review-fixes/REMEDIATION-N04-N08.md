@@ -12,7 +12,7 @@ must stop dispatch rather than silently using standard service.
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Locally verified; push/CI checkpoint below |
+| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pushed; Ubuntu CI green, Windows CI running |
 
 Detailed requirements and corrective checklists:
 [full review](FULL-REVIEW-2026-10-03.md).
@@ -167,8 +167,10 @@ No release promotion or global install.
       both standalone Antigravity N08 suites (nine passed, one skip each).
 - [x] Verify both standalone OpenCode suites and five tracked plugin packages.
 - [x] Pass final packaging/bundle checks: 18 passed.
-- [ ] Push the working branch and record exact-source CI.
-- [ ] Verify the native POSIX default-home child on Ubuntu CI.
+- [x] Push the working branch and record exact-source CI (`a5337f9`,
+      [run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723),
+      both Ubuntu jobs green, both Windows jobs running at checkpoint).
+- [x] Verify the native POSIX default-home child on Ubuntu Python 3.11/3.14 CI.
 - [ ] Confirm all four cross-platform jobs before further implementation/promotion.
 - [x] Record measured usage, update handoff and stop after N08.
 

@@ -62,10 +62,14 @@ checks do not establish live Antigravity provider behavior on POSIX or macOS.
    17 native-launch passes. Five tracked Claude packages pass freshness checks.
    Artifact checks performed no inference or installation.
 
-Counts overlap; do not sum the groups as distinct cases. Source/artifact push and
-exact-source CI will be recorded at the checkpoint. The native POSIX child and
-all four full-suite/generation jobs remain required before final closure or
-further implementation/promotion.
+Counts overlap; do not sum the groups as distinct cases. Pushed source/artifacts
+`a5337f964600a985f21ba0fb537b26d4e92bc8a3` to public `refactor/codex-support`.
+Exact-source [CI run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723)
+passed both Ubuntu Python 3.11/3.14 full-suite/generation/packaging jobs. This
+verifies the real native POSIX default-home child, which is not skipped on Ubuntu.
+Both Windows full-suite jobs are still running; require their green results before
+final closure or further implementation/promotion. The follow-up checkpoint
+changes documentation only.
 
 ## Measured usage
 
@@ -89,6 +93,6 @@ call was performed.
 ## Next sitting
 
 Stop after N08 and confirm token availability before further work. N04–N08 are
-implemented on the working branch; N08's pending platform results must be checked.
+implemented on the working branch; N08's two pending Windows results must be checked.
 The separate [F01 pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
 remains unimplemented. These fixes are unreleased; public main remains v0.4.1.
