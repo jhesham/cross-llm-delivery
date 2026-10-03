@@ -13,7 +13,7 @@ engine's candidate/acceptance/integration boundaries.
 | `cld.candidate`, `cld.acceptance`, `cld.judge`, `cld.test_run` | Reconstructed frozen candidates, snapshot-owned project imports, protected inputs and authoritative pytest results |
 | `cld.ledger`, `cld.build_state`, `cld.attempts`, `cld.recovery`, `cld.locking` | Durable identity, ownership and per-attempt recovery |
 | `cld.orchestrator`, `cld.integration`, `cld.repair` | Verified dispatch/collection, dependency integration and lead repair |
-| `cld.admission`, `cld.evidence`, `cld.validate` | Context-bound model evidence and explicit validation spend policy |
+| `cld.admission`, `cld.evidence`, `cld.validate` | Context-bound model evidence, provider-owned configuration inputs and explicit validation spend policy |
 | `cld.accounting`, `cld.usage` | Persisted reservations, reported/unknown usage and admission ceilings |
 | `cld.telemetry`, `cld.status` | Best-effort local/export events and build inspection |
 

@@ -613,13 +613,27 @@ def prepare_dispatch(args, slices, ledger):
         problem = _hook("_preflight_executor")(spec)
         if problem:
             raise AdmissionBlocked(problem)
-    config_paths = [Path(args.repo) / p for p in
+    base_config_paths = [Path(args.repo) / p for p in
         ("opencode.json", "opencode.jsonc", ".opencode/opencode.json", ".cursor/cli.json", ".gemini/settings.json")]
-    config_paths += [Path.home() / p for p in
+    base_config_paths += [Path.home() / p for p in
         (".config/opencode/opencode.json", ".config/opencode/opencode.jsonc", ".cursor/cli-config.json", ".gemini/settings.json")]
-    config_paths += [Path(p).resolve() for p in args.validation_config]
+    base_config_paths += [Path(p).resolve() for p in args.validation_config]
     if os.environ.get("OPENCODE_CONFIG"):
-        config_paths.append(Path(os.environ["OPENCODE_CONFIG"]).resolve())
+        base_config_paths.append(Path(os.environ["OPENCODE_CONFIG"]).resolve())
+
+    def merged_config_paths(descriptor):
+        # Provider inputs may depend on ambient selection (for example
+        # CODEX_HOME), so discover them anew for every context calculation.
+        discovered = (descriptor.config_inputs(Path(args.repo))
+                      if descriptor.config_inputs else ())
+        merged, seen = [], set()
+        for value in (*base_config_paths, *discovered):
+            path = Path(value).expanduser().resolve()
+            key = os.path.normcase(os.path.normpath(str(path)))
+            if key not in seen:
+                seen.add(key)
+                merged.append(path)
+        return merged
 
     def context_of(spec):
         _, provider, _ = resolve_spec(spec)
@@ -628,6 +642,7 @@ def prepare_dispatch(args, slices, ledger):
         if not command:
             raise AdmissionBlocked(f"CLI disappeared for {provider}")
         descriptor = get_provider(provider)
+        config_paths = merged_config_paths(descriptor)
         patterns = descriptor.context_env + (
             tuple(descriptor.config_env(config_paths)) if descriptor.config_env else ())
         return validation_context(spec, cli_paths=[command, *invocation[1:]],

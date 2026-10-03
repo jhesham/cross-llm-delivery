@@ -20,6 +20,7 @@ def test_native_managed_inputs_are_included(admission_setup, monkeypatch):
     assert (env.repo / ".codex/config.toml").resolve() in inputs
     assert (env.repo.parent / ".codex/config.toml").resolve() in inputs
     if os.name == "nt":
+        assert (program_data / "OpenAI/Codex/config.toml").resolve() in inputs
         assert (program_data / "OpenAI/Codex/requirements.toml").resolve() in inputs
         assert (env.selected / "managed_config.toml").resolve() in inputs
         assert (env.user / ".codex/managed_config.toml").resolve() in inputs
