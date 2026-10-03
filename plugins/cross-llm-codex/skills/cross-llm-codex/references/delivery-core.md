@@ -31,6 +31,13 @@ test must pass after each layer is integrated: for a layered plan, choose tests
 that are already green or belong to earlier layers, never a later slice's
 still-red acceptance test.
 
+Production acceptance judges project imports from the frozen snapshot, including
+standard `src` layouts and editable installs. Use committed pytest configuration
+for other source layouts. If the judge reports a project import outside the
+snapshot, correct the test environment/import hook before retrying. Existing
+ledgers are not automatically re-tested by an engine update: use a fresh build
+when prior acceptance relied on a live checkout's source.
+
 ## Final executor errors and network access
 
 Some executor errors cannot succeed on retry: authentication, missing binary,

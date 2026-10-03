@@ -10,14 +10,14 @@ engine's candidate/acceptance/integration boundaries.
 | `cld.plan.slice`, `cld.dag` | Validated single-line slice schema and dependency layering |
 | `cld.providers_api`, `cld_providers.<name>` | Provider registration, explicit model configuration and adapters |
 | `cld.process`, `cld.worktree` | Bounded child/process-tree handling and managed Git worktrees |
-| `cld.candidate`, `cld.judge`, `cld.test_run` | Reconstructed frozen candidates, protected inputs and authoritative pytest results |
+| `cld.candidate`, `cld.acceptance`, `cld.judge`, `cld.test_run` | Reconstructed frozen candidates, snapshot-owned project imports, protected inputs and authoritative pytest results |
 | `cld.ledger`, `cld.build_state`, `cld.attempts`, `cld.recovery`, `cld.locking` | Durable identity, ownership and per-attempt recovery |
 | `cld.orchestrator`, `cld.integration`, `cld.repair` | Verified dispatch/collection, dependency integration and lead repair |
 | `cld.admission`, `cld.evidence`, `cld.validate` | Context-bound model evidence and explicit validation spend policy |
 | `cld.accounting`, `cld.usage` | Persisted reservations, reported/unknown usage and admission ceilings |
 | `cld.telemetry`, `cld.status` | Best-effort local/export events and build inspection |
 
-The four adapters are antigravity, cursor, opencode and codex. A generated
+The five adapters are antigravity, cursor, opencode, codex and claude. A generated
 bundle vendors one selected provider and the engine; different bundles sharing
 a ledger must come from the same source revision. Codex requires an exact
 model and optional effort/tier; there is no static default.

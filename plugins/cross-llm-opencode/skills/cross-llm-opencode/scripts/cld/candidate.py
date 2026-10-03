@@ -16,6 +16,7 @@ from tempfile import TemporaryDirectory
 from cld.executors._capture import CaptureError, Runner, _is_noise, cache_roots, checked, nul_names
 from cld.judge import parse_pytest_output
 from cld.test_run import test_result
+from cld.acceptance import snapshot_imports
 
 
 def acceptance_args(selector: str) -> list[str]:
@@ -174,7 +175,12 @@ class CandidateVerifier:
             self._check_index(candidate)
             tracked = tree_entries(self.runner, self.cwd, candidate.tree)
             before = self._fingerprint(directory, tracked)
-            yield directory
+            # Every registered checkout shares the project's Git identity; an
+            # editable install/PYTHONPATH can otherwise reach any of their code.
+            records = nul_names(checked(self.runner, self.cwd, "worktree", "list", "--porcelain", "-z"))
+            sources = [self.cwd, *(r[len("worktree "):] for r in records if r.startswith("worktree "))]
+            with snapshot_imports(directory, sources):
+                yield directory
             if self._fingerprint(directory, tracked) != before:
                 raise CaptureError("Acceptance execution mutated the frozen candidate")
             self.judge_untracked = tuple(sorted(
