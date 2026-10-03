@@ -73,7 +73,8 @@ Counts overlap: the 53 N06 cases are included in the 232-test adjacent group.
 Pushed source/artifacts `7212bca320ae41d4c4c74c111fb6830e356425bf` to public
 `refactor/codex-support`. Exact-source
 [N06 CI run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883)
-is running; all four platform results remain pending at this checkpoint.
+passed all four Ubuntu/Windows × Python 3.11/3.14 jobs; verified before N07's
+live call on 2026-10-04.
 The follow-up checkpoint commit changes documentation only.
 
 ## Measured usage
