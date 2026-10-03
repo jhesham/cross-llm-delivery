@@ -12,7 +12,8 @@ must stop dispatch rather than silently using standard service.
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pushed; Ubuntu CI green, Windows CI running |
+| N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Complete; four-job CI green |
+| F01 | Pytest output diagnostic policy | CLD / exact Luna max + fast | Implemented and verified locally; exact-source CI pending |
 
 Detailed requirements and corrective checklists:
 [full review](FULL-REVIEW-2026-10-03.md).
@@ -42,20 +43,20 @@ Detailed requirements and corrective checklists:
 
 - [x] Confirm N04's independent gate and cross-platform CI are green before
       relying on CLD for the next implementation.
-- [ ] Commit scoped failing acceptance tests and a precise file allowlist/contract.
-- [ ] Use the current generated Codex-provider driver containing N04, with a
+- [x] Commit scoped failing acceptance tests and a precise file allowlist/contract.
+- [x] Use the current generated Codex-provider driver containing N04, with a
       separate bound ledger/plan and preserved worktree/evidence.
-- [ ] Pin `codex:gpt-6-luna@max+fast`; verify local CLI capability/account setup.
+- [x] Pin `codex:gpt-6-luna@max+fast`; verify local CLI capability/account setup.
       Protect Codex config identity explicitly with `--validation-config` while
       N05's automatic discovery remains unfixed.
-- [ ] Permit a bounded validation canary only if current exact-spec evidence is
+- [x] Permit a bounded validation canary only if current exact-spec evidence is
       absent. Set explicit token/attempt caps and record unknown cost honestly.
-- [ ] Run one implementation dispatch; inspect failures before any further spend.
+- [x] Run one implementation dispatch; inspect failures before any further spend.
       Do not silently retry with another model/tier or escalate.
-- [ ] Review the candidate, independently run acceptance/adjacent tests, integrate
+- [x] Review the candidate, independently run acceptance/adjacent tests, integrate
       through the checked CLD gate, and bring only the reviewed commit into the
       working branch.
-- [ ] Regenerate affected artifacts from committed source; update checklist,
+- [x] Regenerate affected artifacts from committed source; update checklist,
       handoff and measured executor usage; stop at the slice checkpoint.
 
 No live executor calls or global installs are part of the N04 checkpoint.
@@ -117,9 +118,9 @@ availability was confirmed; see its checkpoint below.
 Measured executor total **862,345**, including **759,040** cached input tokens;
 within the 1.2m cumulative estimate, with one per-attempt reservation overrun.
 No further N06 provider calls. N07 continued after the user's token checkpoint;
-N08 remains pending.
+N08 subsequently completed with all four CI jobs green.
 The separate [F01 pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
-is documented and unimplemented.
+is now implemented; see the checkpoint below.
 
 ## N07 closure
 
@@ -145,7 +146,7 @@ is documented and unimplemented.
 integrated `80acbf9`, generation source `ba4482d`. One live call used **434,929**
 tokens, including **361,728** cached input; no reservation overruns. Cost/lead
 usage unavailable; actual fast routing lacks independent telemetry. Global config
-is unchanged. N08 continued after the user's checkpoint; F01 remains pending.
+is unchanged. N08 and F01 continued after the user's subsequent checkpoints.
 No release promotion or global install.
 
 ## N08 closure
@@ -169,14 +170,46 @@ No release promotion or global install.
 - [x] Pass final packaging/bundle checks: 18 passed.
 - [x] Push the working branch and record exact-source CI (`a5337f9`,
       [run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723),
-      both Ubuntu jobs green, both Windows jobs running at checkpoint).
+      all four jobs passed before the F01 live call).
 - [x] Verify the native POSIX default-home child on Ubuntu Python 3.11/3.14 CI.
-- [ ] Confirm all four cross-platform jobs before further implementation/promotion.
+- [x] Confirm all four cross-platform jobs before further implementation/promotion.
 - [x] Record measured usage, update handoff and stop after N08.
 
 [N08 evidence](N08-ANTIGRAVITY-CWD-FIX.md): accepted `f51b1d9`, integrated
 `79031cf`, final generation source `d5cd59d`. One implementation call used
 **144,751** tokens, including **121,344** cached input; no reservation overrun.
 Cost/lead usage unavailable; actual fast routing lacks independent telemetry.
-Global config is unchanged. F01 remains pending. N04–N08 are working-branch
+Global config is unchanged. F01 is implemented below. N04–N08 are working-branch
 fixes; no release promotion, install or live POSIX/macOS provider verification.
+
+
+## F01 closure
+
+- [x] Confirm all four N08 CI jobs passed before the live call.
+- [x] Commit 30 scoped cases, a three-file contract and exact-model plan.
+- [x] Verify the original frozen baseline: nine failed, 21 passed.
+- [x] Reuse current exact-spec evidence under `deny`; make one Luna/max/fast
+      implementation call with no canary, paid retry or substitution.
+- [x] Preserve the original 28-pass/two-failure receipt; correct the lead's
+      green-path fixture in a committed baseline and reconcile explicitly.
+- [x] Stage unchanged model runtime blobs through owned recovery APIs; accept
+      through real `--mark-repaired` and integrate through checked gates 6/3.
+- [x] Pass 30 frozen cases, 277 focused cases plus one skip, the original broad
+      selector's 232 cases and 18 packaging checks; counts overlap.
+- [x] Replay the historical broad baseline: 29 failures, 203 passes, no process
+      error, valid assertion-red preflight; original evidence remains untouched.
+- [x] Regenerate ten bundles and both plugin formats from committed `6170865`;
+      verify core/provider/launcher parity, standalone recursion and red/green
+      pytest behavior, retained N07/N08 checks and five-package freshness.
+- [ ] Push source/artifacts and record exact-source cross-platform CI.
+- [ ] Confirm all four F01 CI jobs before promotion or further implementation.
+- [x] Record full live usage, update handoff and stop for token availability.
+
+[F01 evidence](F01-PYTEST-DIAGNOSTICS-FIX.md): accepted `235a13c`, integrated
+`fb72548`, generation source `6170865`. One live implementation call used
+**201,535** tokens, including **155,136** cached input; no reservation overrun.
+The reconciled repair/integration ledger excludes that earlier live usage; use
+the original ledger backup/logs for whole-slice accounting. Cost/lead usage
+unknown; actual fast routing lacks independent telemetry. Config is unchanged.
+No installation or release promotion. N04–N08 and F01 are implemented and
+unreleased on the working branch; stop before the next slice.

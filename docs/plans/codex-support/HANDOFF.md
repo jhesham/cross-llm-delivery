@@ -1,5 +1,39 @@
 # Current handoff
 
+> **F01 implementation checkpoint (2026-10-04):** Both pytest adapters disable
+> provider-output heuristics explicitly; ordinary pytest exits retain their return
+> codes for independent judgment. Lifecycle/launch errors, collection/config/no-tests
+> and missing return codes remain fail-closed. Provider authentication defaults
+> remain enabled and final. All four N08 CI jobs passed before the live F01 call.
+> Exact `codex:gpt-6-luna@max+fast`, reused current evidence under `deny`, one call,
+> no canary or paid retry. Original candidate: 28 passes, two failures caused by
+> a lead-written green-path fixture. Committed correction `7e4293c`, checked plan
+> reconciliation and owned staging of unchanged original runtime blobs enabled real
+> CLI repair acceptance `235a13c` and checked integration `fb72548`, both 30 passes.
+> Original failed evidence/worktree retained; no additional inference for repair.
+> Final generation source/documentation `6170865`. Verification: 277 focused
+> passes, one POSIX-only skip on Windows; exact original broad selector 232 passes;
+> packaging 18 passes. Historical N06 baseline replay: 29 intended failures and
+> 203 passes, no process error, valid assertion-red preflight. Counts overlap.
+> Ten bundles and both plugin formats regenerated; matching 40-file core/provider
+> bytes, standalone recursion and red/green pytest probes, retained N07/N08 checks
+> and five-package freshness. No global installation or release promotion.
+> Measured whole-slice usage: **201,535** tokens, including **155,136** cached input
+> (42,484 uncached input, 3,915 output), no reservation overrun or active call.
+> Explicit dispatch deadline 900 seconds. Cost/lead usage unknown; actual fast
+> routing lacks independent telemetry. Global Codex config is unchanged.
+> Repair ledger `.cld/f01/ledger.json` belongs to reconciled run
+> `4d51f27b65254a57b0d8c21520b372ce` and excludes original live usage. Original run
+> `86c835bfe0094eabbc61ee61969a3ab4` survives in the reconciliation backup
+> `.cld/f01/ledger.json.reconcile-1134915b47284733b39ae42100d0995b.bak` and raw logs.
+> [Evidence](../v0.4.0-review-fixes/F01-PYTEST-DIAGNOSTICS-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Source/artifacts push and exact-source CI run will be recorded before stopping;
+> require all four new CI jobs green before promotion or further implementation.
+> **Stop after F01 and confirm token availability.** N04–N08 and F01 are implemented
+> and unreleased on `refactor/codex-support`. No new slice or provider calls.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
 > **N08 implementation checkpoint (2026-10-04):** Antigravity uses native
 > `Path.home()` on POSIX; its SystemDrive transcript workaround is Windows-only.
 > Explicit home, selected-home transcript lookup, worktree `--add-dir`, exact model,
