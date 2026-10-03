@@ -9,7 +9,9 @@
 > bundle judges disagreeing live/frozen sources correctly outside the checkout.
 > [Evidence](../v0.4.0-review-fixes/N04-IMPORT-ISOLATION-FIX.md) and
 > [implementation checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Cross-platform CI is pending branch push/run identification. No live executor
+> Pushed `215bae1` to public `refactor/codex-support`.
+> [Exact-source CI run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230)
+> is queued; its four full-suite/platform results remain pending. No live executor
 > calls or global installs; executor tokens 0, lead token usage unavailable.
 > N05–N08 are authorized through CLD with exact `codex:gpt-6-luna@max+fast`.
 > Stop at N04 for the user's token-availability check; require green N04 CI

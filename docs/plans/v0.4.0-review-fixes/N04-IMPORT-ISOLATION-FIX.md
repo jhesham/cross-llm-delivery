@@ -35,7 +35,11 @@ the existing repair and integration judging paths.
 - Outside-checkout smoke: the generated Codex-host/Codex-provider bundle rejected
   a broken frozen candidate and accepted a correct one while live source
   disagreed in each direction. This exercised the real subprocess bootstrap.
-- Cross-platform CI: pending push/run identification at this checkpoint.
+- Branch push: `215bae10dcc88b04e5383cfd6dcdeb9a1c4247bb` on public
+  `refactor/codex-support` includes the runtime, regressions and generated plugins.
+- Exact-source [CI run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230)
+  was queued at the stopping checkpoint. Full Windows/Ubuntu × Python 3.11/3.14
+  results remain pending; no full-suite or cross-platform pass is claimed yet.
 
 ## Boundaries and restart
 
