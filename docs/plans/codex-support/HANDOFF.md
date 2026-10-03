@@ -21,7 +21,10 @@
 > Both plugin formats regenerated; five tracked packages pass freshness checks.
 > [Evidence](../v0.4.0-review-fixes/N07-OPENCODE-NATIVE-FIX.md),
 > [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Source/artifact push and exact-source CI will be recorded below before stopping.
+> Pushed source/artifacts `54b41d0` to public `refactor/codex-support`.
+> [Exact-source CI run 37136806667](https://github.com/jhesham/cross-llm-delivery/actions/runs/37136806667)
+> is running; all four cross-platform results remain pending. This follow-up
+> checkpoint changes documentation only.
 > **Stop after N07.** N08 remains authorized via exact Luna/max/fast, pending the
 > user's token check and green N07 CI. F01 remains documented and unimplemented;
 > use a precise frozen slice selector for integration, then independent adjacent

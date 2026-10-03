@@ -73,8 +73,11 @@ the same native resolver.
    Five tracked Claude plugin packages pass freshness checks.
 
 Counts overlap; do not add acceptance, adjacent, follow-up and standalone counts
-as distinct tests. Cross-platform CI for the pushed N07 source/artifacts will be
-recorded at the checkpoint; all four results are required before N08.
+as distinct tests. Pushed source/artifacts `54b41d0a027191161e2747e6233fb9f8b0673a0d`
+to public `refactor/codex-support`. Exact-source
+[CI run 37136806667](https://github.com/jhesham/cross-llm-delivery/actions/runs/37136806667)
+is running; all four platform results remain pending at the checkpoint and are
+required before N08. The follow-up checkpoint changes documentation only.
 
 ## Measured usage
 
