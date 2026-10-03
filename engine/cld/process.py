@@ -173,7 +173,7 @@ def _stop_posix(process, timeout=5):
 
 
 def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, artifact_dir=None,
-                unset_env=()):
+                unset_env=(), classify_output=True):
     """Run synchronously; never return while owned descendants can still write.
 
     cancel is a threading.Event-compatible object. KeyboardInterrupt is re-raised
@@ -266,7 +266,9 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                 raise ProcessCleanupError(f"Process cleanup unconfirmed; retain worktree and logs at {directory}") from exc
     result = ProcessResult(rc, str(out_path), str(err_path), error, time.monotonic() - started)
     if result.error is None:
-        result = ProcessResult(rc, str(out_path), str(err_path), exit_error(rc, result.output), result.elapsed)
+        classification = (exit_error(rc, result.output) if classify_output else
+                          (None if rc == 0 else "nonzero_exit"))
+        result = ProcessResult(rc, str(out_path), str(err_path), classification, result.elapsed)
     (directory / "result.json").write_text(json.dumps(result.metadata()), encoding="utf-8")
     if interrupted is not None:
         interrupted.process_result = result

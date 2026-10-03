@@ -54,7 +54,7 @@ def _pytest(workdir: str, test_path: str) -> TestRun:
     target = acceptance_args(test_path)
     argv, env, payload = acceptance_command(workdir, ["-p", "no:cacheprovider", *target, "-q"],
         {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"})
-    proc = run_process(argv, workdir, timeout=120, env=env,
+    proc = run_process(argv, workdir, timeout=120, env=env, classify_output=False,
                        **({"stdin": payload} if payload is not None else {}))
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
                    timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)
