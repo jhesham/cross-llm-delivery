@@ -167,7 +167,7 @@ class AntigravityExecutor:
                                    f"({self._home})")
             return ExecutorResult(
                 ok=False, diff="", process={**process, "error": "malformed_output"},
-                raw_log=process_feedback(raw or "", process, 3500) + "\n[antigravity] no MODEL transcript found; the agy "
+                raw_log=process_feedback(raw or "", process, 3500) + "\n[antigravity] no MODEL transcript found; "
                         + transcript_hint + " (see "
                         "docs/notes/antigravity-cli-notes.md)")
 

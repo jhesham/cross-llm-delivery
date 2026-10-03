@@ -7,6 +7,11 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Fixed
+- Antigravity uses the native home as its default dispatch cwd on POSIX (review
+  N08). The SystemDrive transcript workaround remains Windows-only; explicit
+  home overrides still control both cwd and transcript lookup. Missing-transcript
+  guidance now reflects the platform. Live POSIX/macOS provider execution remains
+  unverified.
 - OpenCode uses one native launcher for dispatch, discovery, stats and preflight
   (review N07): explicit absolute override, Windows `opencode.exe` on PATH, then
   npm's installed native target. Native-only installations are recognized;
