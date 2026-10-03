@@ -7,6 +7,11 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Fixed
+- All five executors mark production children with `CLD_EXECUTOR_DEPTH=1`
+  and reject nested direct dispatch before probes or artifact creation (review
+  N06). Only an absent marker or literal `0` identifies a lead. OpenCode, Cursor
+  and Antigravity prompts now prohibit recursive delegation; provider environment
+  adjustments and legacy injected runners remain compatible.
 - Codex validation evidence now includes selected home, conservative project
   layers and native managed configuration files, including missing-file states
   and referenced credential/header environment variables. Changes block saved
