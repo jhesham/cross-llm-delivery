@@ -26,8 +26,9 @@ configuration/authentication source mentioned in the broader review checklist.
       provider to avoid overwriting concurrent Claude changes. Provider matches source.
 - [x] Run isolated `python -I -S` inline-evidence smoke checks on both generated
       bundles; changing a synthetic key changes the fingerprint.
-- [ ] Combined-source cross-platform CI and coherent all-provider regeneration
-      before a corrective release, coordinated with the Claude changes.
+- [x] Combined-source cross-platform CI and coherent all-provider regeneration
+      before a corrective release, coordinated with the Claude changes
+      (released in [v0.4.1](PUBLICATION-0.4.1.md)).
 
 Only OpenCode source/tests/plugin and this checkpoint are included in the scoped
 commit. Shared handoff/re-review edits remain available for integration by the
