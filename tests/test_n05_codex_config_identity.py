@@ -138,3 +138,34 @@ def test_explicit_inputs_are_merged_with_automatic_codex_inputs(admission_setup)
     extra.write_text('route = "two"\n')
     with pytest.raises(AdmissionBlocked, match="changed after admission"):
         factory(SPEC)
+
+
+def test_relative_home_fails_before_any_validation(admission_setup, monkeypatch):
+    env = admission_setup
+    monkeypatch.setenv("CODEX_HOME", ".codex")
+    with pytest.raises(ValueError, match="CODEX_HOME.*absolute"):
+        env.prepare()
+    assert not env.validations and not env.creations
+
+
+def test_config_change_during_validation_cannot_admit(admission_setup, monkeypatch):
+    import cld.validate as validation
+    env = admission_setup
+    config = env.selected / "config.toml"
+    config.write_text('model_provider = "before"\n')
+    def validate(spec, **kw):
+        config.write_text('model_provider = "after"\n')
+        return ValidationResult(spec, True, "verified", 0)
+    monkeypatch.setattr(validation, "validate_model", validate)
+    with pytest.raises(AdmissionBlocked, match="changed during validation"):
+        env.prepare()
+
+
+def test_invalid_codex_config_blocks_before_validation_without_secret_leak(admission_setup):
+    env = admission_setup
+    secret = "n05-secret-in-invalid-toml"
+    (env.selected / "config.toml").write_text('invalid = [\n' + secret, encoding="utf-8")
+    with pytest.raises(ValueError) as failure:
+        env.prepare()
+    assert secret not in str(failure.value)
+    assert not env.validations and not env.creations

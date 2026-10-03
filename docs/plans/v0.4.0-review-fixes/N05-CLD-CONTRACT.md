@@ -12,8 +12,10 @@ and prepare_dispatch, with offline CLI/executor seams. Do not weaken those tests
 - Discovery must happen in context_of each time, not once at prepare_dispatch:
   saved evidence, post-probe checks and the already-admitted factory must detect
   edits, creation, deletion and changes in selected paths. Deduplicate paths.
-- Codex owns discovery: CODEX_HOME (relative values resolved consistently from
-  repository cwd) or Path.home()/.codex, with config.toml even when missing.
+- Codex owns discovery: absolute CODEX_HOME or Path.home()/.codex, with config.toml
+  even when missing. Reject relative CODEX_HOME with an actionable diagnostic:
+  validation and execution use different worktree cwd values, so a relative
+  home cannot safely describe one configuration/account across both calls.
   Ignore the unused default home when CODEX_HOME is selected.
 - Conservatively include repo and ancestor .codex/config.toml candidates up to
   the filesystem root. This intentionally over-invalidates some inactive/trust-
