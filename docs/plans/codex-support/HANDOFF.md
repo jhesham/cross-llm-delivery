@@ -1,5 +1,35 @@
 # Current handoff
 
+> **N08 implementation checkpoint (2026-10-04):** Antigravity uses native
+> `Path.home()` on POSIX; its SystemDrive transcript workaround is Windows-only.
+> Explicit home, selected-home transcript lookup, worktree `--add-dir`, exact model,
+> lifecycle options and recursion protection remain intact. Diagnostics/setup notes
+> explain the platform distinction without claiming live POSIX/macOS verification.
+> Exact `codex:gpt-6-luna@max+fast`: baseline `44fdc2e`, accepted `f51b1d9`, checked
+> integration `79031cf`, final generation source/documentation `d5cd59d`.
+> N07's four exact-source CI jobs passed before the live call. Existing validation
+> was reused under `deny`; one-call limit, no canary, retry or model substitution.
+> Usage: **144,751** tokens, including **121,344** cached input (18,929 uncached
+> input, 4,478 output). No reservation overrun. Cost/lead usage unknown; actual fast
+> routing has no independent telemetry. Global Codex config is unchanged.
+> Frozen acceptance and checked integration: nine passed, one POSIX-only skip on
+> Windows. Final adjacent group: 270 passed, one skip; packaging: 18 passed.
+> Counts overlap. Ten regenerated bundles have matching 40-file core/provider
+> bytes and pass standalone recursion guards. Both Antigravity bundles pass the
+> nine N08 cases plus platform skip outside the checkout; both OpenCode bundles
+> retain 17 native-launch passes. Both plugin formats regenerated; tracked packages
+> pass freshness checks. No global installation or release promotion.
+> [Evidence](../v0.4.0-review-fixes/N08-ANTIGRAVITY-CWD-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Source/artifact push and exact-source CI will be recorded before stopping.
+> Require the actual native POSIX child to pass on Ubuntu, and all four CI jobs
+> green, before final closure/further implementation/promotion.
+> **Stop after N08.** N04–N08 are implemented but unreleased on
+> `refactor/codex-support`. F01 remains documented and unimplemented. Use precise
+> frozen slice integration selectors plus independent adjacent checks until it
+> is fixed. Confirm token availability before further work. Earlier checkpoints
+> below are historical and superseded where they conflict.
+
 > **N07 implementation checkpoint (2026-10-04):** OpenCode now selects a native
 > executable through one resolver for dispatch, discovery, stats and preflight:
 > absolute `OPENCODE_CLI_CMD`, Windows `opencode.exe` on PATH, then verified npm
