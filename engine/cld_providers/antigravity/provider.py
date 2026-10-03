@@ -60,7 +60,8 @@ from typing import Callable
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback, artifact_file
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         artifact_file, executor_depth_blocked)
 
 Runner = Callable[[list[str], str], tuple[int, str]]
 
@@ -100,6 +101,8 @@ class AntigravityExecutor:
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
         prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
@@ -112,6 +115,11 @@ class AntigravityExecutor:
         return prompt
 
     def run(self, task: SliceTask, workdir, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
         prompt = self._build_prompt(task, feedback)
         log_file = artifact_file(prefix="agy_", suffix=".log", artifact_dir=self._artifact_dir)
         dispatch = [
@@ -121,7 +129,8 @@ class AntigravityExecutor:
         ]
         try:
             rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, self._home,
-                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)   # cwd = home on C:
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                env={"CLD_EXECUTOR_DEPTH": "1"})   # cwd = home on C:
         except BaseException as exc:
             exc.provider_log_path = log_file
             raise
