@@ -32,8 +32,11 @@ Detailed requirements and corrective checklists:
 - [x] Commit runtime changes, then generate both hosts' five bundles/plugins
       from that committed runtime source.
 - [x] Verify artifact parity, standalone operation and packaging.
-- [ ] Push the working branch and record exact-source CI status.
-- [ ] Update handoff and stop for token availability before N05.
+- [x] Push the working branch and record exact-source CI status (`215bae1`,
+      [run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230),
+      queued at checkpoint).
+- [ ] Confirm all four cross-platform CI jobs pass; resolve failures before N05.
+- [x] Update handoff and stop for token availability before N05.
 
 ## Each CLD slice (N05–N08)
 
