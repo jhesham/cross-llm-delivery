@@ -1,5 +1,21 @@
 # Current handoff
 
+> **OpenCode N03 checkpoint (2026-10-03):** inline-referenced credentials/routes
+> now key validation evidence. Eight new regression cases and the relevant
+> suites pass (67 total); isolated OpenCode bundles pass for both hosts.
+> [Fix evidence](../v0.4.0-review-fixes/N03-OPENCODE-INLINE-FIX.md).
+> OpenCode-only plugin regenerated; concurrent Claude work untouched. Combined
+> CI/release integration pending; no live calls or global installs.
+
+> **Re-review checkpoint (2026-10-03):** reviewed updates through `96e7479`
+> (published v0.4.0 runtime `429b9d0`). Original R01/R02/R04–R07 cases now pass;
+> file-based R03 is fixed but its inline-config variant remains open. Three
+> findings and corrective tasks are in [the re-review](../v0.4.0-review-fixes/REVIEW-2026-10-03.md).
+> Local verification: 250 focused checks passed; published Windows/Ubuntu CI,
+> packaging and CodeQL checks are green. Engine/release unchanged; no paid
+> provider inference. Fix implementation not started; review token usage unavailable.
+> Current publication: [v0.4.0 record](../v0.4.0-review-fixes/PUBLICATION-0.4.0.md).
+
 > **Review checkpoint (2026-10-01):** Claude Code's v0.3.1 updates were reviewed
 > through `453e31e`. Seven open findings, including two high-priority GC safety
 > defects, are recorded in [the review](../v0.3.1-fixes/REVIEW-2026-10-01.md).
