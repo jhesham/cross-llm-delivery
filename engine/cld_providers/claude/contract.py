@@ -43,6 +43,8 @@ _LOGIN_RE = re.compile(
     re.IGNORECASE,
 )
 _USAGE_LIMIT_RE = re.compile(r"usage limit|limit reached|out of extra usage", re.IGNORECASE)
+# cld.process.exit_error's labels for "the process exited nonzero" (no lifecycle failure).
+_GENERIC_EXIT_ERRORS = frozenset({"nonzero_exit", "authentication"})
 
 # Defense in depth; the isolated worktree and verifier remain the main boundary.
 _ROLE = (
@@ -163,7 +165,10 @@ def _valid_cost(value):
 
 def parse_result(stdout, stderr, returncode, *, model, process_error=None):
     """Parse exactly one Claude JSON result; incomplete or unsafe results fail."""
-    if process_error is not None:
+    # Lifecycle failures (timeout, cancellation, launch...) are authoritative. The
+    # shared runner's generic exit labels are not: they would hide the CLI's own
+    # login/usage-limit diagnostic, which must stop delivery as a final error (N02).
+    if process_error is not None and process_error not in _GENERIC_EXIT_ERRORS:
         return _failure(str(process_error))
 
     stdout_text = _text(stdout)
@@ -175,8 +180,18 @@ def parse_result(stdout, stderr, returncode, *, model, process_error=None):
         return _failure("not_logged_in")
     if _USAGE_LIMIT_RE.search(stderr_text):
         return _failure("usage_limit")
-    if type(returncode) is not int or returncode != 0:
-        return _failure("not_logged_in" if stdout_login else "nonzero_exit")
+    if type(returncode) is not int or returncode != 0 or process_error is not None:
+        # A failed exit is never a candidate; its JSON result may still name the cause.
+        try:
+            failed = json.loads(stdout_text)
+        except (TypeError, ValueError):
+            failed = None
+        failed_text = _text(failed.get("result")) if isinstance(failed, dict) else ""
+        if _USAGE_LIMIT_RE.search(failed_text):
+            return _failure("usage_limit")
+        if stdout_login:
+            return _failure("not_logged_in")
+        return _failure(str(process_error) if process_error is not None else "nonzero_exit")
 
     try:
         result = json.loads(stdout_text)
