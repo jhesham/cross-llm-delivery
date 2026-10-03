@@ -93,7 +93,11 @@ is not independently proven. No fallback to standard service was requested.
 - Both standalone Codex-provider bundles, from outside-checkout cwd and with
   offline CLI/validation seams, block edited home config at factory use and
   block reuse of saved evidence under `deny`. No inference during artifact checks.
-- Cross-platform CI: pending push/run identification at this checkpoint.
+- Pushed source/artifact commit `0d2eb0895d82a4c35c8bcf6fc7ff0d2dea6aa0b5`
+  to public `refactor/codex-support`. Exact-source
+  [CI run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253)
+  is queued at the checkpoint; its four cross-platform results remain pending.
+  The follow-up checkpoint commit changes documentation only.
 
 ## Observed Windows friction and next sitting
 
