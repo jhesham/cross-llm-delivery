@@ -201,7 +201,9 @@ fixes; no release promotion, install or live POSIX/macOS provider verification.
 - [x] Regenerate ten bundles and both plugin formats from committed `6170865`;
       verify core/provider/launcher parity, standalone recursion and red/green
       pytest behavior, retained N07/N08 checks and five-package freshness.
-- [ ] Push source/artifacts and record exact-source cross-platform CI.
+- [x] Push source/artifacts `6037bb1` and record exact-source cross-platform CI:
+      [run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565),
+      in progress at checkpoint; subsequent checkpoint is documentation only.
 - [ ] Confirm all four F01 CI jobs before promotion or further implementation.
 - [x] Record full live usage, update handoff and stop for token availability.
 

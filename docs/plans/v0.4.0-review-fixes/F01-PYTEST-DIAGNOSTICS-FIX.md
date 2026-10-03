@@ -103,9 +103,12 @@ the original backup and raw log supply the measured total below.
 
 Counts overlap; do not sum these groups as distinct tests. Proof stays local
 under `.cld/f01/`, including `historical-baseline.{txt,json}` and
-`final-broad.{txt,json}`. Exact-source cross-platform CI is pending at this
-checkpoint; record its run before stopping and require all four jobs green
-before promotion.
+`final-broad.{txt,json}`. Source/artifacts `6037bb1e7aacaadcc116cf4f94daa1fb770f9585`
+are pushed to public `refactor/codex-support`.
+[Exact-source CI run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565)
+is in progress at this checkpoint. Require all four Ubuntu/Windows Python
+3.11/3.14 jobs green before promotion or further implementation. The subsequent
+checkpoint commit changes documentation only.
 
 ## Measured usage and checkpoint
 

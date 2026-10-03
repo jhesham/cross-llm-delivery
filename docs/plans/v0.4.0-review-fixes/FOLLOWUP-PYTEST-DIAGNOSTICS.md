@@ -44,7 +44,9 @@ F01's 30 frozen cases pass. The original broad historical baseline now retains
 29 intended failures and 203 passes with no process error, and independent
 preflight accepts it as assertion-red. The same selector passes all 232 cases
 on final source. Genuine provider authentication remains final. Generation source:
-`6170865`; exact-source CI will be recorded at the stopping checkpoint.
+`6170865`; pushed source/artifacts `6037bb1`,
+[exact-source CI run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565)
+in progress at the stopping checkpoint. Require all four jobs green before promotion.
 
 Do not change frozen selectors silently or relabel saved evidence. The earlier
 precise-selector workaround is no longer required for this diagnostic defect;
