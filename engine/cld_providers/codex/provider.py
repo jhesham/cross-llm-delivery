@@ -25,6 +25,7 @@ from .contract import (
     parse_exec_output,
 )
 from .catalog import list_models
+from .config import config_env, config_inputs
 from .launcher import CodexLauncherError, resolve_codex_command
 from cld.native_cli import resolved_runner as _native_resolved_runner
 
@@ -230,6 +231,8 @@ PROVIDER = Provider(
     account_block=None,
     cli_invocation=_cli_invocation,
     context_env=("CODEX_HOME", "CODEX_CLI_CMD", "OPENAI_*"),
+    config_env=config_env,
+    config_inputs=config_inputs,
     launch_problem=_launch_problem,
     skill_fragment=(_HERE / "SKILL.fragment.md").read_text(encoding="utf-8"),
     setup_notes=(_HERE / "setup.md").read_text(encoding="utf-8"),
