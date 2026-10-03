@@ -14,6 +14,16 @@ from cld.validate import ValidationResult
 SPEC = "codex:gpt-6-luna@max+fast"
 
 
+def assert_blocked(call, exception, message=None):
+    """Keep a missing expected exception an assertion-red CLD baseline."""
+    try:
+        call()
+    except exception as failure:
+        assert message is None or message in str(failure)
+        return failure
+    assert False, f"Expected {exception.__name__} before executor dispatch"
+
+
 @pytest.fixture
 def admission_setup(tmp_path, monkeypatch):
     import cld.evidence as evidence
@@ -83,10 +93,8 @@ def test_config_change_blocks_saved_evidence_and_already_admitted_factory(admiss
         config.unlink()
     else:
         config.write_text('model_provider = "route_b"\n', encoding="utf-8")
-    with pytest.raises(AdmissionBlocked, match="changed after admission"):
-        factory(SPEC)
-    with pytest.raises(AdmissionBlocked):
-        env.prepare()
+    assert_blocked(lambda: factory(SPEC), AdmissionBlocked, "changed after admission")
+    assert_blocked(env.prepare, AdmissionBlocked)
     assert not env.creations, "Configuration drift reached executor construction"
     assert env.validations == [SPEC], "Deny must block before validation spend"
     assert "n05-secret" not in env.evidence.read_text(encoding="utf-8")
@@ -106,10 +114,8 @@ def test_config_referenced_environment_values_key_evidence(admission_setup, monk
     factory = env.prepare()
     env.args.validation_policy = "deny"
     monkeypatch.setenv("N05_GATEWAY_SECRET", "n05-hidden-after")
-    with pytest.raises(AdmissionBlocked, match="changed after admission"):
-        factory(SPEC)
-    with pytest.raises(AdmissionBlocked):
-        env.prepare()
+    assert_blocked(lambda: factory(SPEC), AdmissionBlocked, "changed after admission")
+    assert_blocked(env.prepare, AdmissionBlocked)
     record = EvidenceStore(env.evidence).get(SPEC)
     assert "N05_GATEWAY_SECRET" in record["context"]["env_names"]
     assert "n05-hidden" not in json.dumps(record)
@@ -136,15 +142,14 @@ def test_explicit_inputs_are_merged_with_automatic_codex_inputs(admission_setup)
     env.args.validation_config = [str(extra)]
     factory = env.prepare()
     extra.write_text('route = "two"\n')
-    with pytest.raises(AdmissionBlocked, match="changed after admission"):
-        factory(SPEC)
+    assert_blocked(lambda: factory(SPEC), AdmissionBlocked, "changed after admission")
 
 
 def test_relative_home_fails_before_any_validation(admission_setup, monkeypatch):
     env = admission_setup
     monkeypatch.setenv("CODEX_HOME", ".codex")
-    with pytest.raises(ValueError, match="CODEX_HOME.*absolute"):
-        env.prepare()
+    failure = assert_blocked(env.prepare, ValueError)
+    assert "CODEX_HOME" in str(failure) and "absolute" in str(failure)
     assert not env.validations and not env.creations
 
 
@@ -157,15 +162,13 @@ def test_config_change_during_validation_cannot_admit(admission_setup, monkeypat
         config.write_text('model_provider = "after"\n')
         return ValidationResult(spec, True, "verified", 0)
     monkeypatch.setattr(validation, "validate_model", validate)
-    with pytest.raises(AdmissionBlocked, match="changed during validation"):
-        env.prepare()
+    assert_blocked(env.prepare, AdmissionBlocked, "changed during validation")
 
 
 def test_invalid_codex_config_blocks_before_validation_without_secret_leak(admission_setup):
     env = admission_setup
     secret = "n05-secret-in-invalid-toml"
     (env.selected / "config.toml").write_text('invalid = [\n' + secret, encoding="utf-8")
-    with pytest.raises(ValueError) as failure:
-        env.prepare()
-    assert secret not in str(failure.value)
+    failure = assert_blocked(env.prepare, ValueError)
+    assert secret not in str(failure)
     assert not env.validations and not env.creations
