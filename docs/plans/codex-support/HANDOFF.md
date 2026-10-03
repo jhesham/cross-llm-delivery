@@ -13,7 +13,10 @@
 > plugin formats regenerated and tracked packages pass freshness checks.
 > [Evidence](../v0.4.0-review-fixes/N06-RECURSION-FIX.md),
 > [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Push and exact-source CI identification are pending at this edit.
+> Pushed source/artifacts `7212bca` to public `refactor/codex-support`.
+> [Exact-source CI run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883)
+> is running; all four cross-platform results remain pending. The following
+> checkpoint commit changes documentation only.
 > Two calls total: one fresh canary, one implementation; **862,345** executor
 > tokens, including **759,040** cached input. Below the 1.2m cumulative estimate;
 > the production call exceeded its 600k reservation by 142,247. Cost/lead usage

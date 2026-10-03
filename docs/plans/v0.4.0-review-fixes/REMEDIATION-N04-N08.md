@@ -10,7 +10,7 @@ must stop dispatch rather than silently using standard service.
 |---|---|---|---|
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Locally verified; push/CI pending |
+| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Pushed and locally verified; CI running |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pending |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
 
@@ -107,7 +107,9 @@ availability was confirmed; see its checkpoint below.
 - [x] Pass 53 frozen N06 tests, 232 adjacent checks and 18 packaging/bundle checks.
 - [x] Regenerate ten bundles and both plugin formats from source `7b1ab0e`;
       verify core/provider parity and ten standalone recursion checks.
-- [ ] Push the working branch and record exact-source CI.
+- [x] Push the working branch and record exact-source CI (`7212bca`,
+      [run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883),
+      running at checkpoint).
 - [ ] Confirm all four cross-platform jobs before the next live slice.
 - [x] Record full measured usage, update handoff and stop after N06.
 
