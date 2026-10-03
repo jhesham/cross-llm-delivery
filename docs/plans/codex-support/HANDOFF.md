@@ -28,8 +28,10 @@
 > `.cld/f01/ledger.json.reconcile-1134915b47284733b39ae42100d0995b.bak` and raw logs.
 > [Evidence](../v0.4.0-review-fixes/F01-PYTEST-DIAGNOSTICS-FIX.md),
 > [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
-> Source/artifacts push and exact-source CI run will be recorded before stopping;
-> require all four new CI jobs green before promotion or further implementation.
+> Pushed source/artifacts `6037bb1` to public `refactor/codex-support`.
+> [Exact-source CI run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565)
+> is in progress. Require all four new CI jobs green before promotion or further
+> implementation. This final checkpoint commit changes documentation only.
 > **Stop after F01 and confirm token availability.** N04–N08 and F01 are implemented
 > and unreleased on `refactor/codex-support`. No new slice or provider calls.
 > Earlier checkpoints below are historical and superseded where they conflict.
