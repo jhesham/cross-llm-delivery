@@ -11,7 +11,7 @@ must stop dispatch rather than silently using standard service.
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Locally verified; push/CI checkpoint below |
+| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pushed and locally verified; CI running |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
 
 Detailed requirements and corrective checklists:
@@ -135,7 +135,9 @@ is documented and unimplemented.
       verify 40-file core parity, provider/launcher bytes, ten standalone recursion
       guards and all 17 N07 cases in both standalone OpenCode bundles.
 - [x] Verify all five tracked plugin packages are fresh.
-- [ ] Push the working branch and record exact-source CI.
+- [x] Push the working branch and record exact-source CI (`54b41d0`,
+      [run 37136806667](https://github.com/jhesham/cross-llm-delivery/actions/runs/37136806667),
+      running at checkpoint).
 - [ ] Confirm all four cross-platform jobs before N08.
 - [x] Record measured usage, update handoff and stop after N07.
 
