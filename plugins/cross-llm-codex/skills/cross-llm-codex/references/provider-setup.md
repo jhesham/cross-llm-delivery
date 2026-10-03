@@ -6,6 +6,36 @@ CLD launches the native binary without a shell. It uses `CODEX_CLI_CMD` when set
 
 Codex uses the current user's documented CLI authentication and configuration. CLD does not read or copy credentials, and the prompt travels on stdin. The default write sandbox is `workspace-write`; this adapter does not enable full-access or approval-bypass flags. Keep CLD's worktree root inside the selected repository and retain the independent acceptance/integration gate.
 
+Validation identity includes the selected `CODEX_HOME/config.toml` (or
+`~/.codex/config.toml` when `CODEX_HOME` is unset), even while the file is
+missing. `CODEX_HOME` must be absolute. CLD also fingerprints `.codex/config.toml`
+at the repository and each ancestor through the filesystem root, because Codex
+can use custom project root markers. This conservative scan can include inactive
+or trust-skipped layers. On Unix, `/etc/codex/config.toml`,
+`/etc/codex/requirements.toml`, and the legacy
+`/etc/codex/managed_config.toml` are included. On Windows, CLD includes the
+selected home's `managed_config.toml`, the default home's managed file when
+different, plus `%ProgramData%/OpenAI/Codex/config.toml` and
+`requirements.toml` when `ProgramData` is set. All these files are fingerprinted
+by content, including missing-file states. Environment variables referenced by
+custom provider `env_key` and `env_http_headers` settings are also hashed without
+storing their values; the existing `OPENAI_*` identity inputs remain active.
+
+CLD's fixed invocation does not select a Codex profile, so profile files are
+not included. Authentication files, keyrings, session/cache/history data,
+remote or workspace-managed configuration, command-backed authentication, and
+other platform-specific managed sources are deliberately excluded. Switching
+accounts requires `--revalidate-models` and a stable non-secret
+`--validation-context` account identity. Untracked project config and local
+executor overrides are not part of the repository settings proof; pass them
+with `--validation-config` or pin their identity with `--validation-context`.
+See the official [configuration basics](https://learn.chatgpt.com/docs/config-file/config-basic),
+[advanced configuration](https://learn.chatgpt.com/docs/config-file/config-advanced),
+[configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
+and [managed configuration](https://learn.chatgpt.com/docs/enterprise/managed-configuration).
+The Windows host-wide config path is described in the official
+[gateway deployment guide](https://learn.chatgpt.com/docs/enterprise/roll-out-a-gateway).
+
 Usage cost in USD is unknown unless a future CLI event supplies it. Under a cost ceiling, the existing unknown-usage policy blocks by default. Pass an explicit model as `--executor codex:<exact-model-id>@<supported-effort>` and select a validation policy before live execution.
 
 For explicitly requested max effort and fast mode, use

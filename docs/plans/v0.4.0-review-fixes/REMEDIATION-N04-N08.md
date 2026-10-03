@@ -8,8 +8,8 @@ must stop dispatch rather than silently using standard service.
 
 | Slice | Scope | Method | Status |
 |---|---|---|---|
-| N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Locally verified; CI pending |
-| N05 | Codex configuration identity | CLD / exact Luna max + fast | Pending |
+| N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
+| N05 | Codex configuration identity | CLD / exact Luna max + fast | Locally verified; push/CI pending |
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Pending |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pending |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
@@ -34,13 +34,13 @@ Detailed requirements and corrective checklists:
 - [x] Verify artifact parity, standalone operation and packaging.
 - [x] Push the working branch and record exact-source CI status (`215bae1`,
       [run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230),
-      queued at checkpoint).
-- [ ] Confirm all four cross-platform CI jobs pass; resolve failures before N05.
+      all four jobs passed).
+- [x] Confirm all four cross-platform CI jobs pass; resolve failures before N05.
 - [x] Update handoff and stop for token availability before N05.
 
 ## Each CLD slice (N05–N08)
 
-- [ ] Confirm N04's independent gate and cross-platform CI are green before
+- [x] Confirm N04's independent gate and cross-platform CI are green before
       relying on CLD for the next implementation.
 - [ ] Commit scoped failing acceptance tests and a precise file allowlist/contract.
 - [ ] Use the current generated Codex-provider driver containing N04, with a
@@ -64,3 +64,30 @@ build if earlier acceptance relied on source outside its frozen candidate.
 
 N04 verification and runtime provenance:
 [import isolation evidence](N04-IMPORT-ISOLATION-FIX.md).
+
+## N05 closure
+
+- [x] Commit red acceptance tests, the [delivery plan](N05-CLD-PLAN.md) and
+      [five-file implementation contract](N05-CLD-CONTRACT.md).
+- [x] Validate and dispatch exact Luna/max/fast through the N04 driver. One
+      canary and one implementation call; no paid retry or model substitution.
+- [x] Independently accept and integrate the candidate through CLD gates 6/3;
+      preserve both run histories and the reconciled ledger backup.
+- [x] Review the implementation and close the literal absolute-home edge case.
+- [x] Verify final focused checks (84 passed), packaging/bundle checks (18 passed),
+      ten-bundle core parity and both standalone Codex configuration guards.
+- [x] Regenerate all five providers for both hosts from runtime `8320281`.
+- [ ] Push the working branch and record exact-source CI.
+- [ ] Confirm all four cross-platform jobs before the next live slice.
+- [x] Record measured executor usage and stop for the user's token checkpoint.
+
+[N05 evidence](N05-CODEX-CONFIG-FIX.md) records validation run
+`7dd62c25b2c34d53acab578903aceef5` and reconciled production run
+`c38d1cf32c504a1582eb8fedbc5de9fc`, ledger `.cld/n05/ledger.json`.
+Final runtime is `8320281`; implementation accepted at `0294ab6`, integrated at
+`8ab0029`. Total measured executor tokens: **2,457,594**, including **2,220,544**
+cached input tokens. This exceeded the 1,200,000 admission estimate; cost and
+lead usage are unavailable. No additional provider call followed the overrun.
+
+N06 must check evidence against the final automatic input set; the earlier
+canary context is stale. Stop here until the user confirms token availability.
