@@ -6,6 +6,21 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-10-03
+
+### Fixed
+- Claude executor: the selected effort is authoritative. The child's
+  `CLAUDE_CODE_EFFORT_LEVEL` is pinned to the spec's effort, because Claude Code
+  gives that variable precedence over `--effort`; a lead session's ambient value
+  could otherwise run a `@low` executor at `max` (review N01).
+- Claude executor: login and usage-limit diagnostics are classified even when the
+  process runner labels the exit `nonzero_exit`, so an expired login or a limit
+  hit mid-build stops after one dispatch (final error, gate 5) instead of
+  retrying and escalating; a nonzero exit is never a candidate (review N02).
+- OpenCode: `{env:NAME}` references inside inline `OPENCODE_CONFIG_CONTENT`
+  now key validation evidence like file-based references, so a changed
+  credential or endpoint is revalidated (review N03).
+
 ## [0.4.0] — 2026-10-03
 
 ### Added

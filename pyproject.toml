@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cld"
-version = "0.4.0"
+version = "0.4.1"
 description = "Codex or Claude Code leads cross-LLM delivery through isolated executor worktrees, independent acceptance, durable recovery and verified integration."
 readme = "README.md"
 license = "MIT"
