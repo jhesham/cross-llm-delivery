@@ -10,12 +10,12 @@ catalog or default; callers must select the exact model and effort.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from cld.executors._capture import CaptureError, capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import deadline_seconds, feedback as process_feedback, run_process
+from cld.process import (deadline_seconds, feedback as process_feedback, run_process,
+                         executor_depth_blocked)
 from cld.providers_api import Provider, register_provider
 
 from .contract import (
@@ -55,17 +55,6 @@ def _cli_invocation():
         return [resolve_codex_command().path]
     except CodexLauncherError:
         return ["codex"]
-
-
-def _ambient_depth() -> int:
-    """Ambient CLD_EXECUTOR_DEPTH; anything but absent/zero blocks dispatch."""
-    value = os.environ.get("CLD_EXECUTOR_DEPTH")
-    if value is None:
-        return 0
-    try:
-        return int(value)
-    except ValueError:
-        return -1
 
 
 class CodexExecutor:
@@ -121,7 +110,7 @@ class CodexExecutor:
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
-        if _ambient_depth() != 0:
+        if executor_depth_blocked():
             return ExecutorResult(
                 ok=False, diff="",
                 raw_log=("Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set "
