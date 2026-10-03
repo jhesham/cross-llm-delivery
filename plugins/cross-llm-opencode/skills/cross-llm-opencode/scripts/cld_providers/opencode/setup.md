@@ -12,10 +12,16 @@
 
 ### Windows note
 
-The npm shim is `opencode.cmd`. For long prompts, `cmd.exe /c` (invoked by the shim) mangles
-the argv, causing the CLI to fall back to interactive mode silently. The executor automatically
-resolves the real `opencode.exe` at `<npm-prefix>/node_modules/opencode-ai/bin/opencode.exe`.
-Override with `OPENCODE_CLI_CMD=<path>` if auto-detection fails.
+The launcher resolves an explicit absolute `OPENCODE_CLI_CMD` override first, then a native
+`opencode.exe` on `PATH`, then the verified npm postinstall binary at
+`<shim-dir>/node_modules/opencode-ai/bin/opencode.exe` behind `opencode.cmd`. It invokes that
+binary directly, without a shell, so long and multiline arguments keep their original argv.
+The npm postinstall chooses its platform and CPU build; CLD does not guess alternate package
+layouts when its output is missing. An incomplete install fails closed. Set
+`OPENCODE_CLI_CMD` to an absolute path to a native executable to use another installation.
+Windows `.cmd` and `.bat` overrides are rejected; do not point the override at the npm shim.
+
+On POSIX, the launcher uses an explicit override or native `opencode` found on `PATH`.
 
 ### Cost
 

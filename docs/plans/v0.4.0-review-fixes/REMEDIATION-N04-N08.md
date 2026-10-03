@@ -10,8 +10,8 @@ must stop dispatch rather than silently using standard service.
 |---|---|---|---|
 | N04 | Frozen candidate project imports | Direct implementation and real-Git regressions | Complete; four-job CI green |
 | N05 | Codex configuration identity | CLD / exact Luna max + fast | Complete; four-job CI green |
-| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Pushed and locally verified; CI running |
-| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Pending |
+| N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
+| N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Locally verified; push/CI checkpoint below |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Pending |
 
 Detailed requirements and corrective checklists:
@@ -109,13 +109,38 @@ availability was confirmed; see its checkpoint below.
       verify core/provider parity and ten standalone recursion checks.
 - [x] Push the working branch and record exact-source CI (`7212bca`,
       [run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883),
-      running at checkpoint).
-- [ ] Confirm all four cross-platform jobs before the next live slice.
+      all four jobs passed before N07).
+- [x] Confirm all four cross-platform jobs before the next live slice.
 - [x] Record full measured usage, update handoff and stop after N06.
 
 [N06 evidence](N06-RECURSION-FIX.md): accepted `102de90`, integrated `c3e7486`.
 Measured executor total **862,345**, including **759,040** cached input tokens;
 within the 1.2m cumulative estimate, with one per-attempt reservation overrun.
-No further provider calls. N07/N08 remain pending until the next user checkpoint.
+No further N06 provider calls. N07 continued after the user's token checkpoint;
+N08 remains pending.
 The separate [F01 pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
 is documented and unimplemented.
+
+## N07 closure
+
+- [x] Confirm N06's four exact-source CI jobs passed before dispatch.
+- [x] Commit 17 assertion-red cases, a four-file contract and exact-model plan.
+- [x] Validate the red baseline through provider-free frozen CLD preflight.
+- [x] Reuse fresh exact-spec evidence under `deny`; make one implementation call,
+      without a canary, retry or model/tier substitution.
+- [x] Review all four allowed changes and integrate via checked CLD gate 3.
+- [x] Pass 17 frozen cases, 261 adjacent checks and the final 49-check fixture
+      pair; counts overlap. Packaging/bundle checks: 18 passed.
+- [x] Regenerate ten bundles and both plugin formats from committed `ba4482d`;
+      verify 40-file core parity, provider/launcher bytes, ten standalone recursion
+      guards and all 17 N07 cases in both standalone OpenCode bundles.
+- [x] Verify all five tracked plugin packages are fresh.
+- [ ] Push the working branch and record exact-source CI.
+- [ ] Confirm all four cross-platform jobs before N08.
+- [x] Record measured usage, update handoff and stop after N07.
+
+[N07 evidence](N07-OPENCODE-NATIVE-FIX.md): baseline `504da9c`, accepted `45a52f7`,
+integrated `80acbf9`, generation source `ba4482d`. One live call used **434,929**
+tokens, including **361,728** cached input; no reservation overruns. Cost/lead
+usage unavailable; actual fast routing lacks independent telemetry. Global config
+is unchanged. N08 and F01 remain pending; no release promotion or global install.

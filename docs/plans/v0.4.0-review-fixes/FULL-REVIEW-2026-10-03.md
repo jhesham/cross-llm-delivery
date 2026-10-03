@@ -11,9 +11,11 @@ Implementation update (2026-10-03): N04 is fixed and its four full
 cross-platform CI jobs passed. See [N04 evidence](N04-IMPORT-ISOLATION-FIX.md)
 and the [N04–N08 implementation checkpoints](REMEDIATION-N04-N08.md).
 N05 is implemented and its four cross-platform CI jobs passed. See
-[N05 evidence](N05-CODEX-CONFIG-FIX.md). N06 is implemented and locally verified;
-exact-source CI is pending. See [N06 evidence](N06-RECURSION-FIX.md).
-N07/N08 remain open. An additional [pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
+[N05 evidence](N05-CODEX-CONFIG-FIX.md). N06's four exact-source CI jobs passed,
+verified before N07 on 2026-10-04; see [N06 evidence](N06-RECURSION-FIX.md).
+N07 is implemented and locally verified; its push/CI checkpoint is recorded in
+[N07 evidence](N07-OPENCODE-NATIVE-FIX.md). N08 remains open.
+An additional [pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
 was observed during N06 integration and remains pending.
 The original review and release observations below are
 historical; v0.4.1 has since been published.
@@ -149,11 +151,11 @@ preflight and disappears from discovery despite its executable being available.
 a native path and `opencode.cmd` is absent. `_oc_cmd()` returns `opencode.cmd`;
 the CLI's `_resolve_cli` returns `None` for that selection.
 
-- [ ] Resolve explicit override, native executable on PATH, and supported npm
+- [x] Resolve explicit override, native executable on PATH, and supported npm
       native targets through one shared launch path.
-- [ ] Use the same resolver for dispatch, discovery, and preflight.
-- [ ] Add native-only Windows and npm-layout tests, including long/multiline argv.
-- [ ] Reject an unsafe/unusable shim with an actionable diagnostic when no native
+- [x] Use the same resolver for dispatch, discovery, and preflight.
+- [x] Add native-only Windows and npm-layout tests, including long/multiline argv.
+- [x] Reject an unsafe/unusable shim with an actionable diagnostic when no native
       target is available, instead of relying on the known prompt-mangling fallback.
 
 Temporary mitigation: set `OPENCODE_CLI_CMD` to the absolute native executable path.

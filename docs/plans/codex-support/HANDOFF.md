@@ -1,5 +1,34 @@
 # Current handoff
 
+> **N07 implementation checkpoint (2026-10-04):** OpenCode now selects a native
+> executable through one resolver for dispatch, discovery, stats and preflight:
+> absolute `OPENCODE_CLI_CMD`, Windows `opencode.exe` on PATH, then verified npm
+> postinstall output. Missing native targets and Windows `.cmd`/`.bat` overrides
+> fail with guidance; no shell fallback. POSIX, exact model/variant, long argv,
+> child marker, lifecycle options and two-argument injected runners are preserved.
+> The shared override restriction also applies to Codex/Claude.
+> Exact `codex:gpt-6-luna@max+fast`: baseline `504da9c`, accepted `45a52f7`, checked
+> integration `80acbf9`; generation uses committed source/documentation `ba4482d`.
+> N06's four exact-source full-suite/generation CI jobs passed before dispatch.
+> One implementation call reused fresh evidence under `deny`, with no canary or
+> retry: **434,929** tokens, including **361,728** cached input (59,711 uncached
+> input, 13,490 output). No attempt/cumulative overrun. Cost/lead usage unknown;
+> actual fast routing has no independent telemetry. Global config is unchanged.
+> Verification: 17 frozen acceptance/integration cases, 261 adjacent checks,
+> 49 final fixture checks and 18 packaging checks; counts overlap. All ten bundles
+> have matching 40-file core/provider bytes and pass standalone recursion checks;
+> both OpenCode bundles also pass all 17 native-launch cases outside the checkout.
+> Both plugin formats regenerated; five tracked packages pass freshness checks.
+> [Evidence](../v0.4.0-review-fixes/N07-OPENCODE-NATIVE-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Source/artifact push and exact-source CI will be recorded below before stopping.
+> **Stop after N07.** N08 remains authorized via exact Luna/max/fast, pending the
+> user's token check and green N07 CI. F01 remains documented and unimplemented;
+> use a precise frozen slice selector for integration, then independent adjacent
+> checks. N04–N07 fixes are unreleased on `refactor/codex-support`; no global
+> installation, release promotion or additional provider calls. Earlier checkpoints
+> below are historical and superseded where they conflict.
+
 > **N06 implementation checkpoint (2026-10-03):** all five direct executors
 > reject nested dispatch before processes/artifacts and mark production children
 > with `CLD_EXECUTOR_DEPTH=1`. Legacy prompts prohibit recursive delegation;
