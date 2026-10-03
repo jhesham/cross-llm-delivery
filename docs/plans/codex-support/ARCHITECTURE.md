@@ -166,6 +166,15 @@ Preserve clear diagnostics for denied execution, unavailable provider CLIs, and 
 
 **A10 — Budgets and evidence are shared across attempts.** Model validation, retries, and escalations all count. Record per-attempt input/output/cached tokens and reported cost, with provider/model IDs and reason. Unknown cost is null/unknown, not zero. Distinguish reported total tokens from any derived total and avoid double-counting cached input. Serialize budget reservations before parallel admission; distinguish admission limits from in-flight hard limits a provider cannot enforce. Validation evidence writes must be atomic/locked and keyed to relevant model/provider/CLI/test context.
 
+Providers may supply `config_inputs(repository)` to discover local configuration
+paths on every admission context calculation. The CLI merges these with existing
+and explicitly supplied inputs, deduplicates canonical paths, and hashes bytes
+or missing states. `config_env(paths)` supplies referenced variable names for
+value hashing. Codex discovers its selected home, conservative ancestor project
+layers and native managed files; its setup notes document excluded authentication,
+profile and remote inputs. Discovery is repeated before validation and at factory
+use, so configuration selection cannot remain frozen in an old admitted context.
+
 **A11 — Optional Codex executor stays optional.** Implement only after the shared execution contracts stabilize. Use capability-checked local CLI flags and sanitized real JSONL fixtures. Prefer stdin for long prompts, explicit model/config, `workspace-write`, and bounded process lifecycle. Do not guess currently available model IDs, claim a flat/free cost, inherit an unrelated interactive session, or recursively invoke CLD from the executor prompt. Authentication remains with the user's CLI, not a bundled secret.
 
 **A12 — Migration and release discipline.** Track state/schema changes in the changelog; test upgrade and interrupted recovery with fixtures. Do not downgrade state in place; retain backups and record the compatible engine version. Public release staging must explicitly exclude machine-local evidence/credentials. Plan documents contain no secrets and can be version-controlled. Exact shipping version is chosen at T20 based on compatibility changes, not precommitted here.

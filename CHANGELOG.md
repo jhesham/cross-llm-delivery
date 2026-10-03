@@ -7,6 +7,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Fixed
+- Codex validation evidence now includes selected home, conservative project
+  layers and native managed configuration files, including missing-file states
+  and referenced credential/header environment variables. Changes block saved
+  evidence and already-admitted factories before dispatch (review N05). Relative
+  `CODEX_HOME` values are refused because validation and execution use different
+  worktree directories; configuration bytes and secret values are never recorded.
 - Acceptance runs bind project imports to the frozen Git candidate, including
   inherited `PYTHONPATH`, editable installs and namespace packages. Code loaded
   from a live checkout at startup or through a late import hook blocks acceptance
