@@ -13,8 +13,10 @@ and the [N04–N08 implementation checkpoints](REMEDIATION-N04-N08.md).
 N05 is implemented and its four cross-platform CI jobs passed. See
 [N05 evidence](N05-CODEX-CONFIG-FIX.md). N06's four exact-source CI jobs passed,
 verified before N07 on 2026-10-04; see [N06 evidence](N06-RECURSION-FIX.md).
-N07 is implemented and locally verified; its push/CI checkpoint is recorded in
-[N07 evidence](N07-OPENCODE-NATIVE-FIX.md). N08 remains open.
+N07's four exact-source CI jobs passed before N08; see
+[N07 evidence](N07-OPENCODE-NATIVE-FIX.md). N08 is implemented and locally
+verified; its native POSIX subprocess result and cross-platform CI are pending.
+See [N08 evidence](N08-ANTIGRAVITY-CWD-FIX.md).
 An additional [pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
 was observed during N06 integration and remains pending.
 The original review and release observations below are
@@ -178,11 +180,12 @@ documented, unverified live POSIX/macOS boundary.
 {"posix_home": "/home/cld-review", "dispatch_cwd": "C:/Users/cld-review", "absolute_on_posix": false}
 ```
 
-- [ ] Apply the SystemDrive transformation only on Windows; use a valid native
+- [x] Apply the SystemDrive transformation only on Windows; use a valid native
       home/cwd on POSIX.
-- [ ] Add a model-free real subprocess test on Ubuntu with the default home path.
-- [ ] Retain the Windows transcript-resolution regression.
-- [ ] Keep live POSIX/macOS verification explicitly unverified until performed.
+- [x] Add a model-free real subprocess test on Ubuntu with the default home path.
+      Its completed Ubuntu CI result is still required.
+- [x] Retain the Windows transcript-resolution regression.
+- [x] Keep live POSIX/macOS verification explicitly unverified until performed.
 
 ## Verification and scope
 
