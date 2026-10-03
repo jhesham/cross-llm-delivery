@@ -36,6 +36,7 @@ from cld.evidence import EvidenceError
 from cld.test_run import TestRun
 from cld.process import run_process
 from cld.candidate import acceptance_args
+from cld.acceptance import acceptance_command
 from cld.executors._capture import CaptureError
 from cld.ledger import Ledger, DONE, StateError, resolve_ledger
 from cld.locking import OwnerBusy
@@ -367,11 +368,12 @@ def pytest_test_runner(workdir: str, acceptance_test_path: str | None = None) ->
     # Concurrency hardening: no __pycache__/.pytest_cache contention between judges.
     env["PYTHONDONTWRITEBYTECODE"] = "1"
 
-    proc = _hook("run_process")(
-        # Keep complete assertion reasons even with a project's quiet addopts.
-        # Candidate preflight classifies failures from the real pytest summary.
-        [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-vvv", "--tb=short"],
-        workdir, env=env, timeout=600)
+    # Keep complete assertion reasons even with a project's quiet addopts.
+    # Candidate preflight classifies failures from the real pytest summary.
+    argv, env, payload = acceptance_command(workdir,
+        ["-p", "no:cacheprovider", *target, "-vvv", "--tb=short"], env)
+    proc = _hook("run_process")(argv, workdir, env=env, timeout=600,
+                               **({"stdin": payload} if payload is not None else {}))
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
                    timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)
 
