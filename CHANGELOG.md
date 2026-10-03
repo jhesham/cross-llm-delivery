@@ -7,6 +7,11 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Fixed
+- Pytest acceptance and model validation no longer interpret test output as
+  provider authentication diagnostics (follow-up F01). A passing item containing
+  authentication-like text cannot invalidate an otherwise valid assertion-red
+  baseline. Process lifecycle errors and invalid pytest runs remain fail-closed;
+  executor authentication diagnostics remain enabled and final.
 - Antigravity uses the native home as its default dispatch cwd on POSIX (review
   N08). The SystemDrive transcript workaround remains Windows-only; explicit
   home overrides still control both cwd and transcript lookup. Missing-transcript
