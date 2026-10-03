@@ -10,7 +10,9 @@ fixes and regressions. This wider review found **one P1 and four P2 findings**.
 Implementation update (2026-10-03): N04 is fixed and its four full
 cross-platform CI jobs passed. See [N04 evidence](N04-IMPORT-ISOLATION-FIX.md)
 and the [N04–N08 implementation checkpoints](REMEDIATION-N04-N08.md).
-N05–N08 remain open. The original review and release observations below are
+N05 is implemented and locally verified; exact-source CI is pending. See
+[N05 evidence](N05-CODEX-CONFIG-FIX.md). N06–N08 remain open.
+The original review and release observations below are
 historical; v0.4.1 has since been published.
 
 ## Findings and corrective tasks
@@ -87,13 +89,13 @@ No model was called; this tests admission identity, not either route's availabil
 {"validation_policy": "deny", "changed_codex_config_after_admission": true, "factory_result": "OFFLINE_EXECUTOR", "validation_dispatches": 0}
 ```
 
-- [ ] Add provider-owned discovery of effective configuration inputs, including
+- [x] Add provider-owned discovery of effective configuration inputs, including
       Codex's selected home and applicable project configuration.
-- [ ] Hash configuration bytes without persisting secret values; account for
+- [x] Hash configuration bytes without persisting secret values; account for
       missing-to-present and present-to-missing files as well as edits.
-- [ ] Add regressions proving edits invalidate saved evidence and block the
+- [x] Add regressions proving edits invalidate saved evidence and block the
       already-admitted factory under `deny`, before dispatch.
-- [ ] Document any configuration/authentication inputs intentionally excluded.
+- [x] Document any configuration/authentication inputs intentionally excluded.
 
 Temporary mitigation: pass every relevant file explicitly with
 `--validation-config <path>` and revalidate after a configuration change.

@@ -1,5 +1,29 @@
 # Current handoff
 
+> **N05 implementation checkpoint (2026-10-03):** Codex local configuration
+> and custom-provider credential references now key validation evidence, including
+> missing-file states. Discovery is recomputed before factory use; invalid TOML
+> and non-literal absolute homes fail closed. Exact `codex:gpt-6-luna@max+fast`
+> implemented the five-file contract through CLD: accepted `0294ab6`, independent
+> integration `8ab0029`, final reviewed runtime `8320281`. N04 CI is green on all
+> four jobs. Final N05 focused checks: 84 passed; packaging/bundle checks: 18
+> passed. All ten bundles regenerated from committed runtime, 40 core files match,
+> tracked plugins are fresh, and both Codex bundles pass standalone offline guards.
+> [Evidence and usage](../v0.4.0-review-fixes/N05-CODEX-CONFIG-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Working-branch push and exact-source CI identification are pending at this edit.
+> Two live calls total: one validation, one implementation; **2,457,594** executor
+> tokens, including **2,220,544** cached input. This exceeded the 1,200,000 admission
+> estimate; cost and lead usage unavailable. No paid retry or substitution.
+> Actual priority routing lacked independent tier telemetry. Global Codex config
+> matches its pre-dispatch digest; no install, release or persistent setting change.
+> N06–N08 remain pending. **Stop for token availability before N06**, and require
+> green N05 CI. The earlier canary context is stale under final automatic inputs;
+> check current exact-spec evidence and use a bounded fresh canary only if needed.
+> Brief the executor to report Windows pytest temp-access errors promptly instead
+> of repeated self-test retries; independent CLD acceptance remains the gate.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
 > **N04 implementation checkpoint (2026-10-03):** runtime `6b9cc7c` fixes frozen
 > acceptance import isolation; failing tests were committed first (`a3ca85b`).
 > Final regressions: 20 passed; broader adjacent group: 201 passed; packaging,

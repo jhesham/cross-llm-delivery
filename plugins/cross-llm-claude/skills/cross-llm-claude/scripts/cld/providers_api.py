@@ -40,6 +40,8 @@ class Provider:
     config_env      : optional callable(config paths) -> env names the provider's
                       config files reference (e.g. OpenCode `{env:NAME}`); they
                       key validation evidence like context_env (values hashed).
+    config_inputs   : optional callable(repository directory) -> configuration
+                      paths selected by this provider for validation identity.
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -56,6 +58,7 @@ class Provider:
     launch_problem: Optional[Callable] = None  # () -> str | None; blocks dispatch before spend
     context_extra: Optional[Callable] = None  # () -> str; account/plan identity keyed into validation evidence
     config_env: Optional[Callable] = None  # (config paths) -> tuple of env names referenced by provider config
+    config_inputs: Optional[Callable] = None  # (repository directory) -> iterable of config paths
 
 
 # ---------------------------------------------------------------------------
