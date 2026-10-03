@@ -1,5 +1,38 @@
 # Current handoff
 
+> **N04 implementation checkpoint (2026-10-03):** runtime `6b9cc7c` fixes frozen
+> acceptance import isolation; failing tests were committed first (`a3ca85b`).
+> Final regressions: 20 passed; broader adjacent group: 201 passed; packaging,
+> bundle and parity checks: 18 passed. Counts overlap. All five providers for
+> both hosts were regenerated from that committed runtime; 40 core files match
+> across all ten bundles, tracked plugins are fresh, and the standalone Codex
+> bundle judges disagreeing live/frozen sources correctly outside the checkout.
+> [Evidence](../v0.4.0-review-fixes/N04-IMPORT-ISOLATION-FIX.md) and
+> [implementation checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Cross-platform CI is pending branch push/run identification. No live executor
+> calls or global installs; executor tokens 0, lead token usage unavailable.
+> N05–N08 are authorized through CLD with exact `codex:gpt-6-luna@max+fast`.
+> Stop at N04 for the user's token-availability check; require green N04 CI
+> before dispatching N05. v0.4.1 is already published; these fixes are unreleased.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
+> **Full-build review checkpoint (2026-10-03):** reviewed `f019689` (0.4.1
+> preparation). Previous N01–N03 fixes are present. Five additional findings,
+> reproductions and corrective checklists are recorded in
+> [the full review](../v0.4.0-review-fixes/FULL-REVIEW-2026-10-03.md): N04 **P1**
+> acceptance imports can escape the frozen candidate; N05–N08 **P2** cover
+> Codex configuration identity, three-provider recursion prevention, native-only
+> Windows OpenCode discovery, and Antigravity's POSIX cwd.
+> Exact-source [CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/37095765709)
+> passed all four full-suite/generator/packaging jobs. Local isolated probes
+> reproduced the new cases; the redundant local full run was deliberately stopped
+> after 17% progress (no final pass claimed), once exact-source CI was verified.
+> Claude's separate pytest run was left untouched. Review documents only changed;
+> no runtime edits, inference, installation, commit or push. Public `main` was
+> still `429b9d0` at the remote check; promotion remains Claude's work. Next:
+> implement N04 first when authorized. Review token usage unavailable.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
 > **OpenCode N03 checkpoint (2026-10-03):** inline-referenced credentials/routes
 > now key validation evidence. Eight new regression cases and the relevant
 > suites pass (67 total); isolated OpenCode bundles pass for both hosts.
