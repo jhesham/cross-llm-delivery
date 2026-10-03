@@ -14,8 +14,9 @@ N05 is implemented and its four cross-platform CI jobs passed. See
 [N05 evidence](N05-CODEX-CONFIG-FIX.md). N06's four exact-source CI jobs passed,
 verified before N07 on 2026-10-04; see [N06 evidence](N06-RECURSION-FIX.md).
 N07's four exact-source CI jobs passed before N08; see
-[N07 evidence](N07-OPENCODE-NATIVE-FIX.md). N08 is implemented and locally
-verified; its native POSIX subprocess result and cross-platform CI are pending.
+[N07 evidence](N07-OPENCODE-NATIVE-FIX.md). N08 is implemented and verified locally
+and on both Ubuntu CI jobs, including the native POSIX default-home subprocess.
+Its two Windows CI jobs remain pending.
 See [N08 evidence](N08-ANTIGRAVITY-CWD-FIX.md).
 An additional [pytest diagnostic follow-up](FOLLOWUP-PYTEST-DIAGNOSTICS.md)
 was observed during N06 integration and remains pending.
@@ -183,7 +184,7 @@ documented, unverified live POSIX/macOS boundary.
 - [x] Apply the SystemDrive transformation only on Windows; use a valid native
       home/cwd on POSIX.
 - [x] Add a model-free real subprocess test on Ubuntu with the default home path.
-      Its completed Ubuntu CI result is still required.
+      Passed both Ubuntu Python 3.11/3.14 CI jobs on exact source `a5337f9`.
 - [x] Retain the Windows transcript-resolution regression.
 - [x] Keep live POSIX/macOS verification explicitly unverified until performed.
 
