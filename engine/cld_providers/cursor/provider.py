@@ -26,7 +26,8 @@ from typing import Callable, List, Tuple
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         executor_depth_blocked)
 from cld.models import ModelInfo
 from cld.providers_api import Provider, register_provider
 
@@ -38,7 +39,8 @@ DEFAULT_MODEL = "composer-2.5"
 
 def _default_runner(args: list[str], cwd: str, **options):
     """Bounded probe by default; dispatch supplies its own deadline."""
-    env = {**os.environ, "CURSOR_INVOKED_AS": "cursor-agent"}
+    env = {**os.environ, **(options.pop("env", None) or {}),
+           "CURSOR_INVOKED_AS": "cursor-agent"}
     # TLS-interception fix: cursor's BUNDLED node uses its own CA store, so behind a
     # TLS-intercepting proxy / AV MITM (e.g. Norton) it can't verify the Cursor API cert
     # and the agent writes NOTHING (a silent empty-diff failure). `--use-system-ca` makes
@@ -137,6 +139,8 @@ class CursorExecutor:
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
         prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
@@ -149,13 +153,19 @@ class CursorExecutor:
         return prompt
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
         model_id = f"{self._model}-{self._effort}" if self._effort else self._model
         argv = [*_cursor_invocation(), "-p", prompt, "--output-format", "json",
                 "--workspace", cwd, "--model", model_id, "--force", "--trust"]
         rc, raw, process = run_dispatch(self._runner, _default_runner, argv, cwd,
-                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                env={"CLD_EXECUTOR_DEPTH": "1"})
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
         try:
