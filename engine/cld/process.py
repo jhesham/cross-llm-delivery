@@ -46,6 +46,12 @@ def network_block_reason(env: Mapping[str, str]) -> str | None:
     return None
 
 
+def executor_depth_blocked() -> bool:
+    """Fail closed unless the ambient process is a lead with the exact marker."""
+    value = os.environ.get("CLD_EXECUTOR_DEPTH")
+    return value is not None and value != "0"
+
+
 class ProcessCleanupError(BaseException):
     """Termination could not be confirmed; abort without inspecting the candidate."""
 
@@ -268,11 +274,14 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
     return result
 
 
-def dispatch(runner, default_runner, argv, cwd, *, timeout=None, cancel=None, artifact_dir=None):
+def dispatch(runner, default_runner, argv, cwd, *, timeout=None, cancel=None, artifact_dir=None, env=None):
     """Only production runners get lifecycle kwargs; legacy fixtures keep two args."""
     if runner is default_runner:
-        result = runner(argv, cwd, timeout=deadline_seconds(timeout, dispatch=True),
-                        cancel=cancel, artifact_dir=artifact_dir)
+        options = dict(timeout=deadline_seconds(timeout, dispatch=True),
+                       cancel=cancel, artifact_dir=artifact_dir)
+        if env is not None:
+            options["env"] = env
+        result = runner(argv, cwd, **options)
     else:
         result = runner(argv, cwd)
     if isinstance(result, ProcessResult):
