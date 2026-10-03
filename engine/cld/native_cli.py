@@ -38,6 +38,10 @@ def resolve_native(*, logical, override_var, npm_candidates, npm_env=None, env=N
         value = env[override_var]
         if not (isinstance(value, str) and Path(value).is_absolute() and _is_file(value)):
             raise NativeCliError(f"{override_var} must name an absolute path to an existing file")
+        if os_name == "nt" and Path(value).suffix.lower() in (".cmd", ".bat"):
+            raise NativeCliError(f"{override_var} must name a native executable; Windows shell shims "
+                                 "(.cmd/.bat) are not supported. Set it to an absolute path to the "
+                                 "native executable")
         return NativeCommand(str(Path(value).resolve()), {})
     missing = (f"{logical} CLI not found; install it or set {override_var} "
                "to an absolute executable path")
