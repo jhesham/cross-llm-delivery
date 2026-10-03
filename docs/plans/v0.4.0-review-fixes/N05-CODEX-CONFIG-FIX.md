@@ -96,7 +96,8 @@ is not independently proven. No fallback to standard service was requested.
 - Pushed source/artifact commit `0d2eb0895d82a4c35c8bcf6fc7ff0d2dea6aa0b5`
   to public `refactor/codex-support`. Exact-source
   [CI run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253)
-  is queued at the checkpoint; its four cross-platform results remain pending.
+  passed all four Windows/Ubuntu × Python 3.11/3.14 full-suite, generator,
+  freshness and packaging jobs; confirmed before N06 live dispatch.
   The follow-up checkpoint commit changes documentation only.
 
 ## Observed Windows friction and next sitting

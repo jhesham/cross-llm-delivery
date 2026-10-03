@@ -40,6 +40,13 @@ when prior acceptance relied on a live checkout's source.
 
 ## Final executor errors and network access
 
+All five adapters reject nested direct dispatch before probes or artifact
+creation. A lead has `CLD_EXECUTOR_DEPTH` absent or exactly `0`; production
+executor children receive `1`. Every executor prompt prohibits invoking CLD,
+another LLM provider or a dispatch tool. These checks prevent accidental nested
+spend; they do not make a worktree an OS security sandbox. Read-only CLI status
+commands remain available in an executor context.
+
 Some executor errors cannot succeed on retry: authentication, missing binary,
 access denied, launch error, missing capability, invalid invocation, recursive
 dispatch, Codex service-tier warning/mismatch, timeout, network unavailable and

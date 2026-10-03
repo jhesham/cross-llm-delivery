@@ -1,5 +1,37 @@
 # Current handoff
 
+> **N06 implementation checkpoint (2026-10-03):** all five direct executors
+> reject nested dispatch before processes/artifacts and mark production children
+> with `CLD_EXECUTOR_DEPTH=1`. Legacy prompts prohibit recursive delegation;
+> Cursor's environment adjustments and two-argument injected runners are preserved.
+> Exact `codex:gpt-6-luna@max+fast` accepted source `102de90`, checked integration
+> `c3e7486`; generated artifacts use committed runtime/documentation `7b1ab0e`.
+> N05's four full-suite/platform CI jobs passed before live N06 calls.
+> Verification: 53 frozen acceptance/integration cases, 232 adjacent checks,
+> 18 packaging checks; counts overlap. Ten bundles have identical 40-file core
+> and matching provider bytes; all ten pass standalone recursion checks. Both
+> plugin formats regenerated and tracked packages pass freshness checks.
+> [Evidence](../v0.4.0-review-fixes/N06-RECURSION-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Push and exact-source CI identification are pending at this edit.
+> Two calls total: one fresh canary, one implementation; **862,345** executor
+> tokens, including **759,040** cached input. Below the 1.2m cumulative estimate;
+> the production call exceeded its 600k reservation by 142,247. Cost/lead usage
+> unavailable; actual fast routing lacks independent tier telemetry. No retries,
+> substitution, installation or release promotion. Global config matches baseline.
+> Original run `7de01c823cb64fb1a1151de8fbb9f89c` has full usage; reconciliation
+> preserved its backup and accepted commit. Integration-only run
+> `cb38fa7314c94dc68f5e6c6ebe082114` derives production usage only, excluding the
+> canary: do not report that ledger's 742,247 as the whole slice total.
+> Broad red integration encountered a separate
+> [F01 diagnostic false-positive](../v0.4.0-review-fixes/FOLLOWUP-PYTEST-DIAGNOSTICS.md);
+> use each precise frozen slice suite for integration and independently run adjacent
+> checks until F01 is fixed. N06's full adjacent group passed on integrated source.
+> **Stop after N06.** N07/N08 remain authorized through exact Luna/max/fast,
+> pending token availability and green N06 CI. Check current exact-spec evidence
+> first and reuse if fresh. Keep the Windows temp-access stop instruction in briefs.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
 > **N05 implementation checkpoint (2026-10-03):** Codex local configuration
 > and custom-provider credential references now key validation evidence, including
 > missing-file states. Discovery is recomputed before factory use; invalid TOML
