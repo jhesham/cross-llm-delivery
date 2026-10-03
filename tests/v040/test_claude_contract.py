@@ -70,7 +70,7 @@ def test_invocation_is_exact_and_isolated(tmp_path):
                         "--no-session-persistence"]
     assert inv.stdin.endswith("do the slice") and "do the slice" not in " ".join(inv.argv)
     assert "git" in inv.stdin.lower() and "cld" in inv.stdin.lower()
-    assert inv.env == {"CLD_EXECUTOR_DEPTH": "1"}
+    assert inv.env == {"CLD_EXECUTOR_DEPTH": "1", "CLAUDE_CODE_EFFORT_LEVEL": "low"}
     assert inv.unset_env == ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
     assert "bypassPermissions" not in inv.argv and "--dangerously-skip-permissions" not in inv.argv
 
