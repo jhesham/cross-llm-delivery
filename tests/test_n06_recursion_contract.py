@@ -79,6 +79,9 @@ def test_direct_entrypoint_blocks_before_runner_or_diff(tmp_path, monkeypatch, n
 @pytest.mark.parametrize("depth", [None, "0"], ids=["unset", "lead-zero"])
 def test_production_child_marks_depth_and_blocks_nested_cli(tmp_path, monkeypatch, name, depth):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    if name == "opencode":
+        # A local child stands in for the CLI; no installed provider is required.
+        monkeypatch.setenv("OPENCODE_CLI_CMD", str(Path(sys.executable).resolve()))
     if depth is not None:
         monkeypatch.setenv("CLD_EXECUTOR_DEPTH", depth)
     monkeypatch.setenv("N06_PRESERVED_ENV", "sentinel")

@@ -16,6 +16,8 @@ from cld.process import run_process
 @pytest.mark.parametrize("mode", ["timeout", "cancelled", "authentication", "malformed_output"])
 def test_provider_default_runner_lifecycle(tmp_path, monkeypatch, name, cls, mode):
     provider = importlib.import_module(f"cld_providers.{name}.provider")
+    if name == "opencode":
+        monkeypatch.setenv("OPENCODE_CLI_CMD", str(Path(sys.executable).resolve()))
     seen = []
     ready = tmp_path / "child-ready"
     code = ("import sys,time; from pathlib import Path; print('partial',flush=True); "
@@ -71,6 +73,7 @@ def test_provider_default_runner_lifecycle(tmp_path, monkeypatch, name, cls, mod
 
 def test_dispatch_and_probe_environment_deadlines(tmp_path, monkeypatch):
     from cld_providers.opencode import provider
+    monkeypatch.setenv("OPENCODE_CLI_CMD", str(Path(sys.executable).resolve()))
     monkeypatch.setenv("CLD_PROBE_TIMEOUT", "0.15")
     monkeypatch.setenv("CLD_DISPATCH_TIMEOUT", "0.2")
     actual = run_process

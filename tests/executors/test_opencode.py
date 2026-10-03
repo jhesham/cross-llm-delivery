@@ -50,8 +50,7 @@ def test_builds_locked_argv():
     ex.run(task, "/work")
 
     argv = runner.calls[0][0]
-    # argv[0] is the resolved opencode command: bare name, .cmd shim, or (on Windows
-    # with the real exe found) the full path to opencode.exe.
+    # Injected runners receive logical OpenCode argv; production resolves native.
     assert "opencode" in argv[0].lower()
     assert "run" in argv
     assert "-m" in argv and "anthropic/claude-sonnet-4-6" in argv
@@ -130,46 +129,14 @@ def test_parse_opencode_usage_captures_cost():
     assert abs(u["cost"] - 0.03) < 1e-9
 
 
-def test_oc_cmd_prefers_real_exe_on_windows(monkeypatch):
-    # BUG (found live): the opencode.cmd npm shim routes through cmd.exe /c, which
-    # MANGLES a long multi-line prompt passed as a positional arg -> the dispatch
-    # silently falls back to interactive/attach mode and produces no step_finish.
-    # The real opencode.exe (invoked directly by subprocess, no shell) handles the
-    # argv correctly. _oc_cmd must resolve the real .exe on Windows when findable.
-    # Patch the impl module (cld_providers.opencode.provider) — that is where the
-    # code actually lives; patching a re-export shim would have no effect.
+def test_oc_cmd_compatibility_shim_delegates_to_native_resolver(monkeypatch):
+    from cld.native_cli import NativeCommand
+    from cld.executors import opencode as shim
     import cld_providers.opencode.provider as mod
-
-    monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
-    monkeypatch.setattr(mod.os, "name", "nt", raising=False)
-    # simulate the npm layout: shim on PATH, real exe under node_modules/.../bin
-    monkeypatch.setattr(mod.shutil, "which",
-                        lambda n: r"C:\npm\opencode.cmd" if n == "opencode.cmd" else None)
-    monkeypatch.setattr(mod.os.path, "exists",
-                        lambda p: p.replace("\\", "/").endswith(
-                            "node_modules/opencode-ai/bin/opencode.exe"))
-
-    cmd = mod._oc_cmd()
-    assert cmd.replace("\\", "/").endswith("opencode-ai/bin/opencode.exe"), cmd
-
-
-def test_oc_cmd_falls_back_to_cmd_when_exe_missing(monkeypatch):
-    # if the real exe can't be located, fall back to the .cmd shim (still works for
-    # short prompts; better than crashing). Override still wins.
-    # Patch the impl module (cld_providers.opencode.provider) — shim has no os/shutil.
-    import cld_providers.opencode.provider as mod
-    monkeypatch.delenv("OPENCODE_CLI_CMD", raising=False)
-    monkeypatch.setattr(mod.os, "name", "nt", raising=False)
-    monkeypatch.setattr(mod.shutil, "which", lambda n: None)
-    monkeypatch.setattr(mod.os.path, "exists", lambda p: False)
-    assert mod._oc_cmd() == "opencode.cmd"
-
-
-def test_oc_cmd_env_override_wins(monkeypatch):
-    # Patch the impl module (cld_providers.opencode.provider) — shim has no os.
-    import cld_providers.opencode.provider as mod
-    monkeypatch.setenv("OPENCODE_CLI_CMD", "/custom/opencode")
-    assert mod._oc_cmd() == "/custom/opencode"
+    assert callable(getattr(mod, "resolve_opencode_command", None))
+    monkeypatch.setattr(mod, "resolve_opencode_command", lambda: NativeCommand("/absolute/opencode.exe", {}))
+    assert shim._oc_cmd is mod._oc_cmd
+    assert shim._oc_cmd() == "/absolute/opencode.exe"
 
 
 def test_opencode_effort_maps_to_variant():
