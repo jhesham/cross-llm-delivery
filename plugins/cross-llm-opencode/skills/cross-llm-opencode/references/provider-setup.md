@@ -25,7 +25,7 @@ On POSIX, the launcher uses an explicit override or native `opencode` found on `
 
 ### Cost
 
-OpenCode dispatches are metered at the underlying model provider's token rates.
+OpenCode billing depends on the underlying provider, model and account plan.
 Catalog free/flat labels are snapshots, not proof of current price. Missing
 completed usage is unknown. Any real canary/validation requires the user's
 exact model and spend authorization; CLI discovery alone does not grant it.

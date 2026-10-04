@@ -24,4 +24,6 @@ opencode run "<task>" -m opencode/<provider/model> --format json --dir <workdir>
 
 Authenticate through the installed OpenCode TUI or the auth flow shown by
 `opencode auth --help`.
-Credentials are stored locally. Cost is billed per token at the provider's rates (not flat-rate).
+Credentials are stored locally. Billing depends on the selected provider,
+model and account plan. Catalog cost labels are snapshots; only reported
+usage/cost is known, and missing cost must not be treated as zero.
