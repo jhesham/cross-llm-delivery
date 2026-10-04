@@ -1,5 +1,19 @@
 # Current handoff
 
+> **Public development-record cleanup completed locally (2026-10-04):**
+> Replaced local paths, profile details and email literals in twelve historical
+> documents with meaningful placeholders, retaining technical content and links.
+> [Development-record guidance](../README.md) explains historical evidence,
+> placeholder usage and where to find current product instructions.
+> Protected privacy acceptance: `tests/test_public_development_records.py`,
+> 13 checks red at baseline, then green after one implementation attempt using
+> exact `claude:claude-opus-5-5@medium` (one additional validation probe).
+> Accepted candidate `f6cc072`; checked CLD integration `94148d1` reached gate 3.
+> Lead review corrected the index's immutable-SHA wording after integration.
+> No engine, generated package, architecture or installation changes; no push,
+> release or directory submission. Historical SHA citations below remain records
+> of their original verification and are not current branch identifiers.
+
 > **Advisory refresh (2026-10-04):** Updating current guidance for v0.4.2's
 > two lead hosts and five executor providers. Install/version instructions,
 > usage reporting, Cursor direct-Node setup, Antigravity path/transcript notes,

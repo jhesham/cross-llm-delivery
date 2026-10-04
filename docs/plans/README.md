@@ -10,8 +10,9 @@ documentation.
 
 - Records describe the project at the time they were written. Behaviour, flags,
   provider support and model IDs may since have changed.
-- Commit SHAs, branch names and tags quoted in records may no longer resolve, or
-  may point at different content, after the Git history was rewritten.
+- Commit SHAs quoted in records may no longer be reachable after a history
+  rewrite. A full SHA still identifies the same immutable content; branch names
+  and tags can refer to different commits over time.
 - Commands are recorded as they were run during development. They may be stale,
   may depend on local state that no longer exists, and should not be copied as
   current instructions.
