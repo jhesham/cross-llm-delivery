@@ -1,5 +1,10 @@
 # N06 — five-provider recursion defense, implemented through CLD
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Implemented 2026-10-03 using exact **`codex:gpt-6-luna@max+fast`**.
 Committed red tests/contract: `c6c17fb2af418bbee349111c76c7b2584cd00c0d`.
 Accepted model source: `102de90a6e5538416eb763b10b6129838f39c30c`.

@@ -1,5 +1,10 @@
 # Full build review — 2026-10-03
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Reviewed checkout: `refactor/codex-support`, `f0196892f1a3ba15cdadb756c34ae8eb680b2de3` (0.4.1 preparation).
 Review only: no engine/provider changes, inference, installation, cleanup of real builds, commits, or publishing.
 

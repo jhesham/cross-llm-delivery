@@ -13,7 +13,7 @@ must stop dispatch rather than silently using standard service.
 | N06 | Five-provider recursion contract | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N07 | Native Windows OpenCode discovery | CLD / exact Luna max + fast | Complete; four-job CI green |
 | N08 | Antigravity native POSIX cwd | CLD / exact Luna max + fast | Complete; four-job CI green |
-| F01 | Pytest output diagnostic policy | CLD / exact Luna max + fast | Implemented and verified locally; exact-source CI pending |
+| F01 | Pytest output diagnostic policy | CLD / exact Luna max + fast | Complete; four-job release CI green; published v0.4.2 |
 
 Detailed requirements and corrective checklists:
 [full review](FULL-REVIEW-2026-10-03.md).
@@ -204,7 +204,7 @@ fixes; no release promotion, install or live POSIX/macOS provider verification.
 - [x] Push source/artifacts `6037bb1` and record exact-source cross-platform CI:
       [run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565),
       in progress at checkpoint; subsequent checkpoint is documentation only.
-- [ ] Confirm all four F01 CI jobs before promotion or further implementation.
+- [x] Confirm all four final release-branch and exact-main CI jobs before publication.
 - [x] Record full live usage, update handoff and stop for token availability.
 
 [F01 evidence](F01-PYTEST-DIAGNOSTICS-FIX.md): accepted `235a13c`, integrated
@@ -215,3 +215,19 @@ the original ledger backup/logs for whole-slice accounting. Cost/lead usage
 unknown; actual fast routing lacks independent telemetry. Config is unchanged.
 No installation or release promotion. N04–N08 and F01 are implemented and
 unreleased on the working branch; stop before the next slice.
+
+## v0.4.2 publication closure
+
+- [x] Resolve the initial F01 Windows/Python 3.14 atomic replacement failure with
+      committed red/green regressions and bounded Windows lock retries.
+- [x] Pass all 49 focused recovery/ledger checks and the final local full suite.
+- [x] Confirm all four final release-branch CI jobs before promotion.
+- [x] Promote main through the checked normal-push workflow; verify all four
+      exact-main CI jobs before tagging/publication.
+- [x] Build all providers/hosts from the immutable tag source and publish nine
+      assets; download all nine and verify hashes.
+- [x] Record publication/handoff, preserving prior delivery evidence and installs.
+
+Published [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2), source `64048696c4bce27e8b1119137a630e9b3c6164fa`.
+All N04–N08 and F01 fixes are released; earlier checkpoints above are historical.
+[Publication evidence](PUBLICATION-0.4.2.md). No provider calls or global installs.
