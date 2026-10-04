@@ -26,7 +26,11 @@ Version **0.4.2** supports both lead hosts and five executor providers,
 including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
 Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2)
-for a fixed source revision; marketplace installs follow `main`.
+for a fixed source revision. The Claude-only root marketplace is read from `main`;
+both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
+updates stay pinned until the manifest version changes (local in-place profiles can
+differ). Maintainers bump `VERSION` through the existing checked release workflow for
+distributable plugin updates; adding the current version is not a new release.
 [Publication verification record](docs/plans/v0.4.0-review-fixes/PUBLICATION-0.4.2.md).
 
 ## What installing and using it does

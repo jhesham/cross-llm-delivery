@@ -72,12 +72,15 @@ The repo is also a Claude marketplace. In Claude Code:
 /plugin install cross-llm-claude@cross-llm-delivery
 ```
 
-Install only the providers you need. These commands follow the marketplace's
-default-branch version; use the tagged release artifacts to pin a fixed revision.
+Install only the providers you need. These commands read the marketplace from the
+default branch; use the tagged release artifacts to pin a fixed revision.
 The source generator produces all five Claude packages under `plugins/`.
-Claude manifests intentionally omit a fixed version so Git-commit updates
-remain available; generated skill banners record the engine/product version.
-Codex portable manifests carry the product version (0.4.2 for this release).
+Both the Claude and the Codex portable manifests take their version from the
+`VERSION` file. Claude marketplace-managed plugin updates stay pinned until the
+manifest version changes; local in-place profiles can differ. Maintainers bump
+`VERSION` through the existing checked release workflow for distributable plugin
+updates; adding the current version to a manifest is not publishing a new release.
+The root marketplace is Claude-only; Codex uses the local catalog below.
 
 ## Codex standalone skills: CLI and IDE
 
