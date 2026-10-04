@@ -1,5 +1,29 @@
 # Current handoff
 
+> **Plugin metadata completed locally (2026-10-04):** Both hosts' generated
+> manifests now read `VERSION` and include homepage/repository/MIT/public author
+> contact. The public publisher name is provisionally the existing GitHub owner,
+> `jhesham`; verified directory identity has not been established. Codex portable
+> manifests retain their root layout and add namespaced listing text and a local
+> square SVG icon. Marketplace descriptions state the slice-delivery job; version
+> update guidance now explains Claude's manifest-version pinning. Existing names,
+> engine, skills, installer, CI and release tooling are unchanged.
+> Protected acceptance `c5214ca`: 12 baseline failures, one passing idempotence
+> case. Exact `claude:claude-opus-5-5@medium` completed one implementation attempt,
+> reusing validation (no new probe). Accepted `20f6861`; checked integration
+> `0d8e3fa` reached gate 3. Lead review refined discovery/privacy wording and
+> sampled the version once per Claude packaging run at source `cd203bb`.
+> All ten bundles and both plugin formats regenerated from that source. Checks:
+> 46 focused tests, ten skills, five-plugin freshness, 434 copied core Python
+> comparisons and local metadata/icon checks passed. Claude Code 2.1.289 validates
+> the marketplace and all five plugins; all five missing-version warnings are
+> gone. Only the preserved `cross-llm-claude` name warning remains (no claim of
+> directory acceptance). Privacy URL publication, verified publisher identity,
+> profile-install evidence, final full suite and submissions remain pending.
+> No push, release, install, configuration change or submission. Executor usage:
+> 8,927 input/output plus 325,705 cache-read and 27,754 cache-creation tokens;
+> billed USD and lead-chat usage unavailable. Stop for the user's token check.
+
 > **Shared disclosures completed locally (2026-10-04):** Added
 > [privacy policy](../../../PRIVACY.md), support/private security contacts,
 > independence, permissions and provider-specific billing disclosures. Both
