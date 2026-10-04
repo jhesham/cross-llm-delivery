@@ -81,6 +81,8 @@ manifest version changes; local in-place profiles can differ. Maintainers bump
 `VERSION` through the existing checked release workflow for distributable plugin
 updates; adding the current version to a manifest is not publishing a new release.
 The root marketplace is Claude-only; Codex uses the local catalog below.
+See the [Claude manifest version rules](https://code.claude.com/docs/en/plugins-reference#version)
+for update behavior.
 
 ## Codex standalone skills: CLI and IDE
 
