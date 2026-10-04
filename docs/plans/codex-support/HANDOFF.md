@@ -298,7 +298,7 @@ All four owned global Claude standalone skills match generated `@49b1a3f`
 bundles byte-for-byte. Eight installed isolated help checks and the read-only
 Codex picker check passed (seven advisory rows). Installation found no active
 delivery writer. Former `@84dd85a` installations are preserved at:
-`C:\Users\Administrator\.claude\skill-backups\p02-20260929-230108-898da3374e9d40efb874adf554af8cae`.
+`<home>\.claude\skill-backups\p02-20260929-230108-898da3374e9d40efb874adf554af8cae`.
 Restart Claude Code to load the updated entry instructions. No new global
 Codex skill installation or release-asset replacement was requested.
 
@@ -356,7 +356,7 @@ Local model-free checks reproduce elevated-helper failure on standalone CLI
 
 With explicit user approval, backed up the global Codex config and changed
 only `windows.sandbox` from `elevated` to `unelevated`. Backup:
-`C:\Users\Administrator\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
+`<home>\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
 Verified all other parsed settings unchanged. Shell execution and
 sandbox-created-file create/edit/read/delete pass in an ordinary workspace.
 All checks used `codex sandbox`, without model calls.
@@ -427,7 +427,7 @@ also passed: private-probe edits/evidence protection, managed-worktree edits/
 source preservation, and exclusion of external junction targets from ACL changes.
 
 The four previous `59722b5` installations are backed up at
-`C:\Users\Administrator\.claude\skill-backups\p01-20260929-183119-51a8549158404fca9d87db6c1fc10f41`.
+`<home>\.claude\skill-backups\p01-20260929-183119-51a8549158404fca9d87db6c1fc10f41`.
 Retained local proofs: `.cld/environment/p01-ci-final.json`,
 `p01-bundle-coherence.json`, `p01-install.json`, `p01-installed-smoke.json`,
 `p01-config-check.json` and `p01-final.json` under the same directory. Restart

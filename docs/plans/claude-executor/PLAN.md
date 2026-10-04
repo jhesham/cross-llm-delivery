@@ -21,7 +21,7 @@
 - New final errors: `usage_limit`, `model_mismatch`, `not_logged_in`.
 - CLD slice tests must fail at baseline by AssertionError only (lazy resolution).
 - `plugins/` and `dist/` are generated; never hand-edit.
-- Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commits end with `Co-Authored-By: Claude Opus 5.5 <author-email>`.
 - Every live call (probe, validation, canary) and every push/tag/install needs the user's explicit go-ahead. Long CLD steps run detached (`Start-Process`).
 
 ## Review Focus
@@ -119,7 +119,7 @@ Expected: PASS.
 git add engine/cld/process.py tests/v040/__init__.py tests/v040/test_process_unset_env.py
 git commit -m "feat: let run_process remove variables from a child environment
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 2: Shared native-CLI launcher; Codex R07 fix; Claude launcher
@@ -396,7 +396,7 @@ git commit -m "feat: shared native-CLI launcher for Codex and Claude; fix R07
 Native Codex resolution now depends only on the process runner, so a custom
 Git runner no longer restores the npm-shim launch failure.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 3: Final errors, Claude spec checks, provider validation extra
@@ -500,7 +500,7 @@ Expected: PASS.
 git add engine/cld/executors/base.py engine/cld/models.py engine/cld/providers_api.py engine/cld/cli.py tests/v040/test_engine_prep.py tests/v031/test_final_errors.py
 git commit -m "feat: Claude-ready final errors, exact-ID spec checks and provider validation extra
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 4: Red slice acceptance tests and CLD plan
@@ -856,7 +856,7 @@ Expected: no collection errors; every `FAILED` line contains `AssertionError` or
 git add tests/v040/test_claude_contract.py tests/v040/test_claude_catalog.py tests/v040/test_claude_preflight.py docs/plans/claude-executor/cld-plan.md
 git commit -m "test: define red Claude executor slice acceptance and CLD plan
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ---
@@ -872,14 +872,14 @@ The builder is the installed Claude-host skill `~/.claude/skills/cross-llm-codex
 - [ ] **Step 3: Preview** (installed skill dir):
 
 ```bash
-python scripts/run_delivery.py D:/claude_server/cross-llm-delivery/docs/plans/claude-executor/cld-plan.md --repo D:/claude_server/cross-llm-delivery --ledger D:/claude_server/cross-llm-delivery/.cld/v040-ledger.json --dry-run --json
+python scripts/run_delivery.py <repo>/docs/plans/claude-executor/cld-plan.md --repo <repo> --ledger <repo>/.cld/v040-ledger.json --dry-run --json
 ```
 
 - [ ] **Step 4: Dispatch detached**
 
 ```powershell
 $env:CLD_DISPATCH_TIMEOUT = "1200"
-$argline = 'scripts\run_delivery.py "D:/claude_server/cross-llm-delivery/docs/plans/claude-executor/cld-plan.md" --repo "D:/claude_server/cross-llm-delivery" --ledger "D:/claude_server/cross-llm-delivery/.cld/v040-ledger.json" --step --workers 1 --executor codex:gpt-6-luna@max+fast --validation-policy allow --budget-attempts 7 --host claude-code --json'
+$argline = 'scripts\run_delivery.py "<repo>/docs/plans/claude-executor/cld-plan.md" --repo "<repo>" --ledger "<repo>/.cld/v040-ledger.json" --step --workers 1 --executor codex:gpt-6-luna@max+fast --validation-policy allow --budget-attempts 7 --host claude-code --json'
 Start-Process -FilePath python -ArgumentList $argline -WorkingDirectory "$env:USERPROFILE\.claude\skills\cross-llm-codex" -RedirectStandardOutput step.json -RedirectStandardError step.err -WindowStyle Hidden -PassThru
 ```
 
