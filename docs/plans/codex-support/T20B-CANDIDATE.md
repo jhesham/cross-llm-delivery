@@ -62,13 +62,13 @@ require explicit model/effort selection, with no guessed default or entitlement.
 
 All four Claude Code standalone skills were staged and hash-checked before
 replacement, then installed together from `59722b5` under
-`C:\Users\Administrator\.claude\skills\cross-llm-<provider>`.
+`<home>\.claude\skills\cross-llm-<provider>`.
 Every installed file matches its generated bundle; all 38 shared core Python
 files (40 common Python files including wrappers) agree. Installed driver help
 passes four times; the installed Codex parser/factory preserves
 `gpt-6-luna`, `max`, `fast` without invoking inference.
 
-Backups: `C:\Users\Administrator\.claude\skill-backups\t20b-20260929-004212-bb64c028`.
+Backups: `<home>\.claude\skill-backups\t20b-20260929-004212-bb64c028`.
 Original/new SHA-256 inventories are in that folder's
 `install-manifest.json` and `.cld/t20b/claude-install.json`;
 check results and entry measurements are `.cld/t20b/installed-checks.json`.
