@@ -47,8 +47,8 @@ Anthropic grading reads `ANTHROPIC_API_KEY`; OTLP export, when configured with
 `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS` or
 `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` (with the OpenTelemetry SDK),
 sends dispatch metadata; and project subprocesses can use the network too.
-Local events are always recorded during execution; nothing is exported
-externally unless configured. Logs and provider output may contain sensitive
+Local events are always recorded during execution; those events are not
+exported externally unless telemetry export is configured. Logs and provider output may contain sensitive
 data and are not guaranteed to be redacted. Do not paste secrets into plans,
 briefs, logs or support requests.
 

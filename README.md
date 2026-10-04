@@ -35,7 +35,8 @@ for a fixed source revision; marketplace installs follow `main`.
   CLI under your account and configuration.
 - Creates Git worktrees, `refs/cld/*` refs and `.cld/` logs, events and a
   ledger (`.cld-ledger.json` by default; custom ledger paths are possible).
-  These stay until you deliberately clean them up.
+  Durable records have no automatic expiry; successfully collected executor
+  worktrees can be removed after the verified candidate and ledger are saved.
 - Runs acceptance/integration tests, project commands and Git hooks with your
   user privileges. A worktree is **not a security sandbox**.
 
@@ -67,30 +68,30 @@ repository (absolute path). Claude Code host:
 
 ```bash
 python generator/build_skill.py claude
-cd dist/cross-llm-claude
-python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host claude-code --dry-run --json
+python dist/cross-llm-claude/scripts/run_delivery.py dist/cross-llm-claude/examples/demo-plan.md --repo <absolute-git-repo> --host claude-code --dry-run --json
 ```
 
 Codex host:
 
 ```bash
 python generator/build_skill.py claude --host codex
-cd dist/codex/cross-llm-claude
-python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host codex --dry-run --json
+python dist/codex/cross-llm-claude/scripts/run_delivery.py dist/codex/cross-llm-claude/examples/demo-plan.md --repo <absolute-git-repo> --host codex --dry-run --json
 ```
 
 Expected: `"gate_code": 0`, `"run_id": null`, `"layers": [["T1", "T3"], ["T2"]]`.
 The preview dispatches no executor, spends nothing on models and writes nothing
 to the repository; it is not a live acceptance run or demo build. Every
 `dist/cross-llm-<provider>` and `dist/codex/cross-llm-<provider>` bundle ships
-the same `README.md`, `PRIVACY.md`, `SECURITY.md` and `examples/demo-plan.md`.
+a host/provider-specific reviewer README and the same `PRIVACY.md`,
+`SECURITY.md` and `examples/demo-plan.md` resources.
 
 ## Install and select
 
 You need Python 3.11+, Git, the chosen lead host, and the chosen provider CLI
 with suitable authentication. Supported surfaces are local Claude Code and
 Codex CLI/IDE workflows, subject to their actual skill/plugin discovery
-limitations; ChatGPT web, claude.ai and Cowork are not. Bundles vendor their engine: no Python package
+limitations; ChatGPT web, claude.ai and Cowork are not. Bundles vendor their
+engine: no Python package
 install is needed on the target machine. Install only the providers you use;
 refresh all bundles sharing a ledger from the same source revision.
 
