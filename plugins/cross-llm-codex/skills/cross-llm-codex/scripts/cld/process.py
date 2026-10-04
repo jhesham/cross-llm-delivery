@@ -46,6 +46,12 @@ def network_block_reason(env: Mapping[str, str]) -> str | None:
     return None
 
 
+def executor_depth_blocked() -> bool:
+    """Fail closed unless the ambient process is a lead with the exact marker."""
+    value = os.environ.get("CLD_EXECUTOR_DEPTH")
+    return value is not None and value != "0"
+
+
 class ProcessCleanupError(BaseException):
     """Termination could not be confirmed; abort without inspecting the candidate."""
 
@@ -167,13 +173,15 @@ def _stop_posix(process, timeout=5):
 
 
 def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, artifact_dir=None,
-                unset_env=()):
+                unset_env=(), classify_output=True):
     """Run synchronously; never return while owned descendants can still write.
 
     cancel is a threading.Event-compatible object. KeyboardInterrupt is re-raised
     only after containment cleanup. artifact_dir is a parent OUTSIDE the candidate;
     default is the OS temp area. Each invocation reserves its own retained directory.
     POSIX descendants must stay in the new process group (no daemonization).
+    classify_output defaults to provider diagnostics; pytest disables it to use
+    return codes without interpreting test text. Lifecycle errors are preserved.
     """
     seconds = deadline_seconds(timeout)
     cancel = cancel if cancel is not None else _scope.get().get("cancel")
@@ -260,7 +268,9 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                 raise ProcessCleanupError(f"Process cleanup unconfirmed; retain worktree and logs at {directory}") from exc
     result = ProcessResult(rc, str(out_path), str(err_path), error, time.monotonic() - started)
     if result.error is None:
-        result = ProcessResult(rc, str(out_path), str(err_path), exit_error(rc, result.output), result.elapsed)
+        classification = (exit_error(rc, result.output) if classify_output else
+                          (None if rc == 0 else "nonzero_exit"))
+        result = ProcessResult(rc, str(out_path), str(err_path), classification, result.elapsed)
     (directory / "result.json").write_text(json.dumps(result.metadata()), encoding="utf-8")
     if interrupted is not None:
         interrupted.process_result = result
@@ -268,11 +278,14 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
     return result
 
 
-def dispatch(runner, default_runner, argv, cwd, *, timeout=None, cancel=None, artifact_dir=None):
+def dispatch(runner, default_runner, argv, cwd, *, timeout=None, cancel=None, artifact_dir=None, env=None):
     """Only production runners get lifecycle kwargs; legacy fixtures keep two args."""
     if runner is default_runner:
-        result = runner(argv, cwd, timeout=deadline_seconds(timeout, dispatch=True),
-                        cancel=cancel, artifact_dir=artifact_dir)
+        options = dict(timeout=deadline_seconds(timeout, dispatch=True),
+                       cancel=cancel, artifact_dir=artifact_dir)
+        if env is not None:
+            options["env"] = env
+        result = runner(argv, cwd, **options)
     else:
         result = runner(argv, cwd)
     if isinstance(result, ProcessResult):

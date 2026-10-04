@@ -1,10 +1,11 @@
 """Antigravity provider plugin — the `agy` CLI executor.
 
-Windows gotcha: `agy` writes the model reply to a transcript file under a POSIX
-path (/Users/<name>/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/
-transcript.jsonl). A leading-/ path resolves to the current drive's root on
-Windows, so the dispatch must run with cwd on the C: drive. stdout is empty by
-design — the reply lives in the transcript. See docs/notes/antigravity-cli-notes.md.
+`agy` writes the model reply to a transcript file under a POSIX path
+(`/Users/<name>/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/
+transcript.jsonl`). On Windows, a leading-/ path resolves to the current
+drive's root, so dispatch uses the SystemDrive to make transcript lookup work.
+POSIX dispatch uses the native home directory. stdout is empty by design — the
+reply lives in the transcript. See docs/notes/antigravity-cli-notes.md.
 """
 from __future__ import annotations
 
@@ -16,8 +17,10 @@ from pathlib import Path
 
 
 def _dispatch_cwd() -> str:
-    """User home forced onto SystemDrive, so agy's POSIX transcript path resolves."""
+    """Choose a cwd where agy's POSIX-style transcript path resolves."""
     home = Path.home()
+    if os.name != "nt":
+        return str(home)
     sysdrive = os.environ.get("SystemDrive", "C:")
     if (home.drive or "").upper() != sysdrive.upper():
         return str(Path(sysdrive + os.sep) / "Users" / home.name)
@@ -60,7 +63,8 @@ from typing import Callable
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback, artifact_file
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         artifact_file, executor_depth_blocked)
 
 Runner = Callable[[list[str], str], tuple[int, str]]
 
@@ -100,6 +104,8 @@ class AntigravityExecutor:
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
         prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
@@ -112,6 +118,11 @@ class AntigravityExecutor:
         return prompt
 
     def run(self, task: SliceTask, workdir, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
         prompt = self._build_prompt(task, feedback)
         log_file = artifact_file(prefix="agy_", suffix=".log", artifact_dir=self._artifact_dir)
         dispatch = [
@@ -121,7 +132,8 @@ class AntigravityExecutor:
         ]
         try:
             rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, self._home,
-                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)   # cwd = home on C:
+                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                env={"CLD_EXECUTOR_DEPTH": "1"})   # cwd = selected home
         except BaseException as exc:
             exc.provider_log_path = log_file
             raise
@@ -147,10 +159,16 @@ class AntigravityExecutor:
             except OSError:
                 reply = None
         if reply is None:
+            if os.name == "nt":
+                transcript_hint = ("the agy dispatch must run with cwd on the SystemDrive "
+                                   "so its POSIX-style transcript path resolves")
+            else:
+                transcript_hint = ("check that agy wrote its transcript under the selected home "
+                                   f"({self._home})")
             return ExecutorResult(
                 ok=False, diff="", process={**process, "error": "malformed_output"},
-                raw_log=process_feedback(raw or "", process, 3500) + "\n[antigravity] no MODEL transcript found; the agy "
-                        "dispatch must run with cwd on the C: drive (see "
+                raw_log=process_feedback(raw or "", process, 3500) + "\n[antigravity] no MODEL transcript found; "
+                        + transcript_hint + " (see "
                         "docs/notes/antigravity-cli-notes.md)")
 
         diff, files_changed = capture_diff(self._runner, str(workdir))

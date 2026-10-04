@@ -19,6 +19,8 @@ from cld.judge import judge
 from cld.test_run import TestRun
 from cld.process import run_process
 from cld.candidate import acceptance_args
+from cld.acceptance import acceptance_command
+import os
 from cld.executors._capture import checked
 from cld.recovery import RecoverySession, atomic_write
 from cld.process import process_scope
@@ -50,8 +52,10 @@ def _pytest(workdir: str, test_path: str) -> TestRun:
     a slice's own tests inside a shared file; shlex.split passes it as separate args.
     """
     target = acceptance_args(test_path)
-    proc = run_process([sys.executable, "-m", "pytest", "-p", "no:cacheprovider", *target, "-q"], workdir, timeout=120,
-                       env={"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"})
+    argv, env, payload = acceptance_command(workdir, ["-p", "no:cacheprovider", *target, "-q"],
+        {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"})
+    proc = run_process(argv, workdir, timeout=120, env=env, classify_output=False,
+                       **({"stdin": payload} if payload is not None else {}))
     return TestRun(proc.returncode, proc.output, log_path=proc.stdout_path,
                    timed_out=proc.error == "timeout", error=None if proc.error == "nonzero_exit" else proc.error)
 

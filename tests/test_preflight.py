@@ -20,6 +20,10 @@ def test_executor_cli_status_shape():
 
 
 def test_preflight_ok_when_provider_cli_present(monkeypatch):
+    from cld.native_cli import NativeCommand
+    from cld_providers.opencode import provider
+    monkeypatch.setattr(provider, "resolve_opencode_command",
+                        lambda: NativeCommand("/x/opencode", {}))
     monkeypatch.setattr(rd, "_executor_cli_status",
                         lambda: {"antigravity": None, "opencode": "/x/opencode", "cursor": None})
     assert rd._preflight_executor("opencode:opencode/glm-5.2") is None

@@ -1,5 +1,203 @@
 # Current handoff
 
+> **F01 implementation checkpoint (2026-10-04):** Both pytest adapters disable
+> provider-output heuristics explicitly; ordinary pytest exits retain their return
+> codes for independent judgment. Lifecycle/launch errors, collection/config/no-tests
+> and missing return codes remain fail-closed. Provider authentication defaults
+> remain enabled and final. All four N08 CI jobs passed before the live F01 call.
+> Exact `codex:gpt-6-luna@max+fast`, reused current evidence under `deny`, one call,
+> no canary or paid retry. Original candidate: 28 passes, two failures caused by
+> a lead-written green-path fixture. Committed correction `7e4293c`, checked plan
+> reconciliation and owned staging of unchanged original runtime blobs enabled real
+> CLI repair acceptance `235a13c` and checked integration `fb72548`, both 30 passes.
+> Original failed evidence/worktree retained; no additional inference for repair.
+> Final generation source/documentation `6170865`. Verification: 277 focused
+> passes, one POSIX-only skip on Windows; exact original broad selector 232 passes;
+> packaging 18 passes. Historical N06 baseline replay: 29 intended failures and
+> 203 passes, no process error, valid assertion-red preflight. Counts overlap.
+> Ten bundles and both plugin formats regenerated; matching 40-file core/provider
+> bytes, standalone recursion and red/green pytest probes, retained N07/N08 checks
+> and five-package freshness. No global installation or release promotion.
+> Measured whole-slice usage: **201,535** tokens, including **155,136** cached input
+> (42,484 uncached input, 3,915 output), no reservation overrun or active call.
+> Explicit dispatch deadline 900 seconds. Cost/lead usage unknown; actual fast
+> routing lacks independent telemetry. Global Codex config is unchanged.
+> Repair ledger `.cld/f01/ledger.json` belongs to reconciled run
+> `4d51f27b65254a57b0d8c21520b372ce` and excludes original live usage. Original run
+> `86c835bfe0094eabbc61ee61969a3ab4` survives in the reconciliation backup
+> `.cld/f01/ledger.json.reconcile-1134915b47284733b39ae42100d0995b.bak` and raw logs.
+> [Evidence](../v0.4.0-review-fixes/F01-PYTEST-DIAGNOSTICS-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed source/artifacts `6037bb1` to public `refactor/codex-support`.
+> [Exact-source CI run 37142332565](https://github.com/jhesham/cross-llm-delivery/actions/runs/37142332565)
+> is in progress. Require all four new CI jobs green before promotion or further
+> implementation. This final checkpoint commit changes documentation only.
+> **Stop after F01 and confirm token availability.** N04–N08 and F01 are implemented
+> and unreleased on `refactor/codex-support`. No new slice or provider calls.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
+> **N08 implementation checkpoint (2026-10-04):** Antigravity uses native
+> `Path.home()` on POSIX; its SystemDrive transcript workaround is Windows-only.
+> Explicit home, selected-home transcript lookup, worktree `--add-dir`, exact model,
+> lifecycle options and recursion protection remain intact. Diagnostics/setup notes
+> explain the platform distinction without claiming live POSIX/macOS verification.
+> Exact `codex:gpt-6-luna@max+fast`: baseline `44fdc2e`, accepted `f51b1d9`, checked
+> integration `79031cf`, final generation source/documentation `d5cd59d`.
+> N07's four exact-source CI jobs passed before the live call. Existing validation
+> was reused under `deny`; one-call limit, no canary, retry or model substitution.
+> Usage: **144,751** tokens, including **121,344** cached input (18,929 uncached
+> input, 4,478 output). No reservation overrun. Cost/lead usage unknown; actual fast
+> routing has no independent telemetry. Global Codex config is unchanged.
+> Frozen acceptance and checked integration: nine passed, one POSIX-only skip on
+> Windows. Final adjacent group: 270 passed, one skip; packaging: 18 passed.
+> Counts overlap. Ten regenerated bundles have matching 40-file core/provider
+> bytes and pass standalone recursion guards. Both Antigravity bundles pass the
+> nine N08 cases plus platform skip outside the checkout; both OpenCode bundles
+> retain 17 native-launch passes. Both plugin formats regenerated; tracked packages
+> pass freshness checks. No global installation or release promotion.
+> [Evidence](../v0.4.0-review-fixes/N08-ANTIGRAVITY-CWD-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed source/artifacts `a5337f9` to public `refactor/codex-support`.
+> [Exact-source CI run 37138995723](https://github.com/jhesham/cross-llm-delivery/actions/runs/37138995723)
+> passed both Ubuntu 3.11/3.14 jobs, including the real native POSIX default-home
+> child and both-host generation/packaging. Both Windows full-suite jobs are still
+> running. This checkpoint changes documentation only. Require those remaining
+> jobs green before final closure/further implementation/promotion.
+> **Stop after N08.** N04–N08 are implemented but unreleased on
+> `refactor/codex-support`. F01 remains documented and unimplemented. Use precise
+> frozen slice integration selectors plus independent adjacent checks until it
+> is fixed. Confirm token availability before further work. Earlier checkpoints
+> below are historical and superseded where they conflict.
+
+> **N07 implementation checkpoint (2026-10-04):** OpenCode now selects a native
+> executable through one resolver for dispatch, discovery, stats and preflight:
+> absolute `OPENCODE_CLI_CMD`, Windows `opencode.exe` on PATH, then verified npm
+> postinstall output. Missing native targets and Windows `.cmd`/`.bat` overrides
+> fail with guidance; no shell fallback. POSIX, exact model/variant, long argv,
+> child marker, lifecycle options and two-argument injected runners are preserved.
+> The shared override restriction also applies to Codex/Claude.
+> Exact `codex:gpt-6-luna@max+fast`: baseline `504da9c`, accepted `45a52f7`, checked
+> integration `80acbf9`; generation uses committed source/documentation `ba4482d`.
+> N06's four exact-source full-suite/generation CI jobs passed before dispatch.
+> One implementation call reused fresh evidence under `deny`, with no canary or
+> retry: **434,929** tokens, including **361,728** cached input (59,711 uncached
+> input, 13,490 output). No attempt/cumulative overrun. Cost/lead usage unknown;
+> actual fast routing has no independent telemetry. Global config is unchanged.
+> Verification: 17 frozen acceptance/integration cases, 261 adjacent checks,
+> 49 final fixture checks and 18 packaging checks; counts overlap. All ten bundles
+> have matching 40-file core/provider bytes and pass standalone recursion checks;
+> both OpenCode bundles also pass all 17 native-launch cases outside the checkout.
+> Both plugin formats regenerated; five tracked packages pass freshness checks.
+> [Evidence](../v0.4.0-review-fixes/N07-OPENCODE-NATIVE-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed source/artifacts `54b41d0` to public `refactor/codex-support`.
+> [Exact-source CI run 37136806667](https://github.com/jhesham/cross-llm-delivery/actions/runs/37136806667)
+> is running; all four cross-platform results remain pending. This follow-up
+> checkpoint changes documentation only.
+> **Stop after N07.** N08 remains authorized via exact Luna/max/fast, pending the
+> user's token check and green N07 CI. F01 remains documented and unimplemented;
+> use a precise frozen slice selector for integration, then independent adjacent
+> checks. N04–N07 fixes are unreleased on `refactor/codex-support`; no global
+> installation, release promotion or additional provider calls. Earlier checkpoints
+> below are historical and superseded where they conflict.
+
+> **N06 implementation checkpoint (2026-10-03):** all five direct executors
+> reject nested dispatch before processes/artifacts and mark production children
+> with `CLD_EXECUTOR_DEPTH=1`. Legacy prompts prohibit recursive delegation;
+> Cursor's environment adjustments and two-argument injected runners are preserved.
+> Exact `codex:gpt-6-luna@max+fast` accepted source `102de90`, checked integration
+> `c3e7486`; generated artifacts use committed runtime/documentation `7b1ab0e`.
+> N05's four full-suite/platform CI jobs passed before live N06 calls.
+> Verification: 53 frozen acceptance/integration cases, 232 adjacent checks,
+> 18 packaging checks; counts overlap. Ten bundles have identical 40-file core
+> and matching provider bytes; all ten pass standalone recursion checks. Both
+> plugin formats regenerated and tracked packages pass freshness checks.
+> [Evidence](../v0.4.0-review-fixes/N06-RECURSION-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed source/artifacts `7212bca` to public `refactor/codex-support`.
+> [Exact-source CI run 37122319883](https://github.com/jhesham/cross-llm-delivery/actions/runs/37122319883)
+> is running; all four cross-platform results remain pending. The following
+> checkpoint commit changes documentation only.
+> Two calls total: one fresh canary, one implementation; **862,345** executor
+> tokens, including **759,040** cached input. Below the 1.2m cumulative estimate;
+> the production call exceeded its 600k reservation by 142,247. Cost/lead usage
+> unavailable; actual fast routing lacks independent tier telemetry. No retries,
+> substitution, installation or release promotion. Global config matches baseline.
+> Original run `7de01c823cb64fb1a1151de8fbb9f89c` has full usage; reconciliation
+> preserved its backup and accepted commit. Integration-only run
+> `cb38fa7314c94dc68f5e6c6ebe082114` derives production usage only, excluding the
+> canary: do not report that ledger's 742,247 as the whole slice total.
+> Broad red integration encountered a separate
+> [F01 diagnostic false-positive](../v0.4.0-review-fixes/FOLLOWUP-PYTEST-DIAGNOSTICS.md);
+> use each precise frozen slice suite for integration and independently run adjacent
+> checks until F01 is fixed. N06's full adjacent group passed on integrated source.
+> **Stop after N06.** N07/N08 remain authorized through exact Luna/max/fast,
+> pending token availability and green N06 CI. Check current exact-spec evidence
+> first and reuse if fresh. Keep the Windows temp-access stop instruction in briefs.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
+> **N05 implementation checkpoint (2026-10-03):** Codex local configuration
+> and custom-provider credential references now key validation evidence, including
+> missing-file states. Discovery is recomputed before factory use; invalid TOML
+> and non-literal absolute homes fail closed. Exact `codex:gpt-6-luna@max+fast`
+> implemented the five-file contract through CLD: accepted `0294ab6`, independent
+> integration `8ab0029`, final reviewed runtime `8320281`. N04 CI is green on all
+> four jobs. Final N05 focused checks: 84 passed; packaging/bundle checks: 18
+> passed. All ten bundles regenerated from committed runtime, 40 core files match,
+> tracked plugins are fresh, and both Codex bundles pass standalone offline guards.
+> [Evidence and usage](../v0.4.0-review-fixes/N05-CODEX-CONFIG-FIX.md),
+> [checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed source/artifacts `0d2eb08` to public `refactor/codex-support`.
+> [Exact-source CI run 37119733253](https://github.com/jhesham/cross-llm-delivery/actions/runs/37119733253)
+> is queued; all four cross-platform results remain pending. The follow-up
+> checkpoint commit changes documentation only.
+> Two live calls total: one validation, one implementation; **2,457,594** executor
+> tokens, including **2,220,544** cached input. This exceeded the 1,200,000 admission
+> estimate; cost and lead usage unavailable. No paid retry or substitution.
+> Actual priority routing lacked independent tier telemetry. Global Codex config
+> matches its pre-dispatch digest; no install, release or persistent setting change.
+> N06–N08 remain pending. **Stop for token availability before N06**, and require
+> green N05 CI. The earlier canary context is stale under final automatic inputs;
+> check current exact-spec evidence and use a bounded fresh canary only if needed.
+> Brief the executor to report Windows pytest temp-access errors promptly instead
+> of repeated self-test retries; independent CLD acceptance remains the gate.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
+> **N04 implementation checkpoint (2026-10-03):** runtime `6b9cc7c` fixes frozen
+> acceptance import isolation; failing tests were committed first (`a3ca85b`).
+> Final regressions: 20 passed; broader adjacent group: 201 passed; packaging,
+> bundle and parity checks: 18 passed. Counts overlap. All five providers for
+> both hosts were regenerated from that committed runtime; 40 core files match
+> across all ten bundles, tracked plugins are fresh, and the standalone Codex
+> bundle judges disagreeing live/frozen sources correctly outside the checkout.
+> [Evidence](../v0.4.0-review-fixes/N04-IMPORT-ISOLATION-FIX.md) and
+> [implementation checklist](../v0.4.0-review-fixes/REMEDIATION-N04-N08.md).
+> Pushed `215bae1` to public `refactor/codex-support`.
+> [Exact-source CI run 37115459230](https://github.com/jhesham/cross-llm-delivery/actions/runs/37115459230)
+> is queued; its four full-suite/platform results remain pending. No live executor
+> calls or global installs; executor tokens 0, lead token usage unavailable.
+> N05–N08 are authorized through CLD with exact `codex:gpt-6-luna@max+fast`.
+> Stop at N04 for the user's token-availability check; require green N04 CI
+> before dispatching N05. v0.4.1 is already published; these fixes are unreleased.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
+> **Full-build review checkpoint (2026-10-03):** reviewed `f019689` (0.4.1
+> preparation). Previous N01–N03 fixes are present. Five additional findings,
+> reproductions and corrective checklists are recorded in
+> [the full review](../v0.4.0-review-fixes/FULL-REVIEW-2026-10-03.md): N04 **P1**
+> acceptance imports can escape the frozen candidate; N05–N08 **P2** cover
+> Codex configuration identity, three-provider recursion prevention, native-only
+> Windows OpenCode discovery, and Antigravity's POSIX cwd.
+> Exact-source [CI](https://github.com/jhesham/cross-llm-delivery/actions/runs/37095765709)
+> passed all four full-suite/generator/packaging jobs. Local isolated probes
+> reproduced the new cases; the redundant local full run was deliberately stopped
+> after 17% progress (no final pass claimed), once exact-source CI was verified.
+> Claude's separate pytest run was left untouched. Review documents only changed;
+> no runtime edits, inference, installation, commit or push. Public `main` was
+> still `429b9d0` at the remote check; promotion remains Claude's work. Next:
+> implement N04 first when authorized. Review token usage unavailable.
+> Earlier checkpoints below are historical and superseded where they conflict.
+
 > **OpenCode N03 checkpoint (2026-10-03):** inline-referenced credentials/routes
 > now key validation evidence. Eight new regression cases and the relevant
 > suites pass (67 total); isolated OpenCode bundles pass for both hosts.

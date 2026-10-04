@@ -6,6 +6,45 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-10-04
+
+### Fixed
+- Atomic ledger/evidence replacement tolerates brief Windows reader locks with
+  a bounded retry of the same flushed temporary file. Permanent errors still
+  fail; the old destination remains intact until a successful atomic replacement.
+- Pytest acceptance and model validation no longer interpret test output as
+  provider authentication diagnostics (follow-up F01). A passing item containing
+  authentication-like text cannot invalidate an otherwise valid assertion-red
+  baseline. Process lifecycle errors and invalid pytest runs remain fail-closed;
+  executor authentication diagnostics remain enabled and final.
+- Antigravity uses the native home as its default dispatch cwd on POSIX (review
+  N08). The SystemDrive transcript workaround remains Windows-only; explicit
+  home overrides still control both cwd and transcript lookup. Missing-transcript
+  guidance now reflects the platform. Live POSIX/macOS provider execution remains
+  unverified.
+- OpenCode uses one native launcher for dispatch, discovery, stats and preflight
+  (review N07): explicit absolute override, Windows `opencode.exe` on PATH, then
+  npm's installed native target. Native-only installations are recognized;
+  incomplete installs and Windows `.cmd`/`.bat` overrides fail with native-path
+  guidance. No shell fallback; long/multiline argv and injected runners remain
+  compatible. The shared Codex/Claude launcher also rejects Windows shim overrides.
+- All five executors mark production children with `CLD_EXECUTOR_DEPTH=1`
+  and reject nested direct dispatch before probes or artifact creation (review
+  N06). Only an absent marker or literal `0` identifies a lead. OpenCode, Cursor
+  and Antigravity prompts now prohibit recursive delegation; provider environment
+  adjustments and legacy injected runners remain compatible.
+- Codex validation evidence now includes selected home, conservative project
+  layers and native managed configuration files, including missing-file states
+  and referenced credential/header environment variables. Changes block saved
+  evidence and already-admitted factories before dispatch (review N05). Relative
+  `CODEX_HOME` values are refused because validation and execution use different
+  worktree directories; configuration bytes and secret values are never recorded.
+- Acceptance runs bind project imports to the frozen Git candidate, including
+  inherited `PYTHONPATH`, editable installs and namespace packages. Code loaded
+  from a live checkout at startup or through a late import hook blocks acceptance
+  instead of approving a different tree (review N04). External dependencies remain
+  available. Delivery, repair, integration and validation share this policy.
+
 ## [0.4.1] — 2026-10-03
 
 ### Fixed

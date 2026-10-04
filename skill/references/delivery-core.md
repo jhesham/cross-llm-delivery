@@ -31,7 +31,21 @@ test must pass after each layer is integrated: for a layered plan, choose tests
 that are already green or belong to earlier layers, never a later slice's
 still-red acceptance test.
 
+Production acceptance judges project imports from the frozen snapshot, including
+standard `src` layouts and editable installs. Use committed pytest configuration
+for other source layouts. If the judge reports a project import outside the
+snapshot, correct the test environment/import hook before retrying. Existing
+ledgers are not automatically re-tested by an engine update: use a fresh build
+when prior acceptance relied on a live checkout's source.
+
 ## Final executor errors and network access
+
+All five adapters reject nested direct dispatch before probes or artifact
+creation. A lead has `CLD_EXECUTOR_DEPTH` absent or exactly `0`; production
+executor children receive `1`. Every executor prompt prohibits invoking CLD,
+another LLM provider or a dispatch tool. These checks prevent accidental nested
+spend; they do not make a worktree an OS security sandbox. Read-only CLI status
+commands remain available in an executor context.
 
 Some executor errors cannot succeed on retry: authentication, missing binary,
 access denied, launch error, missing capability, invalid invocation, recursive

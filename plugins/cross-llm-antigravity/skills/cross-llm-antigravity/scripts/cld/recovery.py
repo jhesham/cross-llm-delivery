@@ -3,6 +3,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 from uuid import uuid4
@@ -20,7 +21,16 @@ def atomic_write(path: Path, data: bytes):
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows readers can briefly deny replacement without delete sharing.
+        # Retry the same fully flushed temporary file; never truncate the target.
+        for attempt in range(10):
+            try:
+                os.replace(temporary, path)
+                break
+            except OSError as exc:
+                if getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == 9:
+                    raise
+                time.sleep(min(.01 * (2 ** attempt), .1))
         if path.read_bytes() != data:
             raise OSError(f"Evidence readback mismatch: {path}")
     finally:

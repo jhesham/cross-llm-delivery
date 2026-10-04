@@ -8,8 +8,11 @@ from cld_providers.antigravity.provider import (
 def test_dispatch_cwd_is_on_system_drive():
     cwd = _dispatch_cwd()
     sysdrive = os.environ.get("SystemDrive", "C:")
-    # the dispatch cwd must live on the system drive so agy's POSIX /Users/... path resolves
-    assert cwd.upper().startswith(sysdrive.upper())
+    if os.name == "nt":
+        # Windows /Users/... transcript paths must resolve on the system drive.
+        assert cwd.upper().startswith(sysdrive.upper())
+    else:
+        assert cwd == str(Path.home())
 
 
 def test_parse_conversation_id_picks_most_frequent_uuid():
@@ -125,4 +128,6 @@ def test_missing_transcript_not_ok_with_hint(tmp_path):
     # runner reports success + a conv id, but no transcript on disk -> ok False + cwd hint
     ex = AntigravityExecutor(runner=_Runner("33333333-3333-3333-3333-333333333333"), home=str(tmp_path))
     res = ex.run(_task(), str(tmp_path / "wt"))
-    assert res.ok is False and "C:" in res.raw_log
+    assert res.ok is False and "transcript" in res.raw_log.lower()
+    if os.name == "nt":
+        assert "drive" in res.raw_log.lower()

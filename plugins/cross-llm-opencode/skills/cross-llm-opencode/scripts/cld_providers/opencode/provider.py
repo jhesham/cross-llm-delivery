@@ -10,15 +10,17 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import Callable, List, Tuple
 
 from cld.executors._capture import capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
-from cld.process import run_process, dispatch as run_dispatch, feedback as process_feedback
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         executor_depth_blocked)
+from cld.native_cli import NativeCliError, resolved_runner as _native_resolved_runner
 from cld.models import ModelInfo
 from cld.providers_api import Provider, register_provider
+from .launcher import resolve_opencode_command
 
 # runner(args, cwd) -> (returncode, stdout_or_combined_output)
 Runner = Callable[[list[str], str], tuple[int, str]]
@@ -27,34 +29,39 @@ DEFAULT_MODEL = "opencode/deepseek-v4-flash-free"
 
 
 def _default_runner(args: list[str], cwd: str, **options):
-    """Bounded probe by default; dispatch supplies its own deadline."""
+    """Run bounded processes, resolving only the logical OpenCode argv prefix."""
+    if args and args[0] == "opencode":
+        return resolved_runner(run_process)(args, cwd, **options)
     return run_process(args, cwd, **options)
+
+
+def resolved_runner(runner, resolve=None):
+    """Wrap a process runner with the selected native OpenCode command."""
+    return _native_resolved_runner(
+        runner, lambda: (resolve if resolve is not None else resolve_opencode_command)(), "opencode")
 
 
 
 def _oc_cmd() -> str:
-    """The opencode CLI command, overridable via OPENCODE_CLI_CMD.
+    """Return the selected native OpenCode executable path."""
+    return resolve_opencode_command().path
 
-    Windows BUG fix (found live): the npm `opencode.cmd` shim runs via `cmd.exe /c`,
-    which MANGLES a long multi-line prompt passed as a positional arg -- the dispatch
-    silently falls back to interactive mode and emits no step_finish. The real
-    `opencode.exe` (invoked directly by subprocess, no shell) handles the argv
-    correctly, so on Windows we resolve the real exe behind the shim
-    (`<npm-prefix>/node_modules/opencode-ai/bin/opencode.exe`) and use it. If it can't
-    be located we fall back to the `.cmd` shim (fine for short prompts).
-    """
-    override = os.environ.get("OPENCODE_CLI_CMD")
-    if override:
-        return override
-    if os.name != "nt":
-        return "opencode"
-    shim = shutil.which("opencode.cmd")
-    if shim:
-        exe = os.path.join(os.path.dirname(shim),
-                           "node_modules", "opencode-ai", "bin", "opencode.exe")
-        if os.path.exists(exe):
-            return exe
-    return "opencode.cmd"
+
+def _launch_problem():
+    try:
+        resolve_opencode_command()
+    except NativeCliError as exc:
+        return str(exc)
+    return None
+
+
+def _cli_invocation():
+    try:
+        return [resolve_opencode_command().path]
+    except NativeCliError:
+        # Keep the logical name for preflight's PATH check and actionable
+        # launch_problem callback; production execution still fails closed.
+        return ["opencode"]
 
 
 def _has_step_finish(raw: str) -> bool:
@@ -124,6 +131,8 @@ class OpenCodeExecutor:
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         allowed = ", ".join(task.files)
         prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
             f"Implement the following so that the acceptance tests pass.\n\n"
             f"{task.brief}\n\n"
             f"You may only create/modify these files: {allowed}\n"
@@ -141,7 +150,7 @@ class OpenCodeExecutor:
         """Argv for a plain headless run. The runner sets cwd=the target repo, and
         --dir names it too; a clean test confirmed this isolates correctly (no drift)."""
         dispatch = [
-            _oc_cmd(),
+            "opencode",
             "run",
             prompt,
             "-m",
@@ -164,11 +173,23 @@ class OpenCodeExecutor:
         return dispatch
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
         cwd = str(workdir)
         prompt = self._build_prompt(task, feedback)
         dispatch = self._build_dispatch(prompt, cwd)
-        rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, cwd,
-                timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir)
+        try:
+            rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, cwd,
+                    timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                    env={"CLD_EXECUTOR_DEPTH": "1"})
+        except NativeCliError as exc:
+            if self._runner is _default_runner:
+                return ExecutorResult(ok=False, diff="", files_changed=[], raw_log=str(exc),
+                                      process={"error": "missing_binary"})
+            raise
 
         if rc != 0:
             return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
@@ -204,17 +225,12 @@ class OpenCodeExecutor:
 def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:
     """List available OpenCode model ids via `opencode models`.
 
-    Resolves the platform-correct command (Windows npm shim is `opencode.cmd`,
-    overridable with OPENCODE_CLI_CMD). Degrades to [] on any failure -- nonzero
-    exit OR the CLI not being on PATH (FileNotFoundError) -- so the picker can
-    fall back to "Gemini only" instead of crashing.
+    The production runner resolves the same native binary used by dispatch.
+    Degrades to [] on failure so the picker can fall back to "Gemini only".
     """
-    oc_cmd = os.environ.get("OPENCODE_CLI_CMD") or (
-        "opencode.cmd" if os.name == "nt" else "opencode"
-    )
     try:
-        rc, out = runner([oc_cmd, "models"], ".")
-    except OSError:
+        rc, out = runner(["opencode", "models"], ".")
+    except (NativeCliError, OSError):
         return []
     if rc != 0:
         return []
@@ -227,9 +243,8 @@ def account_stats() -> str:
     Mirrors _opencode_stats_text from skill/scripts/run_delivery.py.
     Returns empty string on any failure.
     """
-    oc = os.environ.get("OPENCODE_CLI_CMD") or ("opencode.cmd" if os.name == "nt" else "opencode")
     try:
-        proc = _default_runner([oc, "stats"], ".")
+        proc = _default_runner(["opencode", "stats"], ".")
         return proc.stdout if not proc.error else ""
     except Exception:
         return ""
@@ -386,7 +401,7 @@ def _config_env(paths) -> tuple:
 
 
 PROVIDER = Provider(
-    cli_invocation=lambda: [_oc_cmd()],
+    cli_invocation=_cli_invocation,
     context_env=("OPENCODE_*",),
     config_env=_config_env,
     name="opencode",
@@ -399,6 +414,7 @@ PROVIDER = Provider(
     account_section=account_section,
     skill_fragment=_SKILL_FRAGMENT,
     setup_notes=_SETUP_NOTES,
+    launch_problem=_launch_problem,
 )
 
 register_provider(PROVIDER)

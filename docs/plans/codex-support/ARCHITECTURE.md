@@ -19,6 +19,17 @@ The lead-authored acceptance tests must exist at the baseline and remain unchang
 
 Run judging on a frozen candidate snapshot with the trusted test inputs. Detect and reject test-time changes to candidate source; never stage unverified files created after the earlier diff check. Verification records a tree hash; collection must persist exactly that tree, not a later `git add -A` of arbitrary content. A worktree is Git isolation, not an OS security sandbox: provider execution must respect the actual host permission boundary.
 
+**N04 import boundary:** production pytest runners use the snapshot's root and
+standard `src` layout, remap project-local import paths from all registered Git
+checkouts, and redirect editable finders (including namespace locations) to
+snapshot files. Other source layouts can use committed pytest import configuration.
+External dependencies remain environment inputs. A project module already loaded
+from live source during Python startup, or supplied by an import hook added after
+judging starts, blocks acceptance. Frozen judging uses a trusted stdlib-only
+bootstrap and checks module origins before and after pytest. The snapshot context
+is local to the judging thread and restored on exit. Custom injected test runners
+remain trusted caller-owned boundaries; they must enforce equivalent isolation.
+
 T02 implementation decisions (2026-09-10): `CandidateVerifier` records the base before
 dispatch and retains it across retries. Checked NUL-delimited Git capture supplies the
 candidate tree and filenames; provider reports remain diagnostics. Judging materializes
@@ -155,6 +166,24 @@ Preserve clear diagnostics for denied execution, unavailable provider CLIs, and 
 
 **A10 — Budgets and evidence are shared across attempts.** Model validation, retries, and escalations all count. Record per-attempt input/output/cached tokens and reported cost, with provider/model IDs and reason. Unknown cost is null/unknown, not zero. Distinguish reported total tokens from any derived total and avoid double-counting cached input. Serialize budget reservations before parallel admission; distinguish admission limits from in-flight hard limits a provider cannot enforce. Validation evidence writes must be atomic/locked and keyed to relevant model/provider/CLI/test context.
 
+Providers may supply `config_inputs(repository)` to discover local configuration
+paths on every admission context calculation. The CLI merges these with existing
+and explicitly supplied inputs, deduplicates canonical paths, and hashes bytes
+or missing states. `config_env(paths)` supplies referenced variable names for
+value hashing. Codex discovers its selected home, conservative ancestor project
+layers and native managed files; its setup notes document excluded authentication,
+profile and remote inputs. Discovery is repeated before validation and at factory
+use, so configuration selection cannot remain frozen in an old admitted context.
+
 **A11 — Optional Codex executor stays optional.** Implement only after the shared execution contracts stabilize. Use capability-checked local CLI flags and sanitized real JSONL fixtures. Prefer stdin for long prompts, explicit model/config, `workspace-write`, and bounded process lifecycle. Do not guess currently available model IDs, claim a flat/free cost, inherit an unrelated interactive session, or recursively invoke CLD from the executor prompt. Authentication remains with the user's CLI, not a bundled secret.
+
+All five direct provider entrypoints use the shared recursion predicate before
+probes, dispatch or artifact creation. Only an absent or literal `0` ambient
+marker admits a lead; other values fail closed, including malformed markers.
+Every production executor child has `CLD_EXECUTOR_DEPTH=1`, with provider-specific
+environment adjustments preserved. The legacy two-argument injected-runner
+contract remains unchanged; production legacy runners accept an environment
+overlay through the shared dispatch helper. Every executor prompt prohibits
+recursive delegation. This is a spending defense, not an OS isolation boundary.
 
 **A12 — Migration and release discipline.** Track state/schema changes in the changelog; test upgrade and interrupted recovery with fixtures. Do not downgrade state in place; retain backups and record the compatible engine version. Public release staging must explicitly exclude machine-local evidence/credentials. Plan documents contain no secrets and can be version-controlled. Exact shipping version is chosen at T20 based on compatibility changes, not precommitted here.
