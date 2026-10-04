@@ -131,6 +131,7 @@ def test_claude_plugin_default_layout_and_repeatability(tmp_path):
     isolated = tmp_path / "isolated generator repo"
     (isolated / "generator").mkdir(parents=True)
     shutil.copy2(ROOT / "generator" / "build_plugins.py", isolated / "generator" / "build_plugins.py")
+    shutil.copy2(ROOT / "VERSION", isolated / "VERSION")
     for provider in PROVIDERS:
         build_one(provider, out_root=isolated / "dist", host="claude-code")
     cmd = [sys.executable, str(isolated / "generator" / "build_plugins.py")]
