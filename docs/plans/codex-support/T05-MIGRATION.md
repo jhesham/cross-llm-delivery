@@ -22,9 +22,9 @@ invalid entries and access errors block instead of returning empty state.
 ## Explicit state operations
 
 ```text
-python skill/scripts/run_delivery.py plan.md --repo D:\path\repo --migrate-ledger
-python skill/scripts/run_delivery.py plan.md --repo D:\path\repo --reconcile-plan
-python skill/scripts/run_delivery.py plan.md --repo D:\path\repo --new-build
+python skill/scripts/run_delivery.py plan.md --repo <repo> --migrate-ledger
+python skill/scripts/run_delivery.py plan.md --repo <repo> --reconcile-plan
+python skill/scripts/run_delivery.py plan.md --repo <repo> --new-build
 ```
 
 All three commands perform state preparation only and do not dispatch providers.

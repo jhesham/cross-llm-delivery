@@ -82,7 +82,7 @@ read itself succeeds. Versioned JSON output and host packaging remain T11/T12 wo
 Use the original plan and repository:
 
 ```powershell
-python skill/scripts/run_delivery.py plan.md --repo D:\project --mark-repaired A
+python skill/scripts/run_delivery.py plan.md --repo <repo> --mark-repaired A
 ```
 
 A failed/needs_repair slice must have matching run/task evidence and a retained
