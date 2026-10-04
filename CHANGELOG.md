@@ -6,7 +6,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-10-04
+
 ### Fixed
+- Atomic ledger/evidence replacement tolerates brief Windows reader locks with
+  a bounded retry of the same flushed temporary file. Permanent errors still
+  fail; the old destination remains intact until a successful atomic replacement.
 - Pytest acceptance and model validation no longer interpret test output as
   provider authentication diagnostics (follow-up F01). A passing item containing
   authentication-like text cannot invalidate an otherwise valid assertion-red
