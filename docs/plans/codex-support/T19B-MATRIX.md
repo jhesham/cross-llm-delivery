@@ -1,5 +1,8 @@
 # T19B evidence matrix
 
+Historical four-provider checkpoint. For the current five-provider packaging,
+discovery and live evidence summary, see [SUPPORT-MATRIX.md](../../SUPPORT-MATRIX.md).
+
 The lead completed this matrix after the bounded Kimi draft timed out. Fixture
 replay proves the isolated bundle's adapter contract, not a live provider call.
 OpenCode/Cursor fixtures were captured; Codex/Antigravity fixtures are synthetic

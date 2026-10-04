@@ -29,8 +29,9 @@ user-selected supported spec. The production admission gate is
 
 A step runs a pending layer; validation/production/retries count against its
 cumulative limits. Dispatching commands (`--step`, validation) need network
-access through the executor CLI: inside your own `workspace-write` sandbox run
-them with network-enabled or escalated permissions. CLD blocks before dispatch
+access through the executor CLI. Check the active host permissions; if network
+is disabled, use its supported authorization flow without bypassing restrictions.
+CLD blocks before dispatch
 when `CODEX_SANDBOX_NETWORK_DISABLED=1` is set, and a connection failure is a
 final `network_unavailable` error (gate 5, no retry), not a model verdict. Do not silently substitute, retry paid work, raise budgets
 or remove a requested tier. Prefer one worker for a bounded sitting; CLI's

@@ -14,7 +14,8 @@ user-wide agent instructions here, and do not embed the full initiative plan.
 
 - `engine/cld/` — the delivery engine (provider-agnostic core).
 - `engine/cld_providers/<p>/` — per-provider fragments and executors
-  (`antigravity`, `opencode`, `cursor`, `codex`). Codex requires an explicit model.
+  (`antigravity`, `opencode`, `cursor`, `codex`, `claude`). Codex and Claude
+  require an explicit model.
 - `skill/` — Claude skill template and shared references; `skill/hosts/codex/` holds
   the Codex host template.
 - `generator/build_skill.py` — generates standalone skill bundles into ignored

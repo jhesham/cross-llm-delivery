@@ -17,7 +17,7 @@ authorization, exact model IDs and separately reported usage.
 
 - `engine/cld/`: CLI, plans, independent candidate acceptance, durable ledger,
   dependency/integration lifecycle, bounded processes, admission/accounting.
-- `engine/cld_providers/<provider>/`: antigravity, cursor, opencode and codex
+- `engine/cld_providers/<provider>/`: antigravity, cursor, opencode, codex and claude
   adapters plus provider resources. New models need not become static catalog
   entries: an explicit CLI-supported spec still passes normal admission.
 - `skill/`: Claude entry template, shared references and vendored driver.

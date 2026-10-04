@@ -1,7 +1,7 @@
 # Install Cross-LLM Delivery
 
 Choose the **lead host** (Codex or Claude Code) and **executor provider**
-(antigravity, cursor, opencode or codex) independently. Each generated skill
+(antigravity, cursor, opencode, codex or claude) independently. Each generated skill
 contains its selected provider and the same engine. Python 3.11+ and Git are
 required, together with the authenticated provider CLI. Node/npm requirements
 depend on the installed provider distribution.
@@ -27,11 +27,12 @@ engine files must match. Stop active writers before replacing an installation
 and preserve the old folders/configuration as backups. Restart the lead host
 after installing/updating.
 
-For version 0.3.0, download the coherent host bundle set from the
-[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.3.0)
+For version 0.4.2, download the coherent host bundle set from the
+[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2)
 and verify its SHA-256 manifest. The
-[candidate record](docs/plans/codex-support/T20B-CANDIDATE.md) retains preparation
-evidence; release assets are rebuilt from the tagged source revision.
+[publication record](docs/plans/v0.4.0-review-fixes/PUBLICATION-0.4.2.md) records
+verification of the tagged source and downloadable assets. The complete set
+contains ten standalone bundles: five providers for each of the two lead hosts.
 
 ## Claude Code standalone skills
 
@@ -68,14 +69,15 @@ The repo is also a Claude marketplace. In Claude Code:
 /plugin install cross-llm-antigravity@cross-llm-delivery
 /plugin install cross-llm-cursor@cross-llm-delivery
 /plugin install cross-llm-codex@cross-llm-delivery
+/plugin install cross-llm-claude@cross-llm-delivery
 ```
 
 Install only the providers you need. These commands follow the marketplace's
 default-branch version; use the tagged release artifacts to pin a fixed revision.
-The source generator produces all four Claude packages under `plugins/`.
+The source generator produces all five Claude packages under `plugins/`.
 Claude manifests intentionally omit a fixed version so Git-commit updates
 remain available; generated skill banners record the engine/product version.
-Codex portable manifests carry the explicit 0.3.0 version.
+Codex portable manifests carry the product version (0.4.2 for this release).
 
 ## Codex standalone skills: CLI and IDE
 
@@ -114,8 +116,10 @@ codex plugin list
 
 The generated root includes `.agents/plugins/marketplace.json` with contained
 local sources. Use the installed CLI's supported plugin installation flow.
-Recorded discovery covered the original three plugins on Windows; the fourth
-Codex plugin and IDE plugin surface remain unverified. For the IDE, use the
+Recorded discovery covered the original three plugins on Windows; the later
+Codex and Claude executor plugins and IDE plugin surface remain unverified.
+Five-plugin packaging is verified separately in the [support matrix](docs/SUPPORT-MATRIX.md).
+For the IDE, use the
 standalone skill path above rather than assuming plugin discovery.
 
 ## Executor setup and read-only verification
