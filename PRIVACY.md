@@ -20,9 +20,10 @@ trademarks of their respective owners.
   content and metadata to the provider or endpoint you configured. CLD does not
   route all network traffic through one CLI and does not control those
   recipients' retention.
-- **Local records are kept until you remove them.** Worktrees, `refs/cld/*`,
-  the ledger, event streams and logs stay in your repository/filesystem until
-  you deliberately clean them up.
+- **Durable local records have no automatic expiry.** Recovery refs, the
+  ledger, event streams and logs remain until you deliberately remove them.
+  After durable collection and a successful ledger save, CLD can remove the
+  verified executor worktree; failed or unresolved worktrees are retained.
 
 ## Data categories and purposes
 
@@ -39,13 +40,16 @@ trademarks of their respective owners.
 ### Validation identity and credentials
 
 To decide whether validation evidence is still current, the engine
-(`engine/cld/admission.py`) records CLI and configuration file paths with
-SHA256 content hashes, and the **names** of selected environment variables
+(`engine/cld/admission.py`) reads CLI/configuration paths and content hashes
+as fingerprint inputs, and persists combined SHA256 fingerprints plus the
+**names** of selected environment variables
 (for example proxy/CA variables and provider-specific variables such as
 `OPENAI_*` or custom provider `env_key` names). The selected environment
 **values**, which can include API keys or tokens, are read in memory and
-contribute only to a SHA256 fingerprint; the values themselves are not written
-to the ledger.
+contribute to that fingerprint; this validation-identity record does not
+persist their plaintext values or a separate list of configuration contents.
+This boundary does not guarantee that subprocess output or other logs are
+free of secrets.
 
 A SHA256 fingerprint is **not encryption or anonymization**. Anyone holding the
 ledger can test guesses against it, and low-entropy values (short tokens,
@@ -101,8 +105,11 @@ CLD keeps, in or beside the target repository:
 - `.cld/` run directories with events, summaries, prompts/output logs and
   process diagnostics.
 
-These remain until you deliberately clean them up. CLD performs **no automatic
-deletion or redaction**. The safe cleanup preview (`--gc --repo <dir> --json`)
+Logs, ledgers and recovery refs have no automatic expiry. Successfully
+collected executor worktrees can be removed after the accepted candidate is
+verified and the ledger is saved. Failed/unresolved and integration worktrees
+can remain for recovery. CLD does **not automatically redact diagnostics**.
+The safe cleanup preview (`--gc --repo <dir> --json`)
 and `--gc --apply` are scoped engine controls: they remove only CLD-managed
 worktrees proven safe to remove and never delete run evidence or refs. Preserve
 recovery evidence before removing anything else; see
@@ -125,6 +132,9 @@ Provider-side retention follows your account's policies, not CLD guarantees.
 - Review and redact logs before sharing them.
 - Remove worktrees, refs, ledgers and run directories deliberately once you no
   longer need recovery evidence.
+- Uninstalling a skill/plugin does not erase target repositories, Git history,
+  CLD recovery records or provider-side data. Manage those separately under
+  the appropriate Git, CLI and account controls.
 
 ## Contact
 
