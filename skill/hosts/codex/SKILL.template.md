@@ -76,3 +76,5 @@ Exit codes: 0 ok, work remains; 2 failure/defer; 3 integrated and verified;
 - `references/provider-setup.md` -- install and verify the {{PROVIDER_NAME}} CLI.
 - `references/provider.md` -- {{PROVIDER_NAME}} executor specifics: locked
   invocation, auth, cost, and platform notes.
+- [README.md](README.md) -- data handling, privacy, security reporting and a
+  no-inference reviewer preview of this bundle.
