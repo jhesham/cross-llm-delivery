@@ -42,5 +42,6 @@ Live-validated 2026-06-22: a real long multi-line slice via direct-node wrote th
 
 TLS interception (corporate proxy / AV MITM, e.g. Norton): cursor's bundled node uses its own CA
 store and would fail HTTPS to the Cursor API (writing nothing — a silent empty diff). The executor
-auto-sets `NODE_OPTIONS=--use-system-ca` for the bundled node so it trusts the OS trust store; no
-action needed on intercepted machines.
+auto-sets `NODE_OPTIONS=--use-system-ca` for the recorded bundled Node path.
+Compatibility still depends on that Node version and the OS certificate
+configuration; inspect TLS diagnostics before an authorized retry.
