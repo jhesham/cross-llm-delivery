@@ -44,12 +44,13 @@ def _package_providers(dist_root: Path, *, host: str) -> tuple[str, ...]:
     """Keep the three established packages; include optional Codex/Claude when built."""
     host_root = dist_root / "codex" if host == "codex" else dist_root
     return PROVIDERS + tuple(p for p in ("codex", "claude") if (host_root / f"cross-llm-{p}").is_dir())
+INDEPENDENCE = "Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
 DESCRIPTIONS = {
-    name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration."
+    name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
 CODEX_DESCRIPTIONS = {
-    name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration."
+    name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
