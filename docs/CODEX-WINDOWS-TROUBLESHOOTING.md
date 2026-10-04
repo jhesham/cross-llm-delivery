@@ -131,9 +131,10 @@ and exclusion of an external junction target from ACL changes. They exercise
 the installed sandbox and CLD validation/managed-worktree paths without
 calling a model or updating the real model-admission store.
 
-The downloadable v0.3.0 release bundles predate this fix. Use the source-build
+The downloadable v0.3.0 release bundles predate this fix. Current releases,
+including v0.4.2, include it. Use the coherent release bundles or source-build
 instructions in [INSTALL.md](../INSTALL.md#build-and-transfer-a-coherent-set)
-and replace the complete installed provider set from one updated commit,
+and replace the complete installed provider set from one revision,
 with backups and no active delivery writers. Restart your lead host and
 revalidate the actual executor/model under your project's approved validation
 policy. These model-free fixtures are not proof of a live model or fast-tier

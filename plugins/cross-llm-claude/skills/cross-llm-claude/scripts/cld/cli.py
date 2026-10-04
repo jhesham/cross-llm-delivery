@@ -763,7 +763,7 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--mark-repaired", default=None, metavar="SLICE_ID",
                    help="Re-test and collect a repaired retained worktree using the original plan; acceptance still requires integration.")
     p.add_argument("--usage", action="store_true",
-                   help="Print a combined LLM-usage table (this build's ledger + opencode "
+                   help="Print a combined LLM-usage table (this build's ledger + provider "
                         "account stats) and exit. No dispatch.")
     p.add_argument("--status", action="store_true",
                    help="Print a compact digest of the current build state from "

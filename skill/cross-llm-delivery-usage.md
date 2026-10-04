@@ -1,38 +1,33 @@
 ---
 name: cross-llm-delivery-usage
-description: Show LLM usage for a cross-llm-delivery build — this build's per-slice model/tokens/cost (from the ledger) plus the OpenCode account total. One view instead of multiple CLIs / web portals.
+description: Show a CLD build's recorded per-slice model, tokens and cost, with available provider account summaries or a bounded JSON snapshot.
 ---
 
 # Cross-LLM Delivery — Usage View
 
-Render a combined usage table for a build. Run:
+From the installed skill directory, read the build's ledger with an absolute
+repository path:
 
-    python skill/scripts/run_delivery.py <plan.md> --ledger <ledger-path> --usage
+```bash
+python scripts/run_delivery.py --repo <absolute-repo> --usage
+python scripts/run_delivery.py --repo <absolute-repo> --usage --json
+```
 
-The positional plan path is required by argparse but is NOT read for `--usage` (pass the build's
-plan or any placeholder). `--ledger` points at the build's ledger (default `.cld-ledger.json`).
+No positional plan is needed and neither command dispatches an executor.
+The default ledger is `<repo>/.cld-ledger.json`; use `--ledger <absolute-path>`
+for another ledger. Relative explicit ledger paths use the invocation directory.
 
-It prints a **markdown table** — renders identically in the CLI and the VS Code extension chat:
+The human-readable Markdown table shows per-slice models, known token/cost
+totals and unknown values. Available account sections come from providers used
+by the ledger: OpenCode uses `opencode stats`, and Cursor has its own account
+summary. These external CLI queries are account snapshots, not this build's
+metered totals. Missing account data does not authorize inference or a retry.
 
-- **Per-slice rows:** each slice's model + total tokens + cost (cost blank where the provider
-  doesn't report one — e.g. flat-rate Gemini).
-- **Build total tokens.**
-- **## OpenCode account:** the account aggregate from `opencode stats` (total cost + input/output).
+`--usage --json` reads persisted build evidence without provider account queries.
+Use `--slice <id>` or `--attempt <id>` for bounded JSON detail. See the installed
+`references/observability.md` for the snapshot fields.
 
-On-demand snapshot — re-run to refresh. If `opencode stats` is unavailable the table degrades to
-ledger-only with an "OpenCode stats unavailable" note (never errors). Gemini is flat-rate
-($0 marginal), so its slices show tokens with no per-token cost.
-
-Example output:
-
-    | Slice | Model | Tokens | Cost |
-    |---|---|---|---|
-    | T1 | opencode/deepseek-v4-pro | 37167 | 0.014 |
-    | T2 | gemini:gemini-3.1-pro-preview | 50 |  |
-
-    **Build total tokens:** 37217
-
-    ## OpenCode account
-    Total cost: $5.85
-    Input: 1.6M
-    Output: 90.7K
+Only provider-reported usage/cost is known. A subscription, free catalog label
+or missing cost field does not establish zero dollars. Antigravity usage may
+be entirely unknown; Cursor/Codex dollar cost remains unknown when not reported.
+Claude CLI cost estimates are retained as estimates, not billed CLD cost.

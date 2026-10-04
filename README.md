@@ -18,7 +18,7 @@ including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
 Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2)
 for a fixed source revision; marketplace installs follow `main`.
-[Candidate verification record](docs/plans/codex-support/T20B-CANDIDATE.md).
+[Publication verification record](docs/plans/v0.4.0-review-fixes/PUBLICATION-0.4.2.md).
 
 ## Install and select
 
@@ -144,13 +144,15 @@ follow [the Windows sandbox troubleshooting guide](docs/CODEX-WINDOWS-TROUBLESHO
 before paying for another validation probe.
 
 Offline CI runs the full suite on **Windows/Ubuntu × Python 3.11/3.14**, builds
-all eight host/provider bundles, checks committed Claude plugins and packages
-the Codex catalog. Recorded Windows standalone CLI/IDE discovery, Claude plugin
-discovery, OpenCode and Codex Luna/max live proofs are separate historical
-evidence. New fast-tier live service, updated Claude picker discovery, fourth
-Codex-plugin discovery, live Claude-lead execution, live mid-process provider
-kill, Ubuntu Codex flags/live POSIX dispatch and macOS remain unverified.
-[Evidence matrix](docs/plans/codex-support/T19B-MATRIX.md).
+all ten host/provider bundles, checks committed Claude plugins and packages
+the Codex catalog. Recorded Windows discovery and live builds include Codex
+leads using OpenCode, Codex and Claude executors, and a Claude Code lead using
+Codex Luna/max+fast. Those observations are version-specific evidence, not
+blanket support claims. Actual fast-tier routing telemetry, later Codex plugin
+discovery, a sandboxed Codex lead for the Claude executor, live mid-process
+provider interruption, Ubuntu Codex flag inspection, live POSIX dispatch and
+macOS remain unverified. See the [current evidence matrix](docs/SUPPORT-MATRIX.md)
+for each host/provider pair and discovery boundary.
 
 ## Development
 

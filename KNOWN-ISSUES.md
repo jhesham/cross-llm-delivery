@@ -2,12 +2,15 @@
 
 ## Evidence scope
 
-Offline CI covers Windows/Ubuntu × Python 3.11/3.14 and eight host/provider
+Offline CI covers Windows/Ubuntu × Python 3.11/3.14 and ten host/provider
 bundles. Recorded Windows discovery and live provider checks apply only to the
-versions/surfaces named in [the evidence matrix](docs/plans/codex-support/T19B-MATRIX.md).
-New fast-tier live service, updated Claude picker discovery, fourth Codex-plugin
-discovery, live Claude-lead execution, live provider mid-process interruption,
-Ubuntu Codex flag inspection/live POSIX dispatch and macOS remain unverified.
+versions/surfaces named in [the current evidence matrix](docs/SUPPORT-MATRIX.md).
+Windows live builds include a Claude Code lead using Codex Luna/max+fast and
+Codex leads using OpenCode, Codex and Claude executors. A fast spec succeeding
+does not establish actual fast-tier routing without independent telemetry.
+Later Codex plugin discovery, a sandboxed Codex lead for the Claude executor,
+live provider mid-process interruption, Ubuntu Codex flag inspection/live POSIX
+dispatch and macOS remain unverified.
 Offline success must not be advertised as live support on those surfaces.
 
 ## Usage, timeouts and model access
@@ -76,14 +79,14 @@ administrator-created files can lack write permission for the restricted
 token's current-user account. Creating a new sandbox-owned file can succeed
 while editing pre-existing `calc.py` or a checked-out file fails.
 
-Repository source now grants inheritable Modify permission to the exact current
+Current releases, including v0.4.2, grant inheritable Modify permission to the exact current
 user on newly created CLD probe repos and worktrees, before dispatch. It keeps
 private probe parents/evidence unchanged, preserves existing denies, and blocks
 dispatch on permission-setup failure. Model-free regressions exercise the
 installed sandbox's edits and protection of source, Git metadata and evidence.
 The elevated-helper failure is separate and still requires local setup repair
 or an operator-selected fallback. Existing v0.3.0 release assets predate this
-source fix: build a coherent set from updated source; do not edit installed
+fix: replace them with a coherent current release or updated source build; do not edit installed
 engine files individually or mark a real model verified from these offline
 fixture checks. No paid retry was performed.
 
