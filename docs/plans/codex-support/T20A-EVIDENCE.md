@@ -63,13 +63,13 @@ python generator/check_plugins_fresh.py --dist-root dist --plugins-root plugins
 
 ## Local installation and rollback
 
-Destination: `C:\Users\Administrator\.claude\skills\cross-llm-<provider>` for
+Destination: `<home>\.claude\skills\cross-llm-<provider>` for
 antigravity, cursor, opencode and codex. All four SKILL banners identify engine
 `6c814e5`, v0.2.0. Generated source remains the monorepo; installed files must
 not be edited independently.
 
 Preserved originals:
-`C:\Users\Administrator\.claude\skill-backups\t20a-20260928-234430-a211eefc`.
+`<home>\.claude\skill-backups\t20a-20260928-234430-a211eefc`.
 The local `install-manifest.json` retains SHA-256 inventories of previous and
 new files; `.cld/t20a/claude-install.json` holds the same installation record.
 These machine-local manifests/backups are not published. All four bundles were

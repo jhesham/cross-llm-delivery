@@ -175,7 +175,7 @@ Location: [engine/cld_providers/antigravity/provider.py](../../../engine/cld_pro
 
 With a POSIX home such as `/home/cld-review`, `home.drive` is empty and
 `SystemDrive` normally absent. The function defaults to `C:` and returns
-`C:/Users/cld-review`. This is a relative, normally nonexistent path on POSIX,
+`<system-drive>/Users/cld-review` (where `<system-drive>` is that `C:` default). This is a relative, normally nonexistent path on POSIX,
 which is subsequently used as subprocess cwd. Default execution fails before
 the provider can work. This is a concrete local adapter defect within the already
 documented, unverified live POSIX/macOS boundary.
@@ -183,7 +183,7 @@ documented, unverified live POSIX/macOS boundary.
 **Cross-platform path probe** (POSIX path semantics; not live provider execution):
 
 ```json
-{"posix_home": "/home/cld-review", "dispatch_cwd": "C:/Users/cld-review", "absolute_on_posix": false}
+{"posix_home": "/home/cld-review", "dispatch_cwd": "<system-drive>/Users/cld-review", "absolute_on_posix": false}
 ```
 
 - [x] Apply the SystemDrive transformation only on Windows; use a valid native

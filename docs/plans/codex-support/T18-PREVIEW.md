@@ -12,7 +12,7 @@ skills copy was executed. T20 still owns the final release candidate/version.
 | Inspected remote SHA | `67ad2f5815e106d0f2f84bfc9f896807411f81e6` |
 | Proposed tag | `v0.3.0` |
 | Optional local skills copy | Explicitly disabled for this preview |
-| Recovery worktree | `D:\claude_server\cross-llm-delivery\.cld\release\stage-8587b4c36ff943f8b89271f0b9d6bf4f` (planned, not created) |
+| Recovery worktree | `<repo>\.cld\release\stage-8587b4c36ff943f8b89271f0b9d6bf4f` (planned, not created) |
 
 ## Ordered operations
 
