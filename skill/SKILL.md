@@ -21,7 +21,9 @@ pwsh ./rebuild-skills.ps1          # or:  python generator/build_skill.py --all
 then copy ONE generated `dist/cross-llm-<provider>/` folder into `~/.claude/skills/`.
 Full steps (fresh machine, executor install + auth): **[INSTALL.md](../INSTALL.md)**.
 
-Live providers: **antigravity** (default workhorse), **opencode**, **cursor**, **composer**.
+Executor providers: **antigravity**, **opencode**, **cursor**, **codex** and
+**claude**. Lead hosts: Claude Code and Codex. Provider availability is distinct
+from live verification; see the [support matrix](../docs/SUPPORT-MATRIX.md).
 
 ## Where the real content lives (for maintainers)
 

@@ -1,5 +1,18 @@
 # Current handoff
 
+> **Advisory refresh (2026-10-04):** Updating current guidance for v0.4.2's
+> two lead hosts and five executor providers. Install/version instructions,
+> usage reporting, Cursor direct-Node setup, Antigravity path/transcript notes,
+> OpenCode billing caveats and bounded Codex dispatch examples are aligned.
+> [Current support matrix](../../SUPPORT-MATRIX.md) separates ten packaged pairs,
+> recorded discovery and live builds from remaining platform/tier evidence gaps.
+> Historical records retain their dated evidence. This is a documentation and
+> CLI-help refresh; provider invocation and delivery behavior are unchanged.
+> Source checkpoint precedes regeneration so all bundles share one committed
+> revision. Focused verification, generated-package checks and public sync are
+> pending. No live model calls or global skill/configuration updates are needed.
+> Stop after this slice; lead token usage is unavailable.
+
 > **v0.4.2 published (2026-10-04):** [Stable Latest release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2).
 > N04–N08 and F01 are released, with bounded Windows atomic-replacement lock
 > retries added to resolve the initial F01 CI failure. Seven new lock regressions

@@ -32,16 +32,17 @@ IDs and supported efforts; discovery does not authorize dispatch.
 
 - Respect the user's existing project instructions (AGENTS.md and friends).
   Never install, overwrite, or replace them.
-- Do not silently choose or switch models. Present the executor shortlist and
-  let the user pick before the first dispatch, then keep that choice for the
-  whole build. Never claim host discovery has been verified.
+- Preserve the user's exact executor/model/effort/tier selection. Present the
+  shortlist only when no selection exists; a listing is not dispatch permission.
+  Describe discovery only for the recorded host version and surface.
 - Never claim the provider's cost is free. Check that billed dispatches are
   covered by the user's existing authorization; ask only if that is unclear.
 - For gate-4 repairs, follow the user's authorization and the host's active
   approval policy. Never silently dispatch another paid attempt.
 - `--step` and validation make paid network calls through the executor CLI.
-  Codex's default `workspace-write` sandbox has no network: run dispatching
-  commands with network-enabled or escalated permissions.
+  Check the active host permissions before dispatch. If network is disabled,
+  use the host's supported authorization flow; do not bypass its restrictions.
+  CLD blocks dispatch when `CODEX_SANDBOX_NETWORK_DISABLED=1` is set.
 
 ## Drive the build
 
@@ -53,10 +54,14 @@ the JSON gate, not the shell's exit status, is authoritative.
 
 ```bash
 python scripts/run_delivery.py <plan.md> --repo <dir> --dry-run --json  # preview layers
-python scripts/run_delivery.py <plan.md> --repo <dir> --step --json     # run next layer
+python scripts/run_delivery.py <plan.md> --repo <dir> --step --workers 1 --executor <exact-spec> --validation-policy <deny|unmetered|allow> --budget-attempts <N> --json
 python scripts/run_delivery.py --status --repo <dir> --json             # cheap digest
 python scripts/run_delivery.py <plan.md> --repo <dir> --integrate --integration-tests <selector> --json
 ```
+
+Choose the validation policy and cumulative attempt limit under the user's
+authorization. Validation and retries count as dispatches. Prefer one worker
+for a bounded sitting; the CLI default is four.
 
 Exit codes: 0 ok, work remains; 2 failure/defer; 3 integrated and verified;
 4 lead repair required; 5 invalid plan/state or missing prerequisite;
