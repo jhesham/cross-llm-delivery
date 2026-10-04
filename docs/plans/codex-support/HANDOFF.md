@@ -1,5 +1,24 @@
 # Current handoff
 
+> **v0.4.2 published (2026-10-04):** [Stable Latest release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2).
+> N04–N08 and F01 are released, with bounded Windows atomic-replacement lock
+> retries added to resolve the initial F01 CI failure. Seven new lock regressions
+> and 49 focused ledger/recovery cases passed; local full suite: 1386 passed, 5 skipped, 1 deselected, 2 warnings in 1704.86s (0:28:24).
+> Release branch `7cbb825` passed all four CI jobs before checked main promotion.
+> Annotated tag `v0.4.2` points to `64048696c4bce27e8b1119137a630e9b3c6164fa`.
+> [Exact-main CI run 37175031531](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed all four
+> Ubuntu/Windows × Python 3.11/3.14 jobs before tag/publication. All five providers
+> for both lead hosts and both plugin formats were regenerated from this SHA.
+> Nine assets published and downloaded back with matching hashes; isolated wheel
+> and repeat ZIP builds passed. No provider calls, global installs, Codex config
+> changes or cleanup of retained failed worktrees. Existing installs need refresh
+> to consume this release. Live POSIX/macOS provider behavior and actual fast-tier
+> routing telemetry remain unverified. No additional remediation slice remains
+> for N04–N08/F01. Publication receipt commits are documentation only; the tag
+> remains on the independently verified release source.
+> [Publication evidence](../v0.4.0-review-fixes/PUBLICATION-0.4.2.md).
+> Stop at the token checkpoint. Earlier handoffs below are historical.
+
 > **F01 implementation checkpoint (2026-10-04):** Both pytest adapters disable
 > provider-output heuristics explicitly; ordinary pytest exits retain their return
 > codes for independent judgment. Lifecycle/launch errors, collection/config/no-tests

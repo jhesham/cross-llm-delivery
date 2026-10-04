@@ -1,5 +1,10 @@
 # N07 — native OpenCode launch, implemented through CLD
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Implemented 2026-10-04 using exact **`codex:gpt-6-luna@max+fast`**.
 Committed assertion-red tests/contract: `504da9cdc6512ff9446ddbcfdb5e89a5dfde2fed`.
 Accepted model source: `45a52f7af2879fb6562625d516ae031d1fac1e10`.

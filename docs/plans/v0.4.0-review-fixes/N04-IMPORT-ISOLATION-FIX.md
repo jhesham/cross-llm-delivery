@@ -1,5 +1,10 @@
 # N04 — frozen acceptance import isolation
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Implemented 2026-10-03. Runtime source: `6b9cc7cb15b284e8dd0c3518f77b322cff6807de`.
 Initial failing regressions: `a3ca85b` (all eight initial cases failed).
 

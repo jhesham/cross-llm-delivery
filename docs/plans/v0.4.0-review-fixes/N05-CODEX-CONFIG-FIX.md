@@ -1,5 +1,10 @@
 # N05 — Codex configuration evidence, implemented through CLD
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Implemented 2026-10-03 with exact **`codex:gpt-6-luna@max+fast`**.
 Luna's accepted source: `0294ab6ed3a9973b69c58ef6d066f798cc9ecfb6`.
 CLD integration: `8ab002981b7cc462d2bccde929024417d0e1a0fa`.

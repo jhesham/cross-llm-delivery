@@ -1,5 +1,10 @@
 # F01 — red pytest output can be misclassified as provider authentication
 
+**Publication update (2026-10-04):** Released in [v0.4.2](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2) from
+tagged source `64048696c4bce27e8b1119137a630e9b3c6164fa`; all four [exact-main CI jobs](https://github.com/jhesham/cross-llm-delivery/actions/runs/37175031531) passed.
+[Publication evidence](PUBLICATION-0.4.2.md) supersedes earlier pending-CI and
+unreleased checkpoint notes below.
+
 Observed while integrating N06, 2026-10-03. **Implemented 2026-10-04;
 exact-source CI pending.** See [F01 implementation evidence](F01-PYTEST-DIAGNOSTICS-FIX.md).
 The original diagnosis and receipts below remain historical evidence.
