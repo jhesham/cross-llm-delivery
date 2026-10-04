@@ -8,10 +8,20 @@
 > recorded discovery and live builds from remaining platform/tier evidence gaps.
 > Historical records retain their dated evidence. This is a documentation and
 > CLI-help refresh; provider invocation and delivery behavior are unchanged.
-> Source checkpoint precedes regeneration so all bundles share one committed
-> revision. Focused verification, generated-package checks and public sync are
-> pending. No live model calls or global skill/configuration updates are needed.
-> Stop after this slice; lead token usage is unavailable.
+> Source checkpoint `e0352a5` preceded regeneration; generated plugin checkpoint
+> `3c4035a` was promoted by the checked normal-fast-forward sync to public main
+> `9bfb819`. The GitHub description now lists all five executors. Verification:
+> 44 focused tests passed, all ten generated skills validated, five Claude
+> plugin packages passed freshness, and 80 local links resolved in repository
+> or installed-bundle context. All ten bundles matched 43 shared Python files
+> and their selected provider source; both plugin formats were regenerated.
+> No new tag/release, model calls, global installations or config changes.
+> Full-suite rerun was omitted for this documentation/CLI-help-only change;
+> [automatic main CI 37180744550](https://github.com/jhesham/cross-llm-delivery/actions/runs/37180744550)
+> is running independently and is not yet claimed green. The v0.4.2 release
+> archives retain their tagged contents; current marketplace/source guidance
+> includes this refresh. This receipt changes only the handoff.
+> Stop after this completed slice; lead token usage is unavailable.
 
 > **v0.4.2 published (2026-10-04):** [Stable Latest release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2).
 > N04–N08 and F01 are released, with bounded Windows atomic-replacement lock
