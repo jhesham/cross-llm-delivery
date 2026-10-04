@@ -6,6 +6,15 @@ acceptance tests; the engine independently verifies each Git candidate, checks
 its writable allowlist, and integrates accepted commits against an explicit
 test suite. Model output alone never decides acceptance.
 
+**Independent project; not affiliated with or endorsed by Anthropic or OpenAI.
+Claude, Claude Code, Codex and other names are trademarks of their owners.**
+
+Use it for contract-driven, multi-slice implementation with committed tests and
+independent acceptance/integration. Debugging and tiny edits are better handled
+directly by the lead. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
+vulnerability reporting: [SECURITY.md](SECURITY.md). Questions and bugs:
+[GitHub Issues](https://github.com/jhesham/cross-llm-delivery/issues).
+
 The lead host and implementation provider are separate choices:
 
 | Lead host | Implementation provider |
@@ -20,10 +29,68 @@ Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-d
 for a fixed source revision; marketplace installs follow `main`.
 [Publication verification record](docs/plans/v0.4.0-review-fixes/PUBLICATION-0.4.2.md).
 
+## What installing and using it does
+
+- Runs the bundled Python engine locally and launches the selected executor
+  CLI under your account and configuration.
+- Creates Git worktrees, `refs/cld/*` refs and `.cld/` logs, events and a
+  ledger (`.cld-ledger.json` by default; custom ledger paths are possible).
+  These stay until you deliberately clean them up.
+- Runs acceptance/integration tests, project commands and Git hooks with your
+  user privileges. A worktree is **not a security sandbox**.
+
+There is no publisher-operated service that CLD requires, and the publisher
+collects nothing by default. Not all network traffic goes through one CLI: the
+selected executor can send prompts and repository content to its configured
+provider/endpoints; optional DeepEval Anthropic grading reads
+`ANTHROPIC_API_KEY`; OTLP export, only when configured with
+`OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS` or
+`LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` (with the OpenTelemetry SDK),
+sends model/slice/rung/source/attempt/status/duration/usage metadata, not raw
+prompts; project subprocesses can use the network too. Local events are always
+recorded during execution. Logs and provider output may contain sensitive data
+and are not guaranteed to be redacted; do not paste secrets into plans, briefs,
+logs or support requests.
+
+| Executor | Authentication | Billing |
+|---|---|---|
+| Claude Code CLI | Removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`; requires claude.ai subscription login; isolated no-persistence session | Your Claude plan's usage limits |
+| Codex, OpenCode, Cursor, Antigravity | Installed CLI with your account/configuration; no removal list applied | Plan, API or provider billing as applicable |
+
+CLD charges no separate inference fee and dollar costs may be unknown. Provider
+retention and plan terms follow your provider account; see [PRIVACY.md](PRIVACY.md).
+
+### Reviewer preview (no inference)
+
+Build a bundle, then run the bundled demo plan against an existing Git
+repository (absolute path). Claude Code host:
+
+```bash
+python generator/build_skill.py claude
+cd dist/cross-llm-claude
+python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host claude-code --dry-run --json
+```
+
+Codex host:
+
+```bash
+python generator/build_skill.py claude --host codex
+cd dist/codex/cross-llm-claude
+python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host codex --dry-run --json
+```
+
+Expected: `"gate_code": 0`, `"run_id": null`, `"layers": [["T1", "T3"], ["T2"]]`.
+The preview dispatches no executor, spends nothing on models and writes nothing
+to the repository; it is not a live acceptance run or demo build. Every
+`dist/cross-llm-<provider>` and `dist/codex/cross-llm-<provider>` bundle ships
+the same `README.md`, `PRIVACY.md`, `SECURITY.md` and `examples/demo-plan.md`.
+
 ## Install and select
 
 You need Python 3.11+, Git, the chosen lead host, and the chosen provider CLI
-with suitable authentication. Bundles vendor their engine: no Python package
+with suitable authentication. Supported surfaces are local Claude Code and
+Codex CLI/IDE workflows, subject to their actual skill/plugin discovery
+limitations; ChatGPT web, claude.ai and Cowork are not. Bundles vendor their engine: no Python package
 install is needed on the target machine. Install only the providers you use;
 refresh all bundles sharing a ledger from the same source revision.
 
@@ -149,7 +216,7 @@ the Codex catalog. Recorded Windows discovery and live builds include Codex
 leads using OpenCode, Codex and Claude executors, and a Claude Code lead using
 Codex Luna/max+fast. Those observations are version-specific evidence, not
 blanket support claims. Actual fast-tier routing telemetry, later Codex plugin
-discovery, a sandboxed Codex lead for the Claude executor, live mid-process
+discovery, full five-plugin IDE discovery, a sandboxed Codex lead for the Claude executor, live mid-process
 provider interruption, Ubuntu Codex flag inspection, live POSIX dispatch and
 macOS remain unverified. See the [current evidence matrix](docs/SUPPORT-MATRIX.md)
 for each host/provider pair and discovery boundary.

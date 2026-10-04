@@ -143,23 +143,36 @@ def _compose_codex_agent_metadata(provider: str, out: Path) -> None:
     (agents / "openai.yaml").write_text(meta, encoding="utf-8", newline="\n")
 
 
+def _vendor_policy_docs(provider: str, out: Path, host: str) -> None:
+    """Render the shared reviewer README; copy PRIVACY/SECURITY byte-for-byte."""
+    template = (SKILL_SRC / "README.template.md").read_text(encoding="utf-8")
+    readme = (
+        template
+        .replace("{{PROVIDER_NAME}}", provider)
+        .replace("{{HOST}}", host)
+        .replace("{{HOST_NAME}}", "Codex" if host == "codex" else "Claude Code")
+        .replace("{{BANNER}}", _banner(provider))
+    )
+    (out / "README.md").write_text(readme, encoding="utf-8")
+    for name in ("PRIVACY.md", "SECURITY.md"):
+        shutil.copyfile(REPO_ROOT / name, out / name)
+
+
 def _scaffold_codex(provider: str, out: Path) -> None:
-    """Write LICENSE and .gitignore for a Codex bundle (no Claude README)."""
+    """Write LICENSE, .gitignore, reviewer docs and the demo plan for a Codex bundle."""
     shutil.copy2(REPO_ROOT / "LICENSE", out / "LICENSE")
     gitignore = "__pycache__/\n*.pyc\n.cld-ledger.json\n"
     (out / ".gitignore").write_text(gitignore, encoding="utf-8")
+    _vendor_policy_docs(provider, out, "codex")
+    examples = SKILL_SRC / "examples"
+    if examples.exists():
+        shutil.copytree(examples, out / "examples",
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
 
 def _scaffold(provider: str, out: Path) -> None:
-    """Write README.md, LICENSE, and .gitignore into out."""
-    banner = _banner(provider)
-    readme = (
-        f"{banner}\n\n"
-        f"# cross-llm-{provider}\n\n"
-        f"A self-contained cross-llm-delivery skill for {provider}.\n\n"
-        f"Drop this folder into `~/.claude/skills/` to install. No pip install required.\n"
-    )
-    (out / "README.md").write_text(readme, encoding="utf-8")
+    """Write README.md, PRIVACY.md, SECURITY.md, LICENSE, and .gitignore into out."""
+    _vendor_policy_docs(provider, out, "claude-code")
 
     license_src = REPO_ROOT / "LICENSE"
     shutil.copy2(license_src, out / "LICENSE")

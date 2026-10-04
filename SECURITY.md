@@ -1,9 +1,16 @@
 # Security policy and execution boundaries
 
-Use the repository's GitHub Security tab/private vulnerability reporting
-channel for confidential reports. Do not include credentials or private code
-in a public issue. If that channel is unavailable, obtain a private contact
-from the maintainer before disclosing details.
+Report vulnerabilities privately through the repository's
+[private vulnerability reporting](https://github.com/jhesham/cross-llm-delivery/security/advisories/new)
+channel (GitHub Security tab). Do not include credentials or private code in a
+public issue. If that channel is unavailable, open a
+[GitHub issue](https://github.com/jhesham/cross-llm-delivery/issues) asking for
+a private contact, without disclosing details. Ordinary questions and support
+also use GitHub Issues.
+
+See [PRIVACY.md](PRIVACY.md) for data categories, recipients and local
+retention. Cross-llm-delivery is an independent project; it is not affiliated
+with or endorsed by Anthropic or OpenAI.
 
 ## What CLD checks
 
@@ -41,14 +48,17 @@ dispatch is refused at the executor boundary, not a substitute for OS isolation.
 
 Prompts, model output, patches, worktrees, test/process logs and telemetry may
 contain sensitive project material. Preserve necessary recovery evidence under
-`.cld/`; redact it before sharing. The engine has no required third-party
-runtime dependency, but provider processes, explicitly used behavioral grading
-and opt-in telemetry export can make network calls.
+`.cld/`; redact it before sharing. CLD does not redact logs automatically.
+The engine has no required third-party runtime dependency, but provider
+processes, project tests/hooks, explicitly used behavioral grading and
+opt-in telemetry export can make network calls. Never paste secrets into
+plans, briefs, logs or reports.
 
 Do not delete accepted refs/ledgers/worktrees during recovery. Stop writers,
 back up state byte-for-byte, and use the documented migration/repair/integration
-commands. Old engines cannot read schema-2 state. See [migration](docs/MIGRATION.md)
-and [rollback](docs/plans/codex-support/T19B-ROLLBACK.md).
+commands. Old engines cannot read schema-2 state. See
+[migration](https://github.com/jhesham/cross-llm-delivery/blob/main/docs/MIGRATION.md)
+and [rollback](https://github.com/jhesham/cross-llm-delivery/blob/main/docs/plans/codex-support/T19B-ROLLBACK.md).
 
 ## Maintenance
 
