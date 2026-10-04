@@ -58,6 +58,9 @@ def test_native_release_gate_checks_git_versioned_claude_bundles(tmp_path, mode)
     claude.mkdir(parents=True)
     codex.mkdir(parents=True)
     manifest = json.loads((ROOT / "plugins/cross-llm-codex/.claude-plugin/plugin.json").read_text())
+    # Exercise the legacy unversioned contract even when current generated
+    # manifests carry VERSION, rather than silently testing another branch.
+    manifest.pop("version", None)
     if mode == "null-version":
         manifest["version"] = None
     (claude / "plugin.json").write_text(json.dumps(manifest))
