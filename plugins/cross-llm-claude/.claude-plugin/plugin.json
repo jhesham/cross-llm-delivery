@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-claude",
-  "description": "Claude Code leads claude CLI implementation with independent acceptance and verified integration.",
+  "description": "Claude Code leads claude CLI implementation with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI.",
   "author": {
     "name": "cross-llm-delivery contributors"
   }

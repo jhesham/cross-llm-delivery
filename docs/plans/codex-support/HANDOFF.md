@@ -1,5 +1,24 @@
 # Current handoff
 
+> **Shared disclosures completed locally (2026-10-04):** Added
+> [privacy policy](../../../PRIVACY.md), support/private security contacts,
+> independence, permissions and provider-specific billing disclosures. Both
+> hosts' bundled reviewer READMEs now link portable policies and ship the
+> existing no-inference demo. Packaging layout and executor runtime are unchanged.
+> Protected acceptance `7b82067`: 14 baseline failures and one passing existing
+> Claude preview; exact `claude:claude-opus-5-5@medium` completed one attempt,
+> reusing prior validation with policy deny (no new probe). Accepted `08ca886`;
+> checked CLD integration `f209814` reached gate 3. Lead corrections `4497159`
+> clarified aggregate validation fingerprints, automatic accepted-worktree
+> cleanup and telemetry boundaries before regenerating all ten skill bundles
+> and both plugin formats from that source. Final verification: 49 focused tests,
+> ten skill validators, five-plugin freshness, 160 policy links and 472 Python
+> source comparisons passed. No full-suite/CI rerun, global install, push,
+> release, upload or submission. Readiness records remain local/untracked.
+> Executor usage: 19,743 input/output tokens plus 1,077,073 cache-read and
+> 60,414 cache-creation tokens; USD and lead-chat usage unavailable.
+> Stop after this slice and confirm token availability before continuing.
+
 > **Public development-record cleanup completed locally (2026-10-04):**
 > Replaced local paths, profile details and email literals in twelve historical
 > documents with meaningful placeholders, retaining technical content and links.

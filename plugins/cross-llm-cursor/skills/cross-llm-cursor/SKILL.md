@@ -89,3 +89,6 @@ usage boundary. See the budget section of the core reference.
 Read [observability.md](references/observability.md) only for event logs or
 optional exports, and [architecture.md](references/architecture.md) for engine
 extension/debugging. Do not load every reference for an ordinary step.
+
+For data handling, privacy, security reporting and a no-inference reviewer
+preview of this bundle, see [README.md](README.md).
