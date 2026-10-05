@@ -9,9 +9,9 @@ Commit the acceptance and integration tests before starting. Choose a scoped,
 offline integration selector deliberately; CLD never selects the entire suite implicitly.
 
 ```powershell
-python skill/scripts/run_delivery.py plan.md --repo D:\project --step --executor opencode:<verified-model-id>
-python skill/scripts/run_delivery.py plan.md --repo D:\project --integrate --integration-tests tests/test_integration.py
-python skill/scripts/run_delivery.py plan.md --repo D:\project --step --executor opencode:<verified-model-id>
+python skill/scripts/run_delivery.py plan.md --repo <repo> --step --executor opencode:<verified-model-id>
+python skill/scripts/run_delivery.py plan.md --repo <repo> --integrate --integration-tests tests/test_integration.py
+python skill/scripts/run_delivery.py plan.md --repo <repo> --step --executor opencode:<verified-model-id>
 ```
 
 `--step` accepts one layer. Exit 6 means accepted work awaits integration; it does
@@ -74,7 +74,7 @@ For a merge conflict, inspect the journal's worktree, resolve the files there, t
 complete its merge commit. Supply that commit to the verification-only path:
 
 ```powershell
-python skill/scripts/run_delivery.py plan.md --repo D:\project --integrate --manual-integration <resolved-commit-sha>
+python skill/scripts/run_delivery.py plan.md --repo <repo> --integrate --manual-integration <resolved-commit-sha>
 ```
 
 CLD verifies accepted-commit ancestry, protected inputs, allowed file scope and the

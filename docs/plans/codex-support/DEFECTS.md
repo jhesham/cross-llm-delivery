@@ -53,7 +53,7 @@ Commit:
 Residual limitation:
 ```
 
-Original local review and probe files remain under `D:\claude_server\cld-review-artifacts` if useful on this machine. The task regressions must work without those absolute paths, archived wheels, or temporary repositories. Recreate minimal fixtures from the conditions above; do not commit private build transcripts or local configuration.
+Original local review and probe files remain under `<local-review-artifacts>` if useful on this machine. The task regressions must work without those absolute paths, archived wheels, or temporary repositories. Recreate minimal fixtures from the conditions above; do not commit private build transcripts or local configuration.
 
 **T02 closing evidence (2026-09-10):** [T02-EVIDENCE.md](T02-EVIDENCE.md) records the real-Git regressions, 479-pass final suite, and compatibility limits. Closing commit: `a6b1b68`. Only R01/R02 acceptance markers were removed; six expected failures retain their T03/T04/T06 owners.
 

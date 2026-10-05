@@ -16,7 +16,7 @@
 - Fail closed: any missing, ambiguous or unverifiable identity, ownership or state → `keep`.
 - Never touch `refs/cld/*` or `.cld/runs`.
 - Each fix starts with the review's reproduction as a failing test.
-- Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commits end with `Co-Authored-By: Claude Opus 5.5 <author-email>`.
 - Push, tag and publish only on the user's explicit go-ahead.
 
 ## Review Focus

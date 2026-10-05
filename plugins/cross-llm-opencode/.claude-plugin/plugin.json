@@ -1,7 +1,12 @@
 {
   "name": "cross-llm-opencode",
-  "description": "Claude Code leads opencode CLI implementation with independent acceptance and verified integration.",
+  "version": "0.4.2",
+  "description": "Claude Code leads opencode CLI implementation with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "author": {
-    "name": "cross-llm-delivery contributors"
-  }
+    "name": "jhesham",
+    "url": "https://github.com/jhesham"
+  },
+  "homepage": "https://github.com/jhesham/cross-llm-delivery",
+  "repository": "https://github.com/jhesham/cross-llm-delivery",
+  "license": "MIT"
 }

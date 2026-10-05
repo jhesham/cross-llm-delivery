@@ -18,13 +18,15 @@ Codex mode reads <dist-root>/codex/cross-llm-<p> (build with
 `python generator/build_skill.py --all --host codex` first), preflights all three input
 bundles before changing any output, and never touches an adjacent Claude plugin tree.
 Its manifest carries the official schema URL, the existing plugin name, the VERSION
-semantic version, description and author; it claims no submission or readiness that has
-not been validated.
+semantic version, description, public author/homepage/repository/license metadata and
+namespaced presentation fields (extensions.com.openai.interface) with a generated
+./assets/cld-icon.svg; it claims no submission, approval or readiness that has not been
+validated.
 
 Idempotence: the dist SKILL.md banner embeds the git SHA, which would churn a commit on
 every regeneration; in the plugin copy the banner is normalized to a version-only form so
 re-running this script produces byte-identical output unless real content changed.
-(Plugin updates are versioned by git commits — provenance lives in git history.)
+(Both hosts' manifests read the version from VERSION; provenance lives in git history.)
 
 Run AFTER `python generator/build_skill.py --all`:
     python generator/build_plugins.py
@@ -44,14 +46,48 @@ def _package_providers(dist_root: Path, *, host: str) -> tuple[str, ...]:
     """Keep the three established packages; include optional Codex/Claude when built."""
     host_root = dist_root / "codex" if host == "codex" else dist_root
     return PROVIDERS + tuple(p for p in ("codex", "claude") if (host_root / f"cross-llm-{p}").is_dir())
+INDEPENDENCE = (
+    "Independent project; not affiliated with or endorsed by Anthropic or OpenAI. "
+    "Claude, Claude Code, Codex and other names are trademarks of their owners."
+)
 DESCRIPTIONS = {
-    name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration."
+    name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
 CODEX_DESCRIPTIONS = {
-    name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration."
+    name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
+PROJECT_URL = "https://github.com/jhesham/cross-llm-delivery"
+# Provisional public publisher name: the existing GitHub owner (no email).
+PUBLISHER = "jhesham"
+AUTHOR = {"name": PUBLISHER, "url": "https://github.com/jhesham"}
+LISTING = {"homepage": PROJECT_URL, "repository": PROJECT_URL, "license": "MIT"}
+PROVIDER_LABELS = {
+    "antigravity": "Antigravity",
+    "opencode": "OpenCode",
+    "cursor": "Cursor",
+    "codex": "Codex",
+    "claude": "Claude Code",
+}
+PROVIDER_CLIS = {
+    "antigravity": "Antigravity agy CLI",
+    "opencode": "OpenCode CLI",
+    "cursor": "Cursor cursor-agent CLI",
+    "codex": "Codex CLI",
+    "claude": "Claude Code CLI",
+}
+CODEX_CAPABILITIES = ["Test-gated slice delivery", "Independent acceptance",
+                      "Verified Git integration"]
+ICON_PATH = "./assets/cld-icon.svg"
+# Original neutral CLD mark; embedded so a copied generator needs no other assets.
+ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">Cross-LLM Delivery</title>
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#1f2937"/>
+  <path d="M136 176 L232 256 L136 336" fill="none" stroke="#f9fafb" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="264" y="316" width="128" height="40" rx="20" fill="#34d399"/>
+</svg>
+"""
 CODEX_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 CODEX_CATALOG_NAME = "cross-llm-delivery-codex"
 CODEX_CATALOG_DISPLAY = "Cross-LLM Delivery (Codex, local plugins)"
@@ -91,9 +127,48 @@ def _version() -> str:
     return (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
+def _codex_interface(p: str) -> dict:
+    """Portable OpenAI presentation fields (namespaced under extensions.com.openai)."""
+    label, cli = PROVIDER_LABELS[p], PROVIDER_CLIS[p]
+    long_description = (
+        f"Codex leads delivery of test-gated slices and the {cli} (provider: {p}) "
+        "implements each one headlessly. The lead writes contracts and committed "
+        "acceptance tests; the engine independently verifies each Git candidate, checks "
+        "its writable allowlist and integrates only accepted commits. For developers who "
+        f"already use {label} and want contract-driven, multi-slice implementation with "
+        "independent acceptance; debugging and tiny edits are better done directly. "
+        "Requirements: Python 3.11+, Git and an installed, authenticated "
+        f"{cli} on your own account; no account access or models are provided. "
+        "Use a standalone skill for local Codex CLI or IDE workflows. Plugin discovery "
+        "depends on your host version and provider; later Codex/Claude executor plugins "
+        "and IDE plugin discovery remain unverified. See the project's support matrix "
+        "for recorded evidence. ChatGPT web is not a supported execution surface. "
+        "Runs locally with your user privileges; slices use Git worktrees, which are not "
+        "a security sandbox. The selected provider may receive prompts and repository "
+        "content under your account terms, and usage is billed to your plan or provider "
+        "account. Read the bundled PRIVACY.md and SECURITY.md for data handling, "
+        f"retention and support. Project details: {PROJECT_URL}. "
+        f"{INDEPENDENCE}"
+    )
+    return {
+        "displayName": f"Cross-LLM {label}",
+        "shortDescription": f"Test-gated slices: {label}",
+        "longDescription": long_description,
+        "developerName": PUBLISHER,
+        "category": "Developer Tools",
+        "capabilities": list(CODEX_CAPABILITIES),
+        "websiteURL": PROJECT_URL,
+        "supportURL": f"{PROJECT_URL}/issues",
+        "privacyPolicyURL": f"{PROJECT_URL}/blob/main/PRIVACY.md",
+        "logo": ICON_PATH,
+        "composerIcon": ICON_PATH,
+    }
+
+
 def _main_claude(dist_root: Path, out_root: Path) -> int:
     """Default host: refresh committed Claude plugins (layout/names unchanged)."""
     changed = []
+    version = _version()
     for p in _package_providers(dist_root, host="claude-code"):
         dist = dist_root / f"cross-llm-{p}"
         if not dist.is_dir():
@@ -105,9 +180,11 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
         (plug / ".claude-plugin").mkdir(parents=True, exist_ok=True)
         manifest = {
             "name": f"cross-llm-{p}",
+            # marketplace-managed updates follow VERSION changes, not every commit
+            "version": version,
             "description": DESCRIPTIONS[p],
-            "author": {"name": "cross-llm-delivery contributors"},
-            # no "version": every git commit is a new version (active development)
+            "author": dict(AUTHOR),
+            **LISTING,
         }
         (plug / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -168,11 +245,15 @@ def _main_codex(dist_root: Path, out_root: Path) -> int:
             "name": f"cross-llm-{p}",
             "version": version,
             "description": CODEX_DESCRIPTIONS[p],
-            "author": {"name": "cross-llm-delivery contributors"},
+            "author": dict(AUTHOR),
+            **LISTING,
+            "extensions": {"com.openai": {"interface": _codex_interface(p)}},
         }
         (plug / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
         _copy_skill(dist, plug / "skills" / f"cross-llm-{p}")
+        (plug / "assets").mkdir(exist_ok=True)
+        (plug / ICON_PATH).write_text(ICON_SVG, encoding="utf-8", newline="\n")
         after = _snapshot(plug)
         if before != after:
             changed.append(p)

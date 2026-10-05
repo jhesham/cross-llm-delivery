@@ -16,7 +16,7 @@
 - Offline suite must pass on Windows/Ubuntu × Python 3.11/3.14 (CI: `.github/workflows/ci.yml`).
 - Never weaken: protected inputs stay protected; model output never decides acceptance; unknown usage is never zero; nothing merges into the user's checkout; no automatic spend.
 - `plugins/` and `dist/` are generated — never hand-edit; regenerate with `generator/`.
-- Commit style: `feat:`/`fix:`/`test:`/`docs:` prefixes; every commit ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit style: `feat:`/`fix:`/`test:`/`docs:` prefixes; every commit ends with `Co-Authored-By: Claude Opus 5.5 <author-email>`.
 - CLD slice acceptance tests must fail at baseline by **AssertionError only** (lazy resolution; no import errors at collection).
 - Dogfood executor: `codex:gpt-6-luna@max+fast`; announce each dispatch to the user before running it.
 - Tagging, pushing to `public`, and publishing a release require the user's explicit go-ahead.
@@ -71,7 +71,7 @@
 git add tests/v031/__init__.py
 git commit -m "test: add v0.3.1 test package
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 2: Fix 1 — provider-declared validation context
@@ -239,7 +239,7 @@ git commit -m "fix: key validation evidence on provider-relevant environment onl
 Session-specific host variables made every new lead session re-validate.
 Context contract 2; contract-1 evidence is stale once.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 3: Fix 2a — capture ignores new tool caches and packaging metadata
@@ -416,7 +416,7 @@ Expected: all PASS.
 git add engine/cld/executors/_capture.py engine/cld/candidate.py tests/v031/test_candidate_noise.py
 git commit -m "fix: exempt new tool caches and packaging metadata from candidate capture
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 4: Fix 2b — judge snapshot fingerprints tracked files only
@@ -542,7 +542,7 @@ git commit -m "fix: judge snapshot checks tracked candidate files only
 
 Test databases and coverage files no longer block baselines, judging or integration.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 5: Red acceptance tests and CLD plan for Sitting 2
@@ -1103,7 +1103,7 @@ Expected: gate `pending`, one layer containing `CODEX_LAUNCHER, FINAL_ERRORS, GC
 git add tests/v031/test_final_errors.py tests/v031/test_codex_launcher.py tests/v031/test_gc.py docs/plans/v0.3.1-fixes/cld-plan.md
 git commit -m "test: define red v0.3.1 slice acceptance and CLD plan
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ---
@@ -1126,16 +1126,16 @@ Tell the user: three slices, executor `codex:gpt-6-luna@max+fast`, one worker, u
 
 Run (from `~/.claude/skills/cross-llm-codex`):
 ```bash
-python scripts/run_delivery.py D:/claude_server/cross-llm-delivery/docs/plans/v0.3.1-fixes/cld-plan.md --repo D:/claude_server/cross-llm-delivery --dry-run --json
+python scripts/run_delivery.py <repo>/docs/plans/v0.3.1-fixes/cld-plan.md --repo <repo> --dry-run --json
 ```
 Expected: one layer, three slices.
 
 - [ ] **Step 3: Dispatch the layer**
 
 ```bash
-CLD_DISPATCH_TIMEOUT=1200 python scripts/run_delivery.py D:/claude_server/cross-llm-delivery/docs/plans/v0.3.1-fixes/cld-plan.md --repo D:/claude_server/cross-llm-delivery --step --workers 1 --executor codex:gpt-6-luna@max+fast --validation-policy allow --budget-attempts 5 --json
+CLD_DISPATCH_TIMEOUT=1200 python scripts/run_delivery.py <repo>/docs/plans/v0.3.1-fixes/cld-plan.md --repo <repo> --step --workers 1 --executor codex:gpt-6-luna@max+fast --validation-policy allow --budget-attempts 5 --json
 ```
-Run in the background; poll with `--status --repo D:/claude_server/cross-llm-delivery --json`.
+Run in the background; poll with `--status --repo <repo> --json`.
 Expected: gate 6 (all accepted, integration required) or gate 2/4 with retained worktrees.
 
 - [ ] **Step 4: Review each accepted candidate**
@@ -1145,7 +1145,7 @@ For each accepted slice, read its diff against the Task 5 interfaces (not just t
 - [ ] **Step 5: Integrate**
 
 ```bash
-python scripts/run_delivery.py D:/claude_server/cross-llm-delivery/docs/plans/v0.3.1-fixes/cld-plan.md --repo D:/claude_server/cross-llm-delivery --integrate --integration-tests tests/v031 --json
+python scripts/run_delivery.py <repo>/docs/plans/v0.3.1-fixes/cld-plan.md --repo <repo> --integrate --integration-tests tests/v031 --json
 ```
 Expected: gate 3 with a recorded `refs/cld/integration/...` ref and SHA.
 
@@ -1247,7 +1247,7 @@ Expected: all PASS.
 git add engine/cld/cli.py tests/v031/test_cli_wiring.py
 git commit -m "feat: wire gc command, network gate, launch preflight and chosen source label
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 8: Documentation and version
@@ -1283,7 +1283,7 @@ Expected: PASS (fix any version-coherence failures the checks report).
 git add skill KNOWN-ISSUES.md CHANGELOG.md README.md docs/CLI.md engine/cld_providers/codex/setup.md VERSION pyproject.toml
 git commit -m "docs: v0.3.1 guidance for final errors, Codex-lead network, npm launcher and gc
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <author-email>"
 ```
 
 ### Task 9: Regenerate, verify, install, release gate

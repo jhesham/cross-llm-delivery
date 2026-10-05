@@ -1,9 +1,9 @@
-<!-- GENERATED from cross-llm-delivery (provider: cursor, v0.4.2) - do not edit here; edit the monorepo source. -->
+{{BANNER}}
 
-# cross-llm-cursor (Claude Code lead)
+# cross-llm-{{PROVIDER_NAME}} ({{HOST_NAME}} lead)
 
-A self-contained cross-llm-delivery skill: Claude Code leads the build and the
-cursor CLI implements each slice. The engine and driver are vendored
+A self-contained cross-llm-delivery skill: {{HOST_NAME}} leads the build and the
+{{PROVIDER_NAME}} CLI implements each slice. The engine and driver are vendored
 under `scripts/`; no pip install is needed. Start with [SKILL.md](SKILL.md).
 
 **Independent project; not affiliated with or endorsed by Anthropic or OpenAI.
@@ -19,8 +19,8 @@ Debugging and tiny edits are better handled directly by the lead.
 ## Requirements
 
 - Python 3.11+ and Git.
-- The chosen lead (Claude Code) and an installed, authenticated
-  cursor executor CLI; see [provider setup](references/provider-setup.md).
+- The chosen lead ({{HOST_NAME}}) and an installed, authenticated
+  {{PROVIDER_NAME}} executor CLI; see [provider setup](references/provider-setup.md).
 - Local Claude Code and Codex CLI/IDE workflows, subject to their actual skill
   and plugin discovery limitations. ChatGPT web, claude.ai and Cowork are not
   supported surfaces.
@@ -67,7 +67,7 @@ From this bundle directory, with an existing Git repository at an absolute
 path:
 
 ```bash
-python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host claude-code --dry-run --json
+python scripts/run_delivery.py examples/demo-plan.md --repo <absolute-git-repo> --host {{HOST}} --dry-run --json
 ```
 
 Expected: `"gate_code": 0`, `"run_id": null` and `"layers": [["T1", "T3"], ["T2"]]`

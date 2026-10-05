@@ -1,5 +1,62 @@
 # Current handoff
 
+> **Plugin metadata completed locally (2026-10-04):** Both hosts' generated
+> manifests now read `VERSION` and include homepage/repository/MIT/public author
+> contact. The public publisher name is provisionally the existing GitHub owner,
+> `jhesham`; verified directory identity has not been established. Codex portable
+> manifests retain their root layout and add namespaced listing text and a local
+> square SVG icon. Marketplace descriptions state the slice-delivery job; version
+> update guidance now explains Claude's manifest-version pinning. Existing names,
+> engine, skills, installer, CI and release tooling are unchanged.
+> Protected acceptance `c5214ca`: 12 baseline failures, one passing idempotence
+> case. Exact `claude:claude-opus-5-5@medium` completed one implementation attempt,
+> reusing validation (no new probe). Accepted `20f6861`; checked integration
+> `0d8e3fa` reached gate 3. Lead review refined discovery/privacy wording and
+> sampled the version once per Claude packaging run at source `cd203bb`.
+> All ten bundles and both plugin formats regenerated from that source. Checks:
+> 46 focused tests, ten skills, five-plugin freshness, 434 copied core Python
+> comparisons and local metadata/icon checks passed. Claude Code 2.1.289 validates
+> the marketplace and all five plugins; all five missing-version warnings are
+> gone. Only the preserved `cross-llm-claude` name warning remains (no claim of
+> directory acceptance). Privacy URL publication, verified publisher identity,
+> profile-install evidence, final full suite and submissions remain pending.
+> No push, release, install, configuration change or submission. Executor usage:
+> 8,927 input/output plus 325,705 cache-read and 27,754 cache-creation tokens;
+> billed USD and lead-chat usage unavailable. Stop for the user's token check.
+
+> **Shared disclosures completed locally (2026-10-04):** Added
+> [privacy policy](../../../PRIVACY.md), support/private security contacts,
+> independence, permissions and provider-specific billing disclosures. Both
+> hosts' bundled reviewer READMEs now link portable policies and ship the
+> existing no-inference demo. Packaging layout and executor runtime are unchanged.
+> Protected acceptance `7b82067`: 14 baseline failures and one passing existing
+> Claude preview; exact `claude:claude-opus-5-5@medium` completed one attempt,
+> reusing prior validation with policy deny (no new probe). Accepted `08ca886`;
+> checked CLD integration `f209814` reached gate 3. Lead corrections `4497159`
+> clarified aggregate validation fingerprints, automatic accepted-worktree
+> cleanup and telemetry boundaries before regenerating all ten skill bundles
+> and both plugin formats from that source. Final verification: 49 focused tests,
+> ten skill validators, five-plugin freshness, 160 policy links and 472 Python
+> source comparisons passed. No full-suite/CI rerun, global install, push,
+> release, upload or submission. Readiness records remain local/untracked.
+> Executor usage: 19,743 input/output tokens plus 1,077,073 cache-read and
+> 60,414 cache-creation tokens; USD and lead-chat usage unavailable.
+> Stop after this slice and confirm token availability before continuing.
+
+> **Public development-record cleanup completed locally (2026-10-04):**
+> Replaced local paths, profile details and email literals in twelve historical
+> documents with meaningful placeholders, retaining technical content and links.
+> [Development-record guidance](../README.md) explains historical evidence,
+> placeholder usage and where to find current product instructions.
+> Protected privacy acceptance: `tests/test_public_development_records.py`,
+> 13 checks red at baseline, then green after one implementation attempt using
+> exact `claude:claude-opus-5-5@medium` (one additional validation probe).
+> Accepted candidate `f6cc072`; checked CLD integration `94148d1` reached gate 3.
+> Lead review corrected the index's immutable-SHA wording after integration.
+> No engine, generated package, architecture or installation changes; no push,
+> release or directory submission. Historical SHA citations below remain records
+> of their original verification and are not current branch identifiers.
+
 > **Advisory refresh (2026-10-04):** Updating current guidance for v0.4.2's
 > two lead hosts and five executor providers. Install/version instructions,
 > usage reporting, Cursor direct-Node setup, Antigravity path/transcript notes,
@@ -298,7 +355,7 @@ All four owned global Claude standalone skills match generated `@49b1a3f`
 bundles byte-for-byte. Eight installed isolated help checks and the read-only
 Codex picker check passed (seven advisory rows). Installation found no active
 delivery writer. Former `@84dd85a` installations are preserved at:
-`C:\Users\Administrator\.claude\skill-backups\p02-20260929-230108-898da3374e9d40efb874adf554af8cae`.
+`<home>\.claude\skill-backups\p02-20260929-230108-898da3374e9d40efb874adf554af8cae`.
 Restart Claude Code to load the updated entry instructions. No new global
 Codex skill installation or release-asset replacement was requested.
 
@@ -356,7 +413,7 @@ Local model-free checks reproduce elevated-helper failure on standalone CLI
 
 With explicit user approval, backed up the global Codex config and changed
 only `windows.sandbox` from `elevated` to `unelevated`. Backup:
-`C:\Users\Administrator\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
+`<home>\.codex\config.toml.before-unelevated-20260929T073523Z.bak`.
 Verified all other parsed settings unchanged. Shell execution and
 sandbox-created-file create/edit/read/delete pass in an ordinary workspace.
 All checks used `codex sandbox`, without model calls.
@@ -427,7 +484,7 @@ also passed: private-probe edits/evidence protection, managed-worktree edits/
 source preservation, and exclusion of external junction targets from ACL changes.
 
 The four previous `59722b5` installations are backed up at
-`C:\Users\Administrator\.claude\skill-backups\p01-20260929-183119-51a8549158404fca9d87db6c1fc10f41`.
+`<home>\.claude\skill-backups\p01-20260929-183119-51a8549158404fca9d87db6c1fc10f41`.
 Retained local proofs: `.cld/environment/p01-ci-final.json`,
 `p01-bundle-coherence.json`, `p01-install.json`, `p01-installed-smoke.json`,
 `p01-config-check.json` and `p01-final.json` under the same directory. Restart
