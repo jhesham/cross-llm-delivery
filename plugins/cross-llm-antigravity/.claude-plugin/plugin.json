@@ -1,7 +1,7 @@
 {
   "name": "cross-llm-antigravity",
   "version": "0.4.2",
-  "description": "Claude Code leads antigravity CLI implementation with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI.",
+  "description": "Claude Code leads antigravity CLI implementation with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "author": {
     "name": "jhesham",
     "url": "https://github.com/jhesham"

@@ -3,32 +3,32 @@
   "owner": {
     "name": "jhesham"
   },
-  "description": "Claude Code leads delivery through headless executors, independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI.",
+  "description": "Claude Code leads delivery through headless executors, independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "plugins": [
     {
       "name": "cross-llm-opencode",
       "source": "./plugins/cross-llm-opencode",
-      "description": "Implement test-gated slices with the OpenCode CLI executor; select and validate an exact account-supported model. Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
+      "description": "Implement test-gated slices with the OpenCode CLI executor; select and validate an exact account-supported model. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
     },
     {
       "name": "cross-llm-antigravity",
       "source": "./plugins/cross-llm-antigravity",
-      "description": "Implement test-gated slices with the Antigravity agy CLI executor; recorded Windows behavior, account/model validation required. Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
+      "description": "Implement test-gated slices with the Antigravity agy CLI executor; recorded Windows behavior, account/model validation required. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
     },
     {
       "name": "cross-llm-cursor",
       "source": "./plugins/cross-llm-cursor",
-      "description": "Implement test-gated slices with the Cursor cursor-agent CLI executor; recorded Windows behavior, account/model validation required. Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
+      "description": "Implement test-gated slices with the Cursor cursor-agent CLI executor; recorded Windows behavior, account/model validation required. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
     },
     {
       "name": "cross-llm-codex",
       "source": "./plugins/cross-llm-codex",
-      "description": "Implement test-gated slices with the Codex CLI executor; explicit model, effort and optional fast tier, no guessed default. Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
+      "description": "Implement test-gated slices with the Codex CLI executor; explicit model, effort and optional fast tier, no guessed default. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
     },
     {
       "name": "cross-llm-claude",
       "source": "./plugins/cross-llm-claude",
-      "description": "Implement test-gated slices with the Claude Code CLI executor on your Claude subscription; exact model and effort, isolated session, no default. Independent project; not affiliated with or endorsed by Anthropic or OpenAI."
+      "description": "Implement test-gated slices with the Claude Code CLI executor on your Claude subscription; exact model and effort, isolated session, no default. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
     }
   ]
 }
