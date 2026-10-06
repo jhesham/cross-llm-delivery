@@ -112,6 +112,26 @@ def test_regeneration_remains_byte_idempotent(generated):
     assert before == after
 
 
+def test_codex_pilot_listing_avoids_unrelated_assistant_names(generated):
+    _, output = generated
+    _, data = manifest(output, "codex", "codex")
+    interface = data["extensions"]["com.openai"]["interface"]
+    assert data["name"] == "cross-llm-codex", "Keep installed package identity"
+    assert interface["displayName"] == "Cross-LLM Delivery"
+    listing = " ".join([data["description"], *[
+        interface[field] for field in ("displayName", "shortDescription", "longDescription")
+    ]]).lower()
+    for unrelated in ("claude", "anthropic", "opencode", "antigravity", "cursor"):
+        assert unrelated not in listing, unrelated
+    assert "authenticated codex cli" in listing, "Disclose the real runtime prerequisite"
+    assert "not affiliated with or endorsed by openai" in listing
+    assert "not a security sandbox" in listing
+    # The pilot exception must not alter the retained Claude package or its disclosure.
+    _, claude = manifest(output, "claude-code", "claude")
+    assert claude["name"] == "cross-llm-claude"
+    assert "Anthropic" in claude["description"]
+
+
 def test_catalog_jobs_and_provider_paths_are_retained():
     catalog = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
     assert len(catalog["plugins"]) == 5
