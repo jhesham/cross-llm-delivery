@@ -58,6 +58,16 @@ CODEX_DESCRIPTIONS = {
     name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
+CODEX_PILOT_INDEPENDENCE = (
+    "Independent project; not affiliated with or endorsed by OpenAI. "
+    "Product names are trademarks of their owners."
+)
+# Keep the installed package identity; directory copy describes the workflow
+# without naming unrelated assistants in the Codex-only pilot listing.
+CODEX_DESCRIPTIONS["codex"] = (
+    "Test-gated local implementation with independent acceptance and verified "
+    f"Git integration. {CODEX_PILOT_INDEPENDENCE}"
+)
 PROJECT_URL = "https://github.com/jhesham/cross-llm-delivery"
 # Provisional public publisher name: the existing GitHub owner (no email).
 PUBLISHER = "jhesham"
@@ -130,6 +140,12 @@ def _version() -> str:
 def _codex_interface(p: str) -> dict:
     """Portable OpenAI presentation fields (namespaced under extensions.com.openai)."""
     label, cli = PROVIDER_LABELS[p], PROVIDER_CLIS[p]
+    discovery = (
+        "executor plugin installation and IDE plugin discovery remain unverified. "
+        if p == "codex" else
+        "later Codex/Claude executor plugins and IDE plugin discovery remain unverified. "
+    )
+    independence = CODEX_PILOT_INDEPENDENCE if p == "codex" else INDEPENDENCE
     long_description = (
         f"Codex leads delivery of test-gated slices and the {cli} (provider: {p}) "
         "implements each one headlessly. The lead writes contracts and committed "
@@ -140,19 +156,19 @@ def _codex_interface(p: str) -> dict:
         "Requirements: Python 3.11+, Git and an installed, authenticated "
         f"{cli} on your own account; no account access or models are provided. "
         "Use a standalone skill for local Codex CLI or IDE workflows. Plugin discovery "
-        "depends on your host version and provider; later Codex/Claude executor plugins "
-        "and IDE plugin discovery remain unverified. See the project's support matrix "
+        f"depends on your host version and provider; {discovery}"
+        "See the project's support matrix "
         "for recorded evidence. ChatGPT web is not a supported execution surface. "
         "Runs locally with your user privileges; slices use Git worktrees, which are not "
         "a security sandbox. The selected provider may receive prompts and repository "
         "content under your account terms, and usage is billed to your plan or provider "
         "account. Read the bundled PRIVACY.md and SECURITY.md for data handling, "
         f"retention and support. Project details: {PROJECT_URL}. "
-        f"{INDEPENDENCE}"
+        f"{independence}"
     )
     return {
-        "displayName": f"Cross-LLM {label}",
-        "shortDescription": f"Test-gated slices: {label}",
+        "displayName": "Cross-LLM Delivery" if p == "codex" else f"Cross-LLM {label}",
+        "shortDescription": "Test-gated build delivery" if p == "codex" else f"Test-gated slices: {label}",
         "longDescription": long_description,
         "developerName": PUBLISHER,
         "category": "Developer Tools",

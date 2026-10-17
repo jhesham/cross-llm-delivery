@@ -69,7 +69,9 @@ def test_plugin_descriptions_disclose_independence_without_changing_names(host):
     for provider, description in descriptions.items():
         lower = description.lower()
         assert "independent" in lower and "endors" in lower, provider
-        assert "openai" in lower and "anthropic" in lower, provider
+        assert "openai" in lower, provider
+        if host != "codex" or provider != "codex":
+            assert "anthropic" in lower, provider
 
 
 def test_public_catalog_discloses_independence_for_all_five_packages():
