@@ -11,10 +11,15 @@ Claude, Claude Code, Codex and other names are trademarks of their owners.**
 
 ## Scope
 
-Use it for contract-driven, multi-slice implementation: the lead writes slice
-contracts and commits acceptance tests, the executor implements each slice in a
-Git worktree, and the engine independently runs acceptance and integration.
-Debugging and tiny edits are better handled directly by the lead.
+Use it for any change you can pin down with a failing acceptance test and an
+explicit list of writable files — a one-slice fix or a multi-slice build. The lead
+writes slice contracts and commits acceptance tests, the executor implements each
+slice in a Git worktree, and the engine independently runs acceptance and
+integration. The lead works directly only when there is no testable contract yet
+(root-cause investigation, exploratory design, visual or live-system judgement) or
+for a trivial edit where the test would cost more than the change. For debugging,
+the lead finds the cause and commits the failing reproduction test; CLD implements
+the fix.
 
 ## Requirements
 

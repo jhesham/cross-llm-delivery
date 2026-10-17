@@ -23,10 +23,15 @@ IDs and supported efforts; discovery does not authorize dispatch.
 
 ## When to use (and when not to)
 
-- **Use it** on a large build expressed as a plan of independently testable
-  slices with a dependency DAG, where executor tokens dwarf lead tokens.
-- **Do not use it** for small one-file fixes; the per-dispatch overhead only
-  pays off on large builds. Small work stays with Codex directly.
+- **Use it** for any change pinned by a failing acceptance test and an explicit
+  writable-file allowlist: a one-slice fix or a multi-slice plan with a
+  dependency DAG. CLD adds independent acceptance, a recorded ledger, and moves
+  implementation tokens off the lead.
+- **Work directly instead** when there is no testable contract yet (root-cause
+  investigation, exploratory design, visual or live-system judgement) or for a
+  trivial edit where the test would cost more than the change. For debugging,
+  find the cause and commit the failing reproduction test first; then CLD can
+  implement the fix.
 
 ## Ground rules
 

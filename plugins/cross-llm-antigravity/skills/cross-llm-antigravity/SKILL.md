@@ -16,8 +16,11 @@ The configured default workhorse is `antigravity:Gemini 3.1 Pro (High)`; preserv
 
 ## Before dispatch
 
-Use this for a build with independently testable slices and a dependency DAG.
-For a small direct edit, the dispatch overhead may outweigh the benefit.
+Use this for any change pinned by a failing acceptance test and an explicit
+writable-file allowlist: a one-slice fix or a multi-slice plan with a dependency
+DAG. Work directly when there is no testable contract yet (investigation,
+exploratory design) or the test would cost more than a trivial edit; for
+debugging, commit the failing reproduction test first, then let CLD implement.
 
 Read [delivery-core.md](references/delivery-core.md) when starting a build or
 recovering one. Read [provider-setup.md](references/provider-setup.md) to check
