@@ -9,9 +9,13 @@ test suite. Model output alone never decides acceptance.
 **Independent project; not affiliated with or endorsed by Anthropic or OpenAI.
 Claude, Claude Code, Codex and other names are trademarks of their owners.**
 
-Use it for contract-driven, multi-slice implementation with committed tests and
-independent acceptance/integration. Debugging and tiny edits are better handled
-directly by the lead. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
+Use it for any change you can pin down with a failing acceptance test and an
+explicit list of files the executor may write — a one-slice fix or a multi-slice
+build — with independent acceptance/integration. The lead works directly only when
+there is no testable contract yet (root-cause investigation, exploratory design,
+changes judged visually or against live systems) or for a trivial edit where the
+test would cost more than the change. For debugging, the lead finds the cause and
+commits the failing reproduction test; CLD implements the fix. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
 vulnerability reporting: [SECURITY.md](SECURITY.md). Questions and bugs:
 [GitHub Issues](https://github.com/jhesham/cross-llm-delivery/issues).
 
