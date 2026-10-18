@@ -6,6 +6,16 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-10-18
+
+### Fixed
+- Codex executor: validation no longer blocks with "CLI/configuration changed
+  during validation" on a first run. Codex records a `[projects.'<dir>']`
+  `trust_level` entry in `config.toml` whenever it runs in a new directory,
+  including CLD's validation probe folder; those entries are now excluded from
+  the Codex validation identity. Every other configuration change still
+  invalidates evidence, and an unparseable file falls back to the raw hash.
+
 ## [0.4.2] — 2026-10-04
 
 ### Fixed

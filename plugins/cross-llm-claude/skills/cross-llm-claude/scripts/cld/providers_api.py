@@ -57,6 +57,7 @@ class Provider:
     context_env: tuple = ()  # env names/PREFIX_* patterns keyed into validation evidence
     launch_problem: Optional[Callable] = None  # () -> str | None; blocks dispatch before spend
     context_extra: Optional[Callable] = None  # () -> str; account/plan identity keyed into validation evidence
+    config_identity: Optional[Callable] = None  # (config path) -> identity dict; default sha256 of the file
     config_env: Optional[Callable] = None  # (config paths) -> tuple of env names referenced by provider config
     config_inputs: Optional[Callable] = None  # (repository directory) -> iterable of config paths
 
