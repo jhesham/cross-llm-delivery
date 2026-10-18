@@ -23,6 +23,7 @@ _WRITE_WORDS = {
     "EXPORT",
     "LOAD",
     "COPY",
+    "INTO",  # SELECT ... INTO creates a table (Postgres, SQL Server)
 }
 
 

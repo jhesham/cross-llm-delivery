@@ -46,3 +46,12 @@ def test_hash_ignores_comments_and_whitespace():
     assert h("SELECT  a\nFROM t -- x") == h("/* c */ SELECT a FROM t")
     assert h("SELECT a FROM t") != h("SELECT b FROM t")
     assert len(h("SELECT 1")) == 64
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT * INTO new_table FROM orders",
+    "select a, b into #tmp from orders",
+    "WITH a AS (SELECT 1 AS x) SELECT x INTO t FROM a",
+])
+def test_select_into_creates_a_table_so_is_write(sql):
+    assert classify(sql) == "write"
