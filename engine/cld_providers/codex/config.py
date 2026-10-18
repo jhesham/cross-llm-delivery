@@ -104,3 +104,37 @@ def config_env(paths) -> tuple[str, ...]:
                              if isinstance(value, str) and value)
 
     return tuple(sorted(names))
+
+
+def config_identity(path) -> dict:
+    """Validation identity of one Codex config file, ignoring Codex's own trust records.
+
+    Codex appends ``[projects.'<dir>'] trust_level = "trusted"`` whenever it runs in a new
+    directory, including CLD's temporary validation probe. Those entries do not change the
+    model, account or routing that validation proved, so a project entry holding only
+    ``trust_level`` is excluded. Every other key, including other project-scoped settings,
+    still counts. A missing, unreadable or invalid file falls back to the raw file identity.
+    """
+    import hashlib
+    import json
+
+    from cld.admission import file_identity
+
+    path = Path(path)
+    if path.suffix.casefold() != ".toml":
+        return file_identity(path)
+    try:
+        with path.open("rb") as stream:
+            config = tomllib.load(stream)
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return file_identity(path)
+    projects = config.get("projects")
+    if isinstance(projects, dict):
+        kept = {name: entry for name, entry in projects.items()
+                if not (isinstance(entry, dict) and set(entry) <= {"trust_level"})}
+        if kept:
+            config["projects"] = kept
+        else:
+            config.pop("projects")
+    digest = hashlib.sha256(json.dumps(config, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    return {"path": str(path.resolve()), "toml_sha256": digest}

@@ -647,6 +647,7 @@ def prepare_dispatch(args, slices, ledger):
             tuple(descriptor.config_env(config_paths)) if descriptor.config_env else ())
         return validation_context(spec, cli_paths=[command, *invocation[1:]],
             config_paths=config_paths, extra=_validation_extra(args.validation_context, descriptor),
+            config_identity=getattr(descriptor, "config_identity", None),
             repo=args.repo, env_patterns=patterns)
 
     def validate(spec):
