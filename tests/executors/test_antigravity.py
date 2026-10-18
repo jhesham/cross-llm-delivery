@@ -29,7 +29,7 @@ def test_parse_conversation_id_none_when_absent():
 
 
 def test_transcript_path_layout():
-    p = _transcript_path("C:\\Users\\Administrator", "abc")
+    p = _transcript_path("C:\\Users\\example", "abc")
     assert p.endswith(os.path.join(
         ".gemini", "antigravity-cli", "brain", "abc", ".system_generated", "logs", "transcript.jsonl"))
 
