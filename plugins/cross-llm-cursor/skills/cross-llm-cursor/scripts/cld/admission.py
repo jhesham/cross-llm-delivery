@@ -60,11 +60,12 @@ def selected_environment(patterns, environ=None):
     return dict(sorted(selected.items()))
 
 
-def validation_context(spec, *, cli_paths, config_paths=(), extra="", repo="", env_patterns=()):
+def validation_context(spec, *, cli_paths, config_paths=(), extra="", repo="", env_patterns=(),
+                       config_identity=None):
     # Environment values are hashed, never stored; only selected names are recorded.
     environment = selected_environment(env_patterns)
     data = dict(contract=2, spec=spec, cli=[file_identity(p) for p in cli_paths],
-        config=[file_identity(p) for p in config_paths], extra=extra,
+        config=[(config_identity or file_identity)(p) for p in config_paths], extra=extra,
         repo=str(Path(repo).resolve()), environment=environment)
     return {"contract": 2,
             "cli_fingerprint": hashlib.sha256(json.dumps(data["cli"], sort_keys=True).encode("utf-8")).hexdigest(),
