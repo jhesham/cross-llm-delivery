@@ -32,6 +32,8 @@ IDs and supported efforts; discovery does not authorize dispatch.
   trivial edit where the test would cost more than the change. For debugging,
   find the cause and commit the failing reproduction test first; then CLD can
   implement the fix.
+- **Planned with superpowers?** Convert the plan into slices with
+  [superpowers-to-cld.md](references/superpowers-to-cld.md).
 
 ## Ground rules
 
