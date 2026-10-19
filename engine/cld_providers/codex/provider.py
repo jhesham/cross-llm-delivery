@@ -63,16 +63,19 @@ class CodexExecutor:
     ``runner(argv, cwd, **kwargs)`` is the shared bounded-process contract
     (returns an object with returncode/stdout/stderr/error/metadata(), like
     ``cld.process.ProcessResult``); ``git_runner`` is the two-tuple runner used
-    only for post-completion diff capture. The probe is read-only and never
+    only for post-completion code diff capture. Evidence runs use the dedicated
+    ``run_evidence`` method and return no diff. The probe is read-only and never
     invokes inference; ambient user auth/config is respected as-is and prompts
     travel over stdin, never argv or process metadata.
     """
 
     def __init__(self, *, model, effort=None, service_tier=None, sandbox="workspace-write",
                  runner=run_process, git_runner=run_process,
-                 timeout=None, cancel=None, artifact_dir=None):
+                 timeout=None, cancel=None, artifact_dir=None, evidence=False):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("CodexExecutor requires an explicit, nonempty model id")
+        if type(evidence) is not bool:
+            raise ValueError("CodexExecutor evidence must be a bool")
         self._model = model
         self._effort = effort
         self._service_tier = service_tier
@@ -84,6 +87,7 @@ class CodexExecutor:
         self._timeout = timeout
         self._cancel = cancel
         self._artifact_dir = artifact_dir
+        self._evidence = evidence
 
     def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
         """Bounded one-slice brief: task, exact allowlist, acceptance test."""
@@ -109,6 +113,18 @@ class CodexExecutor:
                       cancel=self._cancel, artifact_dir=self._artifact_dir)
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
+        return self._run_prompt(self._build_prompt(task, feedback), workdir, evidence=False)
+
+    def run_evidence(self, prompt: str, workdir: Path) -> ExecutorResult:
+        """Run one evidence task through the same Codex boundary, without diff capture."""
+        if not self._evidence:
+            return ExecutorResult(ok=False, diff="",
+                                  raw_log=("Refusing evidence dispatch: this CodexExecutor was not "
+                                           "configured for evidence."),
+                                  process={"error": "invalid_invocation"})
+        return self._run_prompt(prompt, workdir, evidence=True)
+
+    def _run_prompt(self, prompt: str, workdir: Path, *, evidence: bool) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
         if executor_depth_blocked():
             return ExecutorResult(
@@ -121,11 +137,10 @@ class CodexExecutor:
         cwd = str(Path(workdir).resolve())
 
         # Fail on local misconfiguration before spawning any process.
-        prompt = self._build_prompt(task, feedback)
         try:
             invocation = build_invocation(self._model, cwd, prompt,
                                           effort=self._effort, service_tier=self._service_tier,
-                                          sandbox=self._sandbox)
+                                          sandbox=self._sandbox, evidence=evidence)
         except CodexContractError as exc:
             return ExecutorResult(ok=False, diff="",
                                   raw_log=f"Refusing to build a Codex dispatch: {exc}",
@@ -190,6 +205,13 @@ class CodexExecutor:
                                   raw_log=raw_log,
                                   process={**metadata, "error": error})
 
+        if evidence:
+            token_usage = {key: value for key, value in outcome.usage.items()
+                           if key in ("input", "output", "cache_read")}
+            return ExecutorResult(ok=True, diff="", files_changed=[],
+                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
+                                  raw_log=raw_log, process=metadata)
+
         # Valid completion alone permits diff capture; the worktree diff (not
         # JSONL file events) is the candidate, verified independently by CLD.
         try:
@@ -224,6 +246,7 @@ PROVIDER = Provider(
     config_identity=config_identity,
     config_inputs=config_inputs,
     launch_problem=_launch_problem,
+    supports_evidence=True,
     skill_fragment=(_HERE / "SKILL.fragment.md").read_text(encoding="utf-8"),
     setup_notes=(_HERE / "setup.md").read_text(encoding="utf-8"),
 )
