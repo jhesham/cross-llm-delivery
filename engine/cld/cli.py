@@ -727,6 +727,7 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     p = cls(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
+    p.add_argument("--ask", metavar="TASK.json", help="Run one evidence task from a JSON file")
     p.add_argument("--sql", metavar="FILE", help="Run this SQL file using a configured evidence environment")
     p.add_argument("--env", metavar="NAME", help="Evidence environment name to use with --sql")
     p.add_argument("--out", metavar="DIR", default=None,
@@ -812,8 +813,11 @@ def _validate(args) -> None:
         raise StateError("--apply/--include-previous require --gc")
     if sum(bool(v) for v in (args.status, args.usage, args.watch, args.dry_run,
                             args.integrate, args.step, args.mark_repaired,
-                            args.migrate_ledger, args.reconcile_plan, args.new_build, args.gc)) > 1:
+                            args.migrate_ledger, args.reconcile_plan, args.new_build, args.gc,
+                            args.ask)) > 1:
         raise StateError("Choose one inspection/delivery/state action")
+    if args.ask and (args.plan is not None or args.sql is not None):
+        raise StateError("--ask cannot be combined with a plan or --sql")
     if args.workers < 1 or args.interval < 1:
         raise StateError("Workers and interval must be positive")
 
@@ -845,6 +849,43 @@ def _run_sql_cli(args) -> int:
 
     print(json.dumps(record, ensure_ascii=False, indent=2))
     return 0 if record.get("status") == "ok" else 5
+
+
+def _ask_cli(args) -> int:
+    """Run --ask and print its bounded result with the command identity."""
+    def blocked(reason):
+        result = {
+            "task_id": None,
+            "status": "blocked",
+            "evidence_dir": None,
+            "problems": [str(reason)],
+            "runner_used": False,
+            "preview": {"rows": [], "truncated": False, "bytes": 0},
+            "notes": "",
+        }
+        result["command"] = "ask"
+        print(json.dumps(result, ensure_ascii=False))
+        return 5
+
+    try:
+        _validate(args)
+    except (StateError, ValueError) as exc:
+        return blocked(exc)
+    if not args.executor:
+        return blocked("--ask requires an explicit --executor spec")
+    try:
+        task = json.loads(Path(args.ask).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return blocked(f"Cannot read task JSON {args.ask}: {exc}")
+
+    try:
+        from cld.evidence_mode.ask import run_ask
+        result = run_ask(args.repo, task, executor_spec=args.executor)
+    except Exception as exc:
+        return blocked(exc)
+    result["command"] = "ask"
+    print(json.dumps(result, ensure_ascii=False))
+    return 0 if result.get("status") == "complete" else 5
 
 
 def _check_gc_binding(args, build):
@@ -889,6 +930,8 @@ def _gc_report(args):
 
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
+    if args.ask is not None:
+        return _ask_cli(args)
     if args.sql is not None:
         return _run_sql_cli(args)
 
@@ -1132,6 +1175,7 @@ def _main(argv=None) -> int:
 
 _ACTION_FLAGS = (
     ("--status", "status"), ("--usage", "usage"), ("--watch", "watch"),
+    ("--ask", "ask"),
     ("--integrate", "integrate"), ("--mark-repaired", "repair"),
     ("--migrate-ledger", "migrate"), ("--reconcile-plan", "reconcile"),
     ("--new-build", "new-build"), ("--step", "step"), ("--dry-run", "preview"),
@@ -1157,6 +1201,8 @@ def _guess_command(argv) -> str:
 
 
 def _command_of(args) -> str:
+    if args.ask:
+        return "ask"
     if args.status:
         return "status"
     if args.usage:
@@ -1526,6 +1572,8 @@ def _main_json(argv) -> int:
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    if args.ask is not None:
+        return _ask_cli(args)
     if args.sql is not None:
         return _run_sql_cli(args)
     try:
