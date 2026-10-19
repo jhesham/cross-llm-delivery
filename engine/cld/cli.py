@@ -727,6 +727,10 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     p = cls(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
+    p.add_argument("--sql", metavar="FILE", help="Run this SQL file using a configured evidence environment")
+    p.add_argument("--env", metavar="NAME", help="Evidence environment name to use with --sql")
+    p.add_argument("--out", metavar="DIR", default=None,
+                   help="Evidence output directory (default: <repo>/.cld/runs/sql)")
     p.add_argument("--worktree-root", help="Writable worktree root (relative to --repo); default .cld/worktrees")
     p.add_argument("--ledger", default=None, help="Ledger path; default <repo>/.cld-ledger.json; explicit relative paths use invocation cwd")
     p.add_argument("--migrate-ledger", action="store_true", help="Back up and migrate legacy state with this plan; no dispatch")
@@ -819,6 +823,30 @@ def _resolve_paths(args) -> None:
     args.ledger = resolve_ledger(args.repo, args.ledger)
 
 
+def _run_sql_cli(args) -> int:
+    """Run the independent SQL evidence action and print its record as JSON."""
+    try:
+        if not args.env:
+            raise ValueError("--sql requires --env")
+        repo = os.path.realpath(args.repo)
+        sql = Path(args.sql).read_text(encoding="utf-8")
+        from cld.evidence_mode.environments import load_environments
+        from cld.evidence_mode.sqlrun import run_sql
+
+        environments = load_environments(repo)
+        try:
+            environment = environments[args.env]
+        except KeyError as exc:
+            raise ValueError(f"Environment '{args.env}' is not configured for repository {repo}") from exc
+        out_dir = args.out if args.out is not None else str(Path(repo) / ".cld" / "runs" / "sql")
+        record = run_sql(repo, environment, sql, out_dir=out_dir)
+    except Exception as exc:
+        record = {"status": "failed", "error": str(exc)}
+
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+    return 0 if record.get("status") == "ok" else 5
+
+
 def _check_gc_binding(args, build):
     """GC must operate only on the repository its ledger is bound to (R04)."""
     bound = build.get("repo")
@@ -861,6 +889,9 @@ def _gc_report(args):
 
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
+    if args.sql is not None:
+        return _run_sql_cli(args)
+
     _validate(args)
     _resolve_paths(args)
 
@@ -1495,6 +1526,8 @@ def _main_json(argv) -> int:
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    if args.sql is not None:
+        return _run_sql_cli(args)
     try:
         _validate(args)
     except (StateError, ValueError) as exc:
