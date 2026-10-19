@@ -1,0 +1,125 @@
+"""Run SQL against a configured environment and retain local evidence."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import re
+
+from cld import process
+from .approvals import is_approved
+from .sqlclass import classify_sql, statement_hash
+
+
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)(password|passwd|pwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*\S+"
+)
+_URL_CREDENTIALS = re.compile(r"//[^/@:\s]+:[^/@\s]+@")
+
+
+def _redact(text: str) -> str:
+    """Remove common credential forms from retained diagnostics."""
+    text = _URL_CREDENTIALS.sub("//***:***@", text)
+    return _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
+
+
+def _next_number(runs_dir: Path) -> tuple[int, Path]:
+    """Reserve the next numbered run record without overwriting another run."""
+    number = 1
+    while True:
+        record_path = runs_dir / f"{number}.json"
+        try:
+            with record_path.open("x", encoding="utf-8"):
+                pass
+            return number, record_path
+        except FileExistsError:
+            number += 1
+
+
+def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
+    """Execute one SQL statement and write its SQL, output, and run record.
+
+    Writes in real environments require a matching approval. Environments that
+    only expose an MCP interface are reported as refused so callers can route
+    execution through that interface separately.
+    """
+    repo_path = Path(repo)
+    output_root = Path(out_dir)
+    sql_dir = output_root / "sql"
+    results_dir = output_root / "results"
+    runs_dir = output_root / "runs"
+    for directory in (sql_dir, results_dir, runs_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    number, run_path = _next_number(runs_dir)
+    sql_path = sql_dir / f"{number}.sql"
+    result_path = results_dir / f"{number}.out"
+    sql_path.write_text(sql, encoding="utf-8")
+
+    sql_hash = statement_hash(sql)
+    classification = classify_sql(sql)
+    status = "ok"
+    error = None
+    stdout = ""
+    stderr = ""
+    duration_s = None
+    exit_code = None
+    job_id = None
+
+    if env.mcp_only:
+        status = "refused"
+        error = "execute through MCP; layer 1 applies"
+    elif (env.cls == "real" and classification == "write"
+          and not is_approved(repo_path, env=env.name, sql_hash=sql_hash)):
+        status = "needs_approval"
+        error = f"Write SQL for environment '{env.name}' needs approval"
+    else:
+        try:
+            result = runner(list(env.command), str(repo), stdin=sql)
+        except (FileNotFoundError, OSError) as exc:
+            status = "failed"
+            command = env.command[0] if env.command else "command"
+            error = f"Could not execute {command}: {exc}"
+        else:
+            stdout = result.stdout or ""
+            stderr = result.stderr or ""
+            duration_s = result.elapsed
+            exit_code = result.returncode
+            result_error = result.error
+            if result_error or result.returncode != 0:
+                status = "failed"
+                error = str(result_error) if result_error else f"Command exited with code {result.returncode}"
+            if env.job_id_pattern:
+                try:
+                    match = re.search(env.job_id_pattern, stderr + "\n" + stdout)
+                    if match is not None and match.lastindex:
+                        job_id = match.group(1)
+                except (re.error, IndexError):
+                    job_id = None
+
+    stderr_tail = _redact(stderr)[-4096:]
+    safe_error = _redact(str(error)) if error is not None else None
+    try:
+        parsed_stdout = json.loads(stdout)
+        rows = len(parsed_stdout) if isinstance(parsed_stdout, list) else None
+    except (TypeError, ValueError):
+        rows = None
+
+    result_path.write_text(stdout, encoding="utf-8")
+    record = {
+        "sql": sql,
+        "sql_hash": sql_hash,
+        "env": env.name,
+        "classification": classification,
+        "status": status,
+        "rows": rows,
+        "duration_s": duration_s,
+        "exit_code": exit_code,
+        "job_id": job_id,
+        "result_path": str(result_path),
+        "sql_path": str(sql_path),
+        "stderr_tail": stderr_tail,
+        "error": safe_error,
+    }
+    run_path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return record
