@@ -416,10 +416,12 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
 
 
 def build_executor_factory():
-    """Return factory(spec) -> executor, resolving a spec via parse_executor_spec +
+    """Return factory(spec, evidence=False) -> executor, resolving a spec via parse_executor_spec +
     get_executor. Used by run_plan_parallel for per-slice executor selection."""
-    def factory(spec: str):
+    def factory(spec: str, evidence: bool = False):
         name, kwargs = parse_executor_spec(spec)
+        if evidence:
+            kwargs["evidence"] = True
         return _hook("get_executor")(name, **kwargs)
     return factory
 
@@ -679,12 +681,14 @@ def prepare_dispatch(args, slices, ledger):
             raise AdmissionBlocked(f"{spec}: CLI/configuration changed during validation; rerun preflight")
         admitted[spec] = contexts[spec]
 
-    def factory(value):
+    def factory(value, evidence: bool = False):
         spec, provider, kwargs = resolve_spec(value)
         if spec not in admitted or context_of(spec) != admitted[spec]:
             raise AdmissionBlocked("Model/CLI/configuration changed after admission; rerun preflight")
+        if evidence:
+            kwargs["evidence"] = True
         executor = _hook("get_executor")(provider, **kwargs)
-        if getattr(args, "accounting", None):
+        if getattr(args, "accounting", None) and not evidence:
             executor = args.accounting.wrap(executor, spec, identity=admitted[spec])
         return executor
 
