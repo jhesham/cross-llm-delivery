@@ -81,7 +81,8 @@ def _single_line(name, value):
 
 
 def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
-                     sandbox="workspace-write", depth=0, evidence=False):
+                     sandbox="workspace-write", depth=0, evidence=False,
+                     full_access=False):
     """Fresh explicit invocation: no resume/--last, no positional prompt, no shell."""
     if type(depth) is not int or depth != 0:
         raise CodexContractError(f"Codex executors cannot dispatch recursively; depth must be 0, got {depth!r}")
@@ -96,7 +97,11 @@ def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
         raise CodexContractError("service_tier must be 'fast' or absent")
     if type(evidence) is not bool:
         raise CodexContractError(f"evidence must be a bool, got {evidence!r}")
+    if type(full_access) is not bool:
+        raise CodexContractError(f"full_access must be a bool, got {full_access!r}")
     if evidence:
+        sandbox = "danger-full-access"
+    elif full_access:
         sandbox = "danger-full-access"
     elif sandbox not in _SANDBOXES:
         raise CodexContractError(f"sandbox must be one of {_SANDBOXES}, got {sandbox!r}")

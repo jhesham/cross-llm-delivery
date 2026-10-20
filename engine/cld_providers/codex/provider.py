@@ -113,7 +113,8 @@ class CodexExecutor:
                       cancel=self._cancel, artifact_dir=self._artifact_dir)
 
     def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
-        return self._run_prompt(self._build_prompt(task, feedback), workdir, evidence=False)
+        return self._run_prompt(self._build_prompt(task, feedback), workdir,
+                                evidence=False, full_access=self._evidence)
 
     def run_evidence(self, prompt: str, workdir: Path) -> ExecutorResult:
         """Run one evidence task through the same Codex boundary, without diff capture."""
@@ -124,7 +125,8 @@ class CodexExecutor:
                                   process={"error": "invalid_invocation"})
         return self._run_prompt(prompt, workdir, evidence=True)
 
-    def _run_prompt(self, prompt: str, workdir: Path, *, evidence: bool) -> ExecutorResult:
+    def _run_prompt(self, prompt: str, workdir: Path, *, evidence: bool,
+                    full_access: bool = False) -> ExecutorResult:
         # The recursion guard precedes ANY process, including the probes.
         if executor_depth_blocked():
             return ExecutorResult(
@@ -140,7 +142,8 @@ class CodexExecutor:
         try:
             invocation = build_invocation(self._model, cwd, prompt,
                                           effort=self._effort, service_tier=self._service_tier,
-                                          sandbox=self._sandbox, evidence=evidence)
+                                          sandbox=self._sandbox, evidence=evidence,
+                                          full_access=full_access)
         except CodexContractError as exc:
             return ExecutorResult(ok=False, diff="",
                                   raw_log=f"Refusing to build a Codex dispatch: {exc}",
