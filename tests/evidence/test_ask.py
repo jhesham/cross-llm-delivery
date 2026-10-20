@@ -154,3 +154,24 @@ def test_cli_ask_requires_executor(tmp_path, capsys):
     code = cli.main(["--ask", str(task), "--repo", str(_repo(tmp_path)), "--json"])
     payload = json.loads(capsys.readouterr().out)
     assert code == 5 and "executor" in json.dumps(payload).lower() and payload.get("command") == "ask"
+
+
+def test_prompt_describes_bundle_format_per_kind(tmp_path):
+    """A real executor must be told the evidence.json format, not left to guess it."""
+    for kind, needle in (("query", "sql_runs"), ("materialise", "created_objects"), ("investigate", "findings_path")):
+        executor = FakeEvidenceExecutor(kind=kind, findings=(kind == "investigate"))
+        (tmp_path / kind).mkdir()
+        ask(_repo(tmp_path / kind), {**TASK, "id": kind, "kind": kind}, executor)
+        prompt = executor.prompts[0]
+        for key in ("evidence.json", "task_id", "notes", "errors", "sql_path", "result_path", needle):
+            assert key in prompt, (kind, key)
+
+
+def test_runner_command_is_portable_across_shells(tmp_path):
+    """Double-quoted paths and a plain `python` work in PowerShell, cmd and POSIX shells."""
+    executor = FakeEvidenceExecutor()
+    ask(_repo(tmp_path), TASK, executor)
+    lines = [line for line in executor.prompts[0].splitlines() if "run_sql.py" in line and "--env" in line]
+    assert lines, "no runner command in prompt"
+    for line in lines:
+        assert line.startswith('python "') and "'" not in line, line

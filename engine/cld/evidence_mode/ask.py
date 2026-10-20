@@ -126,42 +126,52 @@ def _write_launcher(path: Path) -> None:
     path.write_text(source, encoding="utf-8")
 
 
+_BUNDLE_FORMAT = """evidence.json format (JSON object, all paths absolute or relative to the evidence directory):
+- "task_id": the task id; "kind": the task kind; "env": list of environment names used;
+- "notes": what you did, changed or assumed (use "" if nothing to say); never interpret results;
+- "errors": list of error messages (use [] if none);
+- "sql_runs": one entry per SQL statement you ran through the runner, each {"sql_path": ..., "result_path": ...}
+  using the files the runner wrote under sql/ and results/;"""
+
+_KIND_FORMAT = {
+    "query": '- query tasks: "sql_runs" must list every statement you ran.',
+    "materialise": ('- materialise tasks: also "created_objects": list of {"name": fully qualified name, '
+                    '"rows": row count or null, "schema": list of {"name", "type"}} for every object created.'),
+    "investigate": ('- investigate tasks: also "findings_path": the findings file you wrote inside the evidence '
+                    'directory; "sql_runs" may be [] when no SQL was needed.'),
+}
+
+
+def _quoted(value) -> str:
+    """Double quotes work for paths in PowerShell, cmd and POSIX shells."""
+    return '"' + str(value).replace('"', '\\"') + '"'
+
+
 def _prompt(task: dict, environments: dict, evidence_dir: Path, repo: Path) -> str:
     launcher = evidence_dir / "run_sql.py"
     sql_path = evidence_dir / "query.sql"
     if task.get("form") == "sql":
         sql_path.write_text(task["sql"], encoding="utf-8")
 
-    commands = []
-    python = shlex.quote(sys.executable or "python")
-    launcher_arg = shlex.quote(str(launcher))
-    sql_arg = shlex.quote(str(sql_path))
-    out_arg = shlex.quote(str(evidence_dir))
-    repo_arg = shlex.quote(str(repo))
-    for name in task["env"]:
-        commands.append(
-            f"{python} {launcher_arg} {sql_arg} --env {shlex.quote(name)} "
-            f"--out {out_arg} --repo {repo_arg} --json"
-        )
-
-    env_details = []
-    for name in task["env"]:
-        environment = environments[name]
-        env_details.append(
-            f"- {name}: {environment.platform} ({environment.cls})"
-        )
+    commands = [
+        f"python {_quoted(launcher)} {_quoted(sql_path)} --env {name} "
+        f"--out {_quoted(evidence_dir)} --repo {_quoted(repo)} --json"
+        for name in task["env"]
+    ]
+    env_details = [f"- {name}: {environments[name].platform} ({environments[name].cls})" for name in task["env"]]
     task_text = json.dumps(task, ensure_ascii=False, indent=2)
-    return (
-        "Complete this single CLD evidence task and write evidence.json in the evidence directory.\n\n"
-        f"Task name: {task['id']}\n"
-        f"Task details:\n{task_text}\n\n"
-        "Configured environments:\n"
-        + "\n".join(env_details)
-        + "\n\nSQL runner commands (use the matching command for each environment; do not invoke SQL directly):\n"
-        + "\n".join(commands)
-        + f"\n\nEvidence directory: {evidence_dir}\n"
-        "Write all evidence files inside that directory. For a question task, save the SQL to query.sql before running the command."
-    )
+    sections = [
+        "Complete this single CLD evidence task and write evidence.json in the evidence directory.",
+        f"Task name: {task['id']}",
+        f"Task details:\n{task_text}",
+        "Configured environments:\n" + "\n".join(env_details),
+        "SQL runner commands (use the matching command for each environment; do not invoke SQL "
+        "directly; any Python 3.11+ works as `python`):\n" + "\n".join(commands),
+        f"Evidence directory: {evidence_dir}\nWrite all evidence files inside that directory. "
+        "For a question task, save the SQL to query.sql before running the command.",
+        _BUNDLE_FORMAT + "\n" + _KIND_FORMAT.get(task.get("kind"), ""),
+    ]
+    return "\n\n".join(sections)
 
 
 def _preview(bundle: dict, evidence_dir: Path) -> dict:
