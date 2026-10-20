@@ -6,6 +6,18 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Added
+- Evidence mode: `--ask` tasks (investigate, query in question or SQL form,
+  materialise) and plan slices of `kind: investigate|query|materialise`, with
+  `cld-environments.json` (sandbox/real), a fail-closed SQL runner (`--sql`),
+  approvals (`--approve`), complete evidence bundles and a knowledge-base starter
+  template (`--init-kb`). Evidence tasks run Codex with full access; real
+  environments rely on read-only credentials, with the runner as a second check.
+- Guide: converting a superpowers plan into CLD slices.
+
+### Fixed
+- Codex `[projects]` trust entries no longer invalidate validation (also in 0.4.3).
+
 ## [0.4.2] — 2026-10-04
 
 ### Fixed

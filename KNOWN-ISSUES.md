@@ -13,6 +13,17 @@ live provider mid-process interruption, Ubuntu Codex flag inspection/live POSIX
 dispatch and macOS remain unverified.
 Offline success must not be advertised as live support on those surfaces.
 
+## Evidence mode (v0.5)
+
+- Only the Codex executor supports evidence tasks; others are refused before dispatch.
+- The SQL runner has no per-query timeout; long queries are bounded only by the
+  executor's overall deadline.
+- Plan-mode query/materialise slices are not counted in CLD usage accounting.
+- Attempt budgets are not applied to `--ask` tasks.
+- SQL classification is lexical and fails closed; platform-specific statements may
+  be treated as writes and need approval on real environments.
+- No live evidence-mode run against a real warehouse is recorded yet.
+
 ## Usage, timeouts and model access
 
 Only reported usage is known. Antigravity usage may be entirely unavailable;

@@ -47,6 +47,35 @@ regeneration) or writes a failing test for it first.
 4. **Run.** Preview with `--dry-run`, then `--step` one layer at a time, reviewing each candidate.
    Then `--integrate --integration-tests <selector>` before the next layer.
 
+## Evidence slices
+
+Investigation, query and materialise work can be planned too:
+
+```text
+## SLICE: MAP_SERVICE_A
+brief: Map the interfaces and data contracts of example-org/service-a into its module.
+kind: investigate
+files: knowledge/references/service-a.md, knowledge/freshness.md
+acceptance_test_path: tests/test_knowledge_contract.py
+
+## SLICE: DAILY_ORDERS
+brief: Create sandbox table daily_orders (day, orders) from the orders table.
+kind: materialise
+environments: warehouse_sandbox
+
+## SLICE: COVERAGE
+brief: Report daily order coverage against the source system for the last 30 days.
+kind: query
+environments: warehouse_sandbox
+deps: DAILY_ORDERS
+```
+
+`kind: investigate` slices use the normal worktree and acceptance test (for example a
+knowledge base's contract test). `kind: query` and `kind: materialise` slices need
+`environments`, take no `files` or test, and run through ask mode: a complete
+evidence bundle records the slice as integrated with its evidence folder. The lead
+reads and validates the evidence.
+
 ## Splitting and merging
 
 - **Split** a task that writes two unrelated files, or whose test checks two independent behaviours,

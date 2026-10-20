@@ -69,6 +69,25 @@ logs or support requests.
 CLD charges no separate inference fee and dollar costs may be unknown. Provider
 retention and plan terms follow your provider account; see [PRIVACY.md](PRIVACY.md).
 
+### Evidence mode (v0.5): investigate, query and materialise
+
+Evidence tasks hand legwork to a cheaper executor while the lead keeps the analysis:
+`--ask TASK.json` runs one task (a question or drafted SQL, an investigation, or a
+materialisation), and plan slices with `kind: investigate|query|materialise` run in
+plan mode. CLD returns complete, traceable evidence (the exact SQL that ran, result
+files and run statistics); it never judges whether an answer is correct; the lead does.
+
+- Evidence tasks run Codex with `--sandbox danger-full-access` (network, reading
+  other repositories through `gh`/MCP, your `gcloud`/`bq` setup). Code slices keep
+  their usual sandbox.
+- Environments are declared in `cld-environments.json` as `sandbox` (writable) or
+  `real`. Real environments must use **read-only credentials** (for example a
+  BigQuery viewer + job-user role); that is the real protection. The CLD SQL runner
+  (`--sql`) is a second check: it refuses writes to real environments unless
+  approved with `--approve`, which is refused inside a dispatched executor.
+- Results, SQL and run records stay local under `.cld/runs/`; previews returned to
+  the lead are capped. `--init-kb DIR` writes a knowledge-base starter template.
+
 ### Reviewer preview (no inference)
 
 Build a bundle, then run the bundled demo plan against an existing Git

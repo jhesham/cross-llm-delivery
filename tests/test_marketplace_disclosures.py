@@ -81,3 +81,20 @@ def test_public_catalog_discloses_independence_for_all_five_packages():
         lower = entry["description"].lower()
         assert "independent" in lower and "endors" in lower, entry["name"]
         assert "openai" in lower and "anthropic" in lower, entry["name"]
+
+
+def test_full_access_evidence_disclosed():
+    """v0.5 Task 14: evidence mode's permissions and its two safety layers are disclosed truthfully."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    privacy = (ROOT / "PRIVACY.md").read_text(encoding="utf-8")
+    known = (ROOT / "KNOWN-ISSUES.md").read_text(encoding="utf-8")
+    assert "danger-full-access" in readme and "evidence" in readme.lower()
+    for text in (readme, security):
+        assert "read-only credentials" in text.lower()
+        assert "cld-environments.json" in text
+    assert "mcp" in security.lower() and "approvals.jsonl" in security
+    assert ".cld/runs/ask" in privacy and "query results" in privacy.lower()
+    assert "evidence mode" in known.lower()
+    guide = (ROOT / "skill" / "references" / "superpowers-to-cld.md").read_text(encoding="utf-8")
+    assert "kind: query" in guide and "kind: investigate" in guide

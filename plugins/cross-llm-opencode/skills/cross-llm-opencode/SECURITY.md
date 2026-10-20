@@ -44,6 +44,25 @@ provider configuration. Preserve the attempt and inspect its logs; do not
 recommend blanket permission bypass to make acceptance pass. Recursive CLD
 dispatch is refused at the executor boundary, not a substitute for OS isolation.
 
+## Evidence mode
+
+Evidence tasks (`--ask`, and plan slices of kind investigate/query/materialise) run
+the Codex executor with `danger-full-access`: network access, reading outside the
+worktree and the user's `gh`, `gcloud`/`bq` and MCP configuration. Safety for data
+environments declared in `cld-environments.json` has two layers:
+
+1. **Read-only credentials** for every `real` environment (layer 1, the real
+   protection). CLD cannot enforce this; configure it in the platform.
+2. The CLD SQL runner (`--sql`, layer 2) classifies each statement, fails closed on
+   anything it cannot classify, and refuses writes to `real` environments without a
+   recorded approval in `.cld/approvals.jsonl`. `--approve` is refused inside a
+   dispatched executor.
+
+Limits: SQL issued directly through an MCP tool bypasses layer 2, so MCP-only
+sources depend entirely on layer 1. A full-access executor could also write
+`approvals.jsonl` directly; layer 1 is what prevents harm in that case. Use
+sandbox environments for materialisation unless a write is explicitly intended.
+
 ## Data and recovery
 
 Prompts, model output, patches, worktrees, test/process logs and telemetry may
