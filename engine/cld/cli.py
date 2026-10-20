@@ -1233,17 +1233,26 @@ def _main(argv=None) -> int:
 
 
 def _copy_kb_template(target) -> Path:
+    """Write the packaged knowledge-base starter template into an empty directory.
+
+    The template ships as one JSON file (relative path -> text) rather than a folder
+    tree, so deep template paths never exceed Windows path limits inside plugin caches.
+    """
     destination = Path(target).expanduser()
-    template = Path(__file__).resolve().parent / "evidence_mode" / "kb_template"
     if destination.exists():
         if not destination.is_dir() or next(destination.iterdir(), None) is not None:
             raise ValueError(f"--init-kb destination must be an empty directory: {destination}")
-    if destination.resolve() == template or template in destination.resolve().parents:
-        raise ValueError("--init-kb destination cannot be inside the packaged template")
+    source = Path(__file__).resolve().parent / "evidence_mode" / "kb_template.json"
+    files = json.loads(source.read_text(encoding="utf-8"))["files"]
     destination.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(template, destination, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"))
-    return destination.resolve()
+    root = destination.resolve()
+    for relative, text in files.items():
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"Unsafe template path: {relative}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+    return root
 
 
 def _init_kb_command(target, *, json_mode=False) -> int:

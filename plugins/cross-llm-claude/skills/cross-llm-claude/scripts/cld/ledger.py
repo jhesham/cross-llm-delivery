@@ -47,6 +47,7 @@ class LedgerEntry:
     collection: dict = field(default_factory=dict)
     recovery_path: str | None = None
     worktree_path: str | None = None
+    evidence_dir: str | None = None
     fingerprint: str | None = None
     updated_at: str | None = None
     history: list = field(default_factory=list)
@@ -149,7 +150,7 @@ class Ledger:
     def set(self, slice_id: str, *, status=None, commit=None, attempts=None,
             model=None, effort=None, token_usage=None, cost=None,
             complexity=None, chosen_by=None, final_rung=None, intervened=None,
-            collection=None, recovery_path=None, worktree_path=None):
+            collection=None, recovery_path=None, worktree_path=None, evidence_dir=None):
         if slice_id not in self._entries:
             self._entries[slice_id] = LedgerEntry(slice_id=slice_id)
         entry = self._entries[slice_id]
@@ -182,6 +183,8 @@ class Ledger:
             entry.recovery_path = recovery_path
         if worktree_path is not None:
             entry.worktree_path = worktree_path
+        if evidence_dir is not None:
+            entry.evidence_dir = evidence_dir
 
     def mark_attempt(self, slice_id: str):
         if slice_id not in self._entries:

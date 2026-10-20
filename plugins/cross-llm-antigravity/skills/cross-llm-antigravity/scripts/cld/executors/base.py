@@ -54,6 +54,8 @@ class SliceTask:
     complexity: str = "standard"  # easy / standard / complex; default standard
     protected_inputs: list[str] = field(default_factory=list)
     allow_already_satisfied: bool = False
+    kind: str = "code"
+    environments: list[str] = field(default_factory=list)
 
 @dataclass
 class ExecutorResult:

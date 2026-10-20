@@ -22,20 +22,28 @@ def validate_plan(slices, locations=None):
         if task.id in seen:
             fail(task, "duplicate ID")
         seen.add(task.id)
+        if not isinstance(task.kind, str) or task.kind not in {"code", "investigate", "query", "materialise"}:
+            fail(task, "kind must be code, investigate, query or materialise")
         if task.complexity not in {"easy", "standard", "complex"}:
             fail(task, "complexity must be easy, standard or complex")
         if not isinstance(task.brief, str) or not task.brief.strip() or "\n" in task.brief or "\r" in task.brief:
             fail(task, "brief must be one nonempty line; multiline syntax is unsupported")
         if not isinstance(task.allow_already_satisfied, bool):
             fail(task, "allow_already_satisfied must be true or false")
-        for key in ("files", "protected_inputs", "deps"):
+        for key in ("files", "protected_inputs", "deps", "environments"):
             values = getattr(task, key)
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values) or len(values) != len(set(values)):
                 fail(task, f"{key} must be a list of distinct nonempty strings")
+        if task.kind in {"query", "materialise"}:
+            if not task.environments:
+                fail(task, "query and materialise slices require at least one environment")
+            if task.files:
+                fail(task, "query and materialise slices cannot declare files")
         try:
             for name in task.files + task.protected_inputs:
                 safe_path(name)
-            acceptance_args(task.acceptance_test_path)
+            if task.kind in {"code", "investigate"} or task.acceptance_test_path:
+                acceptance_args(task.acceptance_test_path)
         except (CaptureError, ValueError, TypeError, AttributeError) as exc:
             fail(task, str(exc))
     for task in slices:
@@ -52,7 +60,7 @@ def validate_plan(slices, locations=None):
 def load_slices(markdown: str) -> list[SliceTask]:
     slices, locations = [], {}
     current, fields = None, set()
-    allowed = {"brief", "files", "acceptance_test_path", "deps", "executor", "complexity", "protected_inputs", "allow_already_satisfied"}
+    allowed = {"brief", "files", "acceptance_test_path", "deps", "executor", "complexity", "protected_inputs", "allow_already_satisfied", "kind", "environments"}
     def finish():
         if current is not None:
             slices.append(SliceTask(**{"brief": "", "files": [], "acceptance_test_path": "", **current}))
@@ -86,7 +94,7 @@ def load_slices(markdown: str) -> list[SliceTask]:
                 if value not in ("true", "false"):
                     raise PlanError(f"line {number}: allow_already_satisfied must be true or false")
                 value = value == "true"
-            elif key in ("files", "deps", "protected_inputs"):
+            elif key in ("files", "deps", "protected_inputs", "environments"):
                 value = [v.strip() for v in value.split(",")] if value else []
             current[key] = value
     finish()
@@ -105,6 +113,10 @@ def slices_to_markdown(slices: list[SliceTask]) -> str:
 
 def _append_slice_fields(lines: list[str], s: SliceTask):
     lines.append(f"brief: {s.brief}")
+    if s.kind != "code":
+        lines.append(f"kind: {s.kind}")
+    if s.environments:
+        lines.append(f"environments: {', '.join(s.environments)}")
     lines.append(f"files: {', '.join(s.files)}")
     lines.append(f"acceptance_test_path: {s.acceptance_test_path}")
     if s.protected_inputs:

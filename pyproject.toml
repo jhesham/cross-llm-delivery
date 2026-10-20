@@ -31,13 +31,7 @@ where = ["engine"]  # the importable packages (cld, cld_providers) live under en
 "cld_providers.opencode" = ["*.md"]
 "cld_providers.codex" = ["*.md"]
 "cld_providers.claude" = ["*.md"]
-"cld.evidence_mode" = [
-    "kb_template/knowledge/*.md",
-    "kb_template/knowledge/references/*.md",
-    "kb_template/knowledge/references/queries/*.md",
-    "kb_template/tests/*.py",
-    "kb_template/pytest.ini",
-]
+"cld.evidence_mode" = ["kb_template.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]
