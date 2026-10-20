@@ -726,6 +726,8 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     cls = _JsonArgumentParser if json_mode else argparse.ArgumentParser
     p = cls(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
+    p.add_argument("--init-kb", metavar="DIR",
+                   help="Copy the knowledge-base starter template into an empty directory")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--ask", metavar="TASK.json", help="Run one evidence task from a JSON file")
     p.add_argument("--approve", metavar="TASK_ID", help="Record approval for a statement in an evidence environment")
@@ -1220,7 +1222,40 @@ def _main(argv=None) -> int:
         except _UsageError as exc:
             return _blocked_approval(exc)
         return _run(args)
-    return _run(build_parser().parse_args(argv))
+    args = build_parser().parse_args(argv)
+    if args.init_kb is not None:
+        return _init_kb_command(args.init_kb)
+    return _run(args)
+
+
+def _copy_kb_template(target) -> Path:
+    destination = Path(target).expanduser()
+    template = Path(__file__).resolve().parent / "evidence_mode" / "kb_template"
+    if destination.exists():
+        if not destination.is_dir() or next(destination.iterdir(), None) is not None:
+            raise ValueError(f"--init-kb destination must be an empty directory: {destination}")
+    if destination.resolve() == template or template in destination.resolve().parents:
+        raise ValueError("--init-kb destination cannot be inside the packaged template")
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(template, destination, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"))
+    return destination.resolve()
+
+
+def _init_kb_command(target, *, json_mode=False) -> int:
+    try:
+        destination = _copy_kb_template(target)
+    except (OSError, ValueError) as exc:
+        if json_mode:
+            return _blocked("init-kb", str(exc))
+        print(f"State blocked: {exc}", file=sys.stderr)
+        return 5
+
+    if json_mode:
+        return _emit(cli_response.build(command="init-kb", gate="pending",
+            extra={"details": {"target": str(destination), "initialized": True}}))
+    print(f"Knowledge base initialized at {destination}")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -1229,6 +1264,7 @@ def _main(argv=None) -> int:
 
 _ACTION_FLAGS = (
     ("--status", "status"), ("--usage", "usage"), ("--watch", "watch"),
+    ("--init-kb", "init-kb"),
     ("--approve", "approve"), ("--ask", "ask"),
     ("--integrate", "integrate"), ("--mark-repaired", "repair"),
     ("--migrate-ledger", "migrate"), ("--reconcile-plan", "reconcile"),
@@ -1255,6 +1291,8 @@ def _guess_command(argv) -> str:
 
 
 def _command_of(args) -> str:
+    if args.init_kb is not None:
+        return "init-kb"
     if args.ask:
         return "ask"
     if args.status:
@@ -1628,6 +1666,8 @@ def _main_json(argv) -> int:
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    if args.init_kb is not None:
+        return _init_kb_command(args.init_kb, json_mode=True)
     if args.approve is not None:
         return _approve_cli(args)
     if args.ask is not None:
