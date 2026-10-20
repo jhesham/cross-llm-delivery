@@ -245,6 +245,38 @@ def _append_ledger(directory: Path, entry: dict) -> None:
             stream.flush()
 
 
+def list_created(repo) -> list[dict]:
+    """Return recorded materialised objects, newest ask first."""
+    ledger_path = Path(repo) / ".cld" / "runs" / "ask" / "ledger.jsonl"
+    try:
+        lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+
+    created = []
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, UnicodeError):
+            continue
+        if not isinstance(entry, dict):
+            continue
+        objects = entry.get("created")
+        if not isinstance(objects, list):
+            continue
+        for obj in objects:
+            if isinstance(obj, dict):
+                created.append({
+                    **obj,
+                    "task_id": entry.get("task_id"),
+                    "evidence_dir": entry.get("evidence_dir"),
+                    "ts": entry.get("ts"),
+                })
+    return created
+
+
 def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dict:
     """Validate, dispatch, check, and return one evidence task."""
     repo = Path(repo).resolve()
@@ -335,6 +367,8 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
         "runner_used": bool(runner_used),
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+    if task["kind"] == "materialise" and status == "complete":
+        ledger_entry["created"] = bundle.get("created_objects", [])
     try:
         _append_ledger(ask_root, ledger_entry)
     except Exception as exc:

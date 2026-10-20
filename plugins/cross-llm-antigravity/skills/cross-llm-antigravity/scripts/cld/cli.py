@@ -728,8 +728,13 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
     p.add_argument("--ask", metavar="TASK.json", help="Run one evidence task from a JSON file")
+    p.add_argument("--approve", metavar="TASK_ID", help="Record approval for a statement in an evidence environment")
     p.add_argument("--sql", metavar="FILE", help="Run this SQL file using a configured evidence environment")
-    p.add_argument("--env", metavar="NAME", help="Evidence environment name to use with --sql")
+    p.add_argument("--env", metavar="NAME", help="Evidence environment name to use with --sql or --approve")
+    p.add_argument("--statement", metavar="HASH", help="Lowercase SHA-256 hash of the statement to approve")
+    p.add_argument("--reason", metavar="TEXT", help="Reason for approving the statement")
+    p.add_argument("--approved-by", metavar="NAME", default="lead",
+                   help="Name of the approver (default: lead)")
     p.add_argument("--out", metavar="DIR", default=None,
                    help="Evidence output directory (default: <repo>/.cld/runs/sql)")
     p.add_argument("--worktree-root", help="Writable worktree root (relative to --repo); default .cld/worktrees")
@@ -851,6 +856,47 @@ def _run_sql_cli(args) -> int:
     return 0 if record.get("status") == "ok" else 5
 
 
+def _approval_requested(argv) -> bool:
+    return any(token == "--approve" or token.startswith("--approve=") for token in argv)
+
+
+def _blocked_approval(reason) -> int:
+    print(json.dumps({"command": "approve", "status": "blocked", "error": str(reason)},
+                     ensure_ascii=False))
+    return 5
+
+
+def _approve_cli(args) -> int:
+    """Record a user-approved statement without entering the delivery pipeline."""
+    try:
+        # Approvals come from the user or the lead, never from a dispatched executor:
+        # an executor could otherwise approve its own write and pass layer 2.
+        if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
+            raise ValueError("--approve is refused inside a dispatched executor (CLD_EXECUTOR_DEPTH is set)")
+        if not isinstance(args.approve, str) or not args.approve.strip():
+            raise ValueError("--approve requires a non-empty task id")
+        if not args.env:
+            raise ValueError("--approve requires --env")
+        if not isinstance(args.statement, str) or not re.fullmatch(r"[0-9a-f]{64}", args.statement):
+            raise ValueError("--statement must be a 64-character lowercase hexadecimal SHA-256 hash")
+
+        repo = os.path.realpath(args.repo)
+        from cld.evidence_mode.environments import load_environments
+        from cld.evidence_mode.approvals import record_approval
+
+        environments = load_environments(repo)
+        if args.env not in environments:
+            raise ValueError(f"Environment '{args.env}' is not configured for repository {repo}")
+        record = record_approval(repo, env=args.env, sql_hash=args.statement,
+                                 approved_by=args.approved_by, reason=args.reason)
+    except Exception as exc:
+        return _blocked_approval(exc)
+
+    print(json.dumps({"command": "approve", "task_id": args.approve, **record},
+                     ensure_ascii=False))
+    return 0
+
+
 def _ask_cli(args) -> int:
     """Run --ask and print its bounded result with the command identity."""
     def blocked(reason):
@@ -930,6 +976,8 @@ def _gc_report(args):
 
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
+    if args.approve is not None:
+        return _approve_cli(args)
     if args.ask is not None:
         return _ask_cli(args)
     if args.sql is not None:
@@ -1166,6 +1214,12 @@ def _execute(args, slices, ledger):
 
 def _main(argv=None) -> int:
     """Legacy text-mode pipeline: parse with plain argparse (SystemExit on error/help)."""
+    if _approval_requested(argv or []):
+        try:
+            args = build_parser(json_mode=True).parse_args(argv)
+        except _UsageError as exc:
+            return _blocked_approval(exc)
+        return _run(args)
     return _run(build_parser().parse_args(argv))
 
 
@@ -1175,7 +1229,7 @@ def _main(argv=None) -> int:
 
 _ACTION_FLAGS = (
     ("--status", "status"), ("--usage", "usage"), ("--watch", "watch"),
-    ("--ask", "ask"),
+    ("--approve", "approve"), ("--ask", "ask"),
     ("--integrate", "integrate"), ("--mark-repaired", "repair"),
     ("--migrate-ledger", "migrate"), ("--reconcile-plan", "reconcile"),
     ("--new-build", "new-build"), ("--step", "step"), ("--dry-run", "preview"),
@@ -1567,11 +1621,15 @@ def _main_json(argv) -> int:
     try:
         args = build_parser(json_mode=True).parse_args(argv)
     except _UsageError as exc:
+        if _approval_requested(argv):
+            return _blocked_approval(exc)
         return _blocked(_guess_command(argv), str(exc),
                         raw_repo=_scan_option(argv, "--repo"), raw_ledger=_scan_option(argv, "--ledger"))
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    if args.approve is not None:
+        return _approve_cli(args)
     if args.ask is not None:
         return _ask_cli(args)
     if args.sql is not None:

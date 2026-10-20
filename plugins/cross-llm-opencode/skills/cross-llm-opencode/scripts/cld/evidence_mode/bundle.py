@@ -134,6 +134,28 @@ def check_bundle(bundle, *, kind, evidence_dir, environments) -> tuple[str, list
         created_objects = bundle.get("created_objects")
         if not isinstance(created_objects, list) or not created_objects:
             problems.append("materialise bundle has no created_objects")
+        else:
+            for index, created_object in enumerate(created_objects):
+                valid = isinstance(created_object, dict)
+                if valid:
+                    name = created_object.get("name")
+                    rows = created_object.get("rows")
+                    valid = (
+                        isinstance(name, str)
+                        and bool(name.strip())
+                        and "rows" in created_object
+                        and (
+                            rows is None
+                            or (
+                                isinstance(rows, int)
+                                and not isinstance(rows, bool)
+                                and rows >= 0
+                            )
+                        )
+                        and isinstance(created_object.get("schema"), list)
+                    )
+                if not valid:
+                    problems.append(f"materialise created_objects[{index}] is malformed")
     elif kind == "investigate":
         findings_path = _path_from(bundle.get("findings_path"), Path(evidence_dir))
         if findings_path is None or not findings_path.is_file():

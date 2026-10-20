@@ -869,6 +869,10 @@ def _blocked_approval(reason) -> int:
 def _approve_cli(args) -> int:
     """Record a user-approved statement without entering the delivery pipeline."""
     try:
+        # Approvals come from the user or the lead, never from a dispatched executor:
+        # an executor could otherwise approve its own write and pass layer 2.
+        if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
+            raise ValueError("--approve is refused inside a dispatched executor (CLD_EXECUTOR_DEPTH is set)")
         if not isinstance(args.approve, str) or not args.approve.strip():
             raise ValueError("--approve requires a non-empty task id")
         if not args.env:

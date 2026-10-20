@@ -63,3 +63,15 @@ def test_approve_rejects_undeclared_env_and_bad_hash(tmp_path, capsys):
     capsys.readouterr()
     code, _ = _approve(repo, capsys, "not-a-hash")
     assert code == 5
+
+
+def test_executor_cannot_approve_its_own_write(tmp_path, capsys, monkeypatch):
+    """Approvals come from the user or lead, never from inside a dispatched executor."""
+    repo = _repo(tmp_path)
+    first = _run(repo, WRITE)
+    monkeypatch.setenv("CLD_EXECUTOR_DEPTH", "1")
+    code, payload = _approve(repo, capsys, first["sql_hash"])
+    assert code == 5 and payload.get("status") == "blocked"
+    assert "executor" in payload.get("error", "").lower()
+    monkeypatch.delenv("CLD_EXECUTOR_DEPTH")
+    assert _run(repo, WRITE)["status"] == "needs_approval"
