@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.0 — 2026-10-22
+
 ### Added
 - Evidence mode: `--ask` tasks (investigate, query in question or SQL form,
   materialise) and plan slices of `kind: investigate|query|materialise`, with
