@@ -1,4 +1,5 @@
 """Shared offline fixtures for evidence-mode tests (neutral names only)."""
+import re
 import json
 import sys
 
@@ -45,3 +46,8 @@ class FakeRunner:
         if self.raises:
             raise self.raises
         return self.result
+
+def prompt_task_id(prompt):
+    """The task id the ask prompt names, as a real executor would read it."""
+    match = re.search(r"^Task name: (\S+)$", prompt, re.M)
+    return match.group(1) if match else "t"

@@ -4,7 +4,7 @@ import threading
 
 from cld import cli
 from cld.executors.base import ExecutorResult
-from tests.evidence._fixtures import echo_json_command, write_environments
+from tests.evidence._fixtures import prompt_task_id, echo_json_command, write_environments
 from tests.evidence._lazy import resolve
 
 M = "cld.evidence_mode.ask"
@@ -29,7 +29,7 @@ class FakeEvidenceExecutor:
         if self.fail:
             return ExecutorResult(ok=False, diff="", raw_log="failed", process={"error": self.fail})
         d = workdir
-        bundle = {"task_id": "t", "kind": self.kind, "env": ["warehouse_sandbox"], "notes": "", "errors": [],
+        bundle = {"task_id": prompt_task_id(prompt), "kind": self.kind, "env": ["warehouse_sandbox"], "notes": "", "errors": [],
                   "sql_runs": []}
         if self.kind in ("query", "materialise"):
             for sub in ("runs", "sql", "results"):

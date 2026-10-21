@@ -2,6 +2,7 @@
 import json
 
 from cld.executors.base import ExecutorResult
+from tests.evidence._fixtures import prompt_task_id
 from tests.evidence._lazy import resolve
 from tests.evidence.test_ask import SQL, _repo, ask
 
@@ -21,10 +22,11 @@ class FakeMaterialiser:
         (d / "sql" / "1.sql").write_text(sql, encoding="utf-8")
         (d / "results" / "1.out").write_text("[]", encoding="utf-8")
         h = resolve("cld.evidence_mode.sqlclass", "statement_hash")(sql)
-        (d / "runs" / "1.json").write_text(json.dumps({"sql": sql, "sql_hash": h, "status": self.runner_status}),
+        (d / "runs" / "1.json").write_text(json.dumps({"sql": sql, "sql_hash": h, "status": self.runner_status,
+                                                     "result_path": str(d / "results" / "1.out")}),
                                            encoding="utf-8")
         (d / "evidence.json").write_text(json.dumps({
-            "task_id": "m", "kind": "materialise", "env": ["warehouse_sandbox"], "notes": "", "errors": [],
+            "task_id": prompt_task_id(prompt), "kind": "materialise", "env": ["warehouse_sandbox"], "notes": "", "errors": [],
             "sql_runs": [{"sql_path": str(d / "sql" / "1.sql"), "result_path": str(d / "results" / "1.out")}],
             "created_objects": self.objects}), encoding="utf-8")
         return ExecutorResult(ok=True, diff="", raw_log="done", process={})

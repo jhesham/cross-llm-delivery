@@ -24,6 +24,7 @@ def make_dir(tmp_path, *, kind="query", runs=(SQL,), runner_records=(SQL,), stat
         (d / "results" / f"{i}.out").write_text("[]", encoding="utf-8")
         status = (statuses or {}).get(i, "ok")
         (d / "runs" / f"{i}.json").write_text(json.dumps({"sql": sql, "sql_hash": _hash(sql), "status": status,
+                                                          "result_path": str(d / "results" / f"{i}.out"),
                                                           "env": "warehouse_sandbox"}), encoding="utf-8")
     sql_runs = []
     for i, sql in enumerate(runs, 1):
@@ -42,7 +43,8 @@ def make_dir(tmp_path, *, kind="query", runs=(SQL,), runner_records=(SQL,), stat
 def check(d, kind="query", envs=None):
     bundle = resolve(M, "load_bundle")(d)
     return resolve(M, "check_bundle")(bundle, kind=kind, evidence_dir=d,
-                                      environments=envs or {"warehouse_sandbox": environment()})
+                                      environments=envs or {"warehouse_sandbox": environment()},
+                                      task_env=["warehouse_sandbox"], task_id="q1")
 
 
 def test_complete_query_bundle(tmp_path):
