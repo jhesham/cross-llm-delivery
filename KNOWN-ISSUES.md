@@ -16,8 +16,9 @@ Offline success must not be advertised as live support on those surfaces.
 ## Evidence mode (v0.5)
 
 - Only the Codex executor supports evidence tasks; others are refused before dispatch.
-- The SQL runner has no per-query timeout; long queries are bounded only by the
-  executor's overall deadline.
+- Each SQL runner call is bounded by `CLD_DISPATCH_TIMEOUT` (default 600 s); a query
+  that runs longer is stopped and recorded as failed. There is no separate per-query
+  setting.
 - Plan-mode query/materialise slices are not counted in CLD usage accounting.
 - Attempt budgets are not applied to `--ask` tasks.
 - SQL classification is lexical and fails closed; platform-specific statements may

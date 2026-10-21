@@ -116,14 +116,15 @@ def test_materialise_needs_approval_is_resumable(tmp_path):
     assert ledger.get("M").status == "pending" and "M" in result.deferred
 
 
-def test_incomplete_bundle_needs_repair(tmp_path):
+def test_incomplete_bundle_fails_for_retry(tmp_path):
     class NoBundle:
         def run_evidence(self, prompt, workdir):
             return ExecutorResult(ok=True, diff="", raw_log="no evidence.json written", process={})
 
     repo = _repo(tmp_path)
     result, ledger = _run(repo, tmp_path, [_q()], Factory(evidence_executor=NoBundle()))
-    assert ledger.get("Q").status == "needs_repair" and "Q" in result.needs_repair
+    # No worktree or commit exists to repair; the slice fails and the next step retries it.
+    assert ledger.get("Q").status == "failed" and "Q" in result.failed
 
 
 def test_code_slice_after_evidence_dependency_and_integration(tmp_path):
