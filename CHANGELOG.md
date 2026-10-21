@@ -37,6 +37,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
   reconciling a plan keeps commit-free evidence slices integrated.
 - Objects created before a failure or an approval hold stay in the clean-up list.
 - Codex evidence runs outside Git pass `--skip-git-repo-check`.
+- The checked release workflow regenerates plugins before its test run, so the
+  plugin-freshness tests see the bumped version.
 
 ## [0.4.3] — 2026-10-18
 
