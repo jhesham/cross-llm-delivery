@@ -88,9 +88,15 @@ def _runner_records(evidence_dir: Path) -> list[dict[str, Any]]:
     runs_dir = evidence_dir / "runs"
     records: list[dict[str, Any]] = []
     try:
-        paths = sorted(runs_dir.glob("*.json"))
+        paths = list(runs_dir.glob("*.json"))
     except OSError:
         return records
+
+    def attempt_sort_key(path: Path):
+        number = int(path.stem) if path.stem.isdecimal() else None
+        return (0, number) if number is not None else (1, path.name)
+
+    paths.sort(key=attempt_sort_key)
 
     for path in paths:
         try:
@@ -120,6 +126,8 @@ def _runner_records(evidence_dir: Path) -> list[dict[str, Any]]:
             "sql_hash": sql_hash,
             "env": record.get("env"),
             "result_path": _resolved_path(record.get("result_path"), evidence_dir),
+            "attempt_name": f"runs/{path.name}",
+            "attempt_number": int(path.stem) if path.stem.isdecimal() else None,
         })
 
     return records
@@ -216,6 +224,7 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
     needs_approval = False
     mcp_only = _mcp_only_environments(task_env, environments)
     runner_used = True
+    reported_records: set[int] = set()
 
     if isinstance(sql_runs, list):
         for index, sql_run in enumerate(sql_runs, 1):
@@ -240,6 +249,16 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
                         f"sql_runs[{index - 1}] result_path does not resolve inside evidence_dir"
                     )
 
+            # The result path is the run identity. Select the attempt before
+            # inspecting its SQL so identical statements cannot bind elsewhere.
+            identity_matches = [
+                record_index
+                for record_index, record in enumerate(runner_records)
+                if result_path_inside
+                and record["result_path"] == result_path
+                and _is_within(record["result_path"], resolved_evidence_path)
+            ]
+
             try:
                 sql_hash = (
                     statement_hash(sql_path.read_text(encoding="utf-8"))
@@ -249,39 +268,77 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
             except (OSError, UnicodeError, TypeError, ValueError):
                 sql_hash = None
 
-            matching_runner = False
-            result_missing = False
-            if sql_hash is not None:
-                for record in runner_records:
-                    if record["sql_hash"] != sql_hash:
-                        continue
-                    if task_env is not None and record["env"] not in task_env:
-                        continue
-
-                    if record["status"] == "needs_approval":
-                        matching_runner = True
-                        needs_approval = True
-                        break
-
-                    runner_result = record["result_path"]
-                    if (
-                        record["status"] == "ok"
-                        and result_path_inside
-                        and runner_result == result_path
-                        and _is_within(runner_result, resolved_evidence_path)
-                        and _file_exists(runner_result)
-                    ):
-                        matching_runner = True
-                        break
-                    if (record["status"] == "ok" and result_path_inside
-                            and runner_result == result_path and not _file_exists(runner_result)):
-                        result_missing = True
-
-            if not matching_runner:
+            if not identity_matches:
                 runner_used = False
                 if not mcp_only:
-                    problems.append(f"sql_runs[{index - 1}] runner result file is missing" if result_missing
-                                    else f"sql_runs[{index - 1}] has no matching runner record")
+                    problems.append(f"sql_runs[{index - 1}] has no matching runner record")
+                continue
+
+            # A duplicate result path cannot uniquely identify one attempt.
+            # Count all same-identity records as reported, but reject the run.
+            reported_records.update(identity_matches)
+            if len(identity_matches) != 1:
+                runner_used = False
+                problems.append(f"sql_runs[{index - 1}] has an ambiguous runner record identity")
+                continue
+
+            record = runner_records[identity_matches[0]]
+            run_valid = True
+            if sql_hash is None or record["sql_hash"] != sql_hash:
+                problems.append(f"sql_runs[{index - 1}] SQL does not match its runner record")
+                run_valid = False
+
+            record_env = record["env"]
+            if (not isinstance(record_env, str)
+                    or not isinstance(bundle.get("env"), list)
+                    or record_env not in bundle["env"]):
+                problems.append(
+                    f"sql_runs[{index - 1}] runner env is not listed in evidence bundle env"
+                )
+                run_valid = False
+            if task_env is not None and record_env not in task_env:
+                problems.append(f"sql_runs[{index - 1}] runner env is outside task_env")
+                run_valid = False
+
+            if record["status"] == "needs_approval":
+                needs_approval = True
+            elif record["status"] == "ok":
+                if not _file_exists(record["result_path"]):
+                    problems.append(f"sql_runs[{index - 1}] runner result file is missing")
+                    run_valid = False
+            else:
+                problems.append(
+                    f"sql_runs[{index - 1}] runner record has unsupported status: {record['status']}"
+                )
+                run_valid = False
+
+            if not run_valid:
+                runner_used = False
+
+    if not mcp_only:
+        for record_index, record in enumerate(runner_records):
+            if record["status"] not in ("ok", "needs_approval"):
+                continue
+            if record_index in reported_records:
+                continue
+
+            superseded = False
+            if (record["status"] == "needs_approval"
+                    and record["attempt_number"] is not None
+                    and record["sql_hash"] is not None
+                    and isinstance(record["env"], str)):
+                superseded = any(
+                    later["status"] == "ok"
+                    and later["attempt_number"] is not None
+                    and later["attempt_number"] > record["attempt_number"]
+                    and later["sql_hash"] == record["sql_hash"]
+                    and later["env"] == record["env"]
+                    for later in runner_records
+                )
+            if not superseded:
+                problems.append(
+                    f"runner attempt {record['attempt_name']} is not reported in sql_runs"
+                )
 
     if empty_created_objects and not (needs_approval and not problems):
         problems.append("materialise bundle has no created_objects")

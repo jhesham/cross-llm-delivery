@@ -55,10 +55,10 @@ def test_held_attempt_superseded_by_approved_run_matches_by_identity(tmp_path):
     assert _check(d) == ("complete", [], True)
 
 
-def test_reported_run_resolves_to_its_own_record(tmp_path):
+def test_reporting_a_held_attempt_cannot_hide_its_approved_rerun(tmp_path):
     d = _build(tmp_path, [(SQL_A, "needs_approval", "warehouse_sandbox"), (SQL_A, "ok", "warehouse_sandbox")], [1])
     status, problems, _ = _check(d)
-    assert status == "needs_approval", problems
+    assert status == "incomplete" and any("runs/2.json" in p for p in problems), problems
 
 
 def test_matched_run_environment_must_be_reported(tmp_path):
