@@ -127,9 +127,8 @@ def bind_build(ledger, repo, tasks, runner, *, plan_path=None, plan_text=None,
         entry = deepcopy(ledger.get(task.id)) or LedgerEntry(task.id)
         if old and task.id in affected:
             entry = LedgerEntry(task.id, history=[dict(reconciled_from=old["run_id"], outcome=asdict(entry))])
-        if entry.status == "integrated":
-            # A new run has no published gate. Preserve acceptance, never inherit
-            # integrated status without that run's own verified integration proof.
+        if entry.status == "integrated" and not (entry.commit is None and entry.evidence_dir is not None):
+            # Commit-backed work needs proof from this run before staying integrated.
             entry.status = DONE
         if ledger.legacy and entry.status == DONE:
             # Reachability is evidence to preserve, not proof of acceptance/integration.

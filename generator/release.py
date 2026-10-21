@@ -308,8 +308,9 @@ def release_version(repo_root, version, **options):
     (root / "VERSION").write_text(version + "\n", encoding="utf-8")
     (root / "pyproject.toml").write_text(project, encoding="utf-8")
     (root / "CHANGELOG.md").write_text(updated_changelog, encoding="utf-8")
-    checked([sys.executable, "-m", "pytest", "-q"], root, runner=runner)
+    # Generate first: plugin-freshness tests compare committed plugins with VERSION.
     _generate(root, runner)
+    checked([sys.executable, "-m", "pytest", "-q"], root, runner=runner)
     _commit(root, ["VERSION", "pyproject.toml", "CHANGELOG.md", "plugins"], "release: " + tag, runner)
     _validate_manifests(root)
     sync_opts = {**options, "skip_tests": True, "dry_run": False, "message": "release: " + tag}

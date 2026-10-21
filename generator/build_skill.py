@@ -123,7 +123,7 @@ def _vendor_codex_references(provider: str, out: Path) -> None:
     # The one shared, host-neutral reference (also vendored into Claude bundles).
     shutil.copy2(SKILL_SRC / "references" / "delivery-core.md",
                  refs / "delivery-core.md")
-    for name in ("authoring-plans.md", "architecture.md", "observability.md"):
+    for name in ("authoring-plans.md", "architecture.md", "observability.md", "superpowers-to-cld.md"):
         shutil.copy2(SKILL_SRC / "references" / name, refs / name)
     shutil.copy2(PROVIDERS_DIR / provider / "setup.md", refs / "provider-setup.md")
     shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", refs / "provider.md")

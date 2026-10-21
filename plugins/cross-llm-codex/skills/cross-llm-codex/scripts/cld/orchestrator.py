@@ -454,7 +454,7 @@ def run_plan_parallel(
     ledger: Ledger,
     *,
     executor: Any = None,
-    executor_factory: Callable[[str], Any] | None = None,
+    executor_factory: Callable[..., Any] | None = None,
     default_spec: str = "gemini",
     default_source: str = "default",
     judge_fn: Callable,
@@ -505,14 +505,31 @@ def run_plan_parallel(
             return task.executor
         return default_spec                       # pick-once-stick (S1b fix)
 
-    def _executor_for(task):
+    def _evidence_spec(spec):
+        from cld.models import resolve_spec
+        from cld.providers_api import get_provider, load_providers
+
+        load_providers()
+        canonical, provider_name, _ = resolve_spec(spec)
+        provider = get_provider(provider_name)
+        if not provider.supports_evidence:
+            raise AdmissionBlocked(f"Provider '{provider_name}' does not support evidence tasks")
+        return canonical
+
+    def _executor_for_spec(spec, *, evidence=False):
+        if evidence:
+            spec = _evidence_spec(spec)
+        if executor_factory is not None:
+            ex = executor_factory(spec, evidence=True) if evidence else executor_factory(spec)
+            return ex, spec
+        return executor, spec
+
+    def _executor_for(task, *, evidence=False):
         # Per-slice executor: build from the resolved spec when a factory is
         # provided; else fall back to the single legacy executor. Returns the
         # resolved spec too so callers can record per-slice model in the ledger.
         spec = _resolve_spec(task)
-        if executor_factory is not None:
-            return executor_factory(spec), spec
-        return executor, spec
+        return _executor_for_spec(spec, evidence=evidence)
 
     by_id = {s.id: s for s in slices}
     deps = {s.id: [d for d in s.deps if d in by_id] for s in slices}
@@ -615,7 +632,7 @@ def run_plan_parallel(
                     recovery_path=directory, worktree_path=record["worktree"],
                     worktree_root=record.get("worktree_root"), branch=record.get("branch"), intervened=bool(record.get("repair_of")))
         if rung_planner is None:
-            ex, spec = _executor_for(task)
+            ex, spec = _executor_for(task, evidence=task.kind == "investigate")
             if accounting is not None:
                 ex = accounting.wrap(ex, spec)
             source = slice_source(tag=task.executor, rung_index=0, default_source=default_source)
@@ -630,7 +647,7 @@ def run_plan_parallel(
             if i:
                 emit("escalate", slice_id=task.id, from_rung=rungs[i - 1][0], to_rung=rung)
             source = slice_source(tag=task.executor, rung_index=i, default_source=default_source)
-            ex = executor_factory(spec) if executor_factory is not None else executor
+            ex, spec = _executor_for_spec(spec, evidence=task.kind == "investigate")
             if accounting is not None:
                 ex = accounting.wrap(ex, spec)
             if not simulation:
@@ -651,6 +668,80 @@ def run_plan_parallel(
         last.needs_repair = True
         return last
 
+    def _run_evidence(task: SliceTask):
+        from cld.evidence_mode.ask import run_ask
+
+        spec = _resolve_spec(task)
+        make_executor = None
+        if executor_factory is not None:
+            make_executor = lambda resolved: executor_factory(resolved, evidence=True)
+        elif executor is not None:
+            make_executor = lambda _resolved: executor
+        outcome = run_ask(repo_dir, {
+            "id": task.id,
+            "kind": task.kind,
+            "env": task.environments,
+            "form": "question",
+            "brief": task.brief,
+        }, executor_spec=spec, make_executor=make_executor, admit=lambda _spec: None)
+        return spec, outcome
+
+    def _record_evidence(task: SliceTask, spec: str, outcome: dict) -> None:
+        raw_problems = outcome.get("problems", [])
+        problems = list(raw_problems) if isinstance(raw_problems, (list, tuple)) else [str(raw_problems)]
+        evidence_dir = outcome.get("evidence_dir")
+        evidence_status = outcome.get("status")
+        error = outcome.get("error")
+        attempts = (ledger.get(task.id).attempts if ledger.get(task.id) else 0) + 1
+
+        if evidence_status == "complete":
+            status, detail_status = "integrated", "completed"
+        elif evidence_status in ("needs_approval", "blocked"):
+            status, detail_status = PENDING, "deferred"
+        elif evidence_status == "incomplete":
+            status, detail_status = FAILED, "failed"
+            if not problems:
+                problems = [str(error)] if error else ["Evidence task incomplete"]
+        elif evidence_status == "failed" and error in FINAL_EXECUTOR_ERRORS:
+            status, detail_status = PENDING, "deferred"
+            problems = [*problems, str(error)] if error not in problems else problems
+        else:
+            status, detail_status = FAILED, "failed"
+            if not problems and error:
+                problems = [str(error)]
+            elif not problems and evidence_status:
+                problems = [f"Evidence task {evidence_status}"]
+
+        with ledger_lock:
+            previous = deepcopy(ledger.get(task.id))
+            ledger.set(task.id, status=status, attempts=attempts, model=spec,
+                       complexity=task.complexity, chosen_by=("you" if task.executor else "rec"),
+                       evidence_dir=evidence_dir)
+            entry = ledger.get(task.id)
+            entry.commit = None
+            try:
+                ledger.save()
+            except BaseException:
+                if previous is None:
+                    ledger.entries.pop(task.id, None)
+                else:
+                    ledger.entries[task.id] = previous
+                raise
+
+        detail = SliceDetail(task.id, detail_status, attempts=attempts,
+                             failing_tests=problems)
+        if status == "integrated":
+            result.completed.append(task.id)
+        elif status == PENDING:
+            result.deferred.append(task.id)
+            result.blocked.append(task.id)
+        elif status == "needs_repair":
+            result.needs_repair.append(task.id)
+        else:
+            result.failed.append(task.id)
+        result.details[task.id] = detail
+        emit("slice_done", slice_id=task.id, status=detail_status)
+
     def _process_owned(task: SliceTask) -> None:
         nonlocal accounting
         # Quota gate (checked per slice so a window can fill mid-run).
@@ -670,6 +761,10 @@ def run_plan_parallel(
         emit("slice_start", slice_id=task.id)
 
         try:
+            if task.kind in {"query", "materialise"}:
+                spec, evidence_outcome = _run_evidence(task)
+                _record_evidence(task, spec, evidence_outcome)
+                return
             deliver_res = _run_one(task)
         except AdmissionBlocked as exc:
             with ledger_lock:

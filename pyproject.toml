@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cld"
-version = "0.4.3"
+version = "0.5.0"
 description = "Codex or Claude Code leads cross-LLM delivery through isolated executor worktrees, independent acceptance, durable recovery and verified integration."
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ where = ["engine"]  # the importable packages (cld, cld_providers) live under en
 "cld_providers.opencode" = ["*.md"]
 "cld_providers.codex" = ["*.md"]
 "cld_providers.claude" = ["*.md"]
+"cld.evidence_mode" = ["kb_template.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["engine"]

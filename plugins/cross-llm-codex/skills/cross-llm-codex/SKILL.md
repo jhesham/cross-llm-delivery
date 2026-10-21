@@ -4,7 +4,7 @@ description: >-
   Run a multi-slice build with Claude Code as lead and the codex
   headless executor, using committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: codex, v0.4.3) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: codex, v0.5.0) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 
@@ -42,7 +42,8 @@ IDs and supported efforts; discovery does not authorize dispatch.
 Author and commit failing acceptance tests first. Keep tests and pytest
 configuration outside the slice's writable allowlist. Plan values are one
 line; split large work into top-level `## SLICE:` blocks with `deps`.
-Read [authoring-plans.md](references/authoring-plans.md) for the supported schema.
+Read [authoring-plans.md](references/authoring-plans.md) for the supported schema, and
+[superpowers-to-cld.md](references/superpowers-to-cld.md) to convert a superpowers plan into slices.
 
 Run from this installed skill directory with absolute plan/repository paths,
 or use the absolute driver path from another cwd. Select the executor explicitly

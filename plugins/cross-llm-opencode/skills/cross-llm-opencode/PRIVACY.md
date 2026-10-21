@@ -120,6 +120,16 @@ Git history (including integrated commits), provider CLI caches, sessions and
 authentication have separate lifecycles managed by Git and by each provider.
 Provider-side retention follows your account's policies, not CLD guarantees.
 
+## Evidence mode data
+
+Evidence tasks keep their inputs and outputs locally under `.cld/runs/ask/` (and
+`.cld/runs/sql/`): the task, the exact SQL, query results (full result files),
+run statistics, findings files and created-object records. The ask ledger stores
+task status and paths, not row data. Query results can contain sensitive or
+personal data from your systems; they are not redacted and have no automatic
+expiry. Data reaches only the executor's provider and the platforms you query
+through your own tools.
+
 ## Your controls
 
 - Choose which executor, model and endpoints receive data; preview with

@@ -42,6 +42,7 @@ class Provider:
                       key validation evidence like context_env (values hashed).
     config_inputs   : optional callable(repository directory) -> configuration
                       paths selected by this provider for validation identity.
+    supports_evidence: whether the provider supports one-task evidence execution.
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -60,6 +61,7 @@ class Provider:
     config_identity: Optional[Callable] = None  # (config path) -> identity dict; default sha256 of the file
     config_env: Optional[Callable] = None  # (config paths) -> tuple of env names referenced by provider config
     config_inputs: Optional[Callable] = None  # (repository directory) -> iterable of config paths
+    supports_evidence: bool = False
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,13 @@ _ROLE = (
     "delegation is prohibited. Do not run git commit, git push, or any other Git\n"
     "mutation. Do not create or modify files outside the slice allowlist.\n"
 )
+_EVIDENCE_ROLE = (
+    "You are an evidence executor for one CLD task. Run SQL only via the "
+    "run_sql.py launcher command given in the task. Never run CLD dispatch "
+    "commands (--step, --ask, --integrate) or any other LLM. Write only inside "
+    "the evidence directory. Finish by writing evidence.json in the bundle "
+    "format. Report what you did, changed or assumed and never interpret results.\n"
+)
 
 
 def check_capabilities(version_output, help_output):
@@ -74,7 +81,8 @@ def _single_line(name, value):
 
 
 def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
-                     sandbox="workspace-write", depth=0):
+                     sandbox="workspace-write", depth=0, evidence=False,
+                     full_access=False):
     """Fresh explicit invocation: no resume/--last, no positional prompt, no shell."""
     if type(depth) is not int or depth != 0:
         raise CodexContractError(f"Codex executors cannot dispatch recursively; depth must be 0, got {depth!r}")
@@ -87,21 +95,33 @@ def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
             raise CodexContractError(f"effort must be one of {_EFFORTS}, got {effort!r}")
     if service_tier not in (None, "fast"):
         raise CodexContractError("service_tier must be 'fast' or absent")
-    if sandbox not in _SANDBOXES:
+    if type(evidence) is not bool:
+        raise CodexContractError(f"evidence must be a bool, got {evidence!r}")
+    if type(full_access) is not bool:
+        raise CodexContractError(f"full_access must be a bool, got {full_access!r}")
+    if evidence:
+        sandbox = "danger-full-access"
+    elif full_access:
+        sandbox = "danger-full-access"
+    elif sandbox not in _SANDBOXES:
         raise CodexContractError(f"sandbox must be one of {_SANDBOXES}, got {sandbox!r}")
     if not isinstance(prompt, str) or not prompt.strip():
         raise CodexContractError("prompt must be nonempty text")
     resolved = Path(cwd).resolve()
-    if not resolved.is_dir() or not (resolved / ".git").exists():
-        raise CodexContractError(f"cwd must be an existing Git worktree root, got {str(cwd)!r}")
+    if not resolved.is_dir() or (not evidence and not (resolved / ".git").exists()):
+        requirement = "an existing directory" if evidence else "an existing Git worktree root"
+        raise CodexContractError(f"cwd must be {requirement}, got {str(cwd)!r}")
     argv = ["codex", "exec", "--json", "--ephemeral",
             "--sandbox", sandbox, "--cd", str(resolved), "--model", model]
+    if evidence:
+        argv.append("--skip-git-repo-check")
     if effort is not None:
         argv += ["--config", f'model_reasoning_effort="{effort}"']
     if service_tier is not None:
         argv += ["--config", f'service_tier="{service_tier}"']
     argv.append("-")
-    return CodexInvocation(argv=argv, stdin=_ROLE + "\n" + prompt,
+    role = _EVIDENCE_ROLE if evidence else _ROLE
+    return CodexInvocation(argv=argv, stdin=role + "\n" + prompt,
                            cwd=str(resolved), env={"CLD_EXECUTOR_DEPTH": "1"})
 
 

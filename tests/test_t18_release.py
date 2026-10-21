@@ -213,6 +213,20 @@ def test_sync_local_bare_remote_uses_exact_ci_and_restores_environment(repositor
     assert not (clone / "SHIP-PLAN.md").exists()
 
 
+def test_release_regenerates_plugins_before_running_tests(repository):
+    """Plugin-freshness tests compare committed plugins with VERSION, so the bump
+    must be generated into plugins/ before pytest runs."""
+    mod = module()
+    root, remote = repository
+    runner = Commands(root, fail=lambda a: a[:3] == ["gh", "release", "create"])
+    with pytest.raises(mod.CommandError, match="T18 injected native failure"):
+        mod.release_version(root, "0.3.0", **options(remote, runner))
+    calls = [a for a, _ in runner.calls]
+    pytest_at = next(i for i, a in enumerate(calls) if "pytest" in a)
+    plugins_at = next(i for i, a in enumerate(calls) if any("build_plugins.py" in x for x in a))
+    assert plugins_at < pytest_at, calls[:pytest_at + 1]
+
+
 @pytest.mark.parametrize("operation", ["tag", "push-tag", "gh-release"])
 def test_release_tag_push_and_gh_failure_stop_without_rollback(repository, operation):
     mod = module()

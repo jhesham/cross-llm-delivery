@@ -23,6 +23,7 @@ import contextlib
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -416,10 +417,12 @@ def parse_executor_spec(spec: str) -> tuple[str, dict]:
 
 
 def build_executor_factory():
-    """Return factory(spec) -> executor, resolving a spec via parse_executor_spec +
+    """Return factory(spec, evidence=False) -> executor, resolving a spec via parse_executor_spec +
     get_executor. Used by run_plan_parallel for per-slice executor selection."""
-    def factory(spec: str):
+    def factory(spec: str, evidence: bool = False):
         name, kwargs = parse_executor_spec(spec)
+        if evidence:
+            kwargs["evidence"] = True
         return _hook("get_executor")(name, **kwargs)
     return factory
 
@@ -679,12 +682,14 @@ def prepare_dispatch(args, slices, ledger):
             raise AdmissionBlocked(f"{spec}: CLI/configuration changed during validation; rerun preflight")
         admitted[spec] = contexts[spec]
 
-    def factory(value):
+    def factory(value, evidence: bool = False):
         spec, provider, kwargs = resolve_spec(value)
         if spec not in admitted or context_of(spec) != admitted[spec]:
             raise AdmissionBlocked("Model/CLI/configuration changed after admission; rerun preflight")
+        if evidence:
+            kwargs["evidence"] = True
         executor = _hook("get_executor")(provider, **kwargs)
-        if getattr(args, "accounting", None):
+        if getattr(args, "accounting", None) and not evidence:
             executor = args.accounting.wrap(executor, spec, identity=admitted[spec])
         return executor
 
@@ -726,7 +731,19 @@ def build_parser(json_mode: bool = False) -> argparse.ArgumentParser:
     cls = _JsonArgumentParser if json_mode else argparse.ArgumentParser
     p = cls(description="Run a cross-llm-delivery plan.")
     p.add_argument("plan", nargs="?", default=None, help="Path to the plan markdown file")
+    p.add_argument("--init-kb", metavar="DIR",
+                   help="Copy the knowledge-base starter template into an empty directory")
     p.add_argument("--repo", default=".", help="Repo dir for worktree isolation")
+    p.add_argument("--ask", metavar="TASK.json", help="Run one evidence task from a JSON file")
+    p.add_argument("--approve", metavar="TASK_ID", help="Record approval for a statement in an evidence environment")
+    p.add_argument("--sql", metavar="FILE", help="Run this SQL file using a configured evidence environment")
+    p.add_argument("--env", metavar="NAME", help="Evidence environment name to use with --sql or --approve")
+    p.add_argument("--statement", metavar="HASH", help="Lowercase SHA-256 hash of the statement to approve")
+    p.add_argument("--reason", metavar="TEXT", help="Reason for approving the statement")
+    p.add_argument("--approved-by", metavar="NAME", default="lead",
+                   help="Name of the approver (default: lead)")
+    p.add_argument("--out", metavar="DIR", default=None,
+                   help="Evidence output directory (default: <repo>/.cld/runs/sql)")
     p.add_argument("--worktree-root", help="Writable worktree root (relative to --repo); default .cld/worktrees")
     p.add_argument("--ledger", default=None, help="Ledger path; default <repo>/.cld-ledger.json; explicit relative paths use invocation cwd")
     p.add_argument("--migrate-ledger", action="store_true", help="Back up and migrate legacy state with this plan; no dispatch")
@@ -808,15 +825,185 @@ def _validate(args) -> None:
         raise StateError("--apply/--include-previous require --gc")
     if sum(bool(v) for v in (args.status, args.usage, args.watch, args.dry_run,
                             args.integrate, args.step, args.mark_repaired,
-                            args.migrate_ledger, args.reconcile_plan, args.new_build, args.gc)) > 1:
+                            args.migrate_ledger, args.reconcile_plan, args.new_build, args.gc,
+                            args.ask)) > 1:
         raise StateError("Choose one inspection/delivery/state action")
+    if args.ask and (args.plan is not None or args.sql is not None):
+        raise StateError("--ask cannot be combined with a plan or --sql")
     if args.workers < 1 or args.interval < 1:
         raise StateError("Workers and interval must be positive")
+
+
+def _sql_approval_conflict(args) -> str | None:
+    """Reject SQL/approval actions combined with inspection or ask options."""
+    action = "--sql" if args.sql is not None else "--approve" if args.approve is not None else None
+    if action is None:
+        return None
+
+    conflicts = []
+    for enabled, flag in (
+        (args.dry_run, "--dry-run"),
+        (args.status, "--status"),
+        (args.usage, "--usage"),
+        (args.watch, "--watch"),
+        (args.plan is not None, "--plan"),
+        (args.ask is not None, "--ask"),
+    ):
+        if enabled:
+            conflicts.append(flag)
+    if not conflicts:
+        return None
+    return f"{action} cannot be combined with {', '.join(conflicts)}"
+
+
+def _reject_sql_approval_conflict(args) -> int | None:
+    reason = _sql_approval_conflict(args)
+    if reason is None:
+        return None
+    command = "approve" if args.approve is not None else "sql"
+    return _blocked(command, reason,
+        raw_repo=getattr(args, "raw_repo", args.repo),
+        raw_ledger=getattr(args, "raw_ledger", args.ledger))
 
 
 def _resolve_paths(args) -> None:
     args.repo = os.path.realpath(args.repo)
     args.ledger = resolve_ledger(args.repo, args.ledger)
+
+
+def _run_sql_cli(args) -> int:
+    """Run the independent SQL evidence action and print its record as JSON."""
+    try:
+        if not args.env:
+            raise ValueError("--sql requires --env")
+        repo = os.path.realpath(args.repo)
+        sql = Path(args.sql).read_text(encoding="utf-8")
+        from cld.evidence_mode.environments import load_environments
+        from cld.evidence_mode.sqlrun import run_sql
+
+        environments = load_environments(repo)
+        try:
+            environment = environments[args.env]
+        except KeyError as exc:
+            raise ValueError(f"Environment '{args.env}' is not configured for repository {repo}") from exc
+        out_dir = args.out if args.out is not None else str(Path(repo) / ".cld" / "runs" / "sql")
+        record = run_sql(repo, environment, sql, out_dir=out_dir)
+    except Exception as exc:
+        record = {"status": "failed", "error": str(exc)}
+
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+    return 0 if record.get("status") == "ok" else 5
+
+
+def _approval_requested(argv) -> bool:
+    return any(token == "--approve" or token.startswith("--approve=") for token in argv)
+
+
+def _blocked_approval(reason) -> int:
+    print(json.dumps({"command": "approve", "status": "blocked", "error": str(reason)},
+                     ensure_ascii=False))
+    return 5
+
+
+def _approve_cli(args) -> int:
+    """Record a user-approved statement without entering the delivery pipeline."""
+    try:
+        # Approvals come from the user or the lead, never from a dispatched executor:
+        # an executor could otherwise approve its own write and pass layer 2.
+        if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
+            raise ValueError("--approve is refused inside a dispatched executor (CLD_EXECUTOR_DEPTH is set)")
+        if not isinstance(args.approve, str) or not args.approve.strip():
+            raise ValueError("--approve requires a non-empty task id")
+        if not args.env:
+            raise ValueError("--approve requires --env")
+        if not isinstance(args.statement, str) or not re.fullmatch(r"[0-9a-f]{64}", args.statement):
+            raise ValueError("--statement must be a 64-character lowercase hexadecimal SHA-256 hash")
+
+        repo = os.path.realpath(args.repo)
+        from cld.evidence_mode.environments import load_environments
+        from cld.evidence_mode.approvals import record_approval
+
+        environments = load_environments(repo)
+        if args.env not in environments:
+            raise ValueError(f"Environment '{args.env}' is not configured for repository {repo}")
+        record = record_approval(repo, env=args.env, sql_hash=args.statement,
+                                 approved_by=args.approved_by, reason=args.reason)
+    except Exception as exc:
+        return _blocked_approval(exc)
+
+    print(json.dumps({"command": "approve", "task_id": args.approve, **record},
+                     ensure_ascii=False))
+    return 0
+
+
+def _ask_cli(args) -> int:
+    """Run --ask and print its bounded result with the command identity."""
+    def blocked(reason):
+        result = {
+            "task_id": None,
+            "status": "blocked",
+            "evidence_dir": None,
+            "problems": [str(reason)],
+            "runner_used": False,
+            "preview": {"rows": [], "truncated": False, "bytes": 0},
+            "notes": "",
+        }
+        result["command"] = "ask"
+        print(json.dumps(result, ensure_ascii=False))
+        return 5
+
+    try:
+        _validate(args)
+    except (StateError, ValueError) as exc:
+        return blocked(exc)
+    if not args.executor:
+        return blocked("--ask requires an explicit --executor spec")
+    try:
+        task = json.loads(Path(args.ask).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return blocked(f"Cannot read task JSON {args.ask}: {exc}")
+
+    try:
+        from types import SimpleNamespace
+
+        from cld.evidence_mode.ask import _validate_task, run_ask
+        from cld.executors.base import SliceTask
+
+        task_id, _environments, task_problems = _validate_task(Path(args.repo).resolve(), task)
+        if task_problems:
+            return blocked("; ".join(task_problems))
+        slice_task = SliceTask(
+            id=task_id,
+            brief=task.get("brief") or task.get("sql") or "Evidence task",
+            files=[],
+            acceptance_test_path="",
+            executor=args.executor,
+        )
+        ledger = SimpleNamespace(
+            build={"run_id": secrets.token_hex(16)},
+            is_done=lambda _task_id: False,
+            get=lambda _task_id: None,
+        )
+        factory_holder = {}
+
+        def admit(_spec):
+            factory_holder["factory"] = _hook("prepare_dispatch")(
+                args, [slice_task], ledger
+            )[0]
+            return True
+
+        result = run_ask(
+            args.repo,
+            task,
+            executor_spec=args.executor,
+            make_executor=lambda spec: factory_holder["factory"](spec, evidence=True),
+            admit=admit,
+        )
+    except Exception as exc:
+        return blocked(exc)
+    result["command"] = "ask"
+    print(json.dumps(result, ensure_ascii=False))
+    return 0 if result.get("status") == "complete" else 5
 
 
 def _check_gc_binding(args, build):
@@ -861,6 +1048,16 @@ def _gc_report(args):
 
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
+    conflict_code = _reject_sql_approval_conflict(args)
+    if conflict_code is not None:
+        return conflict_code
+    if args.approve is not None:
+        return _approve_cli(args)
+    if args.ask is not None:
+        return _ask_cli(args)
+    if args.sql is not None:
+        return _run_sql_cli(args)
+
     _validate(args)
     _resolve_paths(args)
 
@@ -1092,7 +1289,55 @@ def _execute(args, slices, ledger):
 
 def _main(argv=None) -> int:
     """Legacy text-mode pipeline: parse with plain argparse (SystemExit on error/help)."""
-    return _run(build_parser().parse_args(argv))
+    if _approval_requested(argv or []):
+        try:
+            args = build_parser(json_mode=True).parse_args(argv)
+        except _UsageError as exc:
+            return _blocked_approval(exc)
+        return _run(args)
+    args = build_parser().parse_args(argv)
+    if args.init_kb is not None:
+        return _init_kb_command(args.init_kb)
+    return _run(args)
+
+
+def _copy_kb_template(target) -> Path:
+    """Write the packaged knowledge-base starter template into an empty directory.
+
+    The template ships as one JSON file (relative path -> text) rather than a folder
+    tree, so deep template paths never exceed Windows path limits inside plugin caches.
+    """
+    destination = Path(target).expanduser()
+    if destination.exists():
+        if not destination.is_dir() or next(destination.iterdir(), None) is not None:
+            raise ValueError(f"--init-kb destination must be an empty directory: {destination}")
+    source = Path(__file__).resolve().parent / "evidence_mode" / "kb_template.json"
+    files = json.loads(source.read_text(encoding="utf-8"))["files"]
+    destination.mkdir(parents=True, exist_ok=True)
+    root = destination.resolve()
+    for relative, text in files.items():
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"Unsafe template path: {relative}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+    return root
+
+
+def _init_kb_command(target, *, json_mode=False) -> int:
+    try:
+        destination = _copy_kb_template(target)
+    except (OSError, ValueError) as exc:
+        if json_mode:
+            return _blocked("init-kb", str(exc))
+        print(f"State blocked: {exc}", file=sys.stderr)
+        return 5
+
+    if json_mode:
+        return _emit(cli_response.build(command="init-kb", gate="pending",
+            extra={"details": {"target": str(destination), "initialized": True}}))
+    print(f"Knowledge base initialized at {destination}")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -1101,6 +1346,8 @@ def _main(argv=None) -> int:
 
 _ACTION_FLAGS = (
     ("--status", "status"), ("--usage", "usage"), ("--watch", "watch"),
+    ("--init-kb", "init-kb"),
+    ("--approve", "approve"), ("--ask", "ask"),
     ("--integrate", "integrate"), ("--mark-repaired", "repair"),
     ("--migrate-ledger", "migrate"), ("--reconcile-plan", "reconcile"),
     ("--new-build", "new-build"), ("--step", "step"), ("--dry-run", "preview"),
@@ -1126,6 +1373,10 @@ def _guess_command(argv) -> str:
 
 
 def _command_of(args) -> str:
+    if args.init_kb is not None:
+        return "init-kb"
+    if args.ask:
+        return "ask"
     if args.status:
         return "status"
     if args.usage:
@@ -1490,11 +1741,24 @@ def _main_json(argv) -> int:
     try:
         args = build_parser(json_mode=True).parse_args(argv)
     except _UsageError as exc:
+        if _approval_requested(argv):
+            return _blocked_approval(exc)
         return _blocked(_guess_command(argv), str(exc),
                         raw_repo=_scan_option(argv, "--repo"), raw_ledger=_scan_option(argv, "--ledger"))
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    conflict_code = _reject_sql_approval_conflict(args)
+    if conflict_code is not None:
+        return conflict_code
+    if args.init_kb is not None:
+        return _init_kb_command(args.init_kb, json_mode=True)
+    if args.approve is not None:
+        return _approve_cli(args)
+    if args.ask is not None:
+        return _ask_cli(args)
+    if args.sql is not None:
+        return _run_sql_cli(args)
     try:
         _validate(args)
     except (StateError, ValueError) as exc:

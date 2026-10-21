@@ -34,7 +34,7 @@ def verified_base(ledger, runner):
     build = ledger.build
     sha = build.get("integrated_sha")
     if not sha:
-        if any(e.status == "integrated" for e in ledger.entries.values()):
+        if any(e.status == "integrated" and e.commit is not None for e in ledger.entries.values()):
             raise StateError("Integrated entries have no verified build base")
         return build["initial_base"]
     proof = build.get("integration_proof", {})
@@ -56,7 +56,8 @@ def verified_base(ledger, runner):
             if entry is None or entry.status != "integrated" or entry.commit != commit:
                 raise StateError(f"Integration proof mismatch for {sid}")
             checked(runner, build["repo"], "merge-base", "--is-ancestor", commit, sha)
-        if {sid for sid, e in ledger.entries.items() if e.status == "integrated"} != set(proof["all_commits"]):
+        if {sid for sid, e in ledger.entries.items()
+                if e.status == "integrated" and e.commit is not None} != set(proof["all_commits"]):
             raise StateError("Integrated entries differ from the verified gate")
     except (KeyError, TypeError, AttributeError, ValueError, OSError, CaptureError) as exc:
         raise StateError(f"Invalid integration evidence: {exc}") from exc
@@ -68,6 +69,8 @@ def dependency_block(task, ledger, runner, base):
         entry = ledger.get(dep)
         if entry is None or entry.status != "integrated":
             return f"Dependency {dep} is {entry.status if entry else 'missing'}; verified integration required"
+        if entry.commit is None:
+            continue
         rc, _ = runner(["git", "merge-base", "--is-ancestor", entry.commit, base], ledger.build["repo"])
         if rc != 0:
             return f"Dependency {dep} commit is absent from the verified integration base"
@@ -130,8 +133,11 @@ def integrate(slices, ledger, *, repo_dir, git_runner, test_runner, selector,
             if recovered is None or recovered[0]["collection"]["commit"] != entry.commit:
                 raise StateError(f"Accepted collection cannot be verified for {sid}")
             for dep in tasks[sid].deps:
-                if ledger.get(dep) is None or ledger.get(dep).status != "integrated":
+                dependency = ledger.get(dep)
+                if dependency is None or dependency.status != "integrated":
                     raise StateError(f"Cannot integrate {sid}: dependency {dep} is not integrated")
+                if dependency.commit is not None:
+                    checked(git_runner, repo_dir, "merge-base", "--is-ancestor", dependency.commit, base)
             commits[sid] = entry.commit
         root = run_directory(repo_dir, ledger.build["run_id"]) / "integration"
         if not root.resolve().is_relative_to(root.parent.resolve()):

@@ -27,8 +27,8 @@ engine files must match. Stop active writers before replacing an installation
 and preserve the old folders/configuration as backups. Restart the lead host
 after installing/updating.
 
-For version 0.4.2, download the coherent host bundle set from the
-[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2)
+For version 0.5.0, download the coherent host bundle set from the
+[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.0)
 and verify its SHA-256 manifest. The
 [publication record](docs/plans/v0.4.0-review-fixes/PUBLICATION-0.4.2.md) records
 verification of the tagged source and downloadable assets. The complete set

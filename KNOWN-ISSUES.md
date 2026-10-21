@@ -13,6 +13,31 @@ live provider mid-process interruption, Ubuntu Codex flag inspection/live POSIX
 dispatch and macOS remain unverified.
 Offline success must not be advertised as live support on those surfaces.
 
+## Evidence mode (v0.5)
+
+- Only the Codex executor supports evidence tasks; others are refused before dispatch.
+- On Windows, keep the repository path short (for example `D:\work\repo`). CLD's
+  run artifacts nest several folders deep under `.cld/runs/`; from a long path
+  they can pass the 260-character limit, and admission then stops with a
+  "filename or extension is too long" error before anything is dispatched.
+- Live-tested on Windows against a local PostgreSQL 17 with `psql --csv`: a
+  sandbox query, a held CREATE on a real environment, an approved CREATE
+  refused by the read-only role, and a plan with a query slice followed by a
+  dependent code slice. Other platforms (BigQuery, MCP-only) are offline-tested only.
+- Each SQL runner call is bounded by `CLD_DISPATCH_TIMEOUT` (default 600 s); a query
+  that runs longer is stopped and recorded as failed. There is no separate per-query
+  setting.
+- Plan-mode query/materialise slices are not counted in CLD usage accounting.
+- Attempt budgets are not applied to `--ask` tasks.
+- SQL classification is lexical. Statements it cannot classify fail closed and need
+  approval on real environments, but side-effecting functions inside a SELECT are
+  caught by a denylist: a function nobody has listed passes as a read. Read-only
+  credentials on real environments remain the real protection.
+- A comment between the segments of a continued `E'...'` string can make a valid
+  read classify as a write (especially when the literal contains `--`). This
+  fails closed: on real environments the statement waits for approval.
+- No live evidence-mode run against a real warehouse is recorded yet.
+
 ## Usage, timeouts and model access
 
 Only reported usage is known. Antigravity usage may be entirely unavailable;

@@ -15,7 +15,10 @@ build — with independent acceptance/integration. The lead works directly only 
 there is no testable contract yet (root-cause investigation, exploratory design,
 changes judged visually or against live systems) or for a trivial edit where the
 test would cost more than the change. For debugging, the lead finds the cause and
-commits the failing reproduction test; CLD implements the fix. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
+commits the failing reproduction test; CLD implements the fix. For data analysis,
+[evidence mode](#evidence-mode-v05-investigate-query-and-materialise) has the
+executor investigate systems, answer questions with SQL or build datasets, and
+return traceable evidence instead of code. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
 vulnerability reporting: [SECURITY.md](SECURITY.md). Questions and bugs:
 [GitHub Issues](https://github.com/jhesham/cross-llm-delivery/issues).
 
@@ -26,10 +29,10 @@ The lead host and implementation provider are separate choices:
 | Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
 | Claude Code, using a Claude skill or plugin | The same five providers and engine |
 
-Version **0.4.3** supports both lead hosts and five executor providers,
+Version **0.5.0** supports both lead hosts and five executor providers,
 including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
-Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.3)
+Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.0)
 for a fixed source revision. The Claude-only root marketplace is read from `main`;
 both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
 updates stay pinned until the manifest version changes (local in-place profiles can
@@ -68,6 +71,41 @@ logs or support requests.
 
 CLD charges no separate inference fee and dollar costs may be unknown. Provider
 retention and plan terms follow your provider account; see [PRIVACY.md](PRIVACY.md).
+
+### Evidence mode (v0.5): investigate, query and materialise
+
+Evidence tasks hand legwork to a cheaper executor while the lead keeps the analysis:
+`--ask TASK.json` runs one task (a question or drafted SQL, an investigation, or a
+materialisation), and plan slices with `kind: investigate|query|materialise` run in
+plan mode. CLD returns complete, traceable evidence (the exact SQL that ran, result
+files and run statistics); it never judges whether an answer is correct; the lead does.
+
+- Evidence tasks run Codex with `--sandbox danger-full-access` (network, reading
+  other repositories through `gh`/MCP, your `gcloud`/`bq` setup). Code slices keep
+  their usual sandbox.
+- Environments are declared in `cld-environments.json` as `sandbox` (writable) or
+  `real`. Real environments must use **read-only credentials** (for example a
+  BigQuery viewer + job-user role); that is the real protection. The CLD SQL runner
+  (`--sql`) is a second check: it refuses writes to real environments unless
+  approved with `--approve`, which is refused inside a dispatched executor.
+  The file wraps the list in an `environments` key; each `command` reads SQL on
+  stdin and should print JSON or header-first CSV (keep passwords in the tool's own
+  credential store, such as `pgpass`, not in this file):
+
+  ```json
+  {"environments": [
+    {"name": "pg_sandbox", "class": "sandbox", "platform": "postgres",
+     "command": ["psql", "-X", "-q", "--csv", "-w", "-h", "localhost", "-U", "cld_rw",
+                 "-d", "analytics_sandbox", "-v", "ON_ERROR_STOP=1"],
+     "read_only_expected": false},
+    {"name": "pg_real", "class": "real", "platform": "postgres",
+     "command": ["psql", "-X", "-q", "--csv", "-w", "-h", "db.example.internal", "-U", "readonly",
+                 "-d", "analytics", "-v", "ON_ERROR_STOP=1"],
+     "read_only_expected": true}
+  ]}
+  ```
+- Results, SQL and run records stay local under `.cld/runs/`; previews returned to
+  the lead are capped. `--init-kb DIR` writes a knowledge-base starter template.
 
 ### Reviewer preview (no inference)
 

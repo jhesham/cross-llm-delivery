@@ -39,7 +39,12 @@ def atomic_write(path: Path, data: bytes):
 
 
 def task_fingerprint(task):
-    return hashlib.sha256(json.dumps(asdict(task), sort_keys=True, ensure_ascii=True).encode()).hexdigest()
+    data = asdict(task)
+    if data.get("kind") == "code":
+        data.pop("kind", None)
+    if not data.get("environments"):
+        data.pop("environments", None)
+    return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=True).encode()).hexdigest()
 
 
 def slice_directory(repo, sid, run_id=None):
