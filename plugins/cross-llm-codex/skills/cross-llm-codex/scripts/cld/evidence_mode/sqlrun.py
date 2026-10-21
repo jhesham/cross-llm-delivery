@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 from pathlib import Path
@@ -67,6 +69,20 @@ def _redact_secret_assignment(match: re.Match[str]) -> str:
             if spacing_end < len(value):
                 return f"{prefix}{value[:spacing_end]}[REDACTED]"
     return f"{prefix}[REDACTED]"
+
+
+def csv_records(text: str) -> list[dict] | None:
+    """Parse header-first CSV output (e.g. psql --csv) into rows, or None if it is not CSV."""
+    if not text.strip():
+        return None
+    try:
+        table = [row for row in csv.reader(io.StringIO(text)) if row]
+    except csv.Error:
+        return None
+    header = table[0] if table else []
+    if not header or any(len(row) != len(header) for row in table[1:]):
+        return None
+    return [dict(zip(header, row)) for row in table[1:]]
 
 
 def _redact(text: str) -> str:
@@ -244,7 +260,8 @@ def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
         parsed_stdout = json.loads(stdout)
         rows = len(parsed_stdout) if isinstance(parsed_stdout, list) else None
     except (TypeError, ValueError):
-        rows = None
+        csv_rows = csv_records(stdout) if status == "ok" else None
+        rows = len(csv_rows) if csv_rows is not None else None
 
     result_path.write_text(stdout if status == "ok" else _redact(stdout), encoding="utf-8")
     record = {

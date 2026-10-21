@@ -215,7 +215,7 @@ def _preview(bundle: dict, evidence_dir: Path) -> dict:
 
     position = whitespace(position)
     if position >= len(text) or text[position] != "[":
-        return {"rows": [], "truncated": truncated, "bytes": byte_count}
+        return _csv_preview(text, capped, byte_count)
     position += 1
 
     while True:
@@ -243,6 +243,21 @@ def _preview(bundle: dict, evidence_dir: Path) -> dict:
     # read, so trim until its own representation also fits the stated cap.
     while rows and len(json.dumps(preview).encode("utf-8")) > _PREVIEW_LIMIT:
         rows.pop()
+        preview["truncated"] = True
+    return preview
+
+
+def _csv_preview(text: str, capped: bool, byte_count: int) -> dict:
+    """Preview header-first CSV results (e.g. psql --csv); other text previews no rows."""
+    from cld.evidence_mode.sqlrun import csv_records
+
+    if capped and "\n" in text:
+        text = text[:text.rindex("\n") + 1]  # the last line may be cut mid-row
+    rows = csv_records(text) or []
+    truncated = capped or len(rows) > _PREVIEW_ROWS
+    preview = {"rows": rows[:_PREVIEW_ROWS], "truncated": truncated, "bytes": byte_count}
+    while preview["rows"] and len(json.dumps(preview).encode("utf-8")) > _PREVIEW_LIMIT:
+        preview["rows"].pop()
         preview["truncated"] = True
     return preview
 
