@@ -28,6 +28,7 @@ _WRITE_WORDS = {
 
 _SIDE_EFFECT_FUNCTIONS = {
     "NEXTVAL",
+    "NXTVAL",  # Treat the supplied Unicode spelling conservatively as a write.
     "SETVAL",
     "PG_ADVISORY_LOCK",
     "PG_ADVISORY_XACT_LOCK",
@@ -82,31 +83,59 @@ _ROW_LOCK_CLAUSES = {
 }
 
 
-def _quote_at(sql: str, index: int) -> tuple[str, str] | None:
-    """Return an opening and closing delimiter at *index*, if present."""
+def _identifier_char(char: str) -> bool:
+    return char == "_" or char == "$" or char.isalnum()
+
+
+def _quote_at(sql: str, index: int) -> tuple[str, str, str] | None:
+    """Return opening delimiter, closing delimiter, and lexical mode."""
+    if index >= len(sql):
+        return None
+
+    at_token_boundary = index == 0 or not _identifier_char(sql[index - 1])
+    if at_token_boundary and index + 2 < len(sql):
+        if sql[index:index + 2].upper() == "U&" and sql[index + 2] in "'\"":
+            quote = sql[index + 2]
+            mode = "unicode_identifier" if quote == '"' else "unicode_string"
+            return sql[index:index + 3], quote, mode
+    if (at_token_boundary and sql[index] in "Ee" and index + 1 < len(sql)
+            and sql[index + 1] == "'"):
+        return sql[index:index + 2], "'", "escape_string"
+
     char = sql[index]
-    if char in "'\"`":
-        return char, char
+    if char == "'":
+        return char, char, "string"
+    if char == '"':
+        return char, char, "identifier"
+    # Preserve the older cross-dialect quote handling for callers that use
+    # this helper, while applying PostgreSQL rules to PostgreSQL quote forms.
+    if char == "`":
+        return char, char, "identifier"
     if char == "[":
-        return "[", "]"
+        return "[", "]", "identifier"
     if char == "$":
         match = _DOLLAR_QUOTE.match(sql, index)
         if match:
             delimiter = match.group(0)
-            return delimiter, delimiter
+            return delimiter, delimiter, "dollar"
     return None
 
 
 def _consume_quoted(
-    sql: str, start: int, opening: str, closing: str
+    sql: str, start: int, opening: str, closing: str, mode: str = "string"
 ) -> tuple[int, bool]:
     """Return the end offset and whether a quoted region closes correctly."""
     index = start + len(opening)
-    if opening.startswith("$"):
+    if mode == "dollar" or opening.startswith("$"):
         end = sql.find(closing, index)
         return (len(sql), False) if end < 0 else (end + len(closing), True)
 
     while index < len(sql):
+        if mode == "escape_string" and sql[index] == "\\":
+            # In E strings a backslash quotes the next character, including a
+            # quote. A final backslash leaves the string unterminated.
+            index += 2
+            continue
         if sql.startswith(closing, index):
             # SQL escapes a delimiter inside a quoted value by doubling it.
             if sql.startswith(closing + closing, index):
@@ -116,6 +145,129 @@ def _consume_quoted(
         else:
             index += 1
     return len(sql), False
+
+
+def _quoted_value(sql: str, start: int, end: int, opening: str, closing: str) -> str:
+    """Return a quoted value with doubled delimiters reduced to one."""
+    return sql[start + len(opening):end - len(closing)].replace(closing * 2, closing)
+
+
+def _decode_unicode_value(value: str, escape: str) -> str | None:
+    """Decode PostgreSQL's four- and six-hex-digit Unicode escapes."""
+    codepoints: list[int] = []
+    index = 0
+    while index < len(value):
+        char = value[index]
+        if char != escape:
+            codepoint = ord(char)
+            if codepoint == 0 or 0xD800 <= codepoint <= 0xDFFF:
+                return None
+            codepoints.append(codepoint)
+            index += 1
+            continue
+
+        if index + 1 >= len(value):
+            return None
+        if value[index + 1] == escape:
+            codepoints.append(ord(escape))
+            index += 2
+            continue
+
+        if value[index + 1] == "+":
+            digits_start = index + 2
+            digits_end = digits_start + 6
+        else:
+            digits_start = index + 1
+            digits_end = digits_start + 4
+        digits = value[digits_start:digits_end]
+        if (len(digits) != digits_end - digits_start
+                or any(char not in "0123456789abcdefABCDEF" for char in digits)):
+            return None
+        codepoint = int(digits, 16)
+        if codepoint == 0 or codepoint > 0x10FFFF:
+            return None
+        codepoints.append(codepoint)
+        index = digits_end
+
+    decoded: list[str] = []
+    index = 0
+    while index < len(codepoints):
+        codepoint = codepoints[index]
+        if 0xD800 <= codepoint <= 0xDBFF:
+            if index + 1 >= len(codepoints) or not 0xDC00 <= codepoints[index + 1] <= 0xDFFF:
+                return None
+            low = codepoints[index + 1]
+            codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00)
+            index += 1
+        elif 0xDC00 <= codepoint <= 0xDFFF:
+            return None
+        decoded.append(chr(codepoint))
+        index += 1
+    return "".join(decoded)
+
+
+def _unicode_escape_clause(sql: str, after_value: int) -> tuple[str, int, bool]:
+    """Read an optional UESCAPE clause and return its character and end."""
+    index = after_value
+    while index < len(sql) and sql[index].isspace():
+        index += 1
+    keyword_end = index + len("UESCAPE")
+    if (sql[index:keyword_end].upper() != "UESCAPE"
+            or (keyword_end < len(sql) and _identifier_char(sql[keyword_end]))):
+        return "\\", after_value, True
+
+    index = keyword_end
+    while index < len(sql) and sql[index].isspace():
+        index += 1
+    if index >= len(sql) or sql[index] != "'":
+        return "\\", len(sql), False
+    end, closed = _consume_quoted(sql, index, "'", "'", "string")
+    if not closed:
+        return "\\", end, False
+    value = _quoted_value(sql, index, end, "'", "'")
+    if len(value) != 1:
+        return "\\", end, False
+    escape = value
+    if (escape.isspace() or escape in "+'\""
+            or escape in "0123456789abcdefABCDEF"
+            or 0xD800 <= ord(escape) <= 0xDFFF):
+        return "\\", end, False
+    return escape, end, True
+
+
+def _unicode_token(
+    sql: str, start: int, opening: str, closing: str, mode: str
+) -> tuple[int, str | None, bool]:
+    """Decode one U& identifier/string, including its optional UESCAPE clause."""
+    value_end, closed = _consume_quoted(sql, start, opening, closing, mode)
+    if not closed:
+        return value_end, None, False
+    escape, token_end, escape_valid = _unicode_escape_clause(sql, value_end)
+    value = _quoted_value(sql, start, value_end, opening, closing)
+    decoded = _decode_unicode_value(value, escape) if escape_valid else None
+    return token_end, decoded, escape_valid and decoded is not None
+
+
+def _validate_unicode_tokens(sql: str) -> bool:
+    """Reject Unicode escape tokens that PostgreSQL cannot decode."""
+    index = 0
+    while index < len(sql):
+        quote = _quote_at(sql, index)
+        if quote:
+            opening, closing, mode = quote
+            if mode.startswith("unicode_"):
+                end, _decoded, valid = _unicode_token(sql, index, opening, closing, mode)
+                if not valid:
+                    return False
+                index = end
+                continue
+            end, closed = _consume_quoted(sql, index, opening, closing, mode)
+            if not closed:
+                return False
+            index = end
+            continue
+        index += 1
+    return True
 
 
 def _strip_comments(sql: str) -> tuple[str, bool]:
@@ -165,7 +317,8 @@ def _strip_comments(sql: str) -> tuple[str, bool]:
         output.append(sql[index])
         index += 1
 
-    return "".join(output), valid
+    cleaned = "".join(output)
+    return cleaned, valid and _validate_unicode_tokens(cleaned)
 
 
 def _split_statements(sql: str) -> list[str]:
@@ -225,11 +378,18 @@ def _identifier_at(sql: str, index: int) -> tuple[str, int] | None:
     if index >= len(sql):
         return None
 
-    if sql[index] == '"':
-        end, closed = _consume_quoted(sql, index, '"', '"')
+    quote = _quote_at(sql, index)
+    if quote and quote[2] == "unicode_identifier":
+        end, decoded, valid = _unicode_token(sql, index, *quote)
+        if not valid or decoded is None:
+            return None
+        return decoded.upper(), end
+
+    if quote and quote[2] == "identifier" and quote[0] == '"':
+        end, closed = _consume_quoted(sql, index, *quote)
         if not closed:
             return None
-        return sql[index + 1:end - 1].replace('""', '"').upper(), end
+        return _quoted_value(sql, index, end, quote[0], quote[1]).upper(), end
 
     char = sql[index]
     if char != "_" and not char.isalpha() and char != "$":
@@ -260,12 +420,11 @@ def _has_side_effecting_select_tokens(sql: str) -> bool:
 
     index = 0
     while index < len(sql):
-        if sql[index] != '"':
-            quote = _quote_at(sql, index)
-            if quote:
-                end, _ = _consume_quoted(sql, index, *quote)
-                index = end
-                continue
+        quote = _quote_at(sql, index)
+        if quote and quote[2] not in {"identifier", "unicode_identifier"}:
+            end, _ = _consume_quoted(sql, index, *quote)
+            index = end
+            continue
 
         identifier = _identifier_at(sql, index)
         if identifier:

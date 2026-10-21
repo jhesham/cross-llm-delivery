@@ -15,31 +15,63 @@ from .approvals import is_approved
 from .sqlclass import classify_sql, statement_hash
 
 
-_SECRET_VALUE = r"(?:\"(?:\\.|[^\"\\\r\n])*\"|'(?:\\.|[^'\\\r\n])*'|\S+)"
+_AUTHORIZATION_KEY = (
+    rf'"(?=(?:\\[^\r\n]|[^"\\\r\n])*authorization)'
+    rf'(?:\\[^\r\n]|[^"\\\r\n])*"'
+    rf"|'(?=(?:\\[^\r\n]|[^'\\\r\n])*authorization)"
+    rf"(?:\\[^\r\n]|[^'\\\r\n])*'"
+    rf"|[^\s\"'=:,;{{}}&]*?authorization[^\s\"'=:,;{{}}&]*"
+)
+_OTHER_SECRET_KEY = (
+    r'"(?=(?:\\[^\r\n]|[^"\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]key))'
+    r'(?:\\[^\r\n]|[^"\\\r\n])*"'
+    r"|'(?=(?:\\[^\r\n]|[^'\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]key))"
+    r"(?:\\[^\r\n]|[^'\\\r\n])*'"
+    r"|[^\s\"'=:,;{}&]*?(?:password|passwd|pwd|token|secret|api[_-]key)[^\s\"'=:,;{}&]*"
+)
 _SECRET_ASSIGNMENT = re.compile(
-    rf"(?i)(password|passwd|pwd|token|secret|api[_-]?key)\s*[=:]\s*(?!Bearer\b){_SECRET_VALUE}"
+    rf"(?i)(?P<key>(?P<authorization_key>{_AUTHORIZATION_KEY})|"
+    rf"(?P<other_secret_key>{_OTHER_SECRET_KEY}))"
+    rf"(?P<separator>[ \t]*[=:][ \t]*)"
+    rf"(?P<value>(?P<quoted_value>\"(?:\\[^\r\n]|[^\"\\\r\n])*\"|"
+    rf"'(?:\\[^\r\n]|[^'\\\r\n])*')|"
+    rf"(?(authorization_key)[^\r\n]+|[^\s,;&}}]+))"
 )
-_AUTHORIZATION_HEADER = re.compile(
-    r"(?i)(\bAuthorization\s*:\s*[^\s]+\s+)[^\r\n]+"
-)
-_AUTHORIZATION_ASSIGNMENT = re.compile(
-    rf"(?i)(\bAuthorization\s*[=:]\s*)(?![^\s]+\s+\S+){_SECRET_VALUE}"
-)
-_JSON_SECRET_VALUE = re.compile(
-    r'(?i)("[^"\n]*(?:token|secret|password|api[_-]?key)[^"\n]*"\s*:\s*)"(?:\\.|[^"\\])*"'
-)
-_BEARER_TOKEN = re.compile(r"(?i)(\bBearer\s+)\S+")
 _URL_CREDENTIALS = re.compile(r"//[^/@:\s]+:[^/@\s]+@")
+
+
+def _redact_secret_assignment(match: re.Match[str]) -> str:
+    key = match.group("key")
+    separator = match.group("separator")
+    value = match.group("value")
+
+    quoted_value = match.group("quoted_value")
+    if quoted_value is not None:
+        quote = quoted_value[0]
+        return f"{key}{separator}{quote}[REDACTED]{quote}"
+
+    prefix = f"{key}{separator}"
+    if match.group("authorization_key") is not None:
+        scheme_end = next(
+            (index for index, char in enumerate(value) if char in " \t"),
+            len(value),
+        )
+        if scheme_end < len(value):
+            spacing_end = scheme_end
+            while spacing_end < len(value) and value[spacing_end] in " \t":
+                spacing_end += 1
+            if spacing_end < len(value):
+                return f"{prefix}{value[:spacing_end]}[REDACTED]"
+    return f"{prefix}[REDACTED]"
 
 
 def _redact(text: str) -> str:
     """Remove common credential forms from retained diagnostics."""
     text = _URL_CREDENTIALS.sub("//***:***@", text)
-    text = _JSON_SECRET_VALUE.sub(r'\1"[REDACTED]"', text)
-    text = _AUTHORIZATION_HEADER.sub(r"\1[REDACTED]", text)
-    text = _BEARER_TOKEN.sub(r"\1[REDACTED]", text)
-    text = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
-    return _AUTHORIZATION_ASSIGNMENT.sub(r"\1[REDACTED]", text)
+    return "".join(
+        _SECRET_ASSIGNMENT.sub(_redact_secret_assignment, line)
+        for line in text.splitlines(keepends=True)
+    )
 
 
 def _remove_raw_output(path: Path) -> None:
