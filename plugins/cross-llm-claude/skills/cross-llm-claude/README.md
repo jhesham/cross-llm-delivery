@@ -1,4 +1,4 @@
-<!-- GENERATED from cross-llm-delivery (provider: claude, v0.5.0) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: claude, v0.4.3) - do not edit here; edit the monorepo source. -->
 
 # cross-llm-claude (Claude Code lead)
 

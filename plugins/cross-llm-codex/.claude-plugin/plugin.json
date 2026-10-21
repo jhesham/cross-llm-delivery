@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-codex",
-  "version": "0.5.0",
+  "version": "0.4.3",
   "description": "Claude Code leads codex CLI implementation with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "author": {
     "name": "jhesham",
