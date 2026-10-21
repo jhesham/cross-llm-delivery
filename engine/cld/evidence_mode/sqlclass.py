@@ -141,10 +141,25 @@ def _consume_quoted(
             if sql.startswith(closing + closing, index):
                 index += len(closing) * 2
             else:
-                return index + len(closing), True
+                end = index + len(closing)
+                resume = _string_continuation(sql, end) if mode == "escape_string" else None
+                if resume is None:
+                    return end, True
+                # PostgreSQL joins string constants separated by whitespace
+                # containing a newline; the continuation keeps E-string escapes.
+                index = resume + 1
         else:
             index += 1
     return len(sql), False
+
+
+def _string_continuation(sql: str, index: int) -> int | None:
+    """Return the offset of a continuing quote after whitespace with a newline."""
+    newline = False
+    while index < len(sql) and sql[index] in " \t\r\n\f\v":
+        newline = newline or sql[index] in "\r\n"
+        index += 1
+    return index if newline and index < len(sql) and sql[index] == "'" else None
 
 
 def _quoted_value(sql: str, start: int, end: int, opening: str, closing: str) -> str:
