@@ -113,6 +113,8 @@ def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
         raise CodexContractError(f"cwd must be {requirement}, got {str(cwd)!r}")
     argv = ["codex", "exec", "--json", "--ephemeral",
             "--sandbox", sandbox, "--cd", str(resolved), "--model", model]
+    if evidence:
+        argv.append("--skip-git-repo-check")
     if effort is not None:
         argv += ["--config", f'model_reasoning_effort="{effort}"']
     if service_tier is not None:
