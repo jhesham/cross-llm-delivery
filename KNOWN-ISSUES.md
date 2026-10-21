@@ -16,6 +16,14 @@ Offline success must not be advertised as live support on those surfaces.
 ## Evidence mode (v0.5)
 
 - Only the Codex executor supports evidence tasks; others are refused before dispatch.
+- On Windows, keep the repository path short (for example `D:\work\repo`). CLD's
+  run artifacts nest several folders deep under `.cld/runs/`; from a long path
+  they can pass the 260-character limit, and admission then stops with a
+  "filename or extension is too long" error before anything is dispatched.
+- Live-tested on Windows against a local PostgreSQL 17 with `psql --csv`: a
+  sandbox query, a held CREATE on a real environment, an approved CREATE
+  refused by the read-only role, and a plan with a query slice followed by a
+  dependent code slice. Other platforms (BigQuery, MCP-only) are offline-tested only.
 - Each SQL runner call is bounded by `CLD_DISPATCH_TIMEOUT` (default 600 s); a query
   that runs longer is stopped and recorded as failed. There is no separate per-query
   setting.

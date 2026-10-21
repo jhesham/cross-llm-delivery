@@ -85,6 +85,22 @@ files and run statistics); it never judges whether an answer is correct; the lea
   BigQuery viewer + job-user role); that is the real protection. The CLD SQL runner
   (`--sql`) is a second check: it refuses writes to real environments unless
   approved with `--approve`, which is refused inside a dispatched executor.
+  The file wraps the list in an `environments` key; each `command` reads SQL on
+  stdin and should print JSON or header-first CSV (keep passwords in the tool's own
+  credential store, such as `pgpass`, not in this file):
+
+  ```json
+  {"environments": [
+    {"name": "pg_sandbox", "class": "sandbox", "platform": "postgres",
+     "command": ["psql", "-X", "-q", "--csv", "-w", "-h", "localhost", "-U", "cld_rw",
+                 "-d", "analytics_sandbox", "-v", "ON_ERROR_STOP=1"],
+     "read_only_expected": false},
+    {"name": "pg_real", "class": "real", "platform": "postgres",
+     "command": ["psql", "-X", "-q", "--csv", "-w", "-h", "db.example.internal", "-U", "readonly",
+                 "-d", "analytics", "-v", "ON_ERROR_STOP=1"],
+     "read_only_expected": true}
+  ]}
+  ```
 - Results, SQL and run records stay local under `.cld/runs/`; previews returned to
   the lead are capped. `--init-kb DIR` writes a knowledge-base starter template.
 
