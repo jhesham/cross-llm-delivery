@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import uuid
 
 from cld import process
@@ -14,8 +15,15 @@ from .approvals import is_approved
 from .sqlclass import classify_sql, statement_hash
 
 
+_SECRET_VALUE = r"(?:\"(?:\\.|[^\"\\\r\n])*\"|'(?:\\.|[^'\\\r\n])*'|\S+)"
 _SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(password|passwd|pwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*(?!Bearer\b)\S+"
+    rf"(?i)(password|passwd|pwd|token|secret|api[_-]?key)\s*[=:]\s*(?!Bearer\b){_SECRET_VALUE}"
+)
+_AUTHORIZATION_HEADER = re.compile(
+    r"(?i)(\bAuthorization\s*:\s*[^\s]+\s+)[^\r\n]+"
+)
+_AUTHORIZATION_ASSIGNMENT = re.compile(
+    rf"(?i)(\bAuthorization\s*[=:]\s*)(?![^\s]+\s+\S+){_SECRET_VALUE}"
 )
 _JSON_SECRET_VALUE = re.compile(
     r'(?i)("[^"\n]*(?:token|secret|password|api[_-]?key)[^"\n]*"\s*:\s*)"(?:\\.|[^"\\])*"'
@@ -28,8 +36,67 @@ def _redact(text: str) -> str:
     """Remove common credential forms from retained diagnostics."""
     text = _URL_CREDENTIALS.sub("//***:***@", text)
     text = _JSON_SECRET_VALUE.sub(r'\1"[REDACTED]"', text)
+    text = _AUTHORIZATION_HEADER.sub(r"\1[REDACTED]", text)
     text = _BEARER_TOKEN.sub(r"\1[REDACTED]", text)
-    return _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
+    text = _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
+    return _AUTHORIZATION_ASSIGNMENT.sub(r"\1[REDACTED]", text)
+
+
+def _remove_raw_output(path: Path) -> None:
+    """Remove a runner artifact directory, retrying once after chmod on failure."""
+    path = Path(path)
+    first_error = None
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        first_error = exc
+    else:
+        if not path.exists():
+            return
+        first_error = OSError(f"Raw output directory remains after removal: {path}")
+
+    if not path.exists():
+        return
+
+    def clear_readonly(candidate: Path) -> None:
+        try:
+            if not candidate.is_symlink():
+                os.chmod(candidate, candidate.stat().st_mode | stat.S_IWUSR)
+        except OSError:
+            pass
+
+    try:
+        for root, directories, files in os.walk(path):
+            for name in directories + files:
+                clear_readonly(Path(root) / name)
+        clear_readonly(path)
+    except OSError:
+        # The retry below determines whether any inaccessible entries remain.
+        pass
+
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        if path.exists():
+            raise OSError(f"Could not remove raw output directory {path}") from exc
+    if path.exists():
+        raise OSError(f"Could not remove raw output directory {path}") from first_error
+
+
+def _scrub_raw_output(path: Path) -> None:
+    """Best-effort redact files left behind by a failed artifact cleanup."""
+    try:
+        for root, _, names in os.walk(path, onerror=lambda _: None):
+            for name in names:
+                file_path = Path(root) / name
+                try:
+                    if file_path.is_file() and not file_path.is_symlink():
+                        contents = file_path.read_text(encoding="utf-8", errors="replace")
+                        file_path.write_text(_redact(contents), encoding="utf-8")
+                except OSError:
+                    pass
+    except OSError:
+        pass
 
 
 def _next_number(runs_dir: Path) -> tuple[int, Path]:
@@ -116,7 +183,24 @@ def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
                     job_id = None
         finally:
             if artifact_dir is not None:
-                shutil.rmtree(artifact_dir, ignore_errors=True)
+                cleanup_error = None
+                try:
+                    _remove_raw_output(artifact_dir)
+                except Exception as exc:
+                    cleanup_error = exc
+                try:
+                    remains = artifact_dir.exists()
+                except OSError as exc:
+                    remains = True
+                    if cleanup_error is None:
+                        cleanup_error = exc
+                if cleanup_error is not None or remains:
+                    _scrub_raw_output(artifact_dir)
+                    status = "failed"
+                    cleanup_message = f"Failed to clean raw output directory {artifact_dir}"
+                    if cleanup_error is not None:
+                        cleanup_message += f": {cleanup_error}"
+                    error = f"{error}; {cleanup_message}" if error else cleanup_message
 
     stderr_tail = _redact(stderr)[-4096:]
     safe_error = _redact(str(error)) if error is not None else None
@@ -126,7 +210,7 @@ def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
     except (TypeError, ValueError):
         rows = None
 
-    result_path.write_text(stdout, encoding="utf-8")
+    result_path.write_text(stdout if status == "ok" else _redact(stdout), encoding="utf-8")
     record = {
         "sql": sql,
         "sql_hash": sql_hash,

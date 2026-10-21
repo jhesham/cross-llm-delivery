@@ -984,13 +984,20 @@ def _ask_cli(args) -> int:
             is_done=lambda _task_id: False,
             get=lambda _task_id: None,
         )
-        factory = _hook("prepare_dispatch")(args, [slice_task], ledger)[0]
+        factory_holder = {}
+
+        def admit(_spec):
+            factory_holder["factory"] = _hook("prepare_dispatch")(
+                args, [slice_task], ledger
+            )[0]
+            return True
+
         result = run_ask(
             args.repo,
             task,
             executor_spec=args.executor,
-            make_executor=lambda spec: factory(spec, evidence=True),
-            admit=lambda _spec: None,
+            make_executor=lambda spec: factory_holder["factory"](spec, evidence=True),
+            admit=admit,
         )
     except Exception as exc:
         return blocked(exc)

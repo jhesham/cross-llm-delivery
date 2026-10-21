@@ -75,7 +75,7 @@ def _validate_task(repo: Path, task):
     return task_id if isinstance(task_id, str) else None, environments, problems
 
 
-def _default_admit(repo: Path, task: dict, spec: str) -> None:
+def _default_admit(repo: Path, task: dict, spec: str):
     """Use the normal CLD model admission path for this one pinned task."""
     from types import SimpleNamespace
 
@@ -106,7 +106,7 @@ def _default_admit(repo: Path, task: dict, spec: str) -> None:
         acceptance_test_path="",
         executor=spec,
     )
-    cli.prepare_dispatch(args, [slice_task], ledger)
+    return cli.prepare_dispatch(args, [slice_task], ledger)[0]
 
 
 def _default_executor(spec: str):
@@ -320,9 +320,10 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
     if not provider.supports_evidence:
         return _result(task_id, problems=[f"Provider '{provider_name}' does not support evidence tasks"])
 
+    admitted_factory = None
     try:
         if admit is None:
-            _default_admit(repo, task, spec)
+            admitted_factory = _default_admit(repo, task, spec)
         else:
             admitted = admit(spec)
             if admitted is False:
@@ -339,8 +340,12 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
         )
         _write_launcher(evidence_dir / "run_sql.py")
         prompt = _prompt(task, environments, evidence_dir, repo)
-        executor = (make_executor(spec) if make_executor is not None
-                    else _default_executor(spec))
+        if make_executor is not None:
+            executor = make_executor(spec)
+        elif admit is None:
+            executor = admitted_factory(spec, evidence=True)
+        else:
+            executor = _default_executor(spec)
         result = executor.run_evidence(prompt, evidence_dir)
     except Exception as exc:
         result = None
@@ -388,10 +393,7 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
     created_objects = bundle.get("created_objects") if isinstance(bundle, dict) else None
-    # Held statements never ran, so needs_approval creates nothing; any other
-    # outcome may have created objects before it stopped and must list them.
-    if (task["kind"] == "materialise" and status != "needs_approval"
-            and isinstance(created_objects, list)):
+    if task["kind"] == "materialise" and isinstance(created_objects, list):
         ledger_entry["created"] = created_objects
     try:
         _append_ledger(ask_root, ledger_entry)

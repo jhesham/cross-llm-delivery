@@ -72,16 +72,25 @@ def _mcp_only_environments(task_env: list[str] | None, environments: dict) -> bo
     return True
 
 
-def _runner_records(evidence_dir: Path) -> tuple[set[str], bool, bool]:
-    """Return successful runner hashes, approval state, and missing-result state."""
+def _resolved_path(value: Any, base: Path) -> Path | None:
+    """Resolve a bundle or runner path, returning ``None`` when it is invalid."""
+    path = _path_from(value, base)
+    if path is None:
+        return None
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def _runner_records(evidence_dir: Path) -> list[dict[str, Any]]:
+    """Return readable runner records with their SQL and result provenance."""
     runs_dir = evidence_dir / "runs"
-    hashes = set()
-    needs_approval = False
-    missing_result = False
+    records: list[dict[str, Any]] = []
     try:
         paths = sorted(runs_dir.glob("*.json"))
     except OSError:
-        return hashes, needs_approval, missing_result
+        return records
 
     for path in paths:
         try:
@@ -90,40 +99,43 @@ def _runner_records(evidence_dir: Path) -> tuple[set[str], bool, bool]:
             continue
         if not isinstance(record, dict):
             continue
-        status = record.get("status")
-        if status == "needs_approval":
-            # Held statements are runner-mediated but never ran; the bundle can
-            # only resolve to needs_approval, never complete, while one exists.
-            needs_approval = True
-        elif status == "ok":
-            result_path = _path_from(record.get("result_path"), evidence_dir)
-            try:
-                has_result = result_path is not None and result_path.is_file()
-            except (OSError, ValueError):
-                has_result = False
-            if not has_result:
-                missing_result = True
-                continue
-        else:
-            continue
-
         sql = record.get("sql")
+        sql_hash = None
         if isinstance(sql, str):
             try:
-                hashes.add(statement_hash(sql))
+                sql_hash = statement_hash(sql)
             except (TypeError, ValueError):
                 pass
-            continue
+        else:
+            # Older or hand-authored records may identify SQL by its saved path.
+            sql_path = _path_from(record.get("sql_path"), evidence_dir)
+            if sql_path is not None:
+                try:
+                    sql_hash = statement_hash(sql_path.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError, TypeError, ValueError):
+                    pass
 
-        # Older or hand-authored records may identify the SQL by its saved path.
-        sql_path = _path_from(record.get("sql_path"), evidence_dir)
-        if sql_path is not None:
-            try:
-                hashes.add(statement_hash(sql_path.read_text(encoding="utf-8")))
-            except (OSError, UnicodeError, TypeError, ValueError):
-                pass
+        records.append({
+            "status": record.get("status"),
+            "sql_hash": sql_hash,
+            "env": record.get("env"),
+            "result_path": _resolved_path(record.get("result_path"), evidence_dir),
+        })
 
-    return hashes, needs_approval, missing_result
+    return records
+
+
+def _is_within(path: Path | None, directory: Path) -> bool:
+    return path is not None and path.is_relative_to(directory)
+
+
+def _file_exists(path: Path | None) -> bool:
+    if path is None:
+        return False
+    try:
+        return path.is_file()
+    except (OSError, ValueError):
+        return False
 
 
 def check_bundle(bundle, *, kind, evidence_dir, environments,
@@ -139,6 +151,8 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
     problems: list[str] = []
     if task_id is not None and bundle.get("task_id") != task_id:
         problems.append("evidence bundle task_id does not match the submitted task_id")
+    if bundle.get("kind") != kind:
+        problems.append("evidence bundle kind does not match the submitted kind")
 
     if task_env is not None:
         bundle_env = bundle.get("env")
@@ -153,14 +167,17 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
 
     sql_runs = bundle.get("sql_runs")
     has_sql_runs = isinstance(sql_runs, list) and bool(sql_runs)
+    empty_created_objects = False
     if kind == "query" and not has_sql_runs:
         problems.append("query bundle has no sql_runs")
     elif kind == "materialise":
         if not has_sql_runs:
             problems.append("materialise bundle has no sql_runs")
         created_objects = bundle.get("created_objects")
-        if not isinstance(created_objects, list) or not created_objects:
+        if not isinstance(created_objects, list):
             problems.append("materialise bundle has no created_objects")
+        elif not created_objects:
+            empty_created_objects = True
         else:
             for index, created_object in enumerate(created_objects):
                 valid = isinstance(created_object, dict)
@@ -191,27 +208,83 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
         problems.append(f"unsupported evidence kind: {kind}")
 
     evidence_path = Path(evidence_dir)
-    runner_hashes, needs_approval, missing_result = _runner_records(evidence_path)
-    if missing_result:
-        problems.append("runner record result file is missing")
+    try:
+        resolved_evidence_path = evidence_path.resolve()
+    except (OSError, RuntimeError, ValueError):
+        resolved_evidence_path = evidence_path
+    runner_records = _runner_records(evidence_path)
+    needs_approval = False
     mcp_only = _mcp_only_environments(task_env, environments)
     runner_used = True
 
     if isinstance(sql_runs, list):
         for index, sql_run in enumerate(sql_runs, 1):
-            sql_path = _path_from(
+            sql_path = _resolved_path(
                 sql_run.get("sql_path") if isinstance(sql_run, dict) else None,
                 evidence_path,
             )
+            result_path = _resolved_path(
+                sql_run.get("result_path") if isinstance(sql_run, dict) else None,
+                evidence_path,
+            )
+            sql_path_inside = _is_within(sql_path, resolved_evidence_path)
+            result_path_inside = _is_within(result_path, resolved_evidence_path)
+
+            if not mcp_only:
+                if not sql_path_inside:
+                    problems.append(
+                        f"sql_runs[{index - 1}] sql_path does not resolve inside evidence_dir"
+                    )
+                if not result_path_inside:
+                    problems.append(
+                        f"sql_runs[{index - 1}] result_path does not resolve inside evidence_dir"
+                    )
+
             try:
-                sql_hash = statement_hash(sql_path.read_text(encoding="utf-8")) if sql_path else None
+                sql_hash = (
+                    statement_hash(sql_path.read_text(encoding="utf-8"))
+                    if sql_path is not None and (sql_path_inside or mcp_only)
+                    else None
+                )
             except (OSError, UnicodeError, TypeError, ValueError):
                 sql_hash = None
 
-            if sql_hash is None or sql_hash not in runner_hashes:
+            matching_runner = False
+            result_missing = False
+            if sql_hash is not None:
+                for record in runner_records:
+                    if record["sql_hash"] != sql_hash:
+                        continue
+                    if task_env is not None and record["env"] not in task_env:
+                        continue
+
+                    if record["status"] == "needs_approval":
+                        matching_runner = True
+                        needs_approval = True
+                        break
+
+                    runner_result = record["result_path"]
+                    if (
+                        record["status"] == "ok"
+                        and result_path_inside
+                        and runner_result == result_path
+                        and _is_within(runner_result, resolved_evidence_path)
+                        and _file_exists(runner_result)
+                    ):
+                        matching_runner = True
+                        break
+                    if (record["status"] == "ok" and result_path_inside
+                            and runner_result == result_path and not _file_exists(runner_result)):
+                        result_missing = True
+
+            if not matching_runner:
                 runner_used = False
                 if not mcp_only:
-                    problems.append(f"sql_runs[{index - 1}] has no matching runner record")
+                    problems.append(f"sql_runs[{index - 1}] runner result file is missing" if result_missing
+                                    else f"sql_runs[{index - 1}] has no matching runner record")
+
+    if empty_created_objects and not (needs_approval and not problems):
+        problems.append("materialise bundle has no created_objects")
 
     if problems:
         return "incomplete", problems, runner_used
