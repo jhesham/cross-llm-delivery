@@ -250,6 +250,7 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
                 sql_hash = None
 
             matching_runner = False
+            result_missing = False
             if sql_hash is not None:
                 for record in runner_records:
                     if record["sql_hash"] != sql_hash:
@@ -272,11 +273,15 @@ def check_bundle(bundle, *, kind, evidence_dir, environments,
                     ):
                         matching_runner = True
                         break
+                    if (record["status"] == "ok" and result_path_inside
+                            and runner_result == result_path and not _file_exists(runner_result)):
+                        result_missing = True
 
             if not matching_runner:
                 runner_used = False
                 if not mcp_only:
-                    problems.append(f"sql_runs[{index - 1}] has no matching runner record")
+                    problems.append(f"sql_runs[{index - 1}] runner result file is missing" if result_missing
+                                    else f"sql_runs[{index - 1}] has no matching runner record")
 
     if empty_created_objects and not (needs_approval and not problems):
         problems.append("materialise bundle has no created_objects")

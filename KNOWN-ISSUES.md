@@ -21,8 +21,10 @@ Offline success must not be advertised as live support on those surfaces.
   setting.
 - Plan-mode query/materialise slices are not counted in CLD usage accounting.
 - Attempt budgets are not applied to `--ask` tasks.
-- SQL classification is lexical and fails closed; platform-specific statements may
-  be treated as writes and need approval on real environments.
+- SQL classification is lexical. Statements it cannot classify fail closed and need
+  approval on real environments, but side-effecting functions inside a SELECT are
+  caught by a denylist: a function nobody has listed passes as a read. Read-only
+  credentials on real environments remain the real protection.
 - No live evidence-mode run against a real warehouse is recorded yet.
 
 ## Usage, timeouts and model access
