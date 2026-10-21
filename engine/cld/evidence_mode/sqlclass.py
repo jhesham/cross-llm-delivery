@@ -40,6 +40,33 @@ _SIDE_EFFECT_FUNCTIONS = {
     "LO_IMPORT",
     "LO_EXPORT",
     "LO_UNLINK",
+    "LO_CREATE",
+    "LO_CREAT",
+    "LO_FROM_BYTEA",
+    "LO_PUT",
+    "LO_TRUNCATE",
+    "LO_TRUNCATE64",
+    "LOWRITE",
+    "LO_OPEN",
+    "DBLINK",
+    "DBLINK_SEND_QUERY",
+    "DBLINK_OPEN",
+    "PG_NOTIFY",
+    "PG_SWITCH_WAL",
+    "PG_SWITCH_XLOG",
+    "PG_CREATE_RESTORE_POINT",
+    "PG_CREATE_LOGICAL_REPLICATION_SLOT",
+    "PG_CREATE_PHYSICAL_REPLICATION_SLOT",
+    "PG_DROP_REPLICATION_SLOT",
+    "PG_REPLICATION_SLOT_ADVANCE",
+    "PG_LOGICAL_EMIT_MESSAGE",
+    "PG_FILE_WRITE",
+    "PG_FILE_RENAME",
+    "PG_FILE_UNLINK",
+    "PG_FILE_SYNC",
+    "PG_ROTATE_LOGFILE",
+    "PG_PROMOTE",
+    "PG_IMPORT_SYSTEM_COLLATIONS",
     "DBLINK_EXEC",
     "DBLINK_CONNECT",
     "PG_TERMINATE_BACKEND",
@@ -193,6 +220,35 @@ def _code_words(sql: str):
         index += 1
 
 
+def _identifier_at(sql: str, index: int) -> tuple[str, int] | None:
+    """Return a normalized identifier value and its end offset, if present."""
+    if index >= len(sql):
+        return None
+
+    if sql[index] == '"':
+        end, closed = _consume_quoted(sql, index, '"', '"')
+        if not closed:
+            return None
+        return sql[index + 1:end - 1].replace('""', '"').upper(), end
+
+    char = sql[index]
+    if char != "_" and not char.isalpha() and char != "$":
+        return None
+
+    end = index + 1
+    while end < len(sql):
+        next_char = sql[end]
+        if next_char == "_" or next_char == "$" or next_char.isalnum():
+            end += 1
+        else:
+            break
+    return sql[index:end].upper(), end
+
+
+def _is_side_effecting_function(name: str) -> bool:
+    return name in _SIDE_EFFECT_FUNCTIONS or name.startswith("PG_STAT_RESET")
+
+
 def _has_side_effecting_select_tokens(sql: str) -> bool:
     """Check for side-effect calls and row locks outside quoted regions."""
     words = list(_code_words(sql))
@@ -204,28 +260,42 @@ def _has_side_effecting_select_tokens(sql: str) -> bool:
 
     index = 0
     while index < len(sql):
-        quote = _quote_at(sql, index)
-        if quote:
-            end, _ = _consume_quoted(sql, index, *quote)
+        if sql[index] != '"':
+            quote = _quote_at(sql, index)
+            if quote:
+                end, _ = _consume_quoted(sql, index, *quote)
+                index = end
+                continue
+
+        identifier = _identifier_at(sql, index)
+        if identifier:
+            name, end = identifier
+            next_index = end
+            while next_index < len(sql) and sql[next_index].isspace():
+                next_index += 1
+
+            # The final identifier in a dotted name is the function name;
+            # preceding identifiers may be a schema or catalog qualifier.
+            while next_index < len(sql) and sql[next_index] == ".":
+                part_index = next_index + 1
+                while part_index < len(sql) and sql[part_index].isspace():
+                    part_index += 1
+                part = _identifier_at(sql, part_index)
+                if not part:
+                    break
+                name, next_index = part
+                while next_index < len(sql) and sql[next_index].isspace():
+                    next_index += 1
+
+            if (next_index < len(sql) and sql[next_index] == "("
+                    and _is_side_effecting_function(name)):
+                return True
             index = end
             continue
 
-        char = sql[index]
-        if char == "_" or char.isalpha() or char == "$":
-            end = index + 1
-            while end < len(sql):
-                next_char = sql[end]
-                if next_char == "_" or next_char == "$" or next_char.isalnum():
-                    end += 1
-                else:
-                    break
-            word = sql[index:end].upper()
-            if word in _SIDE_EFFECT_FUNCTIONS:
-                next_index = end
-                while next_index < len(sql) and sql[next_index].isspace():
-                    next_index += 1
-                if next_index < len(sql) and sql[next_index] == "(":
-                    return True
+        quote = _quote_at(sql, index)
+        if quote:
+            end, _ = _consume_quoted(sql, index, *quote)
             index = end
             continue
 
