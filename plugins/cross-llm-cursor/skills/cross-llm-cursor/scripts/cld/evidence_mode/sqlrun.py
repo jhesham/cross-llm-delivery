@@ -23,11 +23,11 @@ _AUTHORIZATION_KEY = (
     rf"|[^\s\"'=:,;{{}}&]*?authorization[^\s\"'=:,;{{}}&]*"
 )
 _OTHER_SECRET_KEY = (
-    r'"(?=(?:\\[^\r\n]|[^"\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]key))'
+    r'"(?=(?:\\[^\r\n]|[^"\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]?key))'
     r'(?:\\[^\r\n]|[^"\\\r\n])*"'
-    r"|'(?=(?:\\[^\r\n]|[^'\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]key))"
+    r"|'(?=(?:\\[^\r\n]|[^'\\\r\n])*(?:password|passwd|pwd|token|secret|api[_-]?key))"
     r"(?:\\[^\r\n]|[^'\\\r\n])*'"
-    r"|[^\s\"'=:,;{}&]*?(?:password|passwd|pwd|token|secret|api[_-]key)[^\s\"'=:,;{}&]*"
+    r"|[^\s\"'=:,;{}&]*?(?:password|passwd|pwd|token|secret|api[_-]?key)[^\s\"'=:,;{}&]*"
 )
 _SECRET_ASSIGNMENT = re.compile(
     rf"(?i)(?P<key>(?P<authorization_key>{_AUTHORIZATION_KEY})|"
@@ -38,6 +38,10 @@ _SECRET_ASSIGNMENT = re.compile(
     rf"(?(authorization_key)[^\r\n]+|[^\s,;&}}]+))"
 )
 _URL_CREDENTIALS = re.compile(r"//[^/@:\s]+:[^/@\s]+@")
+_BEARER_TOKEN = re.compile(r"(?i)(\bBearer[ \t]+)(?!\[REDACTED\])[^\s,;&}\"']+")
+# Authorization values keep a leading word only when it is a known scheme.
+_AUTH_SCHEMES = {"basic", "bearer", "digest", "negotiate", "ntlm", "token", "apikey",
+                 "aws4-hmac-sha256", "hawk", "oauth", "mutual", "vapid", "scram-sha-256"}
 
 
 def _redact_secret_assignment(match: re.Match[str]) -> str:
@@ -56,7 +60,7 @@ def _redact_secret_assignment(match: re.Match[str]) -> str:
             (index for index, char in enumerate(value) if char in " \t"),
             len(value),
         )
-        if scheme_end < len(value):
+        if scheme_end < len(value) and value[:scheme_end].lower() in _AUTH_SCHEMES:
             spacing_end = scheme_end
             while spacing_end < len(value) and value[spacing_end] in " \t":
                 spacing_end += 1
@@ -69,7 +73,7 @@ def _redact(text: str) -> str:
     """Remove common credential forms from retained diagnostics."""
     text = _URL_CREDENTIALS.sub("//***:***@", text)
     return "".join(
-        _SECRET_ASSIGNMENT.sub(_redact_secret_assignment, line)
+        _BEARER_TOKEN.sub(r"\1[REDACTED]", _SECRET_ASSIGNMENT.sub(_redact_secret_assignment, line))
         for line in text.splitlines(keepends=True)
     )
 
