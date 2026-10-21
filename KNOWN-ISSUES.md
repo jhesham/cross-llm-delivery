@@ -25,6 +25,9 @@ Offline success must not be advertised as live support on those surfaces.
   approval on real environments, but side-effecting functions inside a SELECT are
   caught by a denylist: a function nobody has listed passes as a read. Read-only
   credentials on real environments remain the real protection.
+- A comment between the segments of a continued `E'...'` string can make a valid
+  read classify as a write (especially when the literal contains `--`). This
+  fails closed: on real environments the statement waits for approval.
 - No live evidence-mode run against a real warehouse is recorded yet.
 
 ## Usage, timeouts and model access
