@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-21
+
 ### Added
 - Evidence mode: `--ask` tasks (investigate, query in question or SQL form,
   materialise) and plan slices of `kind: investigate|query|materialise`, with
@@ -13,10 +15,40 @@ changes land; on a release, rename that section to the version + date. Plugin in
   approvals (`--approve`), complete evidence bundles and a knowledge-base starter
   template (`--init-kb`). Evidence tasks run Codex with full access; real
   environments rely on read-only credentials, with the runner as a second check.
+- Header-first CSV runner output (for example `psql --csv`) gets a row count and
+  a reviewer preview, alongside JSON.
 - Guide: converting a superpowers plan into CLD slices.
 
+### Security
+- SQL classification catches side-effecting functions inside SELECT however they
+  are spelled (quoted, schema-qualified, `U&` identifiers, `E'...'` strings and
+  their continuations); undecodable or unterminated forms fail closed as writes.
+- Credentials are redacted from retained diagnostics in key=value, header, JSON,
+  bearer and URL forms, line by line; failed-command output is redacted, and a
+  raw-output copy that cannot be removed is scrubbed and fails the run.
+- Evidence bundles are bound to their task (id, kind, environments), and every
+  reported SQL run is matched to its own runner record; omitted successful or
+  held attempts make a bundle incomplete.
+- `--sql` and `--approve` refuse `--dry-run` and other actions before running
+  anything, and SQL runs are bounded by `CLD_DISPATCH_TIMEOUT`.
+
 ### Fixed
-- Codex `[projects]` trust entries no longer invalidate validation (also in 0.4.3).
+- `--ask` admits executors with the caller's validation options and uses the
+  admitted factory; unsupported providers are refused before admission.
+- Incomplete evidence slices fail for retry instead of waiting for repair, and
+  reconciling a plan keeps commit-free evidence slices integrated.
+- Objects created before a failure or an approval hold stay in the clean-up list.
+- Codex evidence runs outside Git pass `--skip-git-repo-check`.
+
+## [0.4.3] — 2026-10-18
+
+### Fixed
+- Codex executor: validation no longer blocks with "CLI/configuration changed
+  during validation" on a first run. Codex records a `[projects.'<dir>']`
+  `trust_level` entry in `config.toml` whenever it runs in a new directory,
+  including CLD's validation probe folder; those entries are now excluded from
+  the Codex validation identity. Every other configuration change still
+  invalidates evidence, and an unparseable file falls back to the raw hash.
 
 ## [0.4.2] — 2026-10-04
 

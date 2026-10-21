@@ -15,7 +15,10 @@ build — with independent acceptance/integration. The lead works directly only 
 there is no testable contract yet (root-cause investigation, exploratory design,
 changes judged visually or against live systems) or for a trivial edit where the
 test would cost more than the change. For debugging, the lead finds the cause and
-commits the failing reproduction test; CLD implements the fix. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
+commits the failing reproduction test; CLD implements the fix. For data analysis,
+[evidence mode](#evidence-mode-v05-investigate-query-and-materialise) has the
+executor investigate systems, answer questions with SQL or build datasets, and
+return traceable evidence instead of code. Privacy: [PRIVACY.md](PRIVACY.md). Security and private
 vulnerability reporting: [SECURITY.md](SECURITY.md). Questions and bugs:
 [GitHub Issues](https://github.com/jhesham/cross-llm-delivery/issues).
 
@@ -26,10 +29,10 @@ The lead host and implementation provider are separate choices:
 | Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
 | Claude Code, using a Claude skill or plugin | The same five providers and engine |
 
-Version **0.4.2** supports both lead hosts and five executor providers,
+Version **0.5.0** supports both lead hosts and five executor providers,
 including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
-Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.4.2)
+Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.0)
 for a fixed source revision. The Claude-only root marketplace is read from `main`;
 both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
 updates stay pinned until the manifest version changes (local in-place profiles can
