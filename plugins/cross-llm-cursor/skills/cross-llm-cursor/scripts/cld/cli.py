@@ -23,6 +23,7 @@ import contextlib
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -833,6 +834,38 @@ def _validate(args) -> None:
         raise StateError("Workers and interval must be positive")
 
 
+def _sql_approval_conflict(args) -> str | None:
+    """Reject SQL/approval actions combined with inspection or ask options."""
+    action = "--sql" if args.sql is not None else "--approve" if args.approve is not None else None
+    if action is None:
+        return None
+
+    conflicts = []
+    for enabled, flag in (
+        (args.dry_run, "--dry-run"),
+        (args.status, "--status"),
+        (args.usage, "--usage"),
+        (args.watch, "--watch"),
+        (args.plan is not None, "--plan"),
+        (args.ask is not None, "--ask"),
+    ):
+        if enabled:
+            conflicts.append(flag)
+    if not conflicts:
+        return None
+    return f"{action} cannot be combined with {', '.join(conflicts)}"
+
+
+def _reject_sql_approval_conflict(args) -> int | None:
+    reason = _sql_approval_conflict(args)
+    if reason is None:
+        return None
+    command = "approve" if args.approve is not None else "sql"
+    return _blocked(command, reason,
+        raw_repo=getattr(args, "raw_repo", args.repo),
+        raw_ledger=getattr(args, "raw_ledger", args.ledger))
+
+
 def _resolve_paths(args) -> None:
     args.repo = os.path.realpath(args.repo)
     args.ledger = resolve_ledger(args.repo, args.ledger)
@@ -931,8 +964,34 @@ def _ask_cli(args) -> int:
         return blocked(f"Cannot read task JSON {args.ask}: {exc}")
 
     try:
-        from cld.evidence_mode.ask import run_ask
-        result = run_ask(args.repo, task, executor_spec=args.executor)
+        from types import SimpleNamespace
+
+        from cld.evidence_mode.ask import _validate_task, run_ask
+        from cld.executors.base import SliceTask
+
+        task_id, _environments, task_problems = _validate_task(Path(args.repo).resolve(), task)
+        if task_problems:
+            return blocked("; ".join(task_problems))
+        slice_task = SliceTask(
+            id=task_id,
+            brief=task.get("brief") or task.get("sql") or "Evidence task",
+            files=[],
+            acceptance_test_path="",
+            executor=args.executor,
+        )
+        ledger = SimpleNamespace(
+            build={"run_id": secrets.token_hex(16)},
+            is_done=lambda _task_id: False,
+            get=lambda _task_id: None,
+        )
+        factory = _hook("prepare_dispatch")(args, [slice_task], ledger)[0]
+        result = run_ask(
+            args.repo,
+            task,
+            executor_spec=args.executor,
+            make_executor=lambda spec: factory(spec, evidence=True),
+            admit=lambda _spec: None,
+        )
     except Exception as exc:
         return blocked(exc)
     result["command"] = "ask"
@@ -982,6 +1041,9 @@ def _gc_report(args):
 
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
+    conflict_code = _reject_sql_approval_conflict(args)
+    if conflict_code is not None:
+        return conflict_code
     if args.approve is not None:
         return _approve_cli(args)
     if args.ask is not None:
@@ -1679,6 +1741,9 @@ def _main_json(argv) -> int:
     args.json = True
     args.raw_repo = args.repo
     args.raw_ledger = args.ledger
+    conflict_code = _reject_sql_approval_conflict(args)
+    if conflict_code is not None:
+        return conflict_code
     if args.init_kb is not None:
         return _init_kb_command(args.init_kb, json_mode=True)
     if args.approve is not None:

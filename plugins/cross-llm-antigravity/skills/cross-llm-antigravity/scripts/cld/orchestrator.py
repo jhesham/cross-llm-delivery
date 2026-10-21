@@ -699,7 +699,9 @@ def run_plan_parallel(
         elif evidence_status in ("needs_approval", "blocked"):
             status, detail_status = PENDING, "deferred"
         elif evidence_status == "incomplete":
-            status, detail_status = "needs_repair", "needs_repair"
+            status, detail_status = FAILED, "failed"
+            if not problems:
+                problems = [str(error)] if error else ["Evidence task incomplete"]
         elif evidence_status == "failed" and error in FINAL_EXECUTOR_ERRORS:
             status, detail_status = PENDING, "deferred"
             problems = [*problems, str(error)] if error not in problems else problems

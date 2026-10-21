@@ -82,10 +82,14 @@ def _default_admit(repo: Path, task: dict, spec: str) -> None:
     from cld import cli
     from cld.executors.base import SliceTask
 
-    args = cli.build_parser().parse_args([])
-    args.repo = str(repo)
-    args.executor = spec
-    args.step = False
+    # API callers without a CLI argument object use the same documented
+    # defaults. The CLI path passes its parsed arguments directly instead.
+    args = SimpleNamespace(
+        repo=str(repo), executor=spec, step=False, worktree_root=None,
+        validation_policy="deny", revalidate_models=False,
+        validation_max_age=30 * 86400, validation_context="",
+        validation_config=[], accounting=None,
+    )
 
     # prepare_dispatch only reads the active build identity and the two ledger
     # queries below. A private run identity keeps its validation artifacts away
@@ -344,6 +348,12 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
     else:
         dispatch_error = None
 
+    from cld.evidence_mode.bundle import load_bundle
+    try:
+        bundle = load_bundle(evidence_dir)
+    except Exception:
+        bundle = {}
+
     if result is None:
         status, problems, runner_used, notes = "failed", [], False, ""
         error = dispatch_error
@@ -354,11 +364,11 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
         error = process.get("error") if isinstance(process, dict) else None
         preview = {"rows": [], "truncated": False, "bytes": 0}
     else:
-        from cld.evidence_mode.bundle import check_bundle, load_bundle
+        from cld.evidence_mode.bundle import check_bundle
 
-        bundle = load_bundle(evidence_dir)
         status, problems, runner_used = check_bundle(
-            bundle, kind=task["kind"], evidence_dir=evidence_dir, environments=environments
+            bundle, kind=task["kind"], evidence_dir=evidence_dir,
+            environments=environments, task_env=task["env"], task_id=task["id"]
         )
         notes = bundle.get("notes", "") if isinstance(bundle, dict) else ""
         preview = _preview(bundle, evidence_dir) if isinstance(bundle, dict) else {
@@ -377,8 +387,12 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
         "runner_used": bool(runner_used),
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
-    if task["kind"] == "materialise" and status == "complete":
-        ledger_entry["created"] = bundle.get("created_objects", [])
+    created_objects = bundle.get("created_objects") if isinstance(bundle, dict) else None
+    # Held statements never ran, so needs_approval creates nothing; any other
+    # outcome may have created objects before it stopped and must list them.
+    if (task["kind"] == "materialise" and status != "needs_approval"
+            and isinstance(created_objects, list)):
+        ledger_entry["created"] = created_objects
     try:
         _append_ledger(ask_root, ledger_entry)
     except Exception as exc:

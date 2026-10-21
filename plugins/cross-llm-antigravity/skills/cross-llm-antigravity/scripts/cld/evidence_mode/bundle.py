@@ -54,13 +54,12 @@ def _path_from(value: Any, base: Path) -> Path | None:
     return path
 
 
-def _mcp_only_environments(bundle: dict, environments: dict) -> bool:
-    names = bundle.get("env")
-    # An empty or malformed env list cannot establish the MCP-only exception.
-    if not isinstance(names, list) or not names:
+def _mcp_only_environments(task_env: list[str] | None, environments: dict) -> bool:
+    # The exception is based only on the environments assigned to the task.
+    if not isinstance(task_env, list) or not task_env:
         return False
 
-    for name in names:
+    for name in task_env:
         if not isinstance(name, str) or name not in environments:
             return False
         environment = environments[name]
@@ -73,15 +72,16 @@ def _mcp_only_environments(bundle: dict, environments: dict) -> bool:
     return True
 
 
-def _runner_records(evidence_dir: Path) -> tuple[set[str], bool]:
-    """Return hashes from readable runner records and whether approval is needed."""
+def _runner_records(evidence_dir: Path) -> tuple[set[str], bool, bool]:
+    """Return successful runner hashes, approval state, and missing-result state."""
     runs_dir = evidence_dir / "runs"
     hashes = set()
     needs_approval = False
+    missing_result = False
     try:
         paths = sorted(runs_dir.glob("*.json"))
     except OSError:
-        return hashes, needs_approval
+        return hashes, needs_approval, missing_result
 
     for path in paths:
         try:
@@ -90,8 +90,22 @@ def _runner_records(evidence_dir: Path) -> tuple[set[str], bool]:
             continue
         if not isinstance(record, dict):
             continue
-        if record.get("status") == "needs_approval":
+        status = record.get("status")
+        if status == "needs_approval":
+            # Held statements are runner-mediated but never ran; the bundle can
+            # only resolve to needs_approval, never complete, while one exists.
             needs_approval = True
+        elif status == "ok":
+            result_path = _path_from(record.get("result_path"), evidence_dir)
+            try:
+                has_result = result_path is not None and result_path.is_file()
+            except (OSError, ValueError):
+                has_result = False
+            if not has_result:
+                missing_result = True
+                continue
+        else:
+            continue
 
         sql = record.get("sql")
         if isinstance(sql, str):
@@ -109,10 +123,12 @@ def _runner_records(evidence_dir: Path) -> tuple[set[str], bool]:
             except (OSError, UnicodeError, TypeError, ValueError):
                 pass
 
-    return hashes, needs_approval
+    return hashes, needs_approval, missing_result
 
 
-def check_bundle(bundle, *, kind, evidence_dir, environments) -> tuple[str, list[str], bool]:
+def check_bundle(bundle, *, kind, evidence_dir, environments,
+                 task_env: list[str] | None = None, task_id: str | None = None
+                 ) -> tuple[str, list[str], bool]:
     """Check required evidence files and runner provenance for a bundle."""
     if not isinstance(bundle, dict):
         return "incomplete", ["evidence bundle must be an object"], True
@@ -121,6 +137,17 @@ def check_bundle(bundle, *, kind, evidence_dir, environments) -> tuple[str, list
         return "incomplete", [str(reason) if reason else "evidence bundle is invalid"], True
 
     problems: list[str] = []
+    if task_id is not None and bundle.get("task_id") != task_id:
+        problems.append("evidence bundle task_id does not match the submitted task_id")
+
+    if task_env is not None:
+        bundle_env = bundle.get("env")
+        if (not isinstance(bundle_env, list)
+                or any(not isinstance(name, str) for name in bundle_env)):
+            problems.append("evidence bundle env must be a list of environment names")
+        elif any(name not in task_env for name in bundle_env):
+            problems.append("evidence bundle env is outside task_env")
+
     if "notes" not in bundle:
         problems.append("evidence bundle is missing notes")
 
@@ -164,8 +191,10 @@ def check_bundle(bundle, *, kind, evidence_dir, environments) -> tuple[str, list
         problems.append(f"unsupported evidence kind: {kind}")
 
     evidence_path = Path(evidence_dir)
-    runner_hashes, needs_approval = _runner_records(evidence_path)
-    mcp_only = _mcp_only_environments(bundle, environments)
+    runner_hashes, needs_approval, missing_result = _runner_records(evidence_path)
+    if missing_result:
+        problems.append("runner record result file is missing")
+    mcp_only = _mcp_only_environments(task_env, environments)
     runner_used = True
 
     if isinstance(sql_runs, list):

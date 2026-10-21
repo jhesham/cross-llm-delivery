@@ -26,6 +26,34 @@ _WRITE_WORDS = {
     "INTO",  # SELECT ... INTO creates a table (Postgres, SQL Server)
 }
 
+_SIDE_EFFECT_FUNCTIONS = {
+    "NEXTVAL",
+    "SETVAL",
+    "PG_ADVISORY_LOCK",
+    "PG_ADVISORY_XACT_LOCK",
+    "PG_ADVISORY_LOCK_SHARED",
+    "PG_ADVISORY_XACT_LOCK_SHARED",
+    "PG_TRY_ADVISORY_LOCK",
+    "PG_TRY_ADVISORY_XACT_LOCK",
+    "PG_TRY_ADVISORY_LOCK_SHARED",
+    "PG_TRY_ADVISORY_XACT_LOCK_SHARED",
+    "LO_IMPORT",
+    "LO_EXPORT",
+    "LO_UNLINK",
+    "DBLINK_EXEC",
+    "DBLINK_CONNECT",
+    "PG_TERMINATE_BACKEND",
+    "PG_CANCEL_BACKEND",
+    "PG_RELOAD_CONF",
+    "SET_CONFIG",
+}
+_ROW_LOCK_CLAUSES = {
+    ("FOR", "UPDATE"),
+    ("FOR", "NO", "KEY", "UPDATE"),
+    ("FOR", "SHARE"),
+    ("FOR", "KEY", "SHARE"),
+}
+
 
 def _quote_at(sql: str, index: int) -> tuple[str, str] | None:
     """Return an opening and closing delimiter at *index*, if present."""
@@ -165,6 +193,47 @@ def _code_words(sql: str):
         index += 1
 
 
+def _has_side_effecting_select_tokens(sql: str) -> bool:
+    """Check for side-effect calls and row locks outside quoted regions."""
+    words = list(_code_words(sql))
+    for clause in _ROW_LOCK_CLAUSES:
+        width = len(clause)
+        if any(tuple(words[index:index + width]) == clause
+               for index in range(len(words) - width + 1)):
+            return True
+
+    index = 0
+    while index < len(sql):
+        quote = _quote_at(sql, index)
+        if quote:
+            end, _ = _consume_quoted(sql, index, *quote)
+            index = end
+            continue
+
+        char = sql[index]
+        if char == "_" or char.isalpha() or char == "$":
+            end = index + 1
+            while end < len(sql):
+                next_char = sql[end]
+                if next_char == "_" or next_char == "$" or next_char.isalnum():
+                    end += 1
+                else:
+                    break
+            word = sql[index:end].upper()
+            if word in _SIDE_EFFECT_FUNCTIONS:
+                next_index = end
+                while next_index < len(sql) and sql[next_index].isspace():
+                    next_index += 1
+                if next_index < len(sql) and sql[next_index] == "(":
+                    return True
+            index = end
+            continue
+
+        index += 1
+
+    return False
+
+
 def _first_word(sql: str) -> str | None:
     """Return the leading SQL word, treating Unicode letters as identifier text."""
     sql = sql.lstrip()
@@ -197,6 +266,8 @@ def classify_sql(sql: str) -> str:
         if _first_word(statement) not in _READ_STARTS:
             return "write"
         if any(word in _WRITE_WORDS for word in _code_words(statement)):
+            return "write"
+        if _has_side_effecting_select_tokens(statement):
             return "write"
 
     return "read"

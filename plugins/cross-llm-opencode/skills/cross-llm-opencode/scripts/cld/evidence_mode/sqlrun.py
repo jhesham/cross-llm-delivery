@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import re
+import shutil
+import uuid
 
 from cld import process
 from .approvals import is_approved
@@ -12,14 +15,20 @@ from .sqlclass import classify_sql, statement_hash
 
 
 _SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(password|passwd|pwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*\S+"
+    r"(?i)(password|passwd|pwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*(?!Bearer\b)\S+"
 )
+_JSON_SECRET_VALUE = re.compile(
+    r'(?i)("[^"\n]*(?:token|secret|password|api[_-]?key)[^"\n]*"\s*:\s*)"(?:\\.|[^"\\])*"'
+)
+_BEARER_TOKEN = re.compile(r"(?i)(\bBearer\s+)\S+")
 _URL_CREDENTIALS = re.compile(r"//[^/@:\s]+:[^/@\s]+@")
 
 
 def _redact(text: str) -> str:
     """Remove common credential forms from retained diagnostics."""
     text = _URL_CREDENTIALS.sub("//***:***@", text)
+    text = _JSON_SECRET_VALUE.sub(r'\1"[REDACTED]"', text)
+    text = _BEARER_TOKEN.sub(r"\1[REDACTED]", text)
     return _SECRET_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
 
 
@@ -74,18 +83,27 @@ def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
         status = "needs_approval"
         error = f"Write SQL for environment '{env.name}' needs approval"
     else:
+        artifact_dir = None
         try:
-            result = runner(list(env.command), str(repo), stdin=sql)
-        except (FileNotFoundError, OSError) as exc:
-            status = "failed"
-            command = env.command[0] if env.command else "command"
-            error = f"Could not execute {command}: {exc}"
-        else:
+            artifact_dir = output_root / f".sql-runner-{uuid.uuid4().hex}"
+            artifact_dir.mkdir(mode=0o777 if os.name == "nt" else 0o700)
+            result = runner(
+                list(env.command),
+                str(repo),
+                stdin=sql,
+                timeout=process.deadline_seconds(dispatch=True),
+                artifact_dir=str(artifact_dir),
+            )
             stdout = result.stdout or ""
             stderr = result.stderr or ""
             duration_s = result.elapsed
             exit_code = result.returncode
             result_error = result.error
+        except Exception as exc:
+            status = "failed"
+            command = env.command[0] if env.command else "command"
+            error = f"Could not execute {command}: {exc}"
+        else:
             if result_error or result.returncode != 0:
                 status = "failed"
                 error = str(result_error) if result_error else f"Command exited with code {result.returncode}"
@@ -96,6 +114,9 @@ def run_sql(repo, env, sql, *, out_dir, runner=process.run_process) -> dict:
                         job_id = match.group(1)
                 except (re.error, IndexError):
                     job_id = None
+        finally:
+            if artifact_dir is not None:
+                shutil.rmtree(artifact_dir, ignore_errors=True)
 
     stderr_tail = _redact(stderr)[-4096:]
     safe_error = _redact(str(error)) if error is not None else None
