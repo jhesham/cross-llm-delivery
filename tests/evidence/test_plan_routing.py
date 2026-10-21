@@ -111,7 +111,7 @@ def test_query_slice_runs_via_ask_and_is_integrated_without_commit(tmp_path):
 
 def test_materialise_needs_approval_is_resumable(tmp_path):
     repo = _repo(tmp_path)
-    factory = Factory(evidence_executor=FakeMaterialiser(runner_status="needs_approval"))
+    factory = Factory(evidence_executor=FakeMaterialiser(runner_status="needs_approval", objects=()))
     result, ledger = _run(repo, tmp_path, [_m()], factory)
     assert ledger.get("M").status == "pending" and "M" in result.deferred
 

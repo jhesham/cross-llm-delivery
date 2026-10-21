@@ -22,7 +22,7 @@ class FakeMaterialiser:
         (d / "sql" / "1.sql").write_text(sql, encoding="utf-8")
         (d / "results" / "1.out").write_text("[]", encoding="utf-8")
         h = resolve("cld.evidence_mode.sqlclass", "statement_hash")(sql)
-        (d / "runs" / "1.json").write_text(json.dumps({"sql": sql, "sql_hash": h, "status": self.runner_status,
+        (d / "runs" / "1.json").write_text(json.dumps({"sql": sql, "sql_hash": h, "status": self.runner_status, "env": "warehouse_sandbox",
                                                      "result_path": str(d / "results" / "1.out")}),
                                            encoding="utf-8")
         (d / "evidence.json").write_text(json.dumps({
@@ -49,7 +49,7 @@ def test_sandbox_materialise_complete_and_recorded(tmp_path):
 
 
 def test_real_materialise_without_approval_needs_approval(tmp_path):
-    out = ask(_repo(tmp_path), TASK, FakeMaterialiser(runner_status="needs_approval"))
+    out = ask(_repo(tmp_path), TASK, FakeMaterialiser(runner_status="needs_approval", objects=()))
     assert out["status"] == "needs_approval"
     assert _ledger(tmp_path)[-1].get("created", []) == []
 

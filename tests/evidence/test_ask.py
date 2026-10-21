@@ -37,7 +37,7 @@ class FakeEvidenceExecutor:
             (d / "sql" / "1.sql").write_text(SQL, encoding="utf-8")
             (d / "results" / "1.out").write_text(json.dumps([{"n": i} for i in range(self.rows)]), encoding="utf-8")
             sql_hash = resolve("cld.evidence_mode.sqlclass", "statement_hash")(SQL)
-            (d / "runs" / "1.json").write_text(json.dumps({"sql": SQL, "sql_hash": sql_hash, "status": "ok",
+            (d / "runs" / "1.json").write_text(json.dumps({"sql": SQL, "sql_hash": sql_hash, "status": "ok", "env": "warehouse_sandbox",
                                                            "result_path": str(d / "results" / "1.out")}), encoding="utf-8")
             bundle["sql_runs"] = [{"sql_path": str(d / "sql" / "1.sql"), "result_path": str(d / "results" / "1.out")}]
         if self.findings:
