@@ -38,7 +38,7 @@ both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plu
 updates stay pinned until the manifest version changes (local in-place profiles can
 differ). Maintainers bump `VERSION` through the existing checked release workflow for
 distributable plugin updates; adding the current version is not a new release.
-[Publication verification record](docs/plans/evidence-mode/PUBLICATION-0.5.0.md).
+[Publication verification record](docs/plans/v0.5.1/PUBLICATION-0.5.1.md).
 
 ## What installing and using it does
 
