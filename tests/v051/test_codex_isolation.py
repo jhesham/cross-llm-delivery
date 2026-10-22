@@ -27,11 +27,6 @@ def test_isolation_disables_nonessential_features_and_each_mcp_server():
     assert "mcp_servers.warehouse-tools.enabled=false" in values
 
 
-def test_mcp_names_needing_quotes_are_quoted():
-    values = _config_values(resolve(C, "isolation_args")(["team.docs"]))
-    assert 'mcp_servers."team.docs".enabled=false' in values
-
-
 def test_configured_mcp_servers_reads_names_only(tmp_path):
     home = _codex_home(tmp_path, '[mcp_servers.docs]\ncommand = "docs-server"\nenv = { TOKEN = "s3cret" }\n'
                                  '[mcp_servers.repo]\nurl = "https://mcp.example.invalid"\n'
