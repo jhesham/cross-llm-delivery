@@ -67,6 +67,11 @@ def resolve_gateway(mode, environ, *, user_settings: Path,
         # ignores the user's settings.json, but still loads managed settings.
         return managed_host, None
 
+    # Claude Code settings override inherited environment values, so managed
+    # gateway routing determines the identity whenever it is configured.
+    if managed_host:
+        return managed_host, None
+
     base_url = environ.get("ANTHROPIC_BASE_URL")
     if base_url:
         host = _hostname(base_url)
@@ -76,9 +81,6 @@ def resolve_gateway(mode, environ, *, user_settings: Path,
             return host, None
         return host, ("Gateway mode requires ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY "
                       "when ANTHROPIC_BASE_URL is set.")
-
-    if managed_host:
-        return managed_host, None
 
     if gateway_host({}, user_settings):
         return None, ("Restricted executor sessions ignore the user's settings.json. Set "
