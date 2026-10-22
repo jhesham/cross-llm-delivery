@@ -306,7 +306,23 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                 renamed = True
             try:
                 stage.replace(target)
-            except OSError:
+            except OSError as publish_exc:
+                if renamed:
+                    # Roll back immediately; updates must never copy into the
+                    # target. Do not retry this restore in the outer handler.
+                    renamed = False
+                    try:
+                        backup.replace(target)
+                    except BaseException as restore_exc:
+                        publish_exc.add_note(
+                            f"could not restore {target}: {restore_exc}; "
+                            f"previous install retained at {backup}")
+                        raise publish_exc
+                    raise Reject(
+                        "update could not be published because the skills "
+                        "folder is in use; the previous installation was kept. "
+                        "Close running Codex sessions and retry."
+                    ) from publish_exc
                 # Watched skills folders on Windows can deny the rename.
                 # Claim the directory exclusively before copying. A failed
                 # mkdir means another process owns it; never clean it up.
