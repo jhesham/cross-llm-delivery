@@ -23,6 +23,7 @@ class CodexContractError(ValueError):
 _REQUIRED_FLAGS = ("--json", "--ephemeral", "--sandbox", "--cd", "--model", "--config")
 _CODEX_NAME_RE = re.compile(r"(?i)codex")
 _SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
+_MCP_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
 _EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 _SANDBOXES = ("read-only", "workspace-write")
 ISOLATED_FEATURES = (
@@ -65,15 +66,20 @@ def configured_mcp_servers(codex_home: Path) -> list[str]:
     return [name for name in servers if isinstance(servers[name], dict)]
 
 
+def skipped_mcp_names(mcp_names: Sequence[str]) -> list[str]:
+    """Return names that Codex config overrides cannot express safely."""
+    return [name for name in mcp_names if not _MCP_NAME_RE.fullmatch(name)]
+
+
 def isolation_args(mcp_names: Sequence[str]) -> list[str]:
     """Disable optional integrations without depending on CLI feature discovery."""
     args = []
     for feature in ISOLATED_FEATURES:
         args += ["--config", f"features.{feature}=false"]
     for name in mcp_names:
-        key = (name if re.fullmatch(r"[A-Za-z0-9_-]+", name)
-               else json.dumps(name, ensure_ascii=False).replace("\x7f", "\\u007f"))
-        args += ["--config", f"mcp_servers.{key}.enabled=false"]
+        # Codex rejects quoted dotted keys, so unsupported names must be skipped.
+        if _MCP_NAME_RE.fullmatch(name):
+            args += ["--config", f"mcp_servers.{name}.enabled=false"]
     return args
 
 
