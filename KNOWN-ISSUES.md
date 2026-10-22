@@ -130,8 +130,10 @@ fixture checks. No paid retry was performed.
 By default the `claude` executor bills only the logged-in Claude subscription
 (`authMethod: "claude.ai"`); API-key variables are removed from its
 environment. Executor sessions are `--restricted`, so they ignore your user
-`settings.json`, but they do load organisation-managed settings; a managed
-setting that routes through a gateway is refused in subscription mode. Opt-in
+`settings.json`, but they do load organisation-managed settings, which take
+priority over inherited environment variables; a managed setting that routes
+through a gateway is refused in subscription mode and, in gateway mode, sets the
+gateway that validation evidence is keyed to. Opt-in
 gateway mode (`CLD_CLAUDE_MODE=gateway`) needs `ANTHROPIC_BASE_URL` plus
 `ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) in the environment, or a managed
 gateway setting; a gateway configured only in user `settings.json` is refused
