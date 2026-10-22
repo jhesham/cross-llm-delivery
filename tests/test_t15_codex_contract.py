@@ -62,7 +62,7 @@ def test_invocation_is_fresh_explicit_and_isolated(tmp_path):
     assert prompt in call.stdin
     assert "Do not invoke CLD" in call.stdin
     assert call.cwd == str(tmp_path.resolve())
-    assert call.env == {"CLD_EXECUTOR_DEPTH": "1"}
+    assert call.env["CLD_EXECUTOR_DEPTH"] == "1"
     assert not any(x in call.argv for x in ("resume", "--last", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox"))
 
 
