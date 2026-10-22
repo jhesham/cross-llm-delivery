@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.1 — 2026-10-22
+
 ### Added
 - Claude executor gateway mode (`CLD_CLAUDE_MODE=gateway`) for a Claude CLI routed
   through an API gateway set in the environment or organisation-managed settings:
