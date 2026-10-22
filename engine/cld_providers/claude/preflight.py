@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
+import sys
 from urllib.parse import urlsplit
 
 
@@ -42,6 +44,47 @@ def gateway_host(environ, settings_file: Path) -> str | None:
     if not isinstance(settings_env, dict):
         return None
     return _hostname(settings_env.get("ANTHROPIC_BASE_URL"))
+
+
+def managed_settings_file() -> Path:
+    """Return Claude Code's platform-managed settings path."""
+    if os.name == "nt":
+        return (Path(os.environ.get("ProgramFiles", r"C:\Program Files")) /
+                "ClaudeCode" / "managed-settings.json")
+    if sys.platform == "darwin":
+        return Path("/Library/Application Support/ClaudeCode/managed-settings.json")
+    return Path("/etc/claude-code/managed-settings.json")
+
+
+def resolve_gateway(mode, environ, *, user_settings: Path,
+                    managed_settings: Path) -> tuple[str | None, str | None]:
+    """Resolve routing that a restricted Claude session can actually load."""
+    mode = claude_mode({"CLD_CLAUDE_MODE": mode})
+    managed_host = gateway_host({}, managed_settings)
+
+    if mode == "subscription":
+        # Restricted dispatch removes gateway variables from the environment and
+        # ignores the user's settings.json, but still loads managed settings.
+        return managed_host, None
+
+    base_url = environ.get("ANTHROPIC_BASE_URL")
+    if base_url:
+        host = _hostname(base_url)
+        has_credential = any(environ.get(name) for name in
+                             ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"))
+        if has_credential:
+            return host, None
+        return host, ("Gateway mode requires ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY "
+                      "when ANTHROPIC_BASE_URL is set.")
+
+    if managed_host:
+        return managed_host, None
+
+    if gateway_host({}, user_settings):
+        return None, ("Restricted executor sessions ignore the user's settings.json. Set "
+                      "ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN in the environment.")
+
+    return None, None
 
 
 @dataclass(frozen=True)
