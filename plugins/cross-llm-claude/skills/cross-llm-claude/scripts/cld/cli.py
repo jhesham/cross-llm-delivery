@@ -38,7 +38,7 @@ from cld.test_run import TestRun
 from cld.process import run_process
 from cld.candidate import acceptance_args
 from cld.acceptance import acceptance_command
-from cld.executors._capture import CaptureError
+from cld.executors._capture import CaptureError, GitOutput
 from cld.ledger import Ledger, DONE, StateError, resolve_ledger
 from cld.locking import OwnerBusy
 from cld.build_state import run_directory
@@ -311,11 +311,14 @@ def _warn_unmerged_deps(repo_dir: str, slices: list, ledger: Ledger, next_layer_
 
 
 def git_runner(args: list[str], cwd: str) -> tuple[int, str]:
-    """Run a git command; return (returncode, combined output)."""
+    """Run a git command; keep successful stdout separate from diagnostics."""
     # Decode explicitly: universal-newline translation would corrupt CR/LF in
     # NUL-delimited Git filenames. Undecodable paths fail rather than be renamed.
     proc = subprocess.run(args, cwd=cwd, capture_output=True)
-    return (proc.returncode, (proc.stdout + proc.stderr).decode("utf-8"))
+    stdout = proc.stdout.decode("utf-8")
+    stderr = proc.stderr.decode("utf-8")
+    output = stdout if proc.returncode == 0 else stdout + stderr
+    return proc.returncode, GitOutput(output, stderr=stderr)
 
 
 def make_judge_fn(repo_dir: str):

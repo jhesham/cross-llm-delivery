@@ -93,10 +93,29 @@ def capture_tree(runner, cwd, base):
     baseline = tree_entries(runner, cwd, base)
     # Include ignored source too; ignore ONLY new transient test artifacts.
     # Tracked cache-looking files are ordinary protected/allowed input files.
-    for path in Path(cwd).rglob("*"):
-        if _is_link(path):
-            raise CaptureError(f"Symlink/junction in candidate: {path.name!r}")
     roots = cache_roots(cwd)
+    root = Path(cwd)
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        try:
+            children = list(directory.iterdir())
+        except PermissionError as exc:
+            relative = directory.relative_to(root).as_posix()
+            if _is_noise(relative.rstrip("/") + "/", roots):
+                continue
+            raise CaptureError(f"Unreadable directory in candidate: {relative!r}") from exc
+        for path in children:
+            try:
+                if _is_link(path):
+                    raise CaptureError(f"Symlink/junction in candidate: {path.name!r}")
+                if path.is_dir():
+                    pending.append(path)
+            except PermissionError as exc:
+                relative = path.relative_to(root).as_posix()
+                if _is_noise(relative.rstrip("/") + "/", roots):
+                    continue
+                raise CaptureError(f"Unreadable path in candidate: {relative!r}") from exc
     tracked = nul_names(checked(runner, cwd, "ls-files", "-z"))
     for start in range(0, len(tracked), 100):
         # update-index selects one flag operation per invocation. Combining
@@ -105,8 +124,16 @@ def capture_tree(runner, cwd, base):
             checked(runner, cwd, "update-index", flag,
                     "--", *tracked[start:start + 100])
     checked(runner, cwd, "add", "-A")
-    ignored = nul_names(checked(runner, cwd, "ls-files", "--others", "--ignored",
-                                "--exclude-standard", "-z"))
+    ignored_output = checked(runner, cwd, "ls-files", "--others", "--ignored",
+                             "--exclude-standard", "-z")
+    stderr = getattr(ignored_output, "stderr", "")
+    for warning in re.finditer(r"could not open directory '([^']+)'", stderr):
+        directory = warning.group(1)
+        if not _is_noise(directory.rstrip("/") + "/", roots):
+            raise CaptureError(
+                f"Git could not open directory {directory!r}; ignored listing is incomplete"
+            )
+    ignored = nul_names(ignored_output)
     for name in ignored:
         safe_path(name)
         if not _is_noise(name, roots):

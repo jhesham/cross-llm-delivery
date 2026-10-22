@@ -1,6 +1,8 @@
 ## Claude Code CLI executor setup
 
-Install Claude Code and sign in with your Claude subscription (`claude auth login`). CLD checks `claude auth status` before any dispatch and requires `authMethod: "claude.ai"`: executor turns use your plan's usage limits, never API billing. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` are removed from the executor's environment.
+Install Claude Code and sign in with your Claude subscription (`claude auth login`). CLD checks `claude auth status` before any dispatch and requires `authMethod: "claude.ai"`: executor turns use your plan's usage limits, never API billing. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` are removed from the executor's environment, and a CLI routed through a gateway (`ANTHROPIC_BASE_URL` set in the environment or in Claude's `settings.json`) is refused.
+
+**Gateway mode (opt-in).** If your Claude CLI goes through an API gateway, set `CLD_CLAUDE_MODE=gateway`. CLD then requires a logged-in CLI and a gateway `ANTHROPIC_BASE_URL` (environment or `settings.json`), keeps the gateway URL and token in the executor environment, accepts gateway model IDs such as `global.anthropic.claude-opus-5-5`, labels usage `gateway_api` and keys validation evidence to the gateway hostname. Billing is whatever the gateway charges.
 
 CLD launches the native binary without a shell: `CLAUDE_CLI_CMD` (absolute path), else `claude.exe` on PATH (`claude` on POSIX), else the native `node_modules/@anthropic-ai/claude-code/bin/claude.exe` behind an npm `claude.cmd` shim. A shim-only install blocks dispatch (gate 5) naming `CLAUDE_CLI_CMD`.
 

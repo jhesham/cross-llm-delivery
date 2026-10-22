@@ -2,6 +2,46 @@
 
 from dataclasses import dataclass
 import json
+from pathlib import Path
+from urllib.parse import urlsplit
+
+
+def claude_mode(environ) -> str:
+    """Return the selected Claude authentication mode, defaulting to subscription."""
+    value = environ.get("CLD_CLAUDE_MODE")
+    if value is None or value == "":
+        return "subscription"
+    if value in ("subscription", "gateway"):
+        return value
+    raise ValueError("CLD_CLAUDE_MODE must be 'subscription' or 'gateway'.")
+
+
+def _hostname(base_url) -> str | None:
+    if not isinstance(base_url, str) or not base_url:
+        return None
+    try:
+        return urlsplit(base_url).hostname
+    except ValueError:
+        # URL parser errors can include user-supplied URL data; keep them private.
+        return None
+
+
+def gateway_host(environ, settings_file: Path) -> str | None:
+    """Return only the gateway hostname configured in the environment or settings."""
+    base_url = environ.get("ANTHROPIC_BASE_URL")
+    if base_url:
+        return _hostname(base_url)
+
+    try:
+        payload = json.loads(Path(settings_file).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    settings_env = payload.get("env")
+    if not isinstance(settings_env, dict):
+        return None
+    return _hostname(settings_env.get("ANTHROPIC_BASE_URL"))
 
 
 @dataclass(frozen=True)
@@ -41,8 +81,18 @@ def parse_auth_status(text: str) -> AuthStatus:
     )
 
 
-def auth_problem(status: AuthStatus) -> str | None:
-    """Return a safe, actionable message unless subscription login is active."""
+def auth_problem(status: AuthStatus, *, mode="subscription", gateway=None) -> str | None:
+    """Return a safe, actionable message unless the selected auth mode is ready."""
+    mode = claude_mode({"CLD_CLAUDE_MODE": mode})
+    if mode == "gateway":
+        if not status.logged_in:
+            return "Claude CLI is not logged in. Run `claude auth login` first."
+        if not gateway:
+            return "Gateway mode requires ANTHROPIC_BASE_URL to be configured."
+        return None
+    if gateway:
+        return ("Claude CLI is routed through a gateway. Set CLD_CLAUDE_MODE=gateway "
+                "to use gateway authentication.")
     if not status.logged_in:
         return "Claude CLI is not logged in. Run `claude auth login` first."
     if status.auth_method != "claude.ai":
@@ -51,8 +101,11 @@ def auth_problem(status: AuthStatus) -> str | None:
     return None
 
 
-def account_context(status: AuthStatus) -> str:
+def account_context(status: AuthStatus, *, mode="subscription", gateway=None) -> str:
     """Return the stable account marker used to scope validation evidence."""
+    mode = claude_mode({"CLD_CLAUDE_MODE": mode})
+    if mode == "gateway":
+        return f"claude-gateway:{gateway or 'unknown'}"
     org_id = status.org_id or "unknown"
     subscription_type = status.subscription_type or "unknown"
     return f"claude-account:{org_id}:{subscription_type}"
