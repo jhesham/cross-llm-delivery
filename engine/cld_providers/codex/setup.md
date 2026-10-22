@@ -71,7 +71,10 @@ setting after the build; never increase a deadline or retry paid work automatica
 
 **Executor isolation.** Each dispatch passes `--config` switches that turn off
 plugins, apps, memories, hooks, browser/computer use and every MCP server named in
-your Codex `config.toml` (CLD reads only the names). Your model provider and
+your Codex `config.toml` or the repository's `.codex/config.toml` (CLD reads only
+the names). Names that Codex overrides cannot express (for example containing a
+dot) stay enabled and are named in the run log; rename such servers to keep
+them out of executor runs. Your model provider and
 authentication are used as configured, including a custom gateway provider.
 Executors also run with `PYTHONDONTWRITEBYTECODE=1` and
 `PYTEST_ADDOPTS=-p no:cacheprovider`, so sandboxed test runs leave no cache

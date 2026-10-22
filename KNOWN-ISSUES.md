@@ -129,12 +129,15 @@ fixture checks. No paid retry was performed.
 
 By default the `claude` executor bills only the logged-in Claude subscription
 (`authMethod: "claude.ai"`); API-key variables are removed from its
-environment, and a CLI routed through a gateway (`ANTHROPIC_BASE_URL` in the
-environment or Claude's `settings.json`) is refused, because removing variables
-cannot stop settings-file routing. Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`)
-keeps the gateway route, accepts gateway model IDs, labels usage `gateway_api`
-and keys validation evidence to the gateway hostname; billing is whatever the
-gateway charges. Its shell is **not sandboxed** and runs with the user's
+environment. Executor sessions are `--restricted`, so they ignore your user
+`settings.json`, but they do load organisation-managed settings; a managed
+setting that routes through a gateway is refused in subscription mode. Opt-in
+gateway mode (`CLD_CLAUDE_MODE=gateway`) needs `ANTHROPIC_BASE_URL` plus
+`ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) in the environment, or a managed
+gateway setting; a gateway configured only in user `settings.json` is refused
+because the restricted session would not use it. Gateway mode accepts gateway
+model IDs, labels usage `gateway_api` and keys validation evidence to the
+gateway hostname; billing is whatever the gateway charges. Its shell is **not sandboxed** and runs with the user's
 privileges, like OpenCode, Cursor and Antigravity. Each dispatch is an isolated
 `claude -p --safe-mode --restricted` session with no hooks, plugins, skills,
 MCP servers, CLAUDE.md or saved session. The CLI's dollar figure is recorded as

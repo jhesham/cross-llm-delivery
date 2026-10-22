@@ -8,11 +8,13 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ### Added
 - Claude executor gateway mode (`CLD_CLAUDE_MODE=gateway`) for a Claude CLI routed
-  through an API gateway: keeps the gateway route, accepts gateway model IDs,
-  labels usage `gateway_api` and keys validation evidence to the gateway host.
-  Subscription mode stays the default and now refuses a gateway-routed CLI.
+  through an API gateway set in the environment or organisation-managed settings:
+  keeps that route, accepts gateway model IDs, labels usage `gateway_api` and keys
+  validation evidence to the gateway host. Subscription mode stays the default and
+  refuses gateway routing from managed settings.
 - Codex executors run isolated from the user's plugins, apps, memories, hooks,
-  browser/computer use and configured MCP servers, and without bytecode or
+  browser/computer use and the MCP servers named in user and project Codex
+  config, and without bytecode or
   pytest cache folders; Codex executors are told to run tests through `cmd /c`
   on Windows.
 
