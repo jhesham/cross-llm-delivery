@@ -10,6 +10,7 @@ catalog or default; callers must select the exact model and effort.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from cld.executors._capture import CaptureError, capture_diff
@@ -22,6 +23,8 @@ from .contract import (
     CodexContractError,
     build_invocation,
     check_capabilities,
+    configured_mcp_servers,
+    isolation_args,
     parse_exec_output,
 )
 from .catalog import list_models
@@ -140,10 +143,12 @@ class CodexExecutor:
 
         # Fail on local misconfiguration before spawning any process.
         try:
+            home = Path(os.environ["CODEX_HOME"]) if "CODEX_HOME" in os.environ else Path.home() / ".codex"
             invocation = build_invocation(self._model, cwd, prompt,
                                           effort=self._effort, service_tier=self._service_tier,
                                           sandbox=self._sandbox, evidence=evidence,
-                                          full_access=full_access)
+                                          full_access=full_access,
+                                          isolation=isolation_args(configured_mcp_servers(home)))
         except CodexContractError as exc:
             return ExecutorResult(ok=False, diff="",
                                   raw_log=f"Refusing to build a Codex dispatch: {exc}",
@@ -199,18 +204,19 @@ class CodexExecutor:
 
         outcome = parse_exec_output(proc.stdout, proc.stderr, proc.returncode,
                                     process_error=proc.error, service_tier=self._service_tier)
+        token_usage = {key: value for key, value in outcome.usage.items()
+                       if key in ("input", "output", "cache_read")}
         if not outcome.ok:
             error = outcome.error or "malformed_output"
             if error in _STRUCTURAL_ERRORS or error.startswith("event_cardinality"):
                 error = "malformed_output"
-            # No valid completion: never capture a candidate diff.
+            # Failed execution never permits candidate diff capture.
             return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
                                   raw_log=raw_log,
                                   process={**metadata, "error": error})
 
         if evidence:
-            token_usage = {key: value for key, value in outcome.usage.items()
-                           if key in ("input", "output", "cache_read")}
             return ExecutorResult(ok=True, diff="", files_changed=[],
                                   token_usage=token_usage, usage_raw=outcome.usage_raw,
                                   raw_log=raw_log, process=metadata)
@@ -221,14 +227,13 @@ class CodexExecutor:
             diff, files_changed = capture_diff(self._git_runner, invocation.cwd)
         except CaptureError as exc:
             return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
                                   raw_log=raw_log + f"\nGit diff capture failed: {exc}",
                                   process={**metadata, "error": "diff_capture"})
 
         # Forward only evidenced fields; the shared accounting layer derives
         # total and marks total_source=derived_input_output. Never invent cost
         # or cache-write; missing usage stays unknown.
-        token_usage = {key: value for key, value in outcome.usage.items()
-                       if key in ("input", "output", "cache_read")}
         return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
                               token_usage=token_usage, usage_raw=outcome.usage_raw,
                               raw_log=raw_log, process=metadata)
