@@ -21,8 +21,8 @@ from cld.providers_api import Provider, register_provider
 from .catalog import list_models
 from .contract import ClaudeContractError, build_invocation, check_capabilities, parse_result
 from .launcher import ClaudeLauncherError, resolve_claude_command
-from .preflight import (account_context, auth_problem, claude_mode, gateway_host,
-                        run_auth_preflight)
+from .preflight import (account_context, auth_problem, claude_mode,
+                        managed_settings_file, resolve_gateway, run_auth_preflight)
 
 # Structural output failures mean the result itself cannot be trusted.
 _STRUCTURAL = ("malformed_output", "invalid_usage")
@@ -31,6 +31,14 @@ _STRUCTURAL = ("malformed_output", "invalid_usage")
 def _fail(error, log, metadata=None):
     return ExecutorResult(ok=False, diff="", files_changed=[], raw_log=log,
                           process={**(metadata or {}), "error": error})
+
+
+def _resolve_gateway(mode):
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    settings_file = (Path(config_dir) / "settings.json" if config_dir
+                     else Path.home() / ".claude" / "settings.json")
+    return resolve_gateway(mode, os.environ, user_settings=settings_file,
+                           managed_settings=managed_settings_file())
 
 
 class ClaudeExecutor:
@@ -121,10 +129,9 @@ def _preflight():
         mode = claude_mode(os.environ)
     except ValueError as exc:
         return None, None, str(exc)
-    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
-    settings_file = (Path(config_dir) / "settings.json" if config_dir
-                     else Path.home() / ".claude" / "settings.json")
-    gateway = gateway_host(os.environ, settings_file)
+    gateway, gateway_problem = _resolve_gateway(mode)
+    if gateway_problem is not None:
+        return None, None, gateway_problem
     try:
         command = resolve_claude_command()
     except ClaudeLauncherError as exc:
@@ -164,10 +171,7 @@ def _context_extra():
         mode = claude_mode(os.environ)
     except ValueError:
         return ""
-    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
-    settings_file = (Path(config_dir) / "settings.json" if config_dir
-                     else Path.home() / ".claude" / "settings.json")
-    gateway = gateway_host(os.environ, settings_file)
+    gateway, _ = _resolve_gateway(mode)
     return account_context(status, mode=mode, gateway=gateway)
 
 

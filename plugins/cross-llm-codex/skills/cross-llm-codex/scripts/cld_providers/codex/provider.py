@@ -26,6 +26,7 @@ from .contract import (
     configured_mcp_servers,
     isolation_args,
     parse_exec_output,
+    skipped_mcp_names,
 )
 from .catalog import list_models
 from .config import config_env, config_identity, config_inputs
@@ -130,9 +131,23 @@ class CodexExecutor:
 
     def _run_prompt(self, prompt: str, workdir: Path, *, evidence: bool,
                     full_access: bool = False) -> ExecutorResult:
+        home = Path(os.environ["CODEX_HOME"]) if "CODEX_HOME" in os.environ else Path.home() / ".codex"
+        mcp_names = list(dict.fromkeys(
+            configured_mcp_servers(home) + configured_mcp_servers(Path(workdir) / ".codex")
+        ))
+        skipped = skipped_mcp_names(mcp_names)
+        names = ", ".join(name.replace("\r", r"\r").replace("\n", r"\n") for name in skipped)
+        warning = (
+            f"CLD could not disable MCP server(s) for this run: {names} "
+            "(names Codex overrides cannot express)\n"
+        ) if skipped else ""
+
+        def result(*, raw_log: str, **kwargs) -> ExecutorResult:
+            return ExecutorResult(raw_log=warning + raw_log, **kwargs)
+
         # The recursion guard precedes ANY process, including the probes.
         if executor_depth_blocked():
-            return ExecutorResult(
+            return result(
                 ok=False, diff="",
                 raw_log=("Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set "
                          "in the ambient environment, so this executor is itself running "
@@ -143,24 +158,23 @@ class CodexExecutor:
 
         # Fail on local misconfiguration before spawning any process.
         try:
-            home = Path(os.environ["CODEX_HOME"]) if "CODEX_HOME" in os.environ else Path.home() / ".codex"
             invocation = build_invocation(self._model, cwd, prompt,
                                           effort=self._effort, service_tier=self._service_tier,
                                           sandbox=self._sandbox, evidence=evidence,
                                           full_access=full_access,
-                                          isolation=isolation_args(configured_mcp_servers(home)))
+                                          isolation=isolation_args(mcp_names))
         except CodexContractError as exc:
-            return ExecutorResult(ok=False, diff="",
-                                  raw_log=f"Refusing to build a Codex dispatch: {exc}",
-                                  process={"error": "invalid_invocation"})
+            return result(ok=False, diff="",
+                          raw_log=f"Refusing to build a Codex dispatch: {exc}",
+                          process={"error": "invalid_invocation"})
 
         process_runner = self._runner
         if self._uses_default_process_runners:
             try:
                 command = resolve_codex_command()
             except CodexLauncherError as exc:
-                return ExecutorResult(ok=False, diff="", raw_log=str(exc),
-                                      process={"error": "missing_binary"})
+                return result(ok=False, diff="", raw_log=str(exc),
+                              process={"error": "missing_binary"})
             process_runner = resolved_runner(self._runner, resolve=lambda: command)
 
         # Capability gate: feature-test the installed CLI, never infer support.
@@ -168,7 +182,7 @@ class CodexExecutor:
         for label, probe in (("codex --version", version),):
             if probe.error or probe.returncode != 0:
                 error = probe.error or "nonzero_exit"
-                return ExecutorResult(
+                return result(
                     ok=False, diff="",
                     raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
                              f"repair the Codex CLI and ensure it is on PATH."),
@@ -178,7 +192,7 @@ class CodexExecutor:
         for label, probe in (("codex exec --help", help_out),):
             if probe.error or probe.returncode != 0:
                 error = probe.error or "nonzero_exit"
-                return ExecutorResult(
+                return result(
                     ok=False, diff="",
                     raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
                              f"repair the Codex CLI and ensure it is on PATH."),
@@ -187,9 +201,9 @@ class CodexExecutor:
         try:
             check_capabilities(version.stdout, help_out.stdout)
         except CodexContractError as exc:
-            return ExecutorResult(ok=False, diff="",
-                                  raw_log=f"Codex CLI capability check failed: {exc}",
-                                  process={**help_out.metadata(), "error": "missing_capability"})
+            return result(ok=False, diff="",
+                          raw_log=f"Codex CLI capability check failed: {exc}",
+                          process={**help_out.metadata(), "error": "missing_capability"})
 
         # Fresh isolated session: prompt on stdin ('-'), no resume/--last, no shell.
         proc = process_runner(
@@ -211,32 +225,32 @@ class CodexExecutor:
             if error in _STRUCTURAL_ERRORS or error.startswith("event_cardinality"):
                 error = "malformed_output"
             # Failed execution never permits candidate diff capture.
-            return ExecutorResult(ok=False, diff="", files_changed=[],
-                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
-                                  raw_log=raw_log,
-                                  process={**metadata, "error": error})
+            return result(ok=False, diff="", files_changed=[],
+                          token_usage=token_usage, usage_raw=outcome.usage_raw,
+                          raw_log=raw_log,
+                          process={**metadata, "error": error})
 
         if evidence:
-            return ExecutorResult(ok=True, diff="", files_changed=[],
-                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
-                                  raw_log=raw_log, process=metadata)
+            return result(ok=True, diff="", files_changed=[],
+                          token_usage=token_usage, usage_raw=outcome.usage_raw,
+                          raw_log=raw_log, process=metadata)
 
         # Valid completion alone permits diff capture; the worktree diff (not
         # JSONL file events) is the candidate, verified independently by CLD.
         try:
             diff, files_changed = capture_diff(self._git_runner, invocation.cwd)
         except CaptureError as exc:
-            return ExecutorResult(ok=False, diff="", files_changed=[],
-                                  token_usage=token_usage, usage_raw=outcome.usage_raw,
-                                  raw_log=raw_log + f"\nGit diff capture failed: {exc}",
-                                  process={**metadata, "error": "diff_capture"})
+            return result(ok=False, diff="", files_changed=[],
+                          token_usage=token_usage, usage_raw=outcome.usage_raw,
+                          raw_log=raw_log + f"\nGit diff capture failed: {exc}",
+                          process={**metadata, "error": "diff_capture"})
 
         # Forward only evidenced fields; the shared accounting layer derives
         # total and marks total_source=derived_input_output. Never invent cost
         # or cache-write; missing usage stays unknown.
-        return ExecutorResult(ok=True, diff=diff, files_changed=files_changed,
-                              token_usage=token_usage, usage_raw=outcome.usage_raw,
-                              raw_log=raw_log, process=metadata)
+        return result(ok=True, diff=diff, files_changed=files_changed,
+                      token_usage=token_usage, usage_raw=outcome.usage_raw,
+                      raw_log=raw_log, process=metadata)
 
 
 _HERE = Path(__file__).parent
