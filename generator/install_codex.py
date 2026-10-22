@@ -299,14 +299,34 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         _write_manifest(stage, name)
         renamed = False
+        copied = False
         try:
             if updating:
                 target.replace(backup)
                 renamed = True
-            stage.replace(target)
-        except OSError:
+            try:
+                stage.replace(target)
+            except OSError:
+                # Watched skills folders on Windows can deny the rename.
+                # Copy only into a vacant target, never over another install.
+                if target.exists() or target.is_symlink():
+                    raise
+                copied = True
+                try:
+                    shutil.copytree(stage, target, symlinks=False)
+                except FileExistsError:
+                    # copytree creates its destination exclusively. If another
+                    # target appeared, this run does not own it for cleanup.
+                    copied = False
+                    raise
+                _verify_owned(target)
+                shutil.rmtree(stage)
+        except BaseException:
+            if copied and target.is_dir() and not target.is_symlink():
+                _check_target_safe(scope, target)
+                shutil.rmtree(target)
             # Publish failed: restore the previous installation if we moved it.
-            if renamed and not target.exists():
+            if renamed and not target.exists() and not target.is_symlink():
                 backup.replace(target)
             raise
         cleanup_warning = None
