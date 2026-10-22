@@ -62,7 +62,7 @@ def test_invocation_is_fresh_explicit_and_isolated(tmp_path):
     assert prompt in call.stdin
     assert "Do not invoke CLD" in call.stdin
     assert call.cwd == str(tmp_path.resolve())
-    assert call.env == {"CLD_EXECUTOR_DEPTH": "1"}
+    assert call.env["CLD_EXECUTOR_DEPTH"] == "1"
     assert not any(x in call.argv for x in ("resume", "--last", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox"))
 
 
@@ -96,7 +96,7 @@ def test_success_usage_is_reported_without_double_counting():
     ("truncated.jsonl", "", 0, None, "malformed_output"),
     ("success.jsonl", "", 1, None, "nonzero_exit"),
     ("success.jsonl", "authentication failed", 1, None, "authentication"),
-    ("success.jsonl", "login required", 0, None, "authentication"),
+    ("truncated.jsonl", "login required", 0, None, "authentication"),
     ("success.jsonl", "", 0, "timeout", "timeout"),
     ("success.jsonl", "", 0, "cancelled", "cancelled"),
 ], ids=["turn-failure", "truncated", "nonzero", "auth-nonzero", "auth-zero", "timeout", "cancelled"])

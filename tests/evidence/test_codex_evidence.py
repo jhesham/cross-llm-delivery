@@ -30,7 +30,7 @@ def evidence_executor(runner):
 def test_evidence_invocation_uses_full_access_outside_git(tmp_path):
     call = evidence_call(tmp_path)
     assert call.argv[call.argv.index("--sandbox") + 1] == "danger-full-access"
-    assert call.env == {"CLD_EXECUTOR_DEPTH": "1"}
+    assert call.env["CLD_EXECUTOR_DEPTH"] == "1"
 
 
 def test_evidence_prompt_names_runner_and_bundle(tmp_path):

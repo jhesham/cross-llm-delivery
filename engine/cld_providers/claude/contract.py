@@ -38,6 +38,7 @@ REQUIRED_FLAGS = (
 _CLAUDE_CODE_RE = re.compile(r"claude code", re.IGNORECASE)
 _SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
 _MODEL_RE = re.compile(r"claude-[a-z0-9][a-z0-9.-]*\Z")
+_GATEWAY_MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*\Z")
 _LOGIN_RE = re.compile(
     r"not logged in|please run /login|claude auth login|invalid api key",
     re.IGNORECASE,
@@ -85,9 +86,17 @@ class ClaudeInvocation:
     unset_env: tuple = ()
 
 
-def build_invocation(model, cwd, prompt, *, effort):
+def build_invocation(model, cwd, prompt, *, effort, gateway=False):
     """Build a fresh, restricted invocation with the prompt supplied on stdin."""
-    if not isinstance(model, str) or "\n" in model or "\r" in model or not _MODEL_RE.fullmatch(model):
+    if gateway:
+        valid_model = (isinstance(model, str) and _GATEWAY_MODEL_RE.fullmatch(model)
+                       and re.search("claude", model, re.IGNORECASE))
+        if not valid_model:
+            raise ClaudeContractError(
+                "gateway model must be a single-line ID containing 'claude' and matching "
+                "'[A-Za-z0-9][A-Za-z0-9._:/-]*'"
+            )
+    elif not isinstance(model, str) or not _MODEL_RE.fullmatch(model):
         raise ClaudeContractError(
             "model must be a single-line exact Claude model ID matching 'claude-[a-z0-9][a-z0-9.-]*'"
         )
@@ -133,8 +142,9 @@ def build_invocation(model, cwd, prompt, *, effort):
         cwd=str(resolved),
         # Claude Code gives CLAUDE_CODE_EFFORT_LEVEL precedence over --effort, so pin it to
         # the selected effort: a lead's ambient value must not change the executor (N01).
-        env={"CLD_EXECUTOR_DEPTH": "1", "CLAUDE_CODE_EFFORT_LEVEL": effort},
-        unset_env=UNSET_ENV,
+        env={"CLD_EXECUTOR_DEPTH": "1", "CLAUDE_CODE_EFFORT_LEVEL": effort,
+             "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": "-p no:cacheprovider"},
+        unset_env=() if gateway else UNSET_ENV,
     )
 
 
@@ -163,7 +173,7 @@ def _valid_cost(value):
     return None
 
 
-def parse_result(stdout, stderr, returncode, *, model, process_error=None):
+def parse_result(stdout, stderr, returncode, *, model, process_error=None, gateway=False):
     """Parse exactly one Claude JSON result; incomplete or unsafe results fail."""
     # Lifecycle failures (timeout, cancellation, launch...) are authoritative. The
     # shared runner's generic exit labels are not: they would hide the CLI's own
@@ -213,7 +223,7 @@ def parse_result(stdout, stderr, returncode, *, model, process_error=None):
         key == model or (isinstance(key, str) and re.fullmatch(re.escape(model) + r"-\d{8}", key))
         for key in model_usage
     )
-    if not model_ran:
+    if not gateway and not model_ran:
         return _failure("model_mismatch")
 
     if "usage" not in result:

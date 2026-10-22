@@ -8,6 +8,7 @@ decides acceptance. There is no default model; callers pin an exact ID and effor
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from pathlib import Path
 
 from cld.executors._capture import CaptureError, capture_diff
@@ -20,7 +21,8 @@ from cld.providers_api import Provider, register_provider
 from .catalog import list_models
 from .contract import ClaudeContractError, build_invocation, check_capabilities, parse_result
 from .launcher import ClaudeLauncherError, resolve_claude_command
-from .preflight import account_context, run_auth_preflight
+from .preflight import (account_context, auth_problem, claude_mode,
+                        managed_settings_file, resolve_gateway, run_auth_preflight)
 
 # Structural output failures mean the result itself cannot be trusted.
 _STRUCTURAL = ("malformed_output", "invalid_usage")
@@ -29,6 +31,14 @@ _STRUCTURAL = ("malformed_output", "invalid_usage")
 def _fail(error, log, metadata=None):
     return ExecutorResult(ok=False, diff="", files_changed=[], raw_log=log,
                           process={**(metadata or {}), "error": error})
+
+
+def _resolve_gateway(mode):
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    settings_file = (Path(config_dir) / "settings.json" if config_dir
+                     else Path.home() / ".claude" / "settings.json")
+    return resolve_gateway(mode, os.environ, user_settings=settings_file,
+                           managed_settings=managed_settings_file())
 
 
 class ClaudeExecutor:
@@ -56,9 +66,14 @@ class ClaudeExecutor:
         if executor_depth_blocked():
             return _fail("recursive_dispatch", "Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is "
                          "already set; refusing to start another executor.")
+        try:
+            mode = claude_mode(os.environ)
+        except ValueError as exc:
+            return _fail("invalid_invocation", f"Refusing to build a Claude dispatch: {exc}")
         cwd = str(Path(workdir).resolve())
         try:
-            invocation = build_invocation(self._model, cwd, self._prompt(task, feedback), effort=self._effort)
+            invocation = build_invocation(self._model, cwd, self._prompt(task, feedback),
+                                          effort=self._effort, gateway=(mode == "gateway"))
         except ClaudeContractError as exc:
             return _fail("invalid_invocation", f"Refusing to build a Claude dispatch: {exc}")
         runner = self._runner
@@ -88,7 +103,7 @@ class ClaudeExecutor:
         metadata = dict(proc.metadata())
         raw_log = process_feedback((proc.stdout or "") + (proc.stderr or ""), metadata)
         outcome = parse_result(proc.stdout, proc.stderr, proc.returncode, model=self._model,
-                               process_error=proc.error)
+                               process_error=proc.error, gateway=(mode == "gateway"))
         if not outcome.ok:
             error = "malformed_output" if outcome.error in _STRUCTURAL else (outcome.error or "malformed_output")
             # No valid completion: never capture a candidate diff.
@@ -102,7 +117,7 @@ class ClaudeExecutor:
         token_usage = {k: v for k, v in outcome.usage.items()
                        if k in ("input", "output", "cache_read", "cache_write")}
         usage_raw = {**outcome.usage_raw, "cost_estimate_usd": outcome.cost_estimate,
-                     "cost_source": "cli_estimate_subscription"}
+                     "cost_source": "gateway_api" if mode == "gateway" else "cli_estimate_subscription"}
         return ExecutorResult(ok=True, diff=diff, files_changed=files_changed, token_usage=token_usage,
                               usage_raw=usage_raw, raw_log=raw_log, process=metadata)
 
@@ -110,6 +125,13 @@ class ClaudeExecutor:
 @lru_cache(maxsize=1)
 def _preflight():
     """(command, auth status, problem) once per process; model-free."""
+    try:
+        mode = claude_mode(os.environ)
+    except ValueError as exc:
+        return None, None, str(exc)
+    gateway, gateway_problem = _resolve_gateway(mode)
+    if gateway_problem is not None:
+        return None, None, gateway_problem
     try:
         command = resolve_claude_command()
     except ClaudeLauncherError as exc:
@@ -120,6 +142,8 @@ def _preflight():
         return (result.returncode if not result.error else -1), result.stdout
 
     status, problem = run_auth_preflight(two_tuple, command.path)
+    if status is not None:
+        problem = auth_problem(status, mode=mode, gateway=gateway)
     if problem is None:
         version, help_text = (run_process([command.path, flag], ".", env=command.env,
                                           timeout=deadline_seconds()).stdout
@@ -141,7 +165,14 @@ def _launch_problem():
 
 def _context_extra():
     status = _preflight()[1]
-    return account_context(status) if status is not None else ""
+    if status is None:
+        return ""
+    try:
+        mode = claude_mode(os.environ)
+    except ValueError:
+        return ""
+    gateway, _ = _resolve_gateway(mode)
+    return account_context(status, mode=mode, gateway=gateway)
 
 
 def _cli_invocation():

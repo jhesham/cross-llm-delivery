@@ -29,10 +29,10 @@ The lead host and implementation provider are separate choices:
 | Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
 | Claude Code, using a Claude skill or plugin | The same five providers and engine |
 
-Version **0.5.0** supports both lead hosts and five executor providers,
+Version **0.5.1** supports both lead hosts and five executor providers,
 including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
-Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.0)
+Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.1)
 for a fixed source revision. The Claude-only root marketplace is read from `main`;
 both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
 updates stay pinned until the manifest version changes (local in-place profiles can
@@ -66,8 +66,9 @@ logs or support requests.
 
 | Executor | Authentication | Billing |
 |---|---|---|
-| Claude Code CLI | Removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`; requires claude.ai subscription login; isolated no-persistence session | Your Claude plan's usage limits |
-| Codex, OpenCode, Cursor, Antigravity | Installed CLI with your account/configuration; no removal list applied | Plan, API or provider billing as applicable |
+| Claude Code CLI | Default subscription mode removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and requires a claude.ai login; organisation-managed settings that route through a gateway are refused. Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`) needs the gateway URL and token in the environment (or managed settings) and accepts gateway model IDs. Restricted, no-persistence session either way; it ignores your user `settings.json` | Subscription mode: your Claude plan's usage limits. Gateway mode: whatever the gateway bills |
+| Codex | Installed CLI with your account/configuration; each dispatch turns off plugins, apps, memories, hooks, browser/computer use and the MCP servers named in your Codex `config.toml` and the repository's `.codex/config.toml` (names Codex overrides cannot express stay on and are named in the run log) | Plan, API or provider billing as applicable |
+| OpenCode, Cursor, Antigravity | Installed CLI with your account/configuration; no removal list applied | Plan, API or provider billing as applicable |
 
 CLD charges no separate inference fee and dollar costs may be unknown. Provider
 retention and plan terms follow your provider account; see [PRIVACY.md](PRIVACY.md).

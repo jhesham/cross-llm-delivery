@@ -80,6 +80,16 @@ in generated `references/provider-setup.md`.
 
 ## Codex Windows sandbox setup
 
+Inside the Codex Windows sandbox, PowerShell can report
+`Access is denied` while reading the console output buffer after a command has
+already succeeded, which makes executors retry and spend more tokens. CLD tells
+Codex executors to run test and Python commands through `cmd /c`; the underlying
+issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
+(for example a `.pytest_cache` left by an older CLD) can be unreadable and
+undeletable for the host user; removing them needs an administrator. CLD
+tolerates unreadable cache folders when capturing a candidate and fails closed
+(naming the folder) for any other unreadable folder.
+
 For backup, fallback, model-free checks and rollback instructions, see
 [Codex Windows sandbox troubleshooting](docs/CODEX-WINDOWS-TROUBLESHOOTING.md).
 
@@ -117,9 +127,19 @@ fixture checks. No paid retry was performed.
 
 ## Claude Code executor
 
-The `claude` executor bills only the logged-in Claude subscription
+By default the `claude` executor bills only the logged-in Claude subscription
 (`authMethod: "claude.ai"`); API-key variables are removed from its
-environment. Its shell is **not sandboxed** and runs with the user's
+environment. Executor sessions are `--restricted`, so they ignore your user
+`settings.json`, but they do load organisation-managed settings, which take
+priority over inherited environment variables; a managed setting that routes
+through a gateway is refused in subscription mode and, in gateway mode, sets the
+gateway that validation evidence is keyed to. Opt-in
+gateway mode (`CLD_CLAUDE_MODE=gateway`) needs `ANTHROPIC_BASE_URL` plus
+`ANTHROPIC_AUTH_TOKEN` (or `ANTHROPIC_API_KEY`) in the environment, or a managed
+gateway setting; a gateway configured only in user `settings.json` is refused
+because the restricted session would not use it. Gateway mode accepts gateway
+model IDs, labels usage `gateway_api` and keys validation evidence to the
+gateway hostname; billing is whatever the gateway charges. Its shell is **not sandboxed** and runs with the user's
 privileges, like OpenCode, Cursor and Antigravity. Each dispatch is an isolated
 `claude -p --safe-mode --restricted` session with no hooks, plugins, skills,
 MCP servers, CLAUDE.md or saved session. The CLI's dollar figure is recorded as

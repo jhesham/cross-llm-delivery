@@ -299,15 +299,85 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         _write_manifest(stage, name)
         renamed = False
+        copied = False
         try:
             if updating:
                 target.replace(backup)
                 renamed = True
-            stage.replace(target)
-        except OSError:
+            try:
+                stage.replace(target)
+            except OSError as publish_exc:
+                if renamed:
+                    # Roll back immediately; updates must never copy into the
+                    # target. Do not retry this restore in the outer handler.
+                    renamed = False
+                    try:
+                        backup.replace(target)
+                    except BaseException as restore_exc:
+                        publish_exc.add_note(
+                            f"could not restore {target}: {restore_exc}; "
+                            f"previous install retained at {backup}")
+                        raise publish_exc
+                    raise Reject(
+                        "update could not be published because the skills "
+                        "folder is in use; the previous installation was kept. "
+                        "Close running Codex sessions and retry."
+                    ) from publish_exc
+                # Watched skills folders on Windows can deny the rename.
+                # Claim the directory exclusively before copying. A failed
+                # mkdir means another process owns it; never clean it up.
+                target.mkdir()
+                copied = True
+                shutil.copytree(stage, target, symlinks=False, dirs_exist_ok=True)
+                _verify_owned(target)
+                shutil.rmtree(stage)
+        except BaseException as exc:
+            if copied:
+                try:
+                    _check_target_safe(scope, target)
+                    # Exclusive mkdir claims the directory, not files another
+                    # process may subsequently add. On a fresh install retain
+                    # such contents in place; there is no backup to restore.
+                    foreign_entries = not renamed and any(
+                        not (stage / path.relative_to(target)).exists()
+                        for path, _is_dir in _iter_entries(target)
+                    )
+                    if foreign_entries:
+                        exc.add_note(
+                            f"target contains entries absent from the stage; "
+                            f"retained at {target} to preserve foreign contents")
+                    else:
+                        shutil.rmtree(target)
+                except BaseException as cleanup_exc:
+                    # A locked partial copy must not block restoring the old
+                    # install. Retain it under a vacant sibling for inspection.
+                    failed = skills_dir / f".{name}.cld-failed-{os.getpid()}"
+                    try:
+                        suffix = 0
+                        while failed.exists() or failed.is_symlink():
+                            suffix += 1
+                            failed = skills_dir / (
+                                f".{name}.cld-failed-{os.getpid()}-{suffix}")
+                        _check_target_safe(scope, failed)
+                        target.rename(failed)
+                    except BaseException as move_exc:
+                        exc.add_note(
+                            f"failed target cleanup at {target}: {cleanup_exc}; "
+                            f"could not retain it at {failed}: {move_exc}")
+                    else:
+                        exc.add_note(
+                            f"failed target cleanup: {cleanup_exc}; "
+                            f"partial install retained at {failed}")
             # Publish failed: restore the previous installation if we moved it.
-            if renamed and not target.exists():
-                backup.replace(target)
+            if renamed:
+                try:
+                    if target.exists() or target.is_symlink():
+                        raise FileExistsError(f"target is occupied: {target}")
+                    backup.replace(target)
+                except BaseException as restore_exc:
+                    exc.add_note(
+                        f"could not restore {target}: {restore_exc}; "
+                        f"previous install retained at {backup}")
             raise
         cleanup_warning = None
         if renamed:
@@ -320,10 +390,15 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                 # the old backup for manual inspection rather than claiming a
                 # failed operation left the previous target untouched.
                 cleanup_warning = f"old backup retained at {backup}: {exc}"
-    except BaseException:
-        if stage.is_dir() and not stage.is_symlink():
-            _check_target_safe(scope, stage)
-            shutil.rmtree(stage, ignore_errors=True)
+    except BaseException as exc:
+        try:
+            if stage.is_dir() and not stage.is_symlink():
+                _check_target_safe(scope, stage)
+                shutil.rmtree(stage)
+        except BaseException as cleanup_exc:
+            exc.add_note(
+                f"could not clean staging directory; retained at {stage}: "
+                f"{cleanup_exc}")
         raise
     outcome = "updated" if updating else "installed"
     result = {"action": "install", "target": str(target), "outcome": outcome}

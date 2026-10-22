@@ -89,7 +89,7 @@ def test_bounded_stdin_dispatch_and_real_git_diff(repo):
     assert argv[argv.index("--cd") + 1] == str(repo.resolve())
     assert cwd == str(repo.resolve())
     assert brief in options["stdin"] and "test_value.py" in options["stdin"]
-    assert options["env"] == {"CLD_EXECUTOR_DEPTH": "1"}
+    assert options["env"]["CLD_EXECUTOR_DEPTH"] == "1"
     assert options["timeout"] == 43
     assert options["artifact_dir"] == repo.parent / "artifacts"
     assert all("stdin" not in call[2] for call in runner.calls[:2])

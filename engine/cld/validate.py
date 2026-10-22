@@ -118,6 +118,11 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         else:
             status = "verified" if outcome.accepted else "revalidate"
             note = "; ".join(outcome.final.failing_tests) if outcome.final else "acceptance failed"
+        if session.record.get("state") in ("running", "reserved"):
+            if last is not None and getattr(last, "ok", None) is True and outcome.accepted:
+                session.save(state="verified")
+            else:
+                session.save(state="failed", error=note or "acceptance failed")
         result = ValidationResult(model, outcome.accepted, status, attempted, note,
             dict(getattr(last, "token_usage", {}) or {}), str(directory), error)
     except BaseException as exc:

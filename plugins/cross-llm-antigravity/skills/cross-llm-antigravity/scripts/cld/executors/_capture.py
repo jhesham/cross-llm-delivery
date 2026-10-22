@@ -10,6 +10,15 @@ from typing import Callable
 Runner = Callable[[list[str], str], tuple[int, str]]
 
 
+class GitOutput(str):
+    """Git stdout text that also retains stderr for diagnostics."""
+
+    def __new__(cls, text: str, stderr: str = ""):
+        output = super().__new__(cls, text)
+        output.stderr = stderr
+        return output
+
+
 class CaptureError(RuntimeError):
     """Git could not provide a complete candidate; never treat this as no edits."""
 
@@ -25,7 +34,11 @@ def checked(runner: Runner, cwd: str, *args: str) -> str:
 
 def nul_names(output: str) -> list[str]:
     if output and not output.endswith("\0"):
-        raise CaptureError("Incomplete NUL-delimited Git output")
+        message = "Incomplete NUL-delimited Git output"
+        stderr = getattr(output, "stderr", "")
+        if stderr:
+            message += f": {stderr}"
+        raise CaptureError(message[:500])
     return output.split("\0")[:-1] if output else []
 
 

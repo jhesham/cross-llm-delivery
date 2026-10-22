@@ -177,15 +177,27 @@ class RecoverySession:
     def failure(self, error):
         # Each operation may itself fail (disk/Git). Caller retains the worktree
         # and includes the failure path in the outcome when evidence is incomplete.
-        self.write("error.txt", f"{type(error).__name__}: {error}")
-        process = getattr(error, "process_result", None)
-        if process is not None:
-            metadata = process.metadata()
-            if getattr(error, "provider_log_path", None):
-                metadata["provider_log_path"] = error.provider_log_path
-            self.write("interrupted-process.json", json.dumps(metadata))
-        self.checkpoint("failure")
         self.save(state="failed", error=str(error))
+        try:
+            self.write("error.txt", f"{type(error).__name__}: {error}")
+        except Exception:
+            pass
+        try:
+            process = getattr(error, "process_result", None)
+            if process is not None:
+                metadata = process.metadata()
+                if getattr(error, "provider_log_path", None):
+                    metadata["provider_log_path"] = error.provider_log_path
+                self.write("interrupted-process.json", json.dumps(metadata))
+        except Exception:
+            pass
+        try:
+            self.checkpoint("failure")
+        except Exception as checkpoint_error:
+            try:
+                self.save(state="failed", error=f"{error}; checkpoint failed: {checkpoint_error}")
+            except Exception:
+                pass
 
     def collect(self, candidate) -> CollectionResult:
         try:

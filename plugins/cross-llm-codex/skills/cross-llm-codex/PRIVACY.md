@@ -87,8 +87,8 @@ events or provider output are redacted.
 
 | Executor | Credentials and environment | Billing |
 |---|---|---|
-| Claude Code CLI | Deliberately removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` from the executor environment and requires a claude.ai subscription login (`authMethod: "claude.ai"`); each slice runs in an isolated session with no saved session | Your Claude plan's usage limits |
-| Codex CLI | Uses the installed CLI and your Codex authentication/configuration; no removal list is applied | Your plan, API or configured provider billing, as applicable |
+| Claude Code CLI | Default subscription mode removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` from the executor environment and requires a claude.ai login (`authMethod: "claude.ai"`). Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`) keeps the gateway URL and token from the environment; CLD checks only that a token is present and reads only the gateway hostname. Each slice runs in an isolated session with no saved session | Subscription mode: your Claude plan's usage limits. Gateway mode: whatever the gateway bills |
+| Codex CLI | Uses the installed CLI and your Codex authentication/configuration. Each dispatch turns off plugins, apps, memories, hooks, browser/computer use and the MCP servers named in your Codex `config.toml` and the repository's `.codex/config.toml` (CLD reads only their names; a name Codex overrides cannot express, such as one containing a dot, stays enabled and is named in the run log) | Your plan, API or configured provider billing, as applicable |
 | OpenCode, Cursor, Antigravity | Use the installed CLI, your account and its configuration; no removal list is applied | Your plan, API or configured provider billing, as applicable |
 
 CLD charges no separate inference fee. Dollar costs may be unknown when a CLI
