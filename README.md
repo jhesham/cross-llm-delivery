@@ -66,8 +66,9 @@ logs or support requests.
 
 | Executor | Authentication | Billing |
 |---|---|---|
-| Claude Code CLI | Removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`; requires claude.ai subscription login; isolated no-persistence session | Your Claude plan's usage limits |
-| Codex, OpenCode, Cursor, Antigravity | Installed CLI with your account/configuration; no removal list applied | Plan, API or provider billing as applicable |
+| Claude Code CLI | Default subscription mode removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, requires a claude.ai login and refuses a CLI routed through a gateway. Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`) keeps the gateway URL and token and accepts gateway model IDs. Isolated no-persistence session either way | Subscription mode: your Claude plan's usage limits. Gateway mode: whatever the gateway bills |
+| Codex | Installed CLI with your account/configuration; each dispatch turns off plugins, apps, memories, hooks, browser/computer use and your configured MCP servers | Plan, API or provider billing as applicable |
+| OpenCode, Cursor, Antigravity | Installed CLI with your account/configuration; no removal list applied | Plan, API or provider billing as applicable |
 
 CLD charges no separate inference fee and dollar costs may be unknown. Provider
 retention and plan terms follow your provider account; see [PRIVACY.md](PRIVACY.md).

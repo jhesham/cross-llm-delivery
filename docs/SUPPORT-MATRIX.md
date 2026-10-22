@@ -1,6 +1,9 @@
 # Current support and evidence matrix
 
-Updated 2026-10-04 for **v0.4.2**. Lead host and executor provider are independent
+Live observations below were recorded for **v0.4.2** on 2026-10-04 and are not
+re-run for each release; the [v0.5.0 publication record](plans/evidence-mode/PUBLICATION-0.5.0.md)
+adds the evidence-mode live test (Windows, PostgreSQL, Codex executor). Packaging
+follows `VERSION`. Lead host and executor provider are independent
 choices. Every pair below has a generated standalone bundle; plugin packaging
 exists for both hosts. Packaging and offline tests do not establish discovery,
 account/model access, live platform behavior or current vendor compatibility.

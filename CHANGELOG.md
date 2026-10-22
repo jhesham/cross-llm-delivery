@@ -6,6 +6,27 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Added
+- Claude executor gateway mode (`CLD_CLAUDE_MODE=gateway`) for a Claude CLI routed
+  through an API gateway: keeps the gateway route, accepts gateway model IDs,
+  labels usage `gateway_api` and keys validation evidence to the gateway host.
+  Subscription mode stays the default and now refuses a gateway-routed CLI.
+- Codex executors run isolated from the user's plugins, apps, memories, hooks,
+  browser/computer use and configured MCP servers, and without bytecode or
+  pytest cache folders; Codex executors are told to run tests through `cmd /c`
+  on Windows.
+
+### Fixed
+- Git warnings on stderr no longer corrupt NUL-delimited output during candidate
+  capture; capture errors include the warning, and an unreadable non-cache
+  folder fails closed by name.
+- A successful Codex turn is no longer reported as an authentication failure
+  because of an unrelated 401 in stderr, and known usage is kept when a run fails.
+- A recovery session always reaches a terminal state, even when its failure
+  checkpoint cannot be captured.
+- The Codex skills installer falls back to a verified copy when Windows denies
+  the final rename into a watched skills folder.
+
 ## 0.5.0 — 2026-10-22
 
 ### Added

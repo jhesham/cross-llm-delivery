@@ -80,6 +80,16 @@ in generated `references/provider-setup.md`.
 
 ## Codex Windows sandbox setup
 
+Inside the Codex Windows sandbox, PowerShell can report
+`Access is denied` while reading the console output buffer after a command has
+already succeeded, which makes executors retry and spend more tokens. CLD tells
+Codex executors to run test and Python commands through `cmd /c`; the underlying
+issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
+(for example a `.pytest_cache` left by an older CLD) can be unreadable and
+undeletable for the host user; removing them needs an administrator. CLD
+tolerates unreadable cache folders when capturing a candidate and fails closed
+(naming the folder) for any other unreadable folder.
+
 For backup, fallback, model-free checks and rollback instructions, see
 [Codex Windows sandbox troubleshooting](docs/CODEX-WINDOWS-TROUBLESHOOTING.md).
 
@@ -117,9 +127,14 @@ fixture checks. No paid retry was performed.
 
 ## Claude Code executor
 
-The `claude` executor bills only the logged-in Claude subscription
+By default the `claude` executor bills only the logged-in Claude subscription
 (`authMethod: "claude.ai"`); API-key variables are removed from its
-environment. Its shell is **not sandboxed** and runs with the user's
+environment, and a CLI routed through a gateway (`ANTHROPIC_BASE_URL` in the
+environment or Claude's `settings.json`) is refused, because removing variables
+cannot stop settings-file routing. Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`)
+keeps the gateway route, accepts gateway model IDs, labels usage `gateway_api`
+and keys validation evidence to the gateway hostname; billing is whatever the
+gateway charges. Its shell is **not sandboxed** and runs with the user's
 privileges, like OpenCode, Cursor and Antigravity. Each dispatch is an isolated
 `claude -p --safe-mode --restricted` session with no hooks, plugins, skills,
 MCP servers, CLAUDE.md or saved session. The CLI's dollar figure is recorded as
