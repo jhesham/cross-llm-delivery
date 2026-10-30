@@ -66,7 +66,7 @@ def test_verify_citations_reports_missing_file():
     problems = resolve(C, "verify_citations")(TEXT, FRESH, runner=gh)
     assert len(problems) == 1 and "src/missing.py" in problems[0]
     assert all("ref=0123456789ab" in " ".join(call) for call in gh.calls)
-    assert all("--hostname" in call and "git.example.com" in call for call in gh.calls)
+    assert all(call[call.index("--hostname") + 1] == "git.example.com" for call in gh.calls)
 
 
 def test_verify_citations_requires_freshness_entry():
