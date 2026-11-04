@@ -27,10 +27,10 @@ engine files must match. Stop active writers before replacing an installation
 and preserve the old folders/configuration as backups. Restart the lead host
 after installing/updating.
 
-For version 0.5.2, download the coherent host bundle set from the
-[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.2)
+For version 0.5.3, download the coherent host bundle set from the
+[versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.3)
 and verify its SHA-256 manifest. The
-[publication record](docs/plans/v0.5.2/PUBLICATION-0.5.2.md) records
+[publication record](docs/plans/v0.5.3/PUBLICATION-0.5.3.md) records
 verification of the tagged source and downloadable assets. The complete set
 contains ten standalone bundles: five providers for each of the two lead hosts.
 
