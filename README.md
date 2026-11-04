@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/cld-icon.svg" alt="Cross-LLM Delivery icon" width="128" height="128">
+</p>
+
 # cross-llm-delivery (`cld`)
 
 Cross-LLM Delivery lets **Codex or Claude Code lead a build** while a selected
