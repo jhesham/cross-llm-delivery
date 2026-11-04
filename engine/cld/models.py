@@ -37,9 +37,13 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
         name, model = value, ""
     name, model = name.strip().lower(), model.strip()
     if name == "claude":
-        # Exact IDs only: aliases like "sonnet" move under stored validation evidence.
-        if not re.fullmatch(r"claude-[a-z0-9][a-z0-9.-]*", model):
-            raise ValueError("claude requires an exact model ID such as claude-sonnet-5; aliases are not accepted")
+        from cld_providers.claude.contract import validate_claude_model
+        from cld_providers.claude.preflight import claude_mode
+        mode = claude_mode(os.environ)
+        try:
+            validate_claude_model(model, gateway=(mode == "gateway"))
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
         if effort not in ("low", "medium", "high", "xhigh", "max"):
             raise ValueError("claude requires an explicit effort: --executor "
                              "claude:<exact-model-id>@<low|medium|high|xhigh|max>")
