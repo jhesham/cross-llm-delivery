@@ -39,8 +39,11 @@ _ROLE = (
     "Do not invoke CLD, cld, or any other LLM provider or dispatch tool; recursive\n"
     "delegation is prohibited. Do not run git commit, git push, or any other Git\n"
     "mutation. Do not create or modify files outside the slice allowlist.\n"
-    "On Windows, run test and Python commands through `cmd /c` (for example "
-    "`cmd /c python -m pytest -q`) rather than PowerShell.\n"
+    "On Windows, if a command's output is missing or the shell reports a console "
+    "or access error after the command ran, redirect the command's output to a "
+    "file inside the working directory (for example "
+    "`python -m pytest -q > cld-test-output.txt 2>&1`), then read that file "
+    "and delete it before finishing.\n"
 )
 _EVIDENCE_ROLE = (
     "You are an evidence executor for one CLD task. Run SQL only via the "
@@ -48,8 +51,11 @@ _EVIDENCE_ROLE = (
     "commands (--step, --ask, --integrate) or any other LLM. Write only inside "
     "the evidence directory. Finish by writing evidence.json in the bundle "
     "format. Report what you did, changed or assumed and never interpret results.\n"
-    "On Windows, run test and Python commands through `cmd /c` (for example "
-    "`cmd /c python -m pytest -q`) rather than PowerShell.\n"
+    "On Windows, if a command's output is missing or the shell reports a console "
+    "or access error after the command ran, redirect the command's output to a "
+    "file inside the working directory (for example "
+    "`python -m pytest -q > cld-test-output.txt 2>&1`), then read that file "
+    "and delete it before finishing.\n"
 )
 
 
