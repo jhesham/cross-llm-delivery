@@ -47,12 +47,6 @@ def test_invocation_env_suppresses_bytecode_and_pytest_cache(tmp_path):
     assert "-p no:cacheprovider" in call.env.get("PYTEST_ADDOPTS", "")
 
 
-def test_role_tells_windows_executors_to_run_tests_through_cmd(tmp_path):
-    (tmp_path / ".git").mkdir()
-    stdin = resolve(C, "build_invocation")("gpt-example", tmp_path, "p").stdin
-    assert "cmd /c" in stdin
-
-
 def test_executor_dispatch_carries_isolation(repo, tmp_path, monkeypatch):  # noqa: F811
     from cld_providers.codex.provider import CodexExecutor
     monkeypatch.setenv("CODEX_HOME", str(_codex_home(tmp_path, '[mcp_servers.docs]\ncommand = "x"\n')))

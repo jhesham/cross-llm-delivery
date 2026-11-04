@@ -6,6 +6,24 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.2 — 2026-11-04
+
+### Fixed
+- Claude gateway mode now accepts gateway model IDs end to end: the spec parser
+  and the Claude contract share one mode-aware model-ID check, so
+  `claude:global.anthropic.claude-opus-5-5@low` is no longer rejected before
+  dispatch. `--dry-run` now checks executor specs (model IDs, Claude and Codex
+  efforts, the Codex fast tier) without model calls, and specs containing control
+  characters are rejected instead of trimmed.
+- The validation probe repository has its own `pytest.ini`, so an executor's test
+  runs inside the probe never pick up the target repository's pytest
+  configuration.
+- Codex executors are no longer told to use `cmd /c` on Windows (Codex runs every
+  command through PowerShell). Each dispatch gets a private scratch folder outside
+  the worktree, granted as a writable root and removed afterwards; when a command's
+  output is missing, the executor redirects it there and reads it, so output files
+  never touch tracked files or the candidate diff.
+
 ## 0.5.1 — 2026-10-22
 
 ### Added
