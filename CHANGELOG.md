@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.3 — 2026-11-04
+
 ### Changed
 - Telemetry export no longer reads or builds credentials. OTLP export uses only
   `OTEL_EXPORTER_OTLP_ENDPOINT`; the `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`
