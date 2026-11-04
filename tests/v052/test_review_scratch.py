@@ -39,9 +39,10 @@ def test_dispatch_uses_a_scratch_folder_outside_the_worktree_and_removes_it(repo
 
     def write(cwd):
         seen["env"] = dict(runner.calls[-1][2].get("env") or {})
-        scratch = Path(seen["env"].get("CLD_SCRATCH_DIR", ""))
+        value = seen["env"].get("CLD_SCRATCH_DIR")
+        scratch = Path(value) if value else None
         seen["scratch"] = scratch
-        if scratch.is_dir():
+        if scratch is not None and scratch.is_dir():
             (scratch / "out.txt").write_text("1 passed", encoding="utf-8")
         (cwd / "value.py").write_text("VALUE = 2\n", encoding="utf-8")
 
