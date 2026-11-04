@@ -11,7 +11,8 @@ class Failing:
 
 class Passing:
     def run(self, task, workdir, feedback=None):
-        (workdir / "calc.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+        from pathlib import Path
+        (Path(workdir) / "calc.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
         from cld.executors._capture import capture_diff
         from cld.cli import git_runner
         diff, files = capture_diff(git_runner, str(workdir))
