@@ -6,6 +6,8 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.2 — 2026-11-04
+
 ### Fixed
 - Claude gateway mode now accepts gateway model IDs end to end: the spec parser
   and the Claude contract share one mode-aware model-ID check, so
