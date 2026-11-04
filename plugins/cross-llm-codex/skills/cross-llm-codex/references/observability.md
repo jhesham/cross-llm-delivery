@@ -51,8 +51,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
 
 ### Backends that need credentials (Langfuse, Honeycomb, Grafana Cloud)
 
-CLD never reads or sends credentials: it passes only `OTEL_EXPORTER_OTLP_ENDPOINT` to the
-exporter. For a backend that needs keys, run a local
+CLD looks up no credentials: it passes only `OTEL_EXPORTER_OTLP_ENDPOINT` to the exporter. For a backend that needs keys, run a local
 [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that holds them and point CLD
 at it. For Langfuse, a minimal collector configuration:
 
@@ -67,6 +66,7 @@ exporters:
     endpoint: https://cloud.langfuse.com/api/public/otel   # or your self-hosted Langfuse
     headers:
       Authorization: "Basic ${env:LANGFUSE_AUTH}"         # base64 of "<public key>:<secret key>"
+      x-langfuse-ingestion-version: "4"                     # per Langfuse's OpenTelemetry guide
 service:
   pipelines:
     traces:
@@ -78,9 +78,10 @@ service:
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
 ```
 
-The keys stay with the collector process. The OpenTelemetry SDK also honours the standard
-`OTEL_EXPORTER_OTLP_HEADERS` variable on its own if you prefer to export directly; CLD's code
-does not read it.
+Set `LANGFUSE_AUTH` in the collector's environment; the keys stay with the collector
+process. Exporting directly also works: the OpenTelemetry SDK applies the standard
+`OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_EXPORTER_OTLP_TRACES_HEADERS` variables on its own (CLD
+does not read them), so anything you put there is sent with every export.
 
 ### Self-host without credentials (Grafana Tempo / Jaeger)
 

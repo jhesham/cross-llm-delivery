@@ -58,14 +58,19 @@ def test_otel_target_none_when_unconfigured():
     assert _otel_target_from_env({}) is None
 
 
-def test_otel_live_export_round_trip():
-    """End-to-end: OtelSink -> OTLP/HTTP exporter -> a real span POST to the configured
-    endpoint, with no credentials added by CLD. Uses a loopback HTTP collector so no
-    external backend is needed."""
+HEADER_VARIABLES = ("OTEL_EXPORTER_OTLP_HEADERS", "OTEL_EXPORTER_OTLP_TRACES_HEADERS")
+
+
+def _export_one_span(monkeypatch, headers_env):
+    """Export one span to a loopback collector through _maybe_otel_sink and return the POSTs.
+
+    Every header variable is cleared or set to synthetic values first, so an ambient token
+    can never reach the collector or a failure message."""
     pytest.importorskip("opentelemetry.exporter.otlp.proto.http.trace_exporter")
     import threading
     import time
     from http.server import BaseHTTPRequestHandler, HTTPServer
+    from skill.scripts import run_delivery
 
     received = []
 
@@ -84,30 +89,41 @@ def test_otel_live_export_round_trip():
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
-        from skill.scripts.run_delivery import _otel_target_from_env
-        endpoint = _otel_target_from_env({
-            "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{port}/v1/traces"})
-
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from cld.telemetry import OtelSink
-
-        prov = TracerProvider()
-        prov.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
-        sink = OtelSink(tracer=prov.get_tracer("cld"))
+        for name in HEADER_VARIABLES:
+            monkeypatch.delenv(name, raising=False)
+        for name, value in headers_env.items():
+            monkeypatch.setenv(name, value)
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")
+        sink = run_delivery._maybe_otel_sink()
+        assert sink is not None, "OTLP sink was not built"
         sink.emit({"type": "dispatch_start", "slice_id": "T1", "model": "m",
                    "rung": "workhorse", "source": "tag"})
         sink.emit({"type": "dispatch_end", "slice_id": "T1", "model": "m", "rc": 0,
                    "tokens": {"input": 10, "output": 5, "total": 15}, "ms": 100})
-        prov.force_flush()
+        sink.close()
 
-        deadline = time.time() + 3
+        deadline = time.time() + 5
         while not received and time.time() < deadline:
             time.sleep(0.05)
-        assert received, "no OTLP export POST received"
-        path, auth, size = received[0]
-        assert size > 0 and path.endswith("/v1/traces")
-        assert auth is None
+        return received
     finally:
         srv.shutdown()
+
+
+def test_otel_live_export_round_trip(monkeypatch):
+    """End-to-end: CLD's sink -> OTLP/HTTP exporter -> a real span POST to the configured
+    endpoint, with no credentials added by CLD. Uses a loopback HTTP collector so no
+    external backend is needed."""
+    received = _export_one_span(monkeypatch, {})
+    assert received, "no OTLP export POST received"
+    path, auth, size = received[0]
+    assert size > 0 and path.endswith("/v1/traces")
+    assert auth is None
+
+
+def test_sdk_applies_the_standard_headers_variable_itself(monkeypatch):
+    """Documented boundary: CLD reads no header variable, but the OpenTelemetry SDK applies
+    OTEL_EXPORTER_OTLP_HEADERS on its own. Synthetic value only."""
+    received = _export_one_span(monkeypatch, {"OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer%20synthetic"})
+    assert received, "no OTLP export POST received"
+    assert received[0][1] == "Bearer synthetic"

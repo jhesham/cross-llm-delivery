@@ -7,13 +7,15 @@ changes land; on a release, rename that section to the version + date. Plugin in
 ## [Unreleased]
 
 ### Changed
-- CLD's own code no longer reads credentials from the environment. OTLP export
-  uses only `OTEL_EXPORTER_OTLP_ENDPOINT`; the `LANGFUSE_PUBLIC_KEY` /
-  `LANGFUSE_SECRET_KEY` shortcut and CLD's parsing of `OTEL_EXPORTER_OTLP_HEADERS`
-  are removed. To export to Langfuse or another backend that needs keys, run a
-  local OpenTelemetry Collector that holds them (recipe in
-  `references/observability.md`); the OpenTelemetry SDK still honours the
-  standard headers variable on its own.
+- Telemetry export no longer reads or builds credentials. OTLP export uses only
+  `OTEL_EXPORTER_OTLP_ENDPOINT`; the `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`
+  shortcut and CLD's parsing of `OTEL_EXPORTER_OTLP_HEADERS` are removed. To export
+  to Langfuse or another backend that needs keys, run a local OpenTelemetry
+  Collector that holds them (recipe in `references/observability.md`). The
+  OpenTelemetry SDK still applies the standard OTLP header variables on its own if
+  you set them. CLD's code now makes no explicit lookup of a credential variable;
+  validation identity still hashes provider variables locally (unchanged, see
+  PRIVACY.md), and executor CLIs read their own credentials.
 - The optional DeepEval grading facility takes the judge's API key as an
   explicit `api_key` argument instead of reading `ANTHROPIC_API_KEY`.
 

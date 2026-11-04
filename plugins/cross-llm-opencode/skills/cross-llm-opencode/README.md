@@ -49,8 +49,9 @@ There is no publisher-operated service to use or sign up for. Not all network
 traffic goes through one CLI: the selected executor can send prompts and
 repository content to its configured provider/endpoints; optional DeepEval
 Anthropic grading uses an API key the calling code passes in; OTLP export, when
-`OTEL_EXPORTER_OTLP_ENDPOINT` is set (with the OpenTelemetry SDK installed),
-sends dispatch metadata; and project subprocesses can use the network too.
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set (with the OpenTelemetry SDK installed; CLD
+adds no credentials, but the SDK applies the standard OTLP header variables if
+you set them), sends dispatch metadata; and project subprocesses can use the network too.
 Local events are always recorded during execution; those events are not
 exported externally unless telemetry export is configured. Logs and provider output may contain sensitive
 data and are not guaranteed to be redacted. Do not paste secrets into plans,
