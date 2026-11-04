@@ -75,6 +75,7 @@ def _init_repo(repo: str, git_runner) -> None:
     (Path(repo) / ".git" / "cld-empty-hooks").mkdir(exist_ok=True)
     (Path(repo) / "test_calc.py").write_text(_TEST_SRC, encoding="utf-8")
     (Path(repo) / "calc.py").write_text("def add(a, b):\n    return None\n", encoding="utf-8")
+    (Path(repo) / "pytest.ini").write_text("[pytest]\naddopts =\n", encoding="utf-8")
     (Path(repo) / ".gitignore").write_text(".cld/\n__pycache__/\n.pytest_cache/\n", encoding="utf-8")
     checked(git_runner, repo, "add", "-A")
     checked(git_runner, repo, "commit", "-qm", "init")
