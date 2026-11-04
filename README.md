@@ -33,16 +33,16 @@ The lead host and implementation provider are separate choices:
 | Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
 | Claude Code, using a Claude skill or plugin | The same five providers and engine |
 
-Version **0.5.2** supports both lead hosts and five executor providers,
+Version **0.5.3** supports both lead hosts and five executor providers,
 including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
-Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.2)
+Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.3)
 for a fixed source revision. The Claude-only root marketplace is read from `main`;
 both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
 updates stay pinned until the manifest version changes (local in-place profiles can
 differ). Maintainers bump `VERSION` through the existing checked release workflow for
 distributable plugin updates; adding the current version is not a new release.
-[Publication verification record](docs/plans/v0.5.2/PUBLICATION-0.5.2.md).
+[Publication verification record](docs/plans/v0.5.3/PUBLICATION-0.5.3.md).
 
 ## What installing and using it does
 
