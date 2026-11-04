@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">Cross-LLM Delivery</title>
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#1f2937"/>
+  <path d="M136 176 L232 256 L136 336" fill="none" stroke="#f9fafb" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="264" y="316" width="128" height="40" rx="20" fill="#34d399"/>
+</svg>

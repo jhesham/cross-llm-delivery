@@ -1,5 +1,12 @@
 # Current handoff
 
+> **Repository branding (2026-11-04):** Added the existing CLD SVG mark at
+> `docs/assets/cld-icon.svg` and displayed it above the README title. The SVG is
+> byte-identical to `ICON_SVG` in the plugin generator. Publication uses the
+> existing checked snapshot sync to `main`; no engine, plugin, or release-version
+> changes are needed. This updates the repository page; GitHub's social-preview
+> setting is separate. No executor/model dispatch is involved.
+
 > **Plugin metadata completed locally (2026-10-04):** Both hosts' generated
 > manifests now read `VERSION` and include homepage/repository/MIT/public author
 > contact. The public publisher name is provisionally the existing GitHub owner,
