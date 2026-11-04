@@ -214,37 +214,25 @@ def _layer_gate(result) -> str:
 
 
 def _otel_target_from_env(env=None):
-    """Resolve (endpoint, headers) for OTLP trace export from env, or None. Encodes the
-    Langfuse keys-convenience. Pure (env in -> target out) so it's unit-testable."""
-    import base64
+    """Return the configured OTLP endpoint, or None when it is unset or blank.
+
+    CLD sends no credentials. A local OpenTelemetry Collector can hold backend keys.
+    Pure (env in -> target out) so it's unit-testable.
+    """
     env = env if env is not None else os.environ
-    headers = {}
-    raw = env.get("OTEL_EXPORTER_OTLP_HEADERS")
-    if raw:
-        for pair in raw.split(","):
-            if "=" in pair:
-                k, v = pair.split("=", 1)
-                headers[k.strip()] = v.strip()
-    endpoint = env.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if not endpoint:
-        pk, sk = env.get("LANGFUSE_PUBLIC_KEY"), env.get("LANGFUSE_SECRET_KEY")
-        if pk and sk:
-            host = env.get("LANGFUSE_HOST", "https://cloud.langfuse.com").rstrip("/")
-            endpoint = f"{host}/api/public/otel/v1/traces"
-            token = base64.b64encode(f"{pk}:{sk}".encode()).decode()
-            headers.setdefault("Authorization", f"Basic {token}")
-    if not endpoint:
-        return None
-    return endpoint, headers
+    endpoint = (env.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip()
+    return endpoint or None
 
 
 def _maybe_otel_sink():
-    """Build an OtelSink wired to the env-configured OTLP endpoint, or None. Guarded:
-    a missing target, SDK, or exporter => None (JSONL stays the only sink). Never raises."""
-    target = _otel_target_from_env()
-    if target is None:
+    """Build an OtelSink for the configured endpoint, or None.
+
+    CLD sends no credentials; a collector can hold backend keys. A missing endpoint,
+    SDK, or exporter leaves JSONL as the only sink. Never raises.
+    """
+    endpoint = _otel_target_from_env()
+    if endpoint is None:
         return None
-    endpoint, headers = target
     try:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -252,7 +240,7 @@ def _maybe_otel_sink():
         from cld.telemetry import OtelSink
         provider = TracerProvider()
         provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, headers=headers or None)))
+            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
         return OtelSink(tracer=provider.get_tracer("cld"), close_fn=provider.shutdown)
     except Exception:
         return None
@@ -260,16 +248,16 @@ def _maybe_otel_sink():
 
 def _otel_status_line() -> str:
     """One-line OTLP export status for the build header."""
-    target = _otel_target_from_env()
-    if target is None:
-        return ("otel: OFF (set OTEL_EXPORTER_OTLP_ENDPOINT, or LANGFUSE_PUBLIC_KEY+"
-                "LANGFUSE_SECRET_KEY; see references/observability.md)")
+    endpoint = _otel_target_from_env()
+    if endpoint is None:
+        return ("otel: OFF (set OTEL_EXPORTER_OTLP_ENDPOINT, for example a local "
+                "OpenTelemetry Collector; see references/observability.md)")
     try:
         import opentelemetry.sdk  # noqa: F401
         import opentelemetry.exporter.otlp.proto.http  # noqa: F401
-        return f"otel: ON -> {target[0]}"
+        return f"otel: ON -> {endpoint}"
     except Exception:
-        return (f"otel: configured ({target[0]}) but SDK missing — "
+        return (f"otel: configured ({endpoint}) but SDK missing — "
                 "pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
 
 

@@ -19,10 +19,12 @@ def test_behavioral_eval_smoke_claude_judge():
     if not os.environ.get("ANTHROPIC_API_KEY"):
         pytest.skip("ANTHROPIC_API_KEY not set; Claude-judge behavioral eval skipped")
 
-    from cld.behavioral import evaluate_compliance
+    from cld.behavioral import evaluate_compliance, make_compliance_metric
 
     spec = "Write a function add(a, b) that returns the sum of a and b."
     code = "def add(a, b):\n    return a + b\n"
-    result = evaluate_compliance(spec, code)  # real Claude judge via G-Eval
+    # The library takes the judge's key explicitly; this opt-in test supplies it.
+    metric = make_compliance_metric(api_key=os.environ["ANTHROPIC_API_KEY"])
+    result = evaluate_compliance(spec, code, metric=metric)  # real Claude judge via G-Eval
     assert result.score >= 0.5
     assert isinstance(result.reason, str)

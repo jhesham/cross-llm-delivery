@@ -68,8 +68,8 @@ selected bundle's `references/provider-setup.md` for each provider's details.
 | Recipient | When | What |
 |---|---|---|
 | Your selected executor provider (through its CLI and your configured endpoints) | Dispatch and validation (`--step`, validation probes) | Prompts, slice briefs, repository content the CLI reads, and whatever the CLI itself sends under its own policy |
-| Anthropic API | Only if you use the optional DeepEval behavioral grading library facility with `ANTHROPIC_API_KEY` set | Grading inputs |
-| Your configured OTLP endpoint (or Langfuse) | Only if `OTEL_EXPORTER_OTLP_ENDPOINT` (with optional `OTEL_EXPORTER_OTLP_HEADERS`) or `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` is set and the OpenTelemetry SDK is installed | Dispatch span metadata (see below) |
+| Anthropic API | Only if code using the optional DeepEval behavioral grading library facility passes it an API key | Grading inputs |
+| Your configured OTLP endpoint | Only if `OTEL_EXPORTER_OTLP_ENDPOINT` is set and the OpenTelemetry SDK is installed. CLD's telemetry setup reads only the endpoint and adds no credentials, but the OpenTelemetry SDK applies `OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_EXPORTER_OTLP_TRACES_HEADERS` on its own if they are set; leave them unset and put a backend that needs keys behind a local OpenTelemetry Collector to keep credentials off this path | Dispatch span metadata, plus any headers the SDK applies (see below) |
 | Anything your project's tests, hooks or commands contact | Acceptance/integration runs | Whatever those subprocesses send; they run with your privileges and network access |
 | The project publisher | Only when you post an issue, pull request or private security report | What you choose to include |
 
@@ -134,8 +134,9 @@ through your own tools.
 
 - Choose which executor, model and endpoints receive data; preview with
   `--dry-run --json`, which makes no executor call.
-- Leave OTLP/Langfuse variables and `ANTHROPIC_API_KEY` unset to avoid those
-  optional exports/grading.
+- Leave `OTEL_EXPORTER_OTLP_ENDPOINT` unset to avoid the optional export (and the
+  OTLP header variables unset so no credential travels with it), and do not pass an
+  API key to the optional grading facility.
 - **Do not paste secrets** into plans, briefs, tests, logs, support requests,
   issues or submission files. Briefs and repository content are sent to the
   selected provider.

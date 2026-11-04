@@ -17,9 +17,11 @@ plus a deterministic local marketplace catalog alongside them:
 Codex mode reads <dist-root>/codex/cross-llm-<p> (build with
 `python generator/build_skill.py --all --host codex` first), preflights all three input
 bundles before changing any output, and never touches an adjacent Claude plugin tree.
-Its manifest carries the official schema URL, the existing plugin name, the VERSION
-semantic version, description, public author/homepage/repository/license metadata and
-namespaced presentation fields (extensions.com.openai.interface) with a generated
+Claude Code manifests include plugin-directory displayName, documentationUrl,
+privacyPolicyUrl and keywords fields. The Codex manifest carries the official schema
+URL, the existing plugin name, the VERSION semantic version, description, public
+author/homepage/repository/license metadata and namespaced presentation fields
+(extensions.com.openai.interface) with a generated
 ./assets/cld-icon.svg; it claims no submission, approval or readiness that has not been
 validated.
 
@@ -73,6 +75,11 @@ PROJECT_URL = "https://github.com/jhesham/cross-llm-delivery"
 PUBLISHER = "jhesham"
 AUTHOR = {"name": PUBLISHER, "url": "https://github.com/jhesham"}
 LISTING = {"homepage": PROJECT_URL, "repository": PROJECT_URL, "license": "MIT"}
+CLAUDE_DIRECTORY_LISTING = {
+    "documentationUrl": f"{PROJECT_URL}#readme",
+    "privacyPolicyUrl": f"{PROJECT_URL}/blob/main/PRIVACY.md",
+    "keywords": ["cross-llm", "delegation", "acceptance-tests", "git-worktrees", "test-gated"],
+}
 PROVIDER_LABELS = {
     "antigravity": "Antigravity",
     "opencode": "OpenCode",
@@ -201,6 +208,9 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
             "description": DESCRIPTIONS[p],
             "author": dict(AUTHOR),
             **LISTING,
+            "displayName": f"Cross-LLM {PROVIDER_LABELS[p]}",
+            **{**CLAUDE_DIRECTORY_LISTING,
+               "keywords": [*CLAUDE_DIRECTORY_LISTING["keywords"], p]},
         }
         (plug / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")

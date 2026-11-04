@@ -6,6 +6,26 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.3 — 2026-11-04
+
+### Changed
+- Telemetry export no longer reads or builds credentials. OTLP export uses only
+  `OTEL_EXPORTER_OTLP_ENDPOINT`; the `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`
+  shortcut and CLD's parsing of `OTEL_EXPORTER_OTLP_HEADERS` are removed. To export
+  to Langfuse or another backend that needs keys, run a local OpenTelemetry
+  Collector that holds them (recipe in `references/observability.md`). The
+  OpenTelemetry SDK still applies the standard OTLP header variables on its own if
+  you set them. CLD's telemetry setup reads only the endpoint and adds no
+  authentication headers. Validation fingerprinting and Claude gateway presence
+  checks still read credential values locally (unchanged, see PRIVACY.md), and
+  executor CLIs read their own credentials.
+- The optional DeepEval grading facility takes the judge's API key as an
+  explicit `api_key` argument instead of reading `ANTHROPIC_API_KEY`.
+
+### Added
+- Claude Code plugin manifests carry plugin-directory listing fields: display
+  name, documentation and privacy-policy links, and keywords.
+
 ## 0.5.2 — 2026-11-04
 
 ### Fixed

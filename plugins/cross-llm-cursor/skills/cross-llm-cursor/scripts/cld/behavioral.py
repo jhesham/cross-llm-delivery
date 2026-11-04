@@ -1,5 +1,4 @@
 import dataclasses
-import os
 
 try:  # deepeval is an OPTIONAL dependency — behavioral judging is off without it
     from deepeval.metrics import GEval
@@ -27,17 +26,16 @@ class BehavioralResult:
     reason: str = ""
 
 
-def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8):
+def make_compliance_metric(*, judge_model="claude-sonnet-4-6", threshold=0.8,
+                           api_key: str | None = None):
     """Build the code-compliance G-Eval metric judged by Claude (no OpenAI).
 
-    `AnthropicModel` requires an API key at construction time. When ANTHROPIC_API_KEY
-    is absent (offline tests that inject a fake metric and never call the judge), we
-    pass a scoped placeholder so the object constructs — it is never used unless
-    `.measure()` actually runs, which only happens with a real key present. This keeps
-    the workaround local to the factory instead of a module-import side effect.
+    The caller passes the judge's API key explicitly. If none is provided, the existing
+    offline placeholder lets the model object be constructed without reading credentials
+    from the environment.
     """
     _require_deepeval()
-    api_key = os.environ.get("ANTHROPIC_API_KEY") or "offline-placeholder"
+    api_key = api_key if api_key is not None else "offline-placeholder"
     return GEval(
         name="Architectural Compliance",
         criteria=(
