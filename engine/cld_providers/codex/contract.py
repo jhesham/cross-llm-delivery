@@ -39,11 +39,6 @@ _ROLE = (
     "Do not invoke CLD, cld, or any other LLM provider or dispatch tool; recursive\n"
     "delegation is prohibited. Do not run git commit, git push, or any other Git\n"
     "mutation. Do not create or modify files outside the slice allowlist.\n"
-    "On Windows, if a command's output is missing or the shell reports a console "
-    "or access error after the command ran, redirect the command's output to a "
-    "file inside the working directory (for example "
-    "`python -m pytest -q > cld-test-output.txt 2>&1`), then read that file "
-    "and delete it before finishing.\n"
 )
 _EVIDENCE_ROLE = (
     "You are an evidence executor for one CLD task. Run SQL only via the "
@@ -51,11 +46,6 @@ _EVIDENCE_ROLE = (
     "commands (--step, --ask, --integrate) or any other LLM. Write only inside "
     "the evidence directory. Finish by writing evidence.json in the bundle "
     "format. Report what you did, changed or assumed and never interpret results.\n"
-    "On Windows, if a command's output is missing or the shell reports a console "
-    "or access error after the command ran, redirect the command's output to a "
-    "file inside the working directory (for example "
-    "`python -m pytest -q > cld-test-output.txt 2>&1`), then read that file "
-    "and delete it before finishing.\n"
 )
 
 
@@ -131,7 +121,8 @@ def _single_line(name, value):
 
 def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
                      sandbox="workspace-write", depth=0, evidence=False,
-                     full_access=False, isolation: Sequence[str] = ()):
+                     full_access=False, isolation: Sequence[str] = (),
+                     scratch_dir: Path | None = None):
     """Fresh explicit invocation: no resume/--last, no positional prompt, no shell."""
     if type(depth) is not int or depth != 0:
         raise CodexContractError(f"Codex executors cannot dispatch recursively; depth must be 0, got {depth!r}")
@@ -169,12 +160,24 @@ def build_invocation(model, cwd, prompt, *, effort=None, service_tier=None,
     if service_tier is not None:
         argv += ["--config", f'service_tier="{service_tier}"']
     argv.extend(isolation)
+    env = {"CLD_EXECUTOR_DEPTH": "1", "PYTHONDONTWRITEBYTECODE": "1",
+           "PYTEST_ADDOPTS": "-p no:cacheprovider"}
+    scratch_folder = "the folder in the CLD_SCRATCH_DIR environment variable"
+    if scratch_dir is not None:
+        scratch_path = json.dumps(scratch_dir.as_posix(), ensure_ascii=False)
+        argv += ["--config", f"sandbox_workspace_write.writable_roots=[{scratch_path}]"]
+        env["CLD_SCRATCH_DIR"] = str(scratch_dir)
+        scratch_folder = f'the scratch folder "{scratch_dir}"'
     argv.append("-")
     role = _EVIDENCE_ROLE if evidence else _ROLE
+    role += (
+        "On Windows, if a command's output is missing or the shell reports a console "
+        "or access error after the command ran, redirect the command's output to a "
+        f"new file inside {scratch_folder} (never the working directory), read it, "
+        "and leave it there (CLD removes the folder).\n"
+    )
     return CodexInvocation(argv=argv, stdin=role + "\n" + prompt,
-                           cwd=str(resolved), env={"CLD_EXECUTOR_DEPTH": "1",
-                                                   "PYTHONDONTWRITEBYTECODE": "1",
-                                                   "PYTEST_ADDOPTS": "-p no:cacheprovider"})
+                           cwd=str(resolved), env=env)
 
 
 @dataclass(frozen=True)
