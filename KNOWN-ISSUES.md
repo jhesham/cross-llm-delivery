@@ -85,9 +85,10 @@ Inside the Codex Windows sandbox, PowerShell can report
 already succeeded, which makes executors retry and spend more tokens: in one
 measured run most commands failed this way and a one-line fix cost about 318k
 tokens. Codex wraps every command in PowerShell and offers no setting to change
-the shell, so `cmd /c` does not help. CLD tells Codex executors that, when a
-command's output is missing, they should redirect it to a file in the working
-directory and read the file. The underlying issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
+the shell, so `cmd /c` does not help. CLD gives each Codex dispatch a private
+scratch folder outside the worktree (granted as a writable root, named in
+`CLD_SCRATCH_DIR`, removed afterwards) and tells the executor to redirect a
+command's output there and read it when the output is missing. The underlying issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
 (for example a `.pytest_cache` left by an older CLD) can be unreadable and
 undeletable for the host user; removing them needs an administrator. CLD
 tolerates unreadable cache folders when capturing a candidate and fails closed
