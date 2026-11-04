@@ -1050,10 +1050,13 @@ def _gc_report(args):
 
 
 def _resolve_preview_specs(args, slices):
-    """Resolve the default executor and every explicitly pinned slice executor."""
+    """Resolve every executor spec the user gave (--executor and pinned slice executors).
+
+    A preview needs no executor, so an absent --executor is not resolved: a bundle
+    without a configured default must still preview."""
     from cld.models import resolve_spec
 
-    specs = [getattr(args, "executor", None) or _default_spec()]
+    specs = [args.executor] if getattr(args, "executor", None) else []
     specs.extend(s.executor for s in slices if s.executor)
     for spec in specs:
         resolve_spec(spec)
