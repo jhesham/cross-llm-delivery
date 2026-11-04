@@ -60,7 +60,7 @@ collects nothing by default. Not all network traffic goes through one CLI: the
 selected executor can send prompts and repository content to its configured
 provider/endpoints; optional DeepEval Anthropic grading uses an API key the
 calling code passes in; OTLP export, only when `OTEL_EXPORTER_OTLP_ENDPOINT` is
-set (with the OpenTelemetry SDK installed; CLD adds no credentials, but the SDK
+set (with the OpenTelemetry SDK installed; CLD's telemetry setup adds no credentials, but the SDK
 applies the standard OTLP header variables if you set them), sends model/slice/rung/source/attempt/status/duration/usage metadata, not raw
 prompts; project subprocesses can use the network too. Local events are always
 recorded during execution. Logs and provider output may contain sensitive data

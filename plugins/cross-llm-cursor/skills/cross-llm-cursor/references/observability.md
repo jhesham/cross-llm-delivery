@@ -51,7 +51,8 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
 
 ### Backends that need credentials (Langfuse, Honeycomb, Grafana Cloud)
 
-CLD looks up no credentials: it passes only `OTEL_EXPORTER_OTLP_ENDPOINT` to the exporter. For a backend that needs keys, run a local
+CLD's telemetry setup reads only `OTEL_EXPORTER_OTLP_ENDPOINT` and adds no credentials to the
+exporter. For a backend that needs keys, run a local
 [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that holds them and point CLD
 at it. For Langfuse, a minimal collector configuration:
 
