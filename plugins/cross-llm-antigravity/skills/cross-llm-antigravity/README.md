@@ -48,9 +48,8 @@ POSIX/macOS dispatch and full five-plugin IDE discovery remain unverified.
 There is no publisher-operated service to use or sign up for. Not all network
 traffic goes through one CLI: the selected executor can send prompts and
 repository content to its configured provider/endpoints; optional DeepEval
-Anthropic grading reads `ANTHROPIC_API_KEY`; OTLP export, when configured with
-`OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS` or
-`LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` (with the OpenTelemetry SDK),
+Anthropic grading uses an API key the calling code passes in; OTLP export, when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set (with the OpenTelemetry SDK installed),
 sends dispatch metadata; and project subprocesses can use the network too.
 Local events are always recorded during execution; those events are not
 exported externally unless telemetry export is configured. Logs and provider output may contain sensitive

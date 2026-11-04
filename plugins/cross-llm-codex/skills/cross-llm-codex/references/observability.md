@@ -49,28 +49,45 @@ pip install arize-phoenix && phoenix serve            # UI at http://localhost:6
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
 ```
 
-### Langfuse — two-keys convenience (cloud or self-hosted)
+### Backends that need credentials (Langfuse, Honeycomb, Grafana Cloud)
 
-Langfuse is OTLP-native, so it's reached through the same seam. Just set the keys — the endpoint and
-Basic-auth header are derived automatically:
+CLD never reads or sends credentials: it passes only `OTEL_EXPORTER_OTLP_ENDPOINT` to the
+exporter. For a backend that needs keys, run a local
+[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that holds them and point CLD
+at it. For Langfuse, a minimal collector configuration:
 
-```bash
-export LANGFUSE_PUBLIC_KEY=pk-lf-...
-export LANGFUSE_SECRET_KEY=sk-lf-...
-# export LANGFUSE_HOST=https://your-langfuse        # optional; defaults to cloud.langfuse.com
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
+exporters:
+  otlphttp/langfuse:
+    endpoint: https://cloud.langfuse.com/api/public/otel   # or your self-hosted Langfuse
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_AUTH}"         # base64 of "<public key>:<secret key>"
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp/langfuse]
 ```
 
-(Equivalent explicit form: `OTEL_EXPORTER_OTLP_ENDPOINT=$LANGFUSE_HOST/api/public/otel/v1/traces`
-plus `OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic <base64(pk:sk)>"`.) This replaces the old
-bespoke Langfuse Python-SDK path — there is now one OTel path for every backend.
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
+```
 
-### Self-host (Grafana Tempo / Jaeger) and hosted (Honeycomb / Grafana Cloud)
+The keys stay with the collector process. The OpenTelemetry SDK also honours the standard
+`OTEL_EXPORTER_OTLP_HEADERS` variable on its own if you prefer to export directly; CLD's code
+does not read it.
 
-Any OTLP/HTTP collector works — set the endpoint (and headers for auth):
+### Self-host without credentials (Grafana Tempo / Jaeger)
+
+Any OTLP/HTTP collector works — set the endpoint:
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io/v1/traces
-export OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=YOUR_API_KEY"
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 ```
 
 ## Verifying activation
@@ -79,7 +96,7 @@ The build header prints the live state:
 
 ```
 telemetry: .cld/events.jsonl (local)
-otel: ON -> https://cloud.langfuse.com/api/public/otel/v1/traces
+otel: ON -> http://127.0.0.1:4318/v1/traces
 ```
 
 `otel: OFF (...)` means JSONL-only (the default). Everything is **best-effort and guarded**: a missing

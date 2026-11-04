@@ -8,5 +8,16 @@
   },
   "homepage": "https://github.com/jhesham/cross-llm-delivery",
   "repository": "https://github.com/jhesham/cross-llm-delivery",
-  "license": "MIT"
+  "license": "MIT",
+  "displayName": "Cross-LLM Claude Code",
+  "documentationUrl": "https://github.com/jhesham/cross-llm-delivery#readme",
+  "privacyPolicyUrl": "https://github.com/jhesham/cross-llm-delivery/blob/main/PRIVACY.md",
+  "keywords": [
+    "cross-llm",
+    "delegation",
+    "acceptance-tests",
+    "git-worktrees",
+    "test-gated",
+    "claude"
+  ]
 }
