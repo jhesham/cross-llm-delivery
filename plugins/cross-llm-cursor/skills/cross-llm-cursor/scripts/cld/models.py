@@ -24,7 +24,10 @@ def split_executor_options(spec: str) -> tuple[str, dict]:
 def resolve_spec(spec: str) -> tuple[str, str, dict]:
     """Resolve a provider default or explicit ID without substituting providers."""
     from cld.providers_api import get_provider, default_workhorse
-    value = (spec or default_workhorse()).strip()
+    original = spec or default_workhorse()
+    if any(ord(char) < 32 or ord(char) == 127 for char in original):
+        raise ValueError("Executor spec must not contain control characters")
+    value = original.strip()
     if not value:
         raise ValueError("No executor model default is configured; pass --executor codex:<exact-model-id>@<effort>")
     value, options = split_executor_options(value)
@@ -36,6 +39,13 @@ def resolve_spec(spec: str) -> tuple[str, str, dict]:
     else:
         name, model = value, ""
     name, model = name.strip().lower(), model.strip()
+    if name == "codex":
+        from cld_providers.codex.contract import _EFFORTS
+        if effort is not None and effort not in _EFFORTS:
+            raise ValueError(f"effort must be one of {_EFFORTS}, got {effort!r}")
+        service_tier = options.get("service_tier")
+        if service_tier not in (None, "fast"):
+            raise ValueError("service_tier must be 'fast' or absent")
     if name == "claude":
         from cld_providers.claude.contract import validate_claude_model
         from cld_providers.claude.preflight import claude_mode

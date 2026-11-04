@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
+import tempfile
 
 from cld.executors._capture import CaptureError, capture_diff
 from cld.executors.base import ExecutorResult, SliceTask
@@ -156,62 +158,77 @@ class CodexExecutor:
             )
         cwd = str(Path(workdir).resolve())
 
-        # Fail on local misconfiguration before spawning any process.
-        try:
-            invocation = build_invocation(self._model, cwd, prompt,
-                                          effort=self._effort, service_tier=self._service_tier,
-                                          sandbox=self._sandbox, evidence=evidence,
-                                          full_access=full_access,
-                                          isolation=isolation_args(mcp_names))
-        except CodexContractError as exc:
+        # Command output must never become part of the candidate diff.
+        scratch_parent = (Path(self._artifact_dir).resolve()
+                          if self._artifact_dir is not None else None)
+        if scratch_parent is None or scratch_parent.is_relative_to(Path(cwd)):
+            scratch_parent = Path(tempfile.gettempdir()).resolve()
+        if scratch_parent.is_relative_to(Path(cwd)):
             return result(ok=False, diff="",
-                          raw_log=f"Refusing to build a Codex dispatch: {exc}",
+                          raw_log="Refusing scratch folder inside the worktree.",
                           process={"error": "invalid_invocation"})
-
-        process_runner = self._runner
-        if self._uses_default_process_runners:
-            try:
-                command = resolve_codex_command()
-            except CodexLauncherError as exc:
-                return result(ok=False, diff="", raw_log=str(exc),
-                              process={"error": "missing_binary"})
-            process_runner = resolved_runner(self._runner, resolve=lambda: command)
-
-        # Capability gate: feature-test the installed CLI, never infer support.
-        version = self._probe(["codex", "--version"], cwd, runner=process_runner)
-        for label, probe in (("codex --version", version),):
-            if probe.error or probe.returncode != 0:
-                error = probe.error or "nonzero_exit"
-                return result(
-                    ok=False, diff="",
-                    raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
-                             f"repair the Codex CLI and ensure it is on PATH."),
-                    process={**probe.metadata(), "error": error},
-                )
-        help_out = self._probe(["codex", "exec", "--help"], cwd, runner=process_runner)
-        for label, probe in (("codex exec --help", help_out),):
-            if probe.error or probe.returncode != 0:
-                error = probe.error or "nonzero_exit"
-                return result(
-                    ok=False, diff="",
-                    raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
-                             f"repair the Codex CLI and ensure it is on PATH."),
-                    process={**probe.metadata(), "error": error},
-                )
+        scratch_parent.mkdir(parents=True, exist_ok=True)
+        scratch_dir = Path(tempfile.mkdtemp(prefix="cld-codex-out-", dir=scratch_parent))
         try:
-            check_capabilities(version.stdout, help_out.stdout)
-        except CodexContractError as exc:
-            return result(ok=False, diff="",
-                          raw_log=f"Codex CLI capability check failed: {exc}",
-                          process={**help_out.metadata(), "error": "missing_capability"})
+            # Fail on local misconfiguration before spawning any process.
+            try:
+                invocation = build_invocation(self._model, cwd, prompt,
+                                              effort=self._effort, service_tier=self._service_tier,
+                                              sandbox=self._sandbox, evidence=evidence,
+                                              full_access=full_access,
+                                              isolation=isolation_args(mcp_names),
+                                              scratch_dir=scratch_dir)
+            except CodexContractError as exc:
+                return result(ok=False, diff="",
+                              raw_log=f"Refusing to build a Codex dispatch: {exc}",
+                              process={"error": "invalid_invocation"})
 
-        # Fresh isolated session: prompt on stdin ('-'), no resume/--last, no shell.
-        proc = process_runner(
-            invocation.argv, invocation.cwd,
-            stdin=invocation.stdin, env=invocation.env,
-            timeout=deadline_seconds(self._timeout, dispatch=True),
-            cancel=self._cancel, artifact_dir=self._artifact_dir,
-        )
+            process_runner = self._runner
+            if self._uses_default_process_runners:
+                try:
+                    command = resolve_codex_command()
+                except CodexLauncherError as exc:
+                    return result(ok=False, diff="", raw_log=str(exc),
+                                  process={"error": "missing_binary"})
+                process_runner = resolved_runner(self._runner, resolve=lambda: command)
+
+            # Capability gate: feature-test the installed CLI, never infer support.
+            version = self._probe(["codex", "--version"], cwd, runner=process_runner)
+            for label, probe in (("codex --version", version),):
+                if probe.error or probe.returncode != 0:
+                    error = probe.error or "nonzero_exit"
+                    return result(
+                        ok=False, diff="",
+                        raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
+                                 f"repair the Codex CLI and ensure it is on PATH."),
+                        process={**probe.metadata(), "error": error},
+                    )
+            help_out = self._probe(["codex", "exec", "--help"], cwd, runner=process_runner)
+            for label, probe in (("codex exec --help", help_out),):
+                if probe.error or probe.returncode != 0:
+                    error = probe.error or "nonzero_exit"
+                    return result(
+                        ok=False, diff="",
+                        raw_log=(f"Codex CLI probe '{label}' failed ({error}); install or "
+                                 f"repair the Codex CLI and ensure it is on PATH."),
+                        process={**probe.metadata(), "error": error},
+                    )
+            try:
+                check_capabilities(version.stdout, help_out.stdout)
+            except CodexContractError as exc:
+                return result(ok=False, diff="",
+                              raw_log=f"Codex CLI capability check failed: {exc}",
+                              process={**help_out.metadata(), "error": "missing_capability"})
+
+            # Fresh isolated session: prompt on stdin ('-'), no resume/--last, no shell.
+            proc = process_runner(
+                invocation.argv, invocation.cwd,
+                stdin=invocation.stdin, env=invocation.env,
+                timeout=deadline_seconds(self._timeout, dispatch=True),
+                cancel=self._cancel, artifact_dir=self._artifact_dir,
+            )
+        finally:
+            shutil.rmtree(scratch_dir, ignore_errors=True)
         metadata = dict(proc.metadata())
         output = (proc.stdout or "") + (proc.stderr or "")
         raw_log = process_feedback(output, metadata)
