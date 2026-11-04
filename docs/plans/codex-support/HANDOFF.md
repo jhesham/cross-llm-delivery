@@ -6,6 +6,8 @@
 > existing checked snapshot sync to `main`; no engine, plugin, or release-version
 > changes are needed. This updates the repository page; GitHub's social-preview
 > setting is separate. No executor/model dispatch is involved.
+> PNG and JPEG copies are also available alongside the SVG at 512 x 512 pixels;
+> PNG preserves the transparent corners, while JPEG uses a white background.
 
 > **Plugin metadata completed locally (2026-10-04):** Both hosts' generated
 > manifests now read `VERSION` and include homepage/repository/MIT/public author
