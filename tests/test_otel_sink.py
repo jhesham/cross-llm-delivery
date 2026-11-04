@@ -45,24 +45,12 @@ def test_otel_sink_is_noop_without_tracer():
     OtelSink(tracer=None).emit({"type": "dispatch_start", "slice_id": "X", "model": "m"})
 
 
-def test_otel_target_langfuse_keys_convenience():
-    import base64
-    from skill.scripts.run_delivery import _otel_target_from_env
-    env = {"LANGFUSE_PUBLIC_KEY": "pk-x", "LANGFUSE_SECRET_KEY": "sk-y",
-           "LANGFUSE_HOST": "https://h.example"}
-    endpoint, headers = _otel_target_from_env(env)
-    assert endpoint == "https://h.example/api/public/otel/v1/traces"
-    assert headers["Authorization"] == "Basic " + base64.b64encode(b"pk-x:sk-y").decode()
-
-
-def test_otel_target_explicit_endpoint_wins_over_langfuse():
+def test_otel_target_is_the_configured_endpoint_only():
     from skill.scripts.run_delivery import _otel_target_from_env
     env = {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318/v1/traces",
            "OTEL_EXPORTER_OTLP_HEADERS": "x-key=secret",
            "LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk"}
-    endpoint, headers = _otel_target_from_env(env)
-    assert endpoint == "http://collector:4318/v1/traces"
-    assert headers["x-key"] == "secret"
+    assert _otel_target_from_env(env) == "http://collector:4318/v1/traces"
 
 
 def test_otel_target_none_when_unconfigured():
@@ -71,11 +59,10 @@ def test_otel_target_none_when_unconfigured():
 
 
 def test_otel_live_export_round_trip():
-    """End-to-end: OtelSink -> OTLP/HTTP exporter -> a real span POST, with the
-    Langfuse keys-convenience deriving the endpoint + Basic-auth header. Uses a
-    loopback HTTP collector so no external backend is needed."""
+    """End-to-end: OtelSink -> OTLP/HTTP exporter -> a real span POST to the configured
+    endpoint, with no credentials added by CLD. Uses a loopback HTTP collector so no
+    external backend is needed."""
     pytest.importorskip("opentelemetry.exporter.otlp.proto.http.trace_exporter")
-    import base64
     import threading
     import time
     from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -98,9 +85,8 @@ def test_otel_live_export_round_trip():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         from skill.scripts.run_delivery import _otel_target_from_env
-        endpoint, headers = _otel_target_from_env({
-            "LANGFUSE_PUBLIC_KEY": "pk-x", "LANGFUSE_SECRET_KEY": "sk-y",
-            "LANGFUSE_HOST": f"http://127.0.0.1:{port}"})
+        endpoint = _otel_target_from_env({
+            "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{port}/v1/traces"})
 
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -108,7 +94,7 @@ def test_otel_live_export_round_trip():
         from cld.telemetry import OtelSink
 
         prov = TracerProvider()
-        prov.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=endpoint, headers=headers)))
+        prov.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
         sink = OtelSink(tracer=prov.get_tracer("cld"))
         sink.emit({"type": "dispatch_start", "slice_id": "T1", "model": "m",
                    "rung": "workhorse", "source": "tag"})
@@ -122,6 +108,6 @@ def test_otel_live_export_round_trip():
         assert received, "no OTLP export POST received"
         path, auth, size = received[0]
         assert size > 0 and path.endswith("/v1/traces")
-        assert auth == "Basic " + base64.b64encode(b"pk-x:sk-y").decode()
+        assert auth is None
     finally:
         srv.shutdown()
