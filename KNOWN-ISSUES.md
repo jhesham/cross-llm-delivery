@@ -82,9 +82,12 @@ in generated `references/provider-setup.md`.
 
 Inside the Codex Windows sandbox, PowerShell can report
 `Access is denied` while reading the console output buffer after a command has
-already succeeded, which makes executors retry and spend more tokens. CLD tells
-Codex executors to run test and Python commands through `cmd /c`; the underlying
-issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
+already succeeded, which makes executors retry and spend more tokens: in one
+measured run most commands failed this way and a one-line fix cost about 318k
+tokens. Codex wraps every command in PowerShell and offers no setting to change
+the shell, so `cmd /c` does not help. CLD tells Codex executors that, when a
+command's output is missing, they should redirect it to a file in the working
+directory and read the file. The underlying issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
 (for example a `.pytest_cache` left by an older CLD) can be unreadable and
 undeletable for the host user; removing them needs an administrator. CLD
 tolerates unreadable cache folders when capturing a candidate and fails closed
