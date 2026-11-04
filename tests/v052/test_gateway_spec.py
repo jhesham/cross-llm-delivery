@@ -1,6 +1,7 @@
 """v0.5.2 GATEWAYSPEC: gateway model IDs pass spec parsing, admission and dry runs, not just the invocation builder."""
 import json
 import subprocess
+import sys
 
 import pytest
 
@@ -117,6 +118,7 @@ def test_step_in_gateway_mode_reaches_validation_dispatch(tmp_path, capsys, monk
         made.append((name, kwargs.get("model")))
         return Declining()
 
+    monkeypatch.setattr(cli, "_resolve_cli", lambda command: sys.executable)  # CI has no claude CLI
     monkeypatch.setattr(cli, "_preflight_executor", lambda spec: None)
     monkeypatch.setattr(cli, "get_executor", get_executor)
     monkeypatch.setattr(cli, "_available_ids_for", lambda provider: [])
