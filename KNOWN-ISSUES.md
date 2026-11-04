@@ -88,7 +88,11 @@ tokens. Codex wraps every command in PowerShell and offers no setting to change
 the shell, so `cmd /c` does not help. CLD gives each Codex dispatch a private
 scratch folder outside the worktree (granted as a writable root, named in
 `CLD_SCRATCH_DIR`, removed afterwards) and tells the executor to redirect a
-command's output there and read it when the output is missing. The underlying issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
+command's output there and read it when the output is missing. Removing that
+folder is best effort: if a file in it is still locked or not deletable, the
+folder (named `cld-codex-out-*`, in the run's artifact folder or the system temp
+folder) is left behind without a warning and can be deleted by hand. The
+underlying issue is in the Codex sandbox, not CLD. Folders the sandboxed process creates
 (for example a `.pytest_cache` left by an older CLD) can be unreadable and
 undeletable for the host user; removing them needs an administrator. CLD
 tolerates unreadable cache folders when capturing a candidate and fails closed
