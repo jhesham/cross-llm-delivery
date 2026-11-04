@@ -1049,6 +1049,16 @@ def _gc_report(args):
     return (5 if any(r["action"] == "failed" for r in results) else 0), details
 
 
+def _resolve_preview_specs(args, slices):
+    """Resolve the default executor and every explicitly pinned slice executor."""
+    from cld.models import resolve_spec
+
+    specs = [getattr(args, "executor", None) or _default_spec()]
+    specs.extend(s.executor for s in slices if s.executor)
+    for spec in specs:
+        resolve_spec(spec)
+
+
 def _run(args) -> int:
     """The post-parse pipeline (both text and JSON mode route through here)."""
     conflict_code = _reject_sql_approval_conflict(args)
@@ -1109,6 +1119,7 @@ def _run(args) -> int:
         return 5
 
     if args.dry_run:
+        _resolve_preview_specs(args, slices)
         from cld.dag import parallel_batches
         deps = {s.id: list(s.deps) for s in slices}
         print(f"{len(slices)} slices. Execution layers (parallel batches):")
@@ -1669,6 +1680,10 @@ def _json_preview(args) -> int:
         return blocked(str(exc))
     if not slices:
         return blocked("No slices found in plan")
+    try:
+        _resolve_preview_specs(args, slices)
+    except ValueError as exc:
+        return blocked(str(exc))
     try:
         from cld.dag import parallel_batches
         layers = [list(layer) for layer in parallel_batches({s.id: list(s.deps) for s in slices})]

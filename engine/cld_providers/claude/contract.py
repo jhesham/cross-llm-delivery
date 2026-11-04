@@ -1,4 +1,4 @@
-"""Offline contract for the subscription-backed Claude executor.
+"""Offline contract for the Claude CLI executor.
 
 This module validates captured CLI capabilities, constructs an isolated
 invocation, and parses the CLI's single JSON result. It has no process or
@@ -57,6 +57,25 @@ _ROLE = (
 )
 
 
+def validate_claude_model(model: str, *, gateway: bool) -> str:
+    """Validate a Claude model ID for subscription or gateway authentication."""
+    if gateway:
+        valid_model = (isinstance(model, str)
+                       and not any(char in model for char in "\r\n\0")
+                       and _GATEWAY_MODEL_RE.fullmatch(model) is not None
+                       and re.search("claude", model, re.IGNORECASE) is not None)
+        if not valid_model:
+            raise ClaudeContractError(
+                "gateway mode requires a gateway model ID containing 'claude' and matching "
+                "'[A-Za-z0-9][A-Za-z0-9._:/-]*'"
+            )
+    elif not isinstance(model, str) or not _MODEL_RE.fullmatch(model):
+        raise ClaudeContractError(
+            "claude requires an exact model ID such as claude-sonnet-5; aliases are not accepted"
+        )
+    return model
+
+
 def check_capabilities(version_output, help_output):
     """Validate captured CLI version/help output and return the stripped version."""
     version = (version_output or "").strip()
@@ -88,18 +107,7 @@ class ClaudeInvocation:
 
 def build_invocation(model, cwd, prompt, *, effort, gateway=False):
     """Build a fresh, restricted invocation with the prompt supplied on stdin."""
-    if gateway:
-        valid_model = (isinstance(model, str) and _GATEWAY_MODEL_RE.fullmatch(model)
-                       and re.search("claude", model, re.IGNORECASE))
-        if not valid_model:
-            raise ClaudeContractError(
-                "gateway model must be a single-line ID containing 'claude' and matching "
-                "'[A-Za-z0-9][A-Za-z0-9._:/-]*'"
-            )
-    elif not isinstance(model, str) or not _MODEL_RE.fullmatch(model):
-        raise ClaudeContractError(
-            "model must be a single-line exact Claude model ID matching 'claude-[a-z0-9][a-z0-9.-]*'"
-        )
+    validate_claude_model(model, gateway=gateway)
     if not isinstance(effort, str) or effort not in EFFORTS:
         raise ClaudeContractError(f"effort must be one of {EFFORTS}, got {effort!r}")
     if not isinstance(prompt, str) or not prompt.strip():
