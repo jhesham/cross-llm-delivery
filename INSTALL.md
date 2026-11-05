@@ -65,6 +65,14 @@ The repo is also a Claude marketplace. In Claude Code:
 
 ```text
 /plugin marketplace add jhesham/cross-llm-delivery
+/plugin install cross-llm-delivery@cross-llm-delivery
+```
+
+`cross-llm-delivery` contains every executor; you choose one per build with
+`--executor <provider>:<model-id>@<effort>`, and only that executor's CLI needs
+to be installed. Single-executor plugins remain available:
+
+```text
 /plugin install cross-llm-opencode@cross-llm-delivery
 /plugin install cross-llm-antigravity@cross-llm-delivery
 /plugin install cross-llm-cursor@cross-llm-delivery
@@ -74,7 +82,8 @@ The repo is also a Claude marketplace. In Claude Code:
 
 Install only the providers you need. These commands read the marketplace from the
 default branch; use the tagged release artifacts to pin a fixed revision.
-The source generator produces all five Claude packages under `plugins/`.
+The source generator produces the unified package and all five single-executor
+Claude packages under `plugins/`.
 Both the Claude and the Codex portable manifests take their version from the
 `VERSION` file. Claude marketplace-managed plugin updates stay pinned until the
 manifest version changes; local in-place profiles can differ. Maintainers bump

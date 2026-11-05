@@ -76,7 +76,7 @@ def test_plugin_descriptions_disclose_independence_without_changing_names(host):
 
 def test_public_catalog_discloses_independence_for_all_five_packages():
     catalog = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
-    assert {p["name"] for p in catalog["plugins"]} == {f"cross-llm-{p}" for p in PROVIDERS}
+    assert {p["name"] for p in catalog["plugins"]} == {f"cross-llm-{p}" for p in (*PROVIDERS, "delivery")}
     for entry in [catalog, *catalog["plugins"]]:
         lower = entry["description"].lower()
         assert "independent" in lower and "endors" in lower, entry["name"]

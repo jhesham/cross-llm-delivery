@@ -1,0 +1,155 @@
+# Privacy policy
+
+This policy covers the cross-llm-delivery (`cld`) source repository, its
+generated skill bundles and its plugin packages. It describes what the
+software does on your machine; it is not a policy for any provider, host or
+service you choose to use with it.
+
+Cross-llm-delivery is an independent project; it is not affiliated with or
+endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are
+trademarks of their respective owners.
+
+## Summary
+
+- **No publisher collection by default.** The project publisher operates no
+  service that CLD requires and receives no prompts, code, logs, telemetry or
+  account data from the software. Nothing is sent to the publisher unless you
+  choose to share it (for example in a GitHub issue or pull request).
+- **Your selected tools do send data.** The executor CLI you select, and any
+  optional export or grading you configure, can send prompts, repository
+  content and metadata to the provider or endpoint you configured. CLD does not
+  route all network traffic through one CLI and does not control those
+  recipients' retention.
+- **Durable local records have no automatic expiry.** Recovery refs, the
+  ledger, event streams and logs remain until you deliberately remove them.
+  After durable collection and a successful ledger save, CLD can remove the
+  verified executor worktree; failed or unresolved worktrees are retained.
+
+## Data categories and purposes
+
+| Category | Where it comes from | Purpose |
+|---|---|---|
+| Plans, slice briefs, acceptance tests and repository content | Your plan and target Git repository | Build executor prompts, create candidate worktrees, run acceptance and integration tests |
+| Prompts and executor output | Generated from your plan; returned by the selected CLI | Implement slices; retained as diagnostics for review and recovery |
+| Candidate diffs, commits and refs | Executor worktrees | Independent acceptance, integration and recovery (`refs/cld/*`) |
+| Test, process and hook output | pytest, Git hooks, project commands, executor CLIs | Acceptance/integration verdicts and diagnostics |
+| Run events and status | The engine | Local status, budget accounting and recovery (`.cld/runs/<run-id>/events.jsonl` and related files) |
+| Model, effort, token usage and costs where reported | Executor CLI output | Budget admission and reporting; missing usage stays unknown |
+| Validation identity | CLI binaries, selected config files and selected environment variables | Decide whether existing model-validation evidence still applies |
+
+### Validation identity and credentials
+
+To decide whether validation evidence is still current, the engine
+(`engine/cld/admission.py`) reads CLI/configuration paths and content hashes
+as fingerprint inputs, and persists combined SHA256 fingerprints plus the
+**names** of selected environment variables
+(for example proxy/CA variables and provider-specific variables such as
+`OPENAI_*` or custom provider `env_key` names). The selected environment
+**values**, which can include API keys or tokens, are read in memory and
+contribute to that fingerprint; this validation-identity record does not
+persist their plaintext values or a separate list of configuration contents.
+This boundary does not guarantee that subprocess output or other logs are
+free of secrets.
+
+A SHA256 fingerprint is **not encryption or anonymization**. Anyone holding the
+ledger can test guesses against it, and low-entropy values (short tokens,
+predictable account names, common proxy URLs) may be inferred. Treat ledgers
+and run directories as sensitive.
+
+CLD does not claim it never reads credentials. Executor CLIs use their own
+authentication files, keyrings and configuration under your account. For the
+Codex executor, authentication files and keyrings are deliberately excluded
+from validation evidence, so switching accounts needs explicit
+`--revalidate-models` and a stable non-secret `--validation-context`. See the
+selected bundle's `references/provider-setup.md` for each provider's details.
+
+## Recipients
+
+| Recipient | When | What |
+|---|---|---|
+| Your selected executor provider (through its CLI and your configured endpoints) | Dispatch and validation (`--step`, validation probes) | Prompts, slice briefs, repository content the CLI reads, and whatever the CLI itself sends under its own policy |
+| Anthropic API | Only if code using the optional DeepEval behavioral grading library facility passes it an API key | Grading inputs |
+| Your configured OTLP endpoint | Only if `OTEL_EXPORTER_OTLP_ENDPOINT` is set and the OpenTelemetry SDK is installed. CLD's telemetry setup reads only the endpoint and adds no credentials, but the OpenTelemetry SDK applies `OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_EXPORTER_OTLP_TRACES_HEADERS` on its own if they are set; leave them unset and put a backend that needs keys behind a local OpenTelemetry Collector to keep credentials off this path | Dispatch span metadata, plus any headers the SDK applies (see below) |
+| Anything your project's tests, hooks or commands contact | Acceptance/integration runs | Whatever those subprocesses send; they run with your privileges and network access |
+| The project publisher | Only when you post an issue, pull request or private security report | What you choose to include |
+
+### Telemetry
+
+Local event recording is always on during execution; it is how status,
+budgets and recovery work. There is **no external telemetry export unless you
+configure it**. When configured, OTLP export currently sends dispatch metadata:
+model, slice ID, rung, source, attempt, return status, duration and token
+usage. It does not export raw prompts. However, local logs and provider output
+may contain sensitive material, and CLD does **not** guarantee that logs,
+events or provider output are redacted.
+
+## Executor authentication and billing
+
+| Executor | Credentials and environment | Billing |
+|---|---|---|
+| Claude Code CLI | Default subscription mode removes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` from the executor environment and requires a claude.ai login (`authMethod: "claude.ai"`). Opt-in gateway mode (`CLD_CLAUDE_MODE=gateway`) keeps the gateway URL and token from the environment; CLD checks only that a token is present and reads only the gateway hostname. Each slice runs in an isolated session with no saved session | Subscription mode: your Claude plan's usage limits. Gateway mode: whatever the gateway bills |
+| Codex CLI | Uses the installed CLI and your Codex authentication/configuration. Each dispatch turns off plugins, apps, memories, hooks, browser/computer use and the MCP servers named in your Codex `config.toml` and the repository's `.codex/config.toml` (CLD reads only their names; a name Codex overrides cannot express, such as one containing a dot, stays enabled and is named in the run log) | Your plan, API or configured provider billing, as applicable |
+| OpenCode, Cursor, Antigravity | Use the installed CLI, your account and its configuration; no removal list is applied | Your plan, API or configured provider billing, as applicable |
+
+CLD charges no separate inference fee. Dollar costs may be unknown when a CLI
+does not report them. Provider plans, data use and retention are governed by
+your provider account and its policies; CLD makes no guarantee about them.
+
+## Local persistence and retention
+
+CLD keeps, in or beside the target repository:
+
+- managed Git worktrees and `refs/cld/*` recovery/integration refs;
+- the ledger (`.cld-ledger.json` by default; a custom ledger path can place it
+  elsewhere);
+- `.cld/` run directories with events, summaries, prompts/output logs and
+  process diagnostics.
+
+Logs, ledgers and recovery refs have no automatic expiry. Successfully
+collected executor worktrees can be removed after the accepted candidate is
+verified and the ledger is saved. Failed/unresolved and integration worktrees
+can remain for recovery. CLD does **not automatically redact diagnostics**.
+The safe cleanup preview (`--gc --repo <dir> --json`)
+and `--gc --apply` are scoped engine controls: they remove only CLD-managed
+worktrees proven safe to remove and never delete run evidence or refs. Preserve
+recovery evidence before removing anything else; see
+[KNOWN-ISSUES.md](https://github.com/jhesham/cross-llm-delivery/blob/main/KNOWN-ISSUES.md)
+and the [README](https://github.com/jhesham/cross-llm-delivery/blob/main/README.md).
+
+Git history (including integrated commits), provider CLI caches, sessions and
+authentication have separate lifecycles managed by Git and by each provider.
+Provider-side retention follows your account's policies, not CLD guarantees.
+
+## Evidence mode data
+
+Evidence tasks keep their inputs and outputs locally under `.cld/runs/ask/` (and
+`.cld/runs/sql/`): the task, the exact SQL, query results (full result files),
+run statistics, findings files and created-object records. The ask ledger stores
+task status and paths, not row data. Query results can contain sensitive or
+personal data from your systems; they are not redacted and have no automatic
+expiry. Data reaches only the executor's provider and the platforms you query
+through your own tools.
+
+## Your controls
+
+- Choose which executor, model and endpoints receive data; preview with
+  `--dry-run --json`, which makes no executor call.
+- Leave `OTEL_EXPORTER_OTLP_ENDPOINT` unset to avoid the optional export (and the
+  OTLP header variables unset so no credential travels with it), and do not pass an
+  API key to the optional grading facility.
+- **Do not paste secrets** into plans, briefs, tests, logs, support requests,
+  issues or submission files. Briefs and repository content are sent to the
+  selected provider.
+- Review and redact logs before sharing them.
+- Remove worktrees, refs, ledgers and run directories deliberately once you no
+  longer need recovery evidence.
+- Uninstalling a skill/plugin does not erase target repositories, Git history,
+  CLD recovery records or provider-side data. Manage those separately under
+  the appropriate Git, CLI and account controls.
+
+## Contact
+
+Public questions and support:
+[GitHub Issues](https://github.com/jhesham/cross-llm-delivery/issues).
+Vulnerabilities and anything confidential: use private vulnerability reporting
+as described in [SECURITY.md](SECURITY.md); do not post secrets publicly.

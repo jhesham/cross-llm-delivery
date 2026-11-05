@@ -56,6 +56,14 @@ DESCRIPTIONS = {
     name: f"Claude Code leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
 }
+# One Claude Code plugin with every executor, chosen per build; built only when
+# dist/cross-llm-delivery exists (generator/build_skill.py --all).
+UNIFIED_NAME = "cross-llm-delivery"
+UNIFIED_DESCRIPTION = (
+    "Claude Code leads implementation by a headless executor chosen per build (Codex, "
+    "Claude Code, OpenCode, Cursor or Antigravity) with independent acceptance and "
+    f"verified integration. {INDEPENDENCE}"
+)
 CODEX_DESCRIPTIONS = {
     name: f"Codex leads {name} CLI implementation with independent acceptance and verified integration. {INDEPENDENCE}"
     for name in (*PROVIDERS, "codex", "claude")
@@ -218,6 +226,28 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
         after = _snapshot(plug)
         if before != after:
             changed.append(p)
+    unified = dist_root / UNIFIED_NAME
+    if unified.is_dir():
+        plug = out_root / UNIFIED_NAME
+        before = _snapshot(plug)
+        (plug / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "name": UNIFIED_NAME,
+            "version": version,
+            "description": UNIFIED_DESCRIPTION,
+            "author": dict(AUTHOR),
+            **LISTING,
+            "displayName": "Cross-LLM Delivery",
+            **{**CLAUDE_DIRECTORY_LISTING,
+               "keywords": [*CLAUDE_DIRECTORY_LISTING["keywords"], "multi-executor"]},
+        }
+        (plug / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
+        _copy_skill(unified, plug / "skills" / UNIFIED_NAME)
+        # Directory listing icon: read once, at the first portal save/submission.
+        shutil.copyfile(ROOT / "docs/assets/cld-icon.png", plug / ".claude-plugin" / "icon.png")
+        if before != _snapshot(plug):
+            changed.append("delivery")
     print(f"plugins/ refreshed. changed: {', '.join(changed) if changed else 'none (idempotent)'}")
     return 0
 
