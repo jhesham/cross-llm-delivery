@@ -1,5 +1,35 @@
 # Current handoff
 
+> **Resource suggestion (2026-11-05):** Submitted
+> https://github.com/jqueryscript/awesome-codex/issues/24 for Workflow Automation
+> & Agent Coordination. Verified posted text, ownership disclosure and OPEN
+> state; maintainer decision pending. No source/packaging changes or model calls.
+> Detailed receipt and issue body remain local and ignored.
+
+> **Hashgraph reference listing (2026-11-05):** Opened
+> https://github.com/hashgraph-online/awesome-codex-plugins/pull/657. One README
+> entry under Related Projects, verified open/non-draft. This is a reference
+> listing: their installable mirror route requires a legacy Codex manifest in
+> source, while CLD publishes portable Codex bundles as release ZIPs. Preserved
+> CLD packaging and architecture; no model calls or source push. Local checks
+> pass, as do remote contribution gates; plugin scan is skipped for this reference
+> entry. Maintainer review pending. Details remain local.
+
+> **Community listing (2026-11-05):** Submitted CLD to Composio's Codex skills
+> collection: https://github.com/composio-community/awesome-codex-skills/pull/416.
+> Verified open/non-draft; one README entry links to the existing project. No
+> engine, packaging or architecture changes and no model calls. Awaiting
+> maintainer review; OpenAI plugin-directory status is separate. Detailed
+> submission records remain local and ignored.
+
+> **OpenAI update packet (2026-11-05):** Prepared a local v0.5.3 Codex submission
+> from the verified public release. Package checks and isolated offline preview
+> pass; only submission manifest metadata differs from the release. Engine,
+> architecture and generated committed plugins are unchanged. No model calls,
+> portal upload, review submission or publication occurred; no browser is
+> connected. Upload instructions and hash receipts remain in ignored local
+> marketplace-readiness records and dist output. Portal eligibility is unresolved.
+
 > **Repository branding (2026-11-04):** Added the existing CLD SVG mark at
 > `docs/assets/cld-icon.svg` and displayed it above the README title. The SVG is
 > byte-identical to `ICON_SVG` in the plugin generator. Publication uses the
