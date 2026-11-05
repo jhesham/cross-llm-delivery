@@ -139,12 +139,14 @@ def _validate_manifests(root):
     files += list((root / "dist/release-plugins/codex").glob("*/plugin.json"))
     claude = {p.parent.parent.name for p in files if p.parent.name == ".claude-plugin"}
     codex = {p.parent.name for p in files if p.parent.name != ".claude-plugin"}
-    if not claude or claude != codex:
+    # The unified all-executor plugin is Claude-only; every other set must match.
+    per_provider = claude - {"cross-llm-delivery"}
+    if not per_provider or per_provider != codex:
         raise CommandError("Generated Claude/Codex manifest sets must both exist and match")
     providers = root / "engine/cld_providers"
     if providers.is_dir():
         expected = {"cross-llm-" + p.name for p in providers.iterdir() if (p / "provider.py").is_file()}
-        if claude != expected:
+        if per_provider != expected:
             raise CommandError(f"Generated provider manifests incomplete: expected {expected}, found {claude}")
     for file in files:
         manifest = json.loads(file.read_text(encoding="utf-8"))

@@ -66,3 +66,33 @@ def test_committed_unified_plugin_and_marketplace_entry():
     entries = {p["name"]: p for p in market["plugins"]}
     assert entries.get("cross-llm-delivery", {}).get("source") == "./plugins/cross-llm-delivery", sorted(entries)
     assert {f"cross-llm-{p}" for p in PROVIDERS} <= set(entries), "per-provider plugins stay listed"
+
+
+def _manifest_tree(root, claude_names, codex_names, version="9.9.9"):
+    (root / "VERSION").write_text(version + "\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text('[project]\nversion="' + version + '"\n', encoding="utf-8")
+    (root / "engine/cld_providers/codex").mkdir(parents=True)
+    (root / "engine/cld_providers/codex/provider.py").write_text("", encoding="utf-8")
+    for name in claude_names:
+        path = root / "plugins" / name / ".claude-plugin"
+        path.mkdir(parents=True)
+        (path / "plugin.json").write_text(json.dumps({"name": name, "version": version}), encoding="utf-8")
+    for name in codex_names:
+        path = root / "dist/release-plugins/codex" / name
+        path.mkdir(parents=True)
+        (path / "plugin.json").write_text(json.dumps({"name": name, "version": version}), encoding="utf-8")
+
+
+def test_release_accepts_the_claude_only_unified_plugin(tmp_path):
+    _manifest_tree(tmp_path, ["cross-llm-codex", "cross-llm-delivery"], ["cross-llm-codex"])
+    resolve("generator.release", "_validate_manifests")(tmp_path)
+
+
+def test_release_still_rejects_any_other_claude_only_plugin(tmp_path):
+    _manifest_tree(tmp_path, ["cross-llm-codex", "cross-llm-delivery", "cross-llm-extra"], ["cross-llm-codex"])
+    validate, error = resolve("generator.release", "_validate_manifests"), resolve("generator.release", "CommandError")
+    try:
+        validate(tmp_path)
+    except error:
+        return
+    raise AssertionError("an unexpected Claude-only plugin was accepted")
