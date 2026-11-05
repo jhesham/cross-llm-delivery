@@ -355,6 +355,67 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
     return out
 
 
+UNIFIED_NAME = "cross-llm-delivery"
+UNIFIED_PROVIDERS = "codex, claude, opencode, cursor or antigravity"
+_UNIFIED_README = (
+    ("# cross-llm-{{PROVIDER_NAME}} ({{HOST_NAME}} lead)", f"# {UNIFIED_NAME} (Claude Code lead)"),
+    ("{{HOST_NAME}} leads the build and the\n{{PROVIDER_NAME}} CLI implements each slice.",
+     f"Claude Code leads the build and the\nexecutor CLI chosen per build ({UNIFIED_PROVIDERS}) implements each slice."),
+    ("{{PROVIDER_NAME}} executor CLI; see [provider setup](references/provider-setup.md).",
+     "executor CLI for the chosen provider; see `references/providers/<provider>-setup.md`."),
+)
+UNIFIED_PROBE = (
+    "from cld.providers_api import load_providers, all_providers; load_providers(); "
+    "ps=sorted(p.name for p in all_providers()); assert ps==%r, ps; "
+    "from cld.models import recommend; recommend(available_ids=[]); print('SMOKE_OK')"
+)
+
+
+def build_unified(*, out_root: str | Path = "dist", smoke: bool = True) -> Path:
+    """Create (or wipe+recreate) <out_root>/cross-llm-delivery: one Claude Code bundle
+    with every known provider vendored, the executor chosen per build."""
+    known = _known_providers()
+    out = Path(out_root) / UNIFIED_NAME
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    _vendor_core(out)
+    for provider in known:
+        _vendor_provider(provider, out)
+    _vendor_driver(out)
+    _ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    shutil.copytree(SKILL_SRC / "references", out / "references", ignore=_ignore)
+    providers_ref = out / "references" / "providers"
+    providers_ref.mkdir(parents=True)
+    for provider in known:
+        shutil.copy2(PROVIDERS_DIR / provider / "setup.md", providers_ref / f"{provider}-setup.md")
+        shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", providers_ref / f"{provider}.md")
+    shutil.copytree(SKILL_SRC / "examples", out / "examples", ignore=_ignore)
+    banner = _banner("all")
+    skill = (SKILL_SRC / "SKILL.unified.template.md").read_text(encoding="utf-8")
+    (out / "SKILL.md").write_text(skill.replace("{{BANNER}}", banner), encoding="utf-8")
+    readme = (SKILL_SRC / "README.template.md").read_text(encoding="utf-8")
+    for old, new in _UNIFIED_README:
+        if old not in readme:
+            raise RuntimeError(f"README template changed; cannot render unified README near {old!r}")
+        readme = readme.replace(old, new)
+    readme = (readme.replace("{{HOST_NAME}}", "Claude Code").replace("{{HOST}}", "claude-code")
+              .replace("{{BANNER}}", banner))
+    (out / "README.md").write_text(readme, encoding="utf-8")
+    for name in ("PRIVACY.md", "SECURITY.md", "LICENSE"):
+        shutil.copy2(REPO_ROOT / name, out / name)
+    (out / ".gitignore").write_text("__pycache__/\n*.pyc\n.cld-ledger.json\n", encoding="utf-8")
+    if smoke:
+        scripts_dir = (out / "scripts").resolve()
+        result = subprocess.run(
+            [sys.executable, "-c", UNIFIED_PROBE % known], cwd=scripts_dir,
+            env={**os.environ, "PYTHONPATH": str(scripts_dir)}, capture_output=True,
+            text=True, encoding="utf-8", errors="replace")
+        if result.returncode != 0 or "SMOKE_OK" not in (result.stdout or ""):
+            raise RuntimeError(f"smoke-check failed for {out}:\n{result.stdout}\n{result.stderr}")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Build a cross-llm-delivery skill for one or all providers."
@@ -399,6 +460,8 @@ def main(argv: list[str] | None = None) -> int:
     for target in targets:
         out = build_one(target, out_root=args.out_root, smoke=smoke, host=args.host)
         print(out)
+    if args.all_providers and args.host == "claude-code":
+        print(build_unified(out_root=args.out_root, smoke=smoke))
 
     return 0
 

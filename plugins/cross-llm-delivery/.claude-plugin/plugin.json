@@ -1,0 +1,23 @@
+{
+  "name": "cross-llm-delivery",
+  "version": "0.5.3",
+  "description": "Claude Code leads implementation by a headless executor chosen per build (Codex, Claude Code, OpenCode, Cursor or Antigravity) with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
+  "author": {
+    "name": "jhesham",
+    "url": "https://github.com/jhesham"
+  },
+  "homepage": "https://github.com/jhesham/cross-llm-delivery",
+  "repository": "https://github.com/jhesham/cross-llm-delivery",
+  "license": "MIT",
+  "displayName": "Cross-LLM Delivery",
+  "documentationUrl": "https://github.com/jhesham/cross-llm-delivery#readme",
+  "privacyPolicyUrl": "https://github.com/jhesham/cross-llm-delivery/blob/main/PRIVACY.md",
+  "keywords": [
+    "cross-llm",
+    "delegation",
+    "acceptance-tests",
+    "git-worktrees",
+    "test-gated",
+    "multi-executor"
+  ]
+}

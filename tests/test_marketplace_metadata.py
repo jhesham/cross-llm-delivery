@@ -134,10 +134,13 @@ def test_codex_pilot_listing_avoids_unrelated_assistant_names(generated):
 
 def test_catalog_jobs_and_provider_paths_are_retained():
     catalog = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
-    assert len(catalog["plugins"]) == 5
+    assert len(catalog["plugins"]) == 6  # five provider plugins plus unified cross-llm-delivery
     for entry in catalog["plugins"]:
         provider = entry["name"].removeprefix("cross-llm-")
-        assert provider in PROVIDERS and entry["source"] == f"./plugins/{entry['name']}"
+        assert entry["source"] == f"./plugins/{entry['name']}"
         words = entry["description"].lower()
-        assert "slice" in words and provider in words
+        if provider == "delivery":
+            assert "slice" in words and all(p in words for p in PROVIDERS)
+        else:
+            assert provider in PROVIDERS and "slice" in words and provider in words
         assert "independent" in words and "not affiliated" in words

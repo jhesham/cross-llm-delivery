@@ -1,0 +1,420 @@
+"""OpenCode provider plugin -- single source of truth for the OpenCode executor.
+
+OpenCodeExecutor, parse_opencode_usage, _oc_cmd, _default_runner, and
+_has_step_finish are ALL defined here.  ``cld.executors.opencode`` is a thin
+re-export shim that imports every name from this module so existing callers
+continue to work unchanged.  Do not duplicate logic in the shim.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+from typing import Callable, List, Tuple
+
+from cld.executors._capture import capture_diff
+from cld.executors.base import ExecutorResult, SliceTask
+from cld.process import (run_process, dispatch as run_dispatch, feedback as process_feedback,
+                         executor_depth_blocked)
+from cld.native_cli import NativeCliError, resolved_runner as _native_resolved_runner
+from cld.models import ModelInfo
+from cld.providers_api import Provider, register_provider
+from .launcher import resolve_opencode_command
+
+# runner(args, cwd) -> (returncode, stdout_or_combined_output)
+Runner = Callable[[list[str], str], tuple[int, str]]
+
+DEFAULT_MODEL = "opencode/deepseek-v4-flash-free"
+
+
+def _default_runner(args: list[str], cwd: str, **options):
+    """Run bounded processes, resolving only the logical OpenCode argv prefix."""
+    if args and args[0] == "opencode":
+        return resolved_runner(run_process)(args, cwd, **options)
+    return run_process(args, cwd, **options)
+
+
+def resolved_runner(runner, resolve=None):
+    """Wrap a process runner with the selected native OpenCode command."""
+    return _native_resolved_runner(
+        runner, lambda: (resolve if resolve is not None else resolve_opencode_command)(), "opencode")
+
+
+
+def _oc_cmd() -> str:
+    """Return the selected native OpenCode executable path."""
+    return resolve_opencode_command().path
+
+
+def _launch_problem():
+    try:
+        resolve_opencode_command()
+    except NativeCliError as exc:
+        return str(exc)
+    return None
+
+
+def _cli_invocation():
+    try:
+        return [resolve_opencode_command().path]
+    except NativeCliError:
+        # Keep the logical name for preflight's PATH check and actionable
+        # launch_problem callback; production execution still fails closed.
+        return ["opencode"]
+
+
+def _has_step_finish(raw: str) -> bool:
+    """True if the output contains at least one step_finish JSONL event -- the
+    signature of a real, non-attached `--format json` dispatch."""
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(d, dict) and d.get("type") == "step_finish":
+            return True
+    return False
+
+
+
+def raw_usage(raw):
+    values = []
+    for line in raw.splitlines():
+        try:
+            data = json.loads(line)
+            if isinstance(data, dict) and data.get("type") == "step_finish" and isinstance(data.get("part"), dict):
+                values.append({k: data["part"][k] for k in ("tokens", "cost") if k in data["part"]})
+        except (ValueError, TypeError):
+            pass
+    return values
+
+
+def parse_opencode_usage(raw_json: str) -> dict[str, int]:
+    import math
+    steps = raw_usage(raw_json or "")
+    if not steps:
+        return {}
+    rows = []
+    for step in steps:
+        tokens = step.get("tokens")
+        row = dict(tokens) if isinstance(tokens, dict) else {}
+        cache = row.pop("cache", None)
+        if isinstance(cache, dict):
+            for source, target in (("read", "cache_read"), ("write", "cache_write")):
+                if source in cache:
+                    row[target] = cache[source]
+        if "cost" in step:
+            row["cost"] = step["cost"]
+        rows.append(row)
+    # Only aggregate complete categories; a missing step is unknown, not zero.
+    keys = set.intersection(*(set(row) for row in rows))
+    return {key: sum(row[key] for row in rows) for key in keys
+            if all(type(row[key]) in (int, float) and math.isfinite(row[key]) and row[key] >= 0 for row in rows)}
+
+
+class OpenCodeExecutor:
+    """Executor implementation backed by the OpenCode CLI."""
+
+    def __init__(self, *, runner: Runner = _default_runner, model: str = DEFAULT_MODEL,
+                 variant: str | None = None, effort: str | None = None,
+                 timeout: float | None = None, cancel=None, artifact_dir=None):
+        self._timeout, self._cancel, self._artifact_dir = timeout, cancel, artifact_dir
+        self._runner = runner
+        self._model = model
+        self._variant = variant
+        self._effort = effort
+
+    def _build_prompt(self, task: SliceTask, feedback: str | None = None) -> str:
+        allowed = ", ".join(task.files)
+        prompt = (
+            f"You are an executor for exactly one CLD delivery slice. Do not invoke CLD, "
+            f"any other LLM provider, or any dispatch tool; recursive delegation is prohibited.\n\n"
+            f"Implement the following so that the acceptance tests pass.\n\n"
+            f"{task.brief}\n\n"
+            f"You may only create/modify these files: {allowed}\n"
+            f"Acceptance tests: {task.acceptance_test_path}\n"
+            f"Do not edit the test file. Run pytest yourself and iterate until green."
+        )
+        if feedback:
+            prompt += (
+                f"\n\nYour previous attempt did not pass. {feedback}\n"
+                f"Address this specifically before trying again."
+            )
+        return prompt
+
+    def _build_dispatch(self, prompt: str, cwd: str) -> list[str]:
+        """Argv for a plain headless run. The runner sets cwd=the target repo, and
+        --dir names it too; a clean test confirmed this isolates correctly (no drift)."""
+        dispatch = [
+            "opencode",
+            "run",
+            prompt,
+            "-m",
+            self._model,
+            "--format",
+            "json",
+            "--dir",
+            cwd,
+        ]
+        variant = self._variant or self._effort
+        if variant:
+            dispatch += ["--variant", variant]
+        # The default `build` agent treats writes outside its allowlist as
+        # external_directory -> "ask"; headless can't answer, silently blocking
+        # writes. Safe to auto-approve: isolated worktree, diff judged before merge.
+        dispatch.append("--dangerously-skip-permissions")
+        # Bare --port forces a fresh local server so the run can't join a stray
+        # session. MUST be last: with no value it takes a random port (swallows nothing).
+        dispatch.append("--port")
+        return dispatch
+
+    def run(self, task: SliceTask, workdir: Path, feedback: str | None = None) -> ExecutorResult:
+        if executor_depth_blocked():
+            return ExecutorResult(ok=False, diff="", files_changed=[],
+                                  raw_log="Recursive dispatch blocked: CLD_EXECUTOR_DEPTH is already set; "
+                                          "refusing to start another executor.",
+                                  process={"error": "recursive_dispatch"})
+        cwd = str(workdir)
+        prompt = self._build_prompt(task, feedback)
+        dispatch = self._build_dispatch(prompt, cwd)
+        try:
+            rc, raw, process = run_dispatch(self._runner, _default_runner, dispatch, cwd,
+                    timeout=self._timeout, cancel=self._cancel, artifact_dir=self._artifact_dir,
+                    env={"CLD_EXECUTOR_DEPTH": "1"})
+        except NativeCliError as exc:
+            if self._runner is _default_runner:
+                return ExecutorResult(ok=False, diff="", files_changed=[], raw_log=str(exc),
+                                      process={"error": "missing_binary"})
+            raise
+
+        if rc != 0:
+            return ExecutorResult(ok=False, diff="", raw_log=process_feedback(raw, process), process=process)
+        if not _has_step_finish(raw):
+            # No step_finish event = the dispatch produced no valid JSONL result
+            # (e.g. a permission-blocked run that wrote nothing, or a format
+            # regression). Never trust it; never capture a diff from it.
+            return ExecutorResult(
+                ok=False, diff="", process={**process, "error": "malformed_output"},
+                raw_log=("DISPATCH GUARD: no step_finish JSONL event in output -- "
+                         "the dispatch produced no valid result (permission block, "
+                         "no work done, or wrong output format); refusing it.\n"
+                         "--- original output ---\n" + process_feedback(raw, process, 3500)),
+            )
+
+        token_usage = parse_opencode_usage(raw)
+        diff, files_changed = capture_diff(self._runner, cwd)
+
+        return ExecutorResult(
+            ok=True,
+            diff=diff,
+            files_changed=files_changed,
+            token_usage=token_usage,
+            usage_raw=raw_usage(raw),
+            raw_log=process_feedback(raw, process), process=process,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Provider-level helpers (moved from cld.models and cld.usage)
+# ---------------------------------------------------------------------------
+
+def list_models(runner: Callable[[List[str], str], Tuple[int, str]]) -> List[str]:
+    """List available OpenCode model ids via `opencode models`.
+
+    The production runner resolves the same native binary used by dispatch.
+    Degrades to [] on failure so the picker can fall back to "Gemini only".
+    """
+    try:
+        rc, out = runner(["opencode", "models"], ".")
+    except (NativeCliError, OSError):
+        return []
+    if rc != 0:
+        return []
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def account_stats() -> str:
+    """Shell `opencode stats` and return the raw text output.
+
+    Mirrors _opencode_stats_text from skill/scripts/run_delivery.py.
+    Returns empty string on any failure.
+    """
+    try:
+        proc = _default_runner(["opencode", "stats"], ".")
+        return proc.stdout if not proc.error else ""
+    except Exception:
+        return ""
+
+
+def account_block(oc_stats: dict) -> list:
+    """Return the OpenCode account block lines.
+
+    Mirrors opencode_account_block from cld.usage.
+    """
+    lines = ["## OpenCode account"]
+    if "total_cost" in oc_stats:
+        lines.append(f"Total cost: ${oc_stats['total_cost']}")
+        if "input" in oc_stats:
+            lines.append(f"Input: {oc_stats['input']}")
+        if "output" in oc_stats:
+            lines.append(f"Output: {oc_stats['output']}")
+    else:
+        lines.append("OpenCode stats unavailable")
+    return lines
+
+
+def account_section() -> list:
+    """Self-contained account section: shell stats + parse + render.
+
+    Called by render_usage_table via the registry so the engine stays provider-blind.
+    Returns [] on any error (degrades gracefully).
+    """
+    from cld.usage import parse_opencode_stats  # local import: avoids circular at module level
+    try:
+        raw = account_stats()
+        stats = parse_opencode_stats(raw)
+        return account_block(stats)
+    except Exception:
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Catalog: the seven opencode/* ModelInfo entries
+# ---------------------------------------------------------------------------
+
+_OPENCODE_CATALOG = (
+    ModelInfo(
+        id="opencode/deepseek-v4-flash-free",
+        provider="opencode",
+        cost_class="free",
+        capability_class="quick",
+        headless_status="untested",
+        rework_risk="medium",
+        note="cheap, validate before trusting",
+        tier="quick",
+    ),
+    ModelInfo(
+        id="opencode/deepseek-v4-pro",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="workhorse",
+        headless_status="likely",
+        rework_risk="low",
+        note="solid choice",
+        tier="workhorse",
+    ),
+    ModelInfo(
+        id="opencode/gemini-3.1-pro",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="workhorse",
+        headless_status="likely",
+        rework_risk="low",
+        note="same model as the flat-rate workhorse, routed through OpenCode (metered)",
+        tier="workhorse",
+    ),
+    ModelInfo(
+        id="opencode/kimi-k2.6",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="heavy",
+        headless_status="untested",
+        rework_risk="medium",
+        note="strong model; never cleanly validated headless - validate before trusting",
+        tier="workhorse",
+    ),
+    ModelInfo(
+        id="opencode/glm-5.2",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="workhorse",
+        headless_status="verified",
+        rework_risk="low",
+        note="validated in real builds (telemetry subsystem dogfood: 5+ slices, all attempt-1); "
+             "strong docstrings/defensive code. Windows-validated.",
+        tier="workhorse",
+    ),
+    ModelInfo(
+        id="opencode/kimi-k2.7-code",
+        provider="opencode",
+        cost_class="cheap-metered",
+        capability_class="heavy",
+        headless_status="untested",
+        rework_risk="medium",
+        note="Kimi K2.7 (code) via OpenCode/Zen gateway; the plain 'kimi-k2.7' id is stale. "
+             "Validate before trusting headless (evidence store carries live status).",
+        tier="workhorse",
+    ),
+    ModelInfo(
+        id="opencode/claude-opus-4-8",
+        provider="opencode",
+        cost_class="premium-metered",
+        capability_class="heavy",
+        headless_status="likely",
+        rework_risk="medium",
+        note="top capability, bills real money",
+        tier=None,
+    ),
+    ModelInfo(
+        id="opencode/claude-sonnet-4-6",
+        provider="opencode",
+        cost_class="premium-metered",
+        capability_class="heavy",
+        headless_status="likely",
+        rework_risk="low",
+        note="capable Anthropic Sonnet via OpenCode; bills real money",
+        tier=None,
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Provider registration
+# ---------------------------------------------------------------------------
+
+_HERE = Path(__file__).parent
+
+_SKILL_FRAGMENT = (_HERE / "SKILL.fragment.md").read_text(encoding="utf-8")
+_SETUP_NOTES = (_HERE / "setup.md").read_text(encoding="utf-8")
+
+_ENV_REF = re.compile(r"\{env:([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _config_env(paths) -> tuple:
+    """Env names file/inline configs reference; admission hashes their values.
+
+    A credential or gateway URL supplied this way changes which account/route
+    validation ran against, so it must key validation evidence (R03).
+    """
+    # Hashing OPENCODE_CONFIG_CONTENT alone only covers literal placeholders,
+    # not the credentials/endpoints substituted into them (review N03).
+    names = set(_ENV_REF.findall(os.environ.get("OPENCODE_CONFIG_CONTENT", "")))
+    for path in paths:
+        try:
+            names.update(_ENV_REF.findall(Path(path).read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError):
+            continue
+    return tuple(sorted(names))
+
+
+PROVIDER = Provider(
+    cli_invocation=_cli_invocation,
+    context_env=("OPENCODE_*",),
+    config_env=_config_env,
+    name="opencode",
+    make_executor=lambda **k: OpenCodeExecutor(**k),
+    catalog=_OPENCODE_CATALOG,
+    default_workhorse="opencode:opencode/deepseek-v4-pro",
+    list_models=list_models,
+    account_stats=account_stats,
+    account_block=account_block,
+    account_section=account_section,
+    skill_fragment=_SKILL_FRAGMENT,
+    setup_notes=_SETUP_NOTES,
+    launch_problem=_launch_problem,
+)
+
+register_provider(PROVIDER)

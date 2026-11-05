@@ -6,6 +6,10 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+### Added
+- `cross-llm-delivery`: one Claude Code plugin containing every executor, chosen
+  per build with `--executor`. The five single-executor plugins remain available.
+
 ## 0.5.3 — 2026-11-04
 
 ### Changed

@@ -6,6 +6,11 @@
   "description": "Claude Code leads delivery through headless executors, independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "plugins": [
     {
+      "name": "cross-llm-delivery",
+      "source": "./plugins/cross-llm-delivery",
+      "description": "Implement test-gated slices with the executor CLI you choose per build: Codex, Claude Code, OpenCode, Cursor or Antigravity; exact model and effort, no guessed default. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
+    },
+    {
       "name": "cross-llm-opencode",
       "source": "./plugins/cross-llm-opencode",
       "description": "Implement test-gated slices with the OpenCode CLI executor; select and validate an exact account-supported model. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners."
