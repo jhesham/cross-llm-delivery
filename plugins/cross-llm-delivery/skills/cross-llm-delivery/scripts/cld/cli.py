@@ -462,8 +462,7 @@ def _is_git_repo(repo: str) -> bool:
 def _preflight_git(repo: str) -> str | None:
     """Return None if git is on PATH and repo is a git repository; else an actionable message."""
     if not shutil.which("git"):
-        return ("Git is not installed or not on PATH. Install git to use worktree isolation "
-                "(https://git-scm.com/downloads).")
+        return ("Git is not installed or not on PATH. Install git to use worktree isolation.")
     if not _hook("_is_git_repo")(repo):
         return (f"Not a git repository: {os.path.abspath(repo)}. "
                 "Run `git init` in the target --repo directory first.")

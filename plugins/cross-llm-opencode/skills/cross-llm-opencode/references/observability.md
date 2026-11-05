@@ -52,35 +52,17 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
 ### Backends that need credentials (Langfuse, Honeycomb, Grafana Cloud)
 
 CLD's telemetry setup reads only `OTEL_EXPORTER_OTLP_ENDPOINT` and adds no credentials to the
-exporter. For a backend that needs keys, run a local
-[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that holds them and point CLD
-at it. For Langfuse, a minimal collector configuration:
-
-```yaml
-receivers:
-  otlp:
-    protocols:
-      http:
-        endpoint: 127.0.0.1:4318
-exporters:
-  otlphttp/langfuse:
-    endpoint: https://cloud.langfuse.com/api/public/otel   # or your self-hosted Langfuse
-    headers:
-      Authorization: "Basic ${env:LANGFUSE_AUTH}"         # base64 of "<public key>:<secret key>"
-      x-langfuse-ingestion-version: "4"                     # per Langfuse's OpenTelemetry guide
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [otlphttp/langfuse]
-```
+exporter. For a backend that needs keys, run a local OpenTelemetry Collector that holds them:
+give it an OTLP/HTTP receiver on `127.0.0.1:4318` and the backend's exporter configured as that
+backend's own OpenTelemetry guide describes (Langfuse, Honeycomb and Grafana Cloud each publish
+one). Then point CLD at the collector:
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
 ```
 
-Set `LANGFUSE_AUTH` in the collector's environment; the keys stay with the collector
-process. Exporting directly also works: the OpenTelemetry SDK applies the standard
+The keys stay in the collector's configuration and never pass through CLD. Exporting directly
+also works: the OpenTelemetry SDK applies the standard
 `OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_EXPORTER_OTLP_TRACES_HEADERS` variables on its own (CLD
 does not read them), so anything you put there is sent with every export.
 

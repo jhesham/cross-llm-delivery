@@ -10,6 +10,12 @@ changes land; on a release, rename that section to the version + date. Plugin in
 - `cross-llm-delivery`: one Claude Code plugin containing every executor, chosen
   per build with `--executor`. The five single-executor plugins remain available.
 
+### Changed
+- `references/observability.md` now points to each backend's own OpenTelemetry
+  guide for the local Collector configuration instead of embedding a Langfuse
+  example; the missing-Git message no longer includes a download link. No
+  behaviour change.
+
 ## 0.5.3 — 2026-11-04
 
 ### Changed
