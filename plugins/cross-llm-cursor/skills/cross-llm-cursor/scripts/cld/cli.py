@@ -157,8 +157,29 @@ def _install_telemetry(repo_dir: str, ledger: Ledger, plan_path: str, default_sp
     return events_path
 
 
+def _dispatchable(slices, ledger):
+    """Unfinished slices a step may dispatch: not awaiting a lead repair, unless the
+    recorded repair never started (no attempt, no worktree)."""
+    refs = []
+
+    def evidence():
+        # Read Git once, and only for a needs_repair entry; unreadable means inconclusive.
+        if not refs:
+            try:
+                from cld.worktree import repository_refs
+                refs.append(repository_refs(ledger.build["repo"], _hook("git_runner")))
+            except Exception:
+                refs.append(None)
+        return refs[0]
+
+    def waiting_for_repair(entry):
+        return (entry is not None and entry.status == "needs_repair"
+                and not (ledger.build and entry.never_started(refs=evidence())))
+    return [s for s in slices if not ledger.is_done(s.id) and not waiting_for_repair(ledger.get(s.id))]
+
+
 def _dispatch_needed(slices, ledger):
-    return any(not ledger.is_done(s.id) and (ledger.get(s.id) is None or ledger.get(s.id).status != "needs_repair") for s in slices)
+    return bool(_dispatchable(slices, ledger))
 
 
 def _record_operation(args, ledger, operation, code, reason=None):
@@ -573,8 +594,7 @@ def prepare_dispatch(args, slices, ledger):
     if reason:
         raise AdmissionBlocked(reason)
 
-    selected = [s for s in slices if not ledger.is_done(s.id) and
-                not (ledger.get(s.id) and ledger.get(s.id).status == "needs_repair")]
+    selected = _dispatchable(slices, ledger)
     if args.step:
         layer = next_pending_layer(slices, ledger)
         selected = [s for s in selected if layer and s.id in layer[1]]

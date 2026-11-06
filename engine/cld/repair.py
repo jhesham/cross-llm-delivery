@@ -83,7 +83,13 @@ def verify_repair(slices, ledger, sid, *, repo_dir, git_runner, test_runner, wor
             except Exception as exc:
                 session.save(state="failed", error=str(exc))
                 old = deepcopy(entry)
-                ledger.set(sid, status="needs_repair", recovery_path=str(session.directory), worktree_path=wt)
+                if os.path.exists(wt):
+                    ledger.set(sid, status="needs_repair", recovery_path=str(session.directory), worktree_path=wt)
+                else:
+                    # The replacement was never created: the retained attempt (and any manual
+                    # work in it) is still the one to repair.
+                    ledger.set(sid, status="needs_repair")
+                    wt = entry.worktree_path
                 entry.history.append(dict(repair_of=old.recovery_path, error=str(exc)))
                 try:
                     ledger.save()

@@ -21,7 +21,8 @@ from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, PENDING, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
 from cld.build_state import validate_tasks
 from cld.telemetry import emit
-from cld.worktree import worktree, remove_worktree, managed_location, validate_location, verify_worktree
+from cld.worktree import (worktree, remove_worktree, managed_location, validate_location, verify_worktree,
+                          repository_refs)
 from cld.attempts import ActiveAttempt, slice_owner, previous_attempt, recovery_feedback
 from cld.recovery import RecoverySession, recover_collected, task_fingerprint
 
@@ -82,6 +83,15 @@ class DeliverResult:
     branch: str | None = None
     intervened: bool = False
     final_error: str | None = None
+    never_started: bool = False
+
+
+def _refs_or_none(repo_dir, git_runner):
+    """Repository refs as never_started() evidence; unreadable Git is inconclusive."""
+    try:
+        return repository_refs(repo_dir, git_runner)
+    except Exception:
+        return None
 
 
 def _accepts(fn, *args, **kwargs):
@@ -517,12 +527,14 @@ def run_plan_parallel(
         return canonical
 
     def _executor_for_spec(spec, *, evidence=False):
+        from cld.dispatch_limits import guard
+
         if evidence:
             spec = _evidence_spec(spec)
         if executor_factory is not None:
             ex = executor_factory(spec, evidence=True) if evidence else executor_factory(spec)
-            return ex, spec
-        return executor, spec
+            return guard(ex, spec), spec
+        return guard(executor, spec), spec
 
     def _executor_for(task, *, evidence=False):
         # Per-slice executor: build from the resolved spec when a factory is
@@ -554,6 +566,7 @@ def run_plan_parallel(
                           owner_pid=os.getpid(), retry_policy="fresh-base", previous=previous))
         res = None
         created = False
+        started = True
         try:
             with worktree(repo_dir, branch, runner=git_runner, cleanup=False,
                           path=wt, root=root, base=run_base):
@@ -575,7 +588,9 @@ def run_plan_parallel(
                 else:
                     session.save(state="failed", error="; ".join(res.final.failing_tests)[:4000])
         except BaseException as exc:
-            detail = f"{exc}; worktree retained at {wt}"
+            started = created or os.path.exists(wt)
+            detail = (f"{exc}; worktree retained at {wt}" if started
+                      else f"{exc}; no worktree was created and nothing was dispatched")
             try:
                 if isinstance(exc, ProcessCleanupError):
                     session.save(state="cleanup_unconfirmed", error=str(exc))
@@ -595,7 +610,9 @@ def run_plan_parallel(
                 res = DeliverResult(False, session.attempt, None, model=spec)
             res.accepted = False
             res.final = JudgeResult(False, 0, 0, failing_tests=[detail])
-        res.worktree_path, res.worktree_root, res.branch = wt, root, branch
+            # Nothing ran without a worktree, so there is nothing to repair or escalate.
+            res.never_started = not started
+        res.worktree_path, res.worktree_root, res.branch = (wt if started else None), root, branch
         res.recovery_path = str(session.directory)
         with ledger_lock:
             entry = ledger.get(task.id)
@@ -657,6 +674,9 @@ def run_plan_parallel(
                     max_retries=max(budget - 1, 0), test_runner=test_runner, model=spec,
                     source=source, rung=rung, simulation=True)
             last = res
+            if res.never_started:
+                # A failed start is not a failed rung: stop here and leave the slice retryable.
+                return res
             if res.accepted:
                 res.final_rung = rung
                 return res
@@ -670,13 +690,14 @@ def run_plan_parallel(
 
     def _run_evidence(task: SliceTask):
         from cld.evidence_mode.ask import run_ask
+        from cld.dispatch_limits import guard
 
         spec = _resolve_spec(task)
         make_executor = None
         if executor_factory is not None:
-            make_executor = lambda resolved: executor_factory(resolved, evidence=True)
+            make_executor = lambda resolved: guard(executor_factory(resolved, evidence=True), resolved)
         elif executor is not None:
-            make_executor = lambda _resolved: executor
+            make_executor = lambda resolved: guard(executor, resolved)
         outcome = run_ask(repo_dir, {
             "id": task.id,
             "kind": task.kind,
@@ -878,7 +899,8 @@ def run_plan_parallel(
             if ledger.is_done(sid):
                 result.skipped.append(sid)
                 continue
-            if not simulation and ledger.get(sid) and ledger.get(sid).status == "needs_repair":
+            if (not simulation and ledger.get(sid) and ledger.get(sid).status == "needs_repair"
+                    and not ledger.get(sid).never_started(refs=_refs_or_none(repo_dir, git_runner))):
                 result.needs_repair.append(sid)
                 result.details[sid] = SliceDetail(sid, "needs_repair", failing_tests=["Verify the retained repair with --mark-repaired before dispatch"],
                     recovery_path=ledger.get(sid).recovery_path, worktree_path=ledger.get(sid).worktree_path)

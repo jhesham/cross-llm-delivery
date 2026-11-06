@@ -15,6 +15,7 @@ import tempfile
 from pathlib import Path
 
 from cld.executors.base import SliceTask
+from cld.dispatch_limits import dispatch_slot
 from cld.judge import judge
 from cld.test_run import TestRun
 from cld.process import run_process
@@ -97,7 +98,8 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         def run(self, task, workdir, feedback=None):
             nonlocal attempted
             attempted += 1
-            result = executor.run(task, workdir)
+            with dispatch_slot(model):
+                result = executor.run(task, workdir)
             dispatched.append(result)
             return result
 

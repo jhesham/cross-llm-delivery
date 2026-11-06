@@ -32,6 +32,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import sys
 from pathlib import Path
 
@@ -42,6 +43,7 @@ SUPPORTED_NAMES = frozenset({
     "cross-llm-cursor",
     "cross-llm-codex",
     "cross-llm-claude",
+    "cross-llm-delivery",
 })
 
 MANIFEST_NAME = ".cld-install.json"
@@ -75,6 +77,23 @@ def _real(path: Path) -> Path:
     return Path(os.path.realpath(path))
 
 
+# Windows marks symlinks and junctions alike as name-surrogate reparse points.
+_NAME_SURROGATE = 0x20000000
+
+
+def _is_link(path: Path) -> bool:
+    """True for a symlink or a Windows junction (any name-surrogate reparse point)."""
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    attributes = getattr(info, "st_file_attributes", 0)
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+                and getattr(info, "st_reparse_tag", 0) & _NAME_SURROGATE)
+
+
 def _is_beneath(child: Path, parent: Path) -> bool:
     return parent in child.parents
 
@@ -90,8 +109,8 @@ def _iter_entries(root: Path):
         current = stack.pop()
         for entry in os.scandir(current):
             entry_path = Path(entry.path)
-            if entry.is_symlink():
-                raise Reject(f"refusing symlink: {entry_path}")
+            if entry.is_symlink() or _is_link(entry_path):
+                raise Reject(f"refusing symlink or junction: {entry_path}")
             if entry.is_dir(follow_symlinks=False):
                 stack.append(entry_path)
                 yield entry_path, True
@@ -131,24 +150,27 @@ def _frontmatter_name(skill_md: Path) -> str:
 # Validation
 # ---------------------------------------------------------------------------
 
-def _validate_name(name: str | None) -> str:
-    if name not in SUPPORTED_NAMES:
+def _validate_name(name: str | None, supported_names: frozenset[str] = SUPPORTED_NAMES) -> str:
+    if name not in supported_names:
         raise Reject(
             f"unsupported skill name {name!r}; expected one of "
-            f"{', '.join(sorted(SUPPORTED_NAMES))}"
+            f"{', '.join(sorted(supported_names))}"
         )
     return name  # type: ignore[return-value]
 
 
-def _validate_bundle(bundle_arg: str | None) -> tuple[Path, str]:
+def _validate_bundle(
+    bundle_arg: str | None, supported_names: frozenset[str] = SUPPORTED_NAMES,
+    *, required_files: tuple[Path, ...] = (),
+) -> tuple[Path, str]:
     if not bundle_arg:
         raise Reject("--preview/--install requires --bundle PATH")
     source = Path(bundle_arg)
-    if source.is_symlink():
-        raise Reject(f"bundle source is a symlink: {source}")
+    if _is_link(source):
+        raise Reject(f"bundle source is a symlink or junction: {source}")
     if not source.is_dir():
         raise Reject(f"bundle not found or not a directory: {source}")
-    name = _validate_name(source.name)
+    name = _validate_name(source.name, supported_names)
     skill_md = source / "SKILL.md"
     if not skill_md.is_file():
         raise Reject(f"bundle is missing SKILL.md: {source}")
@@ -163,6 +185,10 @@ def _validate_bundle(bundle_arg: str | None) -> tuple[Path, str]:
         candidate = source / required
         if candidate.is_symlink() or not candidate.is_file():
             raise Reject(f"bundle is missing vendored {required.as_posix()}")
+    for required in required_files:
+        candidate = source / required
+        if candidate.is_symlink() or not candidate.is_file():
+            raise Reject(f"bundle is missing {required.as_posix()}")
     for _path, _is_dir in _iter_entries(source):  # raises on any symlink
         pass
     return source, name
@@ -180,8 +206,19 @@ def _check_separation(source: Path, target: Path) -> None:
 
 def _check_target_safe(scope: Path, target: Path) -> None:
     """Reject targets whose resolved path escapes the selected scope."""
-    if target.is_symlink():
-        raise Reject(f"target is a symlink: {target}")
+    if _is_link(target):
+        raise Reject(f"target is a symlink or junction: {target}")
+    # Junctions are not symlinks to is_symlink(), and realpath may keep the result
+    # inside the scope (.agents -> .agent), so refuse any linked folder on the way down.
+    try:
+        parts = target.relative_to(scope).parts
+    except ValueError:
+        parts = ()
+    current = scope
+    for part in parts[:-1]:
+        current = current / part
+        if _is_link(current):
+            raise Reject(f"refusing a symlinked or junctioned folder in the destination: {current}")
     scope_real = _real(scope)
     target_real = _real(target)
     if target_real == scope_real or not _is_beneath(target_real, scope_real):
@@ -191,7 +228,20 @@ def _check_target_safe(scope: Path, target: Path) -> None:
         )
 
 
-def _verify_owned(target: Path) -> None:
+def _verify_owned(
+    target: Path, marker: str = INSTALLER_MARKER,
+    *, collision_on_modified: bool = False,
+) -> None:
+    """Verify ownership, optionally classifying any modification as a collision."""
+    try:
+        _verify_manifest(target, marker)
+    except Reject as exc:
+        if collision_on_modified:
+            exc.collision = True
+        raise
+
+
+def _verify_manifest(target: Path, marker: str) -> None:
     """Raise Reject unless *target* is an owned, unmodified installation."""
     manifest_path = target / MANIFEST_NAME
     try:
@@ -202,7 +252,7 @@ def _verify_owned(target: Path) -> None:
             "modified); refusing to touch it",
             collision=True,
         ) from exc
-    if not isinstance(data, dict) or data.get("installer") != INSTALLER_MARKER:
+    if not isinstance(data, dict) or data.get("installer") != marker:
         raise Reject(
             "target ownership manifest lacks this installer's marker "
             "(unowned); refusing to touch it",
@@ -242,7 +292,7 @@ def _verify_owned(target: Path) -> None:
 # Actions
 # ---------------------------------------------------------------------------
 
-def _write_manifest(staged: Path, name: str) -> None:
+def _write_manifest(staged: Path, name: str, marker: str = INSTALLER_MARKER) -> None:
     files: dict[str, str] = {}
     for path, is_dir in _iter_entries(staged):
         if is_dir:
@@ -254,7 +304,7 @@ def _write_manifest(staged: Path, name: str) -> None:
             continue
         files[rel] = _sha256(path)
     manifest = {
-        "installer": INSTALLER_MARKER,
+        "installer": marker,
         "skill": name,
         "files": files,
     }
@@ -262,27 +312,34 @@ def _write_manifest(staged: Path, name: str) -> None:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _preview(scope: Path, target: Path) -> dict:
+def _preview(
+    scope: Path, target: Path, *, marker: str = INSTALLER_MARKER,
+    collision_on_modified: bool = False,
+) -> dict:
     _check_target_safe(scope, target)
     if target.is_symlink() or target.exists():
         if not target.is_dir() or target.is_symlink():
             raise Reject(f"target exists and is not a plain directory: {target}",
                          collision=True)
-        _verify_owned(target)
+        _verify_owned(target, marker, collision_on_modified=collision_on_modified)
         outcome = "update"
     else:
         outcome = "install"
     return {"action": "preview", "target": str(target), "outcome": outcome}
 
 
-def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
+def _install(
+    source: Path, scope: Path, target: Path, name: str,
+    *, marker: str = INSTALLER_MARKER, collision_on_modified: bool = False,
+    host: str = "Codex",
+) -> dict:
     _check_target_safe(scope, target)
     updating = target.exists()
     if updating:
         if target.is_symlink() or not target.is_dir():
             raise Reject(f"target exists and is not a plain directory: {target}",
                          collision=True)
-        _verify_owned(target)
+        _verify_owned(target, marker, collision_on_modified=collision_on_modified)
     skills_dir = target.parent
     stage = skills_dir / f".{name}.cld-stage-{os.getpid()}"
     backup = skills_dir / f".{name}.cld-backup-{os.getpid()}"
@@ -297,7 +354,7 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
             raise Reject(f"cannot create {skills_dir}: {exc}") from exc
         shutil.copytree(source, stage, symlinks=False,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        _write_manifest(stage, name)
+        _write_manifest(stage, name, marker)
         renamed = False
         copied = False
         try:
@@ -321,7 +378,7 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                     raise Reject(
                         "update could not be published because the skills "
                         "folder is in use; the previous installation was kept. "
-                        "Close running Codex sessions and retry."
+                        f"Close running {host} sessions and retry."
                     ) from publish_exc
                 # Watched skills folders on Windows can deny the rename.
                 # Claim the directory exclusively before copying. A failed
@@ -329,7 +386,7 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
                 target.mkdir()
                 copied = True
                 shutil.copytree(stage, target, symlinks=False, dirs_exist_ok=True)
-                _verify_owned(target)
+                _verify_owned(target, marker, collision_on_modified=collision_on_modified)
                 shutil.rmtree(stage)
         except BaseException as exc:
             if copied:
@@ -383,7 +440,7 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
         if renamed:
             try:
                 _check_target_safe(scope, backup)
-                _verify_owned(backup)
+                _verify_owned(backup, marker, collision_on_modified=collision_on_modified)
                 shutil.rmtree(backup)
             except (OSError, Reject) as exc:
                 # The new target is already published. Report success and keep
@@ -407,7 +464,10 @@ def _install(source: Path, scope: Path, target: Path, name: str) -> dict:
     return result
 
 
-def _uninstall(scope: Path, target: Path, name: str) -> dict:
+def _uninstall(
+    scope: Path, target: Path, name: str, *, marker: str = INSTALLER_MARKER,
+    collision_on_modified: bool = False,
+) -> dict:
     _check_target_safe(scope, target)
     if target.is_symlink():
         raise Reject(f"target is a symlink: {target}")
@@ -415,7 +475,7 @@ def _uninstall(scope: Path, target: Path, name: str) -> dict:
         raise Reject(f"nothing to uninstall: {target} does not exist")
     if not target.is_dir():
         raise Reject(f"target is not a directory: {target}", collision=True)
-    _verify_owned(target)
+    _verify_owned(target, marker, collision_on_modified=collision_on_modified)
     shutil.rmtree(target)
     return {"action": "uninstall", "target": str(target), "outcome": "uninstalled"}
 

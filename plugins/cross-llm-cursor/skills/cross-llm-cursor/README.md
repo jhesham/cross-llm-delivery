@@ -1,4 +1,4 @@
-<!-- GENERATED from cross-llm-delivery (provider: cursor, v0.5.4) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: cursor, v0.6.0) - do not edit here; edit the monorepo source. -->
 
 # cross-llm-cursor (Claude Code lead)
 

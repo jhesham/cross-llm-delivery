@@ -1,6 +1,6 @@
 # Install Cross-LLM Delivery
 
-Choose the **lead host** (Codex or Claude Code) and **executor provider**
+Choose the **lead host** (Codex, Claude Code or Antigravity) and **executor provider**
 (antigravity, cursor, opencode, codex or claude) independently. Each generated skill
 contains its selected provider and the same engine. Python 3.11+ and Git are
 required, together with the authenticated provider CLI. Node/npm requirements
@@ -14,13 +14,17 @@ never copy a stale folder left from another engine version.
 ```bash
 python generator/build_skill.py --all
 python generator/build_skill.py --all --host codex
+python generator/build_skill.py --all --host antigravity
 python generator/build_plugins.py
 python generator/build_plugins.py --host codex
 python generator/check_plugins_fresh.py --dist-root dist --plugins-root plugins
 ```
 
 Claude bundles: `dist/cross-llm-<provider>`. Codex bundles:
-`dist/codex/cross-llm-<provider>`. Record the generated SKILL banner source SHA.
+`dist/codex/cross-llm-<provider>`. Antigravity bundles:
+`dist/antigravity/cross-llm-<provider>-agy`. Each host also gets an
+all-executors bundle (`cross-llm-delivery`, or `cross-llm-delivery-agy` for
+Antigravity) that takes the executor per build with `--executor`. Record the generated SKILL banner source SHA.
 When switching providers across slices sharing a ledger, update all installed
 bundles together from that revision. Provider-specific code differs; shared
 engine files must match. Stop active writers before replacing an installation
@@ -135,6 +139,32 @@ Codex and Claude executor plugins and IDE plugin surface remain unverified.
 Five-plugin packaging is verified separately in the [support matrix](docs/SUPPORT-MATRIX.md).
 For the IDE, use the
 standalone skill path above rather than assuming plugin discovery.
+
+## Antigravity standalone skills
+
+Antigravity skills carry an `-agy` suffix so they can sit next to Codex copies
+in the same repository's `.agents/skills`. Install with an explicit scope:
+`workspace` installs under `<repo>/.agents/skills/`, `user` under
+`<home>/.gemini/config/skills/`.
+
+```bash
+python generator/install_antigravity.py --preview --scope workspace --scope-root <target-repo> --bundle dist/antigravity/cross-llm-codex-agy
+python generator/install_antigravity.py --install --scope workspace --scope-root <target-repo> --bundle dist/antigravity/cross-llm-codex-agy
+python generator/install_antigravity.py --uninstall --scope workspace --scope-root <target-repo> --name cross-llm-codex-agy
+```
+
+For a user install pass `--scope user --scope-root <home>`. Modified, unowned
+or linked installations are refused, as with the Codex installer. When a Codex
+copy of the same skill is already in the repository, the installer says so;
+Antigravity sees both, so ask it for the `-agy` skill by name. A same-name copy
+in the deprecated `.agent/skills` folder is reported and left alone.
+
+To check discovery, run `agy -p "/skills"` in the repository. In Git Bash,
+`/skills` is rewritten into a file path; use `MSYS_NO_PATHCONV=1` or another
+shell. Lead builds from an interactive Antigravity session: headless `agy -p`
+cannot ask for approval, so it refuses the driver commands. Run `--step` and
+`--integrate` outside Antigravity's terminal sandbox,
+which mounts `.git` read-only. Antigravity plugins are not packaged yet.
 
 ## Executor setup and read-only verification
 

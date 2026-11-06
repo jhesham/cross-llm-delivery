@@ -44,6 +44,8 @@ class Provider:
                       paths selected by this provider for validation identity.
     supports_evidence: whether the provider supports one-task evidence execution.
     uncatalogued_cost_class: cost classification for models absent from the catalog.
+    max_parallel_dispatches: None means no limit; 1 means one dispatch at a time
+                      machine-wide for the current user. No other values are supported.
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -64,6 +66,7 @@ class Provider:
     config_inputs: Optional[Callable] = None  # (repository directory) -> iterable of config paths
     supports_evidence: bool = False
     uncatalogued_cost_class: str = "metered-unknown"
+    max_parallel_dispatches: int | None = None
 
 
 # ---------------------------------------------------------------------------

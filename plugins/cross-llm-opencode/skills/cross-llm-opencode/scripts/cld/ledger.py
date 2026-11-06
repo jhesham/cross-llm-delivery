@@ -52,6 +52,33 @@ class LedgerEntry:
     updated_at: str | None = None
     history: list = field(default_factory=list)
 
+    def never_started(self, refs=None) -> bool:
+        """needs_repair that v0.5.4 and earlier recorded for a worktree-lock timeout.
+
+        Requires durable evidence that no session ever created its worktree. *refs* is
+        the repository's ref names: `git worktree add -b` creates a session's branch with
+        its worktree, and recovery refs are named after the session, so neither may
+        exist. Without *refs* the answer is inconclusive and treated as a real repair.
+        Every recorded session must also be a delivery session (no repair, migration or
+        recovery ref recorded) and no worktree it or the entry names may exist.
+        """
+        if refs is None or self.status != "needs_repair" or self.attempts or self.commit is not None:
+            return False
+        sessions = self.history
+        if not sessions or not all(
+                isinstance(h, dict) and h.get("session_id") and h.get("worktree") and h.get("branch")
+                and not h.get("recovery_ref") and "repair_of" not in h and not h.get("migration")
+                for h in sessions):
+            return False
+        for h in sessions:
+            sid = h["session_id"]
+            if (f"refs/heads/{h['branch']}" in refs or f"refs/cld/accepted/{sid}" in refs
+                    or any(ref.startswith(f"refs/cld/recovery/{sid}/") for ref in refs)):
+                return False
+        paths = {h["worktree"] for h in sessions} | {self.worktree_path or ""}
+        return not any(p and os.path.exists(p) for p in paths)
+
+
 class Ledger:
     def __init__(self, path: str):
         self.path = str(Path(path).resolve())

@@ -277,6 +277,7 @@ PROVIDER = Provider(
     cli_invocation=lambda: [_agy_cmd()],
     context_env=("AGY_CMD",),
     name="antigravity",
+    max_parallel_dispatches=1,
     make_executor=lambda **k: AntigravityExecutor(**k),
     catalog=_CATALOG,
     default_workhorse="antigravity:Gemini 4 Argon (High)",

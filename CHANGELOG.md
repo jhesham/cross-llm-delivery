@@ -6,6 +6,51 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.6.0 — 2026-11-07
+
+### Added
+- Antigravity can lead a build. `build_skill.py --all --host antigravity`
+  generates `cross-llm-<provider>-agy` for each executor plus
+  `cross-llm-delivery-agy` (all executors) under `dist/antigravity/`, and
+  `generator/install_antigravity.py` installs one into a repository
+  (`.agents/skills`) or for the user (`~/.gemini/config/skills`). The `-agy`
+  names let Codex and Antigravity copies share a repository's `.agents/skills`;
+  Codex never invokes the Antigravity skills on its own, and the installer
+  warns when a Codex copy is already there. The skills call the driver by its
+  quoted absolute path in one command and say to lead from an interactive session,
+  because headless `agy -p` cannot approve the driver's commands. Antigravity
+  plugins come later.
+- Codex: `build_skill.py --all --host codex` also builds the `cross-llm-delivery`
+  all-executors skill. Codex plugin packaging stays at five plugins.
+
+### Changed
+- Only one Antigravity dispatch runs at a time on a machine, across every build
+  and CLD process of that user, because concurrent `agy` runs share local state
+  and account limits. Other executors in the same layer still run in parallel.
+  The lock lives in `%LOCALAPPDATA%\cld\locks` on Windows or `~/.cache/cld/locks`
+  elsewhere (`CLD_DISPATCH_LOCK_DIR` overrides it); a dispatch waiting for it
+  gives up without running when the build is cancelled.
+- Releases and CI also build the Antigravity bundles. Claude Code and Codex
+  bundle contents are otherwise unchanged.
+
+### Fixed
+- Parallel builds: when a worker waited more than 10 seconds for the worktree
+  lock, its slice was marked as needing repair although nothing had run, and no
+  command could clear it. The wait is now up to 5 minutes, a slice that never
+  started stays retryable, and slices already stuck this way run again on the
+  next step. A slice is only treated as never started when Git confirms it: no
+  branch or recovery ref of any recorded session exists, no worktree it names
+  exists, and no repair was attempted. If Git cannot list every ref (it skips a
+  broken one with only a warning), the slice counts as a real repair.
+- Cancelling a build now also stops a worker waiting to create a worktree, and
+  no worktree is created after cancellation. Worktree removal still completes.
+- A `--mark-repaired` that cannot create its verification worktree keeps the
+  original attempt, including any manual repair in it, as the one to repair.
+- Both skill installers refuse Windows junctions, as they already refused
+  symlinks, inside the bundle and on the way to the install folder.
+- With the dispatch limit in place, an executor whose `run` takes no `feedback`
+  argument still works on retries, and evidence dispatches also wait their turn.
+
 ## 0.5.4 — 2026-11-06
 
 ### Fixed

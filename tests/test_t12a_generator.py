@@ -90,8 +90,9 @@ def test_codex_all_cli_keeps_existing_claude_tree(tmp_path):
         stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8", timeout=90)
     assert proc.returncode == 0, proc.stderr
     assert (legacy / "KEEP").read_text(encoding="utf-8") == "untouched"
+    # v0.6.0: --all also builds the Codex all-executors bundle.
     assert {p.name for p in (root / "codex").iterdir() if p.is_dir()} == {
-        f"cross-llm-{provider}" for provider in PROVIDERS}
+        f"cross-llm-{provider}" for provider in PROVIDERS} | {"cross-llm-delivery"}
 
 
 def test_invalid_host_rejected_before_mutation(tmp_path):

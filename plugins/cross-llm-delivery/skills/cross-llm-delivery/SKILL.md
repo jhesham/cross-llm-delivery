@@ -5,7 +5,7 @@ description: >-
   chosen per build (codex, claude, opencode, cursor or antigravity), using
   committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: all, v0.5.4) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: all, v0.6.0) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 

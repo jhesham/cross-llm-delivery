@@ -4,14 +4,40 @@ import re
 
 from cld.executors._capture import CaptureError, checked
 from cld.locking import file_owner
+from cld.process import _scope
 from cld._windows_workspace import prepare_windows_workspace
 
 
+# Parallel workers queue here while Git adds or removes a worktree, which can take
+# well over ten seconds per checkout on a loaded machine. The OS releases the lock
+# when its owner exits, so a long wait never hangs on a dead process.
+REGISTRY_WAIT_SECONDS = 300
+
+
 @contextlib.contextmanager
-def registry_owner(repo, runner):
+def registry_owner(repo, runner, *, cancellable=False):
+    """Own the worktree registry. Creation is *cancellable*: a cancelled build stops
+    waiting and creates nothing. Removal always finishes so cleanup is not stranded."""
     common = checked(runner, repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
-    with file_owner(Path(common).resolve() / "cld-worktrees.lock", wait_seconds=10):
+    cancel = _scope.get().get("cancel") if cancellable else None
+    with file_owner(Path(common).resolve() / "cld-worktrees.lock", wait_seconds=REGISTRY_WAIT_SECONDS,
+                    cancel=cancel):
         yield
+
+
+def repository_refs(repo, runner) -> frozenset:
+    """Every ref name in *repo*: durable evidence of which sessions created anything.
+
+    Git skips a ref it cannot read with only a warning and exit 0, so any stderr text,
+    or any line that is not a ref (a runner that merges stderr), makes the listing
+    incomplete: raise, and callers treat the evidence as inconclusive.
+    """
+    output = checked(runner, repo, "for-each-ref", "--format=%(refname)")
+    lines = output.splitlines()
+    stderr = getattr(output, "stderr", "") or ""
+    if stderr.strip() or any(not line.startswith("refs/") for line in lines):
+        raise CaptureError("Git could not list every ref: " + (stderr.strip() or output)[:300])
+    return frozenset(lines)
 
 
 def managed_location(repo, root, run_id, sid, session_id, *, create_root=False):
@@ -66,7 +92,7 @@ def worktree(repo_dir: str, branch: str, *, runner, cleanup: bool = True,
         if Path(path).exists():
             raise CaptureError(f"Reserved worktree path already exists: {path}")
     add_args = ["git", "worktree", "add", "-b", branch, path, base]
-    with registry_owner(repo_dir, runner) if root is not None else contextlib.nullcontext():
+    with registry_owner(repo_dir, runner, cancellable=True) if root is not None else contextlib.nullcontext():
         rc, output = runner(add_args, repo_dir)
     if rc != 0:
         raise RuntimeError(f"worktree creation failed at {path}: {output}")

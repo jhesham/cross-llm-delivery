@@ -1,0 +1,10 @@
+# Codex also reads <repo>/.agents/skills. This metadata keeps Codex from ever
+# invoking this Antigravity-lead skill on its own; Antigravity ignores the file.
+# Do not add keys beyond the verified fields below.
+interface:
+  display_name: "Cross-LLM Delivery for Antigravity leads (executor chosen per build)"
+  short_description: "Antigravity-lead variant. Codex leads use cross-llm-delivery instead."
+  default_prompt: "Use cross-llm-delivery instead: this skill is written for an Antigravity lead."
+policy:
+  products: [CODEX]
+  allow_implicit_invocation: false

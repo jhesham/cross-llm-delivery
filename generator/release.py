@@ -176,6 +176,7 @@ def _generate(root, runner):
                  [sys.executable, "generator/build_plugins.py"],
                  [sys.executable, "generator/build_plugins.py", "--host", "codex", "--out-root", "dist/release-plugins"]):
         checked(argv, root, runner=runner)
+    checked([sys.executable, "generator/build_skill.py", "--all", "--host", "antigravity"], root, runner=runner)
     _validate_manifests(root)
 
 

@@ -10,7 +10,9 @@ class OwnerBusy(RuntimeError):
 
 
 @contextmanager
-def file_owner(path, *, wait_seconds=0):
+def file_owner(path, *, wait_seconds=0, cancel=None):
+    """Own *path* exclusively. A set *cancel* event ends the wait, and is checked
+    again once the lock is held, by raising KeyboardInterrupt."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.resolve() != path.absolute():
@@ -23,6 +25,8 @@ def file_owner(path, *, wait_seconds=0):
         stream.seek(0)
         deadline = time.monotonic() + wait_seconds
         while True:
+            if cancel is not None and cancel.is_set():
+                raise KeyboardInterrupt(f"Cancelled while waiting for {path}")
             try:
                 if os.name == "nt":
                     import msvcrt
@@ -36,6 +40,8 @@ def file_owner(path, *, wait_seconds=0):
                     raise OwnerBusy(f"Active writer owns {path}; retry after it exits") from exc
                 time.sleep(0.02)
         try:
+            if cancel is not None and cancel.is_set():
+                raise KeyboardInterrupt(f"Cancelled after acquiring {path}")
             yield
         finally:
             stream.seek(0)

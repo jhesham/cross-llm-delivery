@@ -1,6 +1,6 @@
 {
   "name": "cross-llm-delivery",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "Claude Code leads implementation by a headless executor chosen per build (Codex, Claude Code, OpenCode, Cursor or Antigravity) with independent acceptance and verified integration. Independent project; not affiliated with or endorsed by Anthropic or OpenAI. Claude, Claude Code, Codex and other names are trademarks of their owners.",
   "author": {
     "name": "jhesham",

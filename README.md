@@ -4,7 +4,7 @@
 
 # cross-llm-delivery (`cld`)
 
-Cross-LLM Delivery lets **Codex or Claude Code lead a build** while a selected
+Cross-LLM Delivery lets **Codex, Claude Code or Antigravity lead a build** while a selected
 headless CLI implements its slices. The lead writes contracts and committed
 acceptance tests; the engine independently verifies each Git candidate, checks
 its writable allowlist, and integrates accepted commits against an explicit
@@ -32,11 +32,12 @@ The lead host and implementation provider are separate choices:
 |---|---|
 | Codex CLI or IDE, using a Codex skill bundle | OpenCode, Antigravity, Cursor, Codex CLI or Claude Code CLI |
 | Claude Code, using a Claude skill or plugin | The same five providers and engine |
+| Antigravity CLI (`agy`), using an `-agy` skill bundle | The same five providers; Antigravity dispatches run one at a time |
 
-Version **0.5.3** supports both lead hosts and five executor providers,
-including the Claude Code CLI executor (your Claude subscription, an isolated
+Version **0.6.0** supports three lead hosts (Codex, Claude Code and, new in this
+version, Antigravity) and five executor providers, including the Claude Code CLI executor (your Claude subscription, an isolated
 `claude -p` session per slice).
-Use the [versioned release and artifacts](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.5.3)
+Use the [versioned release](https://github.com/jhesham/cross-llm-delivery/releases/tag/v0.6.0)
 for a fixed source revision. The Claude-only root marketplace is read from `main`;
 both hosts' plugin manifests follow `VERSION`, so Claude marketplace-managed plugin
 updates stay pinned until the manifest version changes (local in-place profiles can
@@ -139,7 +140,7 @@ a host/provider-specific reviewer README and the same `PRIVACY.md`,
 
 You need Python 3.11+, Git, the chosen lead host, and the chosen provider CLI
 with suitable authentication. Supported surfaces are local Claude Code and
-Codex CLI/IDE workflows, subject to their actual skill/plugin discovery
+Codex CLI/IDE workflows and the Antigravity CLI, subject to their actual skill/plugin discovery
 limitations; ChatGPT web, claude.ai and Cowork are not. Bundles vendor their
 engine: no Python package
 install is needed on the target machine. Install only the providers you use;
@@ -148,12 +149,13 @@ refresh all bundles sharing a ledger from the same source revision.
 ```bash
 python generator/build_skill.py --all                 # Claude Code skills
 python generator/build_skill.py --all --host codex    # Codex skills
+python generator/build_skill.py --all --host antigravity  # Antigravity skills
 python generator/build_plugins.py                    # Claude plugins
 python generator/build_plugins.py --host codex        # Codex plugins/catalog
 ```
 
 [INSTALL.md](INSTALL.md) covers Claude standalone/plugins, Codex standalone
-CLI/IDE and the separate Codex plugin surface. Provider catalog entries are
+CLI/IDE, the separate Codex plugin surface and Antigravity skills. Provider catalog entries are
 snapshots; select an exact supported CLI model rather than assuming an account
 can run every entry. Codex has no guessed model default or static catalog.
 

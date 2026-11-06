@@ -13,10 +13,16 @@ ENGINE: Path = REPO_ROOT / "engine"
 PROVIDERS_DIR: Path = ENGINE / "cld_providers"
 SKILL_SRC: Path = REPO_ROOT / "skill"
 
-# Supported output hosts. "claude-code" is the historical default; "codex" is
-# the standalone Codex variant (YAML-first SKILL.md + host references).
-HOSTS: tuple[str, ...] = ("claude-code", "codex")
+# Supported output hosts. "claude-code" is the historical default; the other
+# hosts use standalone YAML-first SKILL.md templates and host references.
+HOSTS: tuple[str, ...] = ("claude-code", "codex", "antigravity")
 CODEX_HOST_SRC: Path = SKILL_SRC / "hosts" / "codex"
+ANTIGRAVITY_HOST_SRC: Path = SKILL_SRC / "hosts" / "antigravity"
+
+
+def _standalone_host_src(host: str) -> Path:
+    """Return the template root for a standalone YAML-first host."""
+    return ANTIGRAVITY_HOST_SRC if host == "antigravity" else CODEX_HOST_SRC
 
 
 def _git_sha() -> str:
@@ -101,9 +107,9 @@ def _compose_skill(provider: str, out: Path) -> None:
     (out / "SKILL.md").write_text(skill, encoding="utf-8")
 
 
-def _compose_skill_codex(provider: str, out: Path) -> None:
-    """Compose the Codex-host SKILL.md from its own concise YAML-first template."""
-    template = (CODEX_HOST_SRC / "SKILL.template.md").read_text(encoding="utf-8")
+def _compose_skill_codex(provider: str, out: Path, host: str = "codex") -> None:
+    """Compose a standalone host SKILL.md from its YAML-first template."""
+    template = (_standalone_host_src(host) / "SKILL.template.md").read_text(encoding="utf-8")
     skill = (
         template
         .replace("{{PROVIDER_NAME}}", provider)
@@ -114,12 +120,13 @@ def _compose_skill_codex(provider: str, out: Path) -> None:
     (out / "SKILL.md").write_text(skill, encoding="utf-8")
 
 
-def _vendor_codex_references(provider: str, out: Path) -> None:
-    """Copy the Codex host workflow + shared core + provider docs as references."""
+def _vendor_codex_references(provider: str, out: Path, host: str = "codex") -> None:
+    """Copy the host workflow + shared core + provider docs as references."""
     refs = out / "references"
     refs.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(CODEX_HOST_SRC / "references" / "codex-workflow.md",
-                 refs / "codex-workflow.md")
+    workflow = f"{host}-workflow.md"
+    shutil.copy2(_standalone_host_src(host) / "references" / workflow,
+                 refs / workflow)
     # The one shared, host-neutral reference (also vendored into Claude bundles).
     shutil.copy2(SKILL_SRC / "references" / "delivery-core.md",
                  refs / "delivery-core.md")
@@ -129,13 +136,13 @@ def _vendor_codex_references(provider: str, out: Path) -> None:
     shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", refs / "provider.md")
 
 
-def _compose_codex_agent_metadata(provider: str, out: Path) -> None:
-    """Render agents/openai.yaml from the verified Codex agent metadata template.
+def _compose_codex_agent_metadata(provider: str, out: Path, host: str = "codex") -> None:
+    """Render agents/openai.yaml from the host's agent metadata template.
 
-    Codex bundles only: Claude bundles never receive this metadata. Only
+    Standalone hosts only: Claude bundles never receive this metadata. Only
     {{PROVIDER_NAME}} is substituted; the template carries no other markers.
     """
-    template = (CODEX_HOST_SRC / "agents" / "openai.yaml.template").read_text(
+    template = (_standalone_host_src(host) / "agents" / "openai.yaml.template").read_text(
         encoding="utf-8")
     meta = template.replace("{{PROVIDER_NAME}}", provider)
     agents = out / "agents"
@@ -146,11 +153,17 @@ def _compose_codex_agent_metadata(provider: str, out: Path) -> None:
 def _vendor_policy_docs(provider: str, out: Path, host: str) -> None:
     """Render the shared reviewer README; copy PRIVACY/SECURITY byte-for-byte."""
     template = (SKILL_SRC / "README.template.md").read_text(encoding="utf-8")
+    if host == "antigravity":
+        template = template.replace(
+            "{{BANNER}}\n\n# cross-llm-{{PROVIDER_NAME}} ({{HOST_NAME}} lead)",
+            "# cross-llm-{{PROVIDER_NAME}}-agy ({{HOST_NAME}} lead)\n\n{{BANNER}}",
+            1,
+        )
     readme = (
         template
         .replace("{{PROVIDER_NAME}}", provider)
         .replace("{{HOST}}", host)
-        .replace("{{HOST_NAME}}", "Codex" if host == "codex" else "Claude Code")
+        .replace("{{HOST_NAME}}", {"codex": "Codex", "antigravity": "Antigravity"}.get(host, "Claude Code"))
         .replace("{{BANNER}}", _banner(provider))
     )
     (out / "README.md").write_text(readme, encoding="utf-8")
@@ -158,12 +171,12 @@ def _vendor_policy_docs(provider: str, out: Path, host: str) -> None:
         shutil.copyfile(REPO_ROOT / name, out / name)
 
 
-def _scaffold_codex(provider: str, out: Path) -> None:
-    """Write LICENSE, .gitignore, reviewer docs and the demo plan for a Codex bundle."""
+def _scaffold_codex(provider: str, out: Path, host: str = "codex") -> None:
+    """Write LICENSE, .gitignore, reviewer docs and the demo plan for a host bundle."""
     shutil.copy2(REPO_ROOT / "LICENSE", out / "LICENSE")
     gitignore = "__pycache__/\n*.pyc\n.cld-ledger.json\n"
     (out / ".gitignore").write_text(gitignore, encoding="utf-8")
-    _vendor_policy_docs(provider, out, "codex")
+    _vendor_policy_docs(provider, out, host)
     examples = SKILL_SRC / "examples"
     if examples.exists():
         shutil.copytree(examples, out / "examples",
@@ -314,8 +327,10 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
     host="claude-code" (the default) writes <out_root>/cross-llm-<provider>/
     exactly as it always has. host="codex" writes the standalone Codex variant
     to <out_root>/codex/cross-llm-<provider>/ and never touches an adjacent
-    Claude bundle. An unknown host raises ValueError before any output is
-    created or deleted.
+    Claude bundle. host="antigravity" writes to
+    <out_root>/antigravity/cross-llm-<provider>-agy/ without touching either
+    other host. An unknown host raises ValueError before any output is created
+    or deleted.
 
     If *smoke* is True (the default) a standalone smoke-check is run after the
     bundle is assembled, proving that the vendored copy of cld is self-contained.
@@ -330,8 +345,9 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
         raise ValueError(
             f"Unknown provider '{provider}'. Known: {{{', '.join(known)}}}"
         )
-    if host == "codex":
-        out = Path(out_root) / "codex" / f"cross-llm-{provider}"
+    if host in ("codex", "antigravity"):
+        suffix = "-agy" if host == "antigravity" else ""
+        out = Path(out_root) / host / f"cross-llm-{provider}{suffix}"
     else:
         out = Path(out_root) / f"cross-llm-{provider}"
     if out.exists():
@@ -341,11 +357,11 @@ def build_one(provider: str, *, out_root: str | Path = "dist", smoke: bool = Tru
     _trim_executor_shims(provider, out)
     _vendor_provider(provider, out)
     _vendor_driver(out)
-    if host == "codex":
-        _vendor_codex_references(provider, out)
-        _compose_skill_codex(provider, out)
-        _compose_codex_agent_metadata(provider, out)
-        _scaffold_codex(provider, out)
+    if host in ("codex", "antigravity"):
+        _vendor_codex_references(provider, out, host)
+        _compose_skill_codex(provider, out, host)
+        _compose_codex_agent_metadata(provider, out, host)
+        _scaffold_codex(provider, out, host)
     else:
         _vendor_aux(out, provider)
         _compose_skill(provider, out)
@@ -371,11 +387,20 @@ UNIFIED_PROBE = (
 )
 
 
-def build_unified(*, out_root: str | Path = "dist", smoke: bool = True) -> Path:
-    """Create (or wipe+recreate) <out_root>/cross-llm-delivery: one Claude Code bundle
-    with every known provider vendored, the executor chosen per build."""
+def build_unified(*, out_root: str | Path = "dist", smoke: bool = True,
+                  host: str = "claude-code") -> Path:
+    """Create a host bundle with every provider and the executor chosen per build.
+
+    Claude Code retains its historical output path; standalone hosts write
+    beneath their host directory, with an -agy suffix for Antigravity.
+    """
+    if host not in HOSTS:
+        raise ValueError(f"Unknown host '{host}'. Known: {{{', '.join(HOSTS)}}}")
     known = _known_providers()
-    out = Path(out_root) / UNIFIED_NAME
+    standalone = host != "claude-code"
+    skill_name = UNIFIED_NAME + ("-agy" if host == "antigravity" else "")
+    host_name = {"codex": "Codex", "antigravity": "Antigravity"}.get(host, "Claude Code")
+    out = Path(out_root) / host / skill_name if standalone else Path(out_root) / skill_name
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
@@ -384,7 +409,16 @@ def build_unified(*, out_root: str | Path = "dist", smoke: bool = True) -> Path:
         _vendor_provider(provider, out)
     _vendor_driver(out)
     _ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
-    shutil.copytree(SKILL_SRC / "references", out / "references", ignore=_ignore)
+    if standalone:
+        refs = out / "references"
+        refs.mkdir()
+        for name in ("delivery-core.md", "authoring-plans.md", "architecture.md",
+                     "observability.md", "superpowers-to-cld.md"):
+            shutil.copy2(SKILL_SRC / "references" / name, refs / name)
+        workflow = f"{host}-workflow.md"
+        shutil.copy2(_standalone_host_src(host) / "references" / workflow, refs / workflow)
+    else:
+        shutil.copytree(SKILL_SRC / "references", out / "references", ignore=_ignore)
     providers_ref = out / "references" / "providers"
     providers_ref.mkdir(parents=True)
     for provider in known:
@@ -403,16 +437,34 @@ def build_unified(*, out_root: str | Path = "dist", smoke: bool = True) -> Path:
         for provider in known
     )
     (out / "references" / "provider-setup.md").write_text(setup_index, encoding="utf-8")
+    if standalone:
+        notes_index = "# Executor notes\n\n" + "".join(
+            f"- [{provider_labels.get(provider, provider)}](providers/{provider}.md)\n"
+            for provider in known
+        )
+        (out / "references" / "provider.md").write_text(notes_index, encoding="utf-8")
+        agents = out / "agents"
+        agents.mkdir()
+        shutil.copy2(_standalone_host_src(host) / "agents" / "openai.unified.yaml",
+                     agents / "openai.yaml")
     shutil.copytree(SKILL_SRC / "examples", out / "examples", ignore=_ignore)
     banner = _banner("all")
-    skill = (SKILL_SRC / "SKILL.unified.template.md").read_text(encoding="utf-8")
+    template_root = _standalone_host_src(host) if standalone else SKILL_SRC
+    skill = (template_root / "SKILL.unified.template.md").read_text(encoding="utf-8")
     (out / "SKILL.md").write_text(skill.replace("{{BANNER}}", banner), encoding="utf-8")
     readme = (SKILL_SRC / "README.template.md").read_text(encoding="utf-8")
     for old, new in _UNIFIED_README:
         if old not in readme:
             raise RuntimeError(f"README template changed; cannot render unified README near {old!r}")
         readme = readme.replace(old, new)
-    readme = (readme.replace("{{HOST_NAME}}", "Claude Code").replace("{{HOST}}", "claude-code")
+    if standalone:
+        readme = readme.replace(f"# {UNIFIED_NAME} (Claude Code lead)",
+                                f"# {skill_name} ({host_name} lead)")
+        readme = readme.replace("Claude Code leads the build", f"{host_name} leads the build")
+        # Standalone host reviewer READMEs put the skill title on the first line.
+        title = f"# {skill_name} ({host_name} lead)"
+        readme = readme.replace(f"{{{{BANNER}}}}\n\n{title}", f"{title}\n\n{{{{BANNER}}}}", 1)
+    readme = (readme.replace("{{HOST_NAME}}", host_name).replace("{{HOST}}", host)
               .replace("{{BANNER}}", banner))
     (out / "README.md").write_text(readme, encoding="utf-8")
     for name in ("PRIVACY.md", "SECURITY.md", "LICENSE"):
@@ -452,7 +504,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--host",
         default="claude-code",
-        help="Target host for the generated bundle: claude-code (default) or codex.",
+        help="Target host for the generated bundle: claude-code (default), codex or antigravity.",
     )
     parser.add_argument(
         "--no-smoke",
@@ -473,8 +525,8 @@ def main(argv: list[str] | None = None) -> int:
     for target in targets:
         out = build_one(target, out_root=args.out_root, smoke=smoke, host=args.host)
         print(out)
-    if args.all_providers and args.host == "claude-code":
-        print(build_unified(out_root=args.out_root, smoke=smoke))
+    if args.all_providers:
+        print(build_unified(out_root=args.out_root, smoke=smoke, host=args.host))
 
     return 0
 

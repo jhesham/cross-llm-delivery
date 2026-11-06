@@ -27,6 +27,11 @@ and bundle checks are distinct from the live observations below.
 | Claude Code | Cursor | Verified | No end-to-end host/provider proof recorded here |
 | Claude Code | Codex CLI | Verified | Windows, Luna/max+fast, accepted and integrated slices; [Claude executor build, sitting 2](plans/claude-executor/EVIDENCE.md) |
 | Claude Code | Claude Code CLI | Verified | No end-to-end host/provider proof recorded here |
+| Antigravity | OpenCode | v0.6.0 skill bundle; no plugin | No end-to-end host/provider proof recorded here |
+| Antigravity | Antigravity | v0.6.0 skill bundle; no plugin | No end-to-end host/provider proof recorded here |
+| Antigravity | Cursor | v0.6.0 skill bundle; no plugin | No end-to-end host/provider proof recorded here |
+| Antigravity | Codex CLI | v0.6.0 skill bundle; no plugin | No end-to-end host/provider proof recorded here |
+| Antigravity | Claude Code CLI | v0.6.0 skill bundle; no plugin | No end-to-end host/provider proof recorded here |
 
 “No proof recorded here” describes this matrix's evidence coverage, not a claim
 that a pairing is unsupported. Adapter-level canaries are narrower: the
@@ -49,6 +54,17 @@ ran on Windows with CLI 2.1.286. Their results do not verify every lead surface.
   records all five installed Claude-host skills and model-free checks including
   the Claude executor picker. This is distinct from fresh five-plugin
   marketplace discovery and from end-to-end execution of every pairing.
+
+- **Antigravity:** on 2026-11-06, `agy` 1.5.1 on Windows listed
+  workspace-installed `cross-llm-codex-agy` and `cross-llm-delivery-agy`
+  alongside a Codex `cross-llm-codex` copy in the same `.agents/skills`, each
+  `-agy` skill described as for Antigravity leads only. Asked in a headless
+  `agy -p` session to preview a plan, Antigravity loaded `cross-llm-codex-agy`
+  and composed the correct `--dry-run --json --host antigravity` driver command,
+  which then succeeded when run by hand. Headless `agy -p` could not run it
+  itself: it cannot ask for approval, and only exact-command allow rules matched.
+  A full Antigravity-led build is not recorded; user-scope discovery and the
+  Antigravity IDE are unverified.
 
 ## Boundaries to retain
 
