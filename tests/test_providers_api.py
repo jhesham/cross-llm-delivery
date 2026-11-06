@@ -46,8 +46,8 @@ def test_catalog_assembles_from_providers():
 def test_default_workhorse_single_and_multi():
     register_provider(_p("opencode", "opencode:opencode/x"))
     assert default_workhorse() == "opencode:opencode/x"        # single -> its own
-    register_provider(_p("antigravity", "antigravity:Gemini 3.1 Pro (High)"))
-    assert default_workhorse() == "antigravity:Gemini 3.1 Pro (High)"  # many -> the preferred one
+    register_provider(_p("antigravity", "antigravity:Gemini 4 Argon (High)"))
+    assert default_workhorse() == "antigravity:Gemini 4 Argon (High)"  # many -> the preferred one
 
 
 def test_load_providers_noop_when_empty(monkeypatch):
@@ -68,14 +68,14 @@ def test_get_executor_resolves_via_registry():
     from cld.providers_api import load_providers, _REGISTRY
     _REGISTRY.clear(); load_providers()
     from cld_providers.antigravity.provider import AntigravityExecutor
-    assert isinstance(get_executor("antigravity", model="Gemini 3.1 Pro (High)"), AntigravityExecutor)
+    assert isinstance(get_executor("antigravity", model="Gemini 4 Argon (High)"), AntigravityExecutor)
 
 
 def test_catalog_matches_all_providers():
     from cld.providers_api import load_providers, _REGISTRY, catalog
     _REGISTRY.clear(); load_providers()
     # every catalogued id belongs to a registered provider; antigravity default present
-    assert "antigravity:Gemini 3.1 Pro (High)" in catalog()
+    assert "antigravity:Gemini 4 Argon (High)" in catalog()
     assert "opencode/deepseek-v4-pro" in catalog()
     assert "cursor:composer-2.5" in catalog()
 
@@ -94,7 +94,7 @@ def test_assembled_catalog_has_expected_ids():
     assert "cursor:composer-2.5" in ids
     assert {"opencode/deepseek-v4-pro", "opencode/claude-opus-4-8",
             "opencode/kimi-k2.7-code", "opencode/glm-5.2"} <= ids
-    assert "antigravity:Gemini 3.1 Pro (High)" in ids
+    assert "antigravity:Gemini 4 Argon (High)" in ids
     assert "gemini:gemini-3.1-pro-preview" not in ids
     assert len(ids) == 17
 
@@ -102,4 +102,4 @@ def test_assembled_catalog_has_expected_ids():
 def test_default_workhorse_prefers_antigravity():
     from cld.providers_api import _REGISTRY, load_providers, default_workhorse
     _REGISTRY.clear(); load_providers()
-    assert default_workhorse() == "antigravity:Gemini 3.1 Pro (High)"
+    assert default_workhorse() == "antigravity:Gemini 4 Argon (High)"

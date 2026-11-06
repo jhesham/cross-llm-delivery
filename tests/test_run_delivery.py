@@ -27,7 +27,7 @@ def test_default_when_empty():
     # empty spec -> the engine's default workhorse (was hardcoded "gemini"; gemini removed)
     name, kwargs = parse_executor_spec("")
     assert name == "antigravity"
-    assert kwargs.get("model") == "Gemini 3.1 Pro (High)"
+    assert kwargs.get("model") == "Gemini 4 Argon (High)"
 
 
 def test_strips_whitespace():
@@ -237,7 +237,7 @@ def test_step_help_documents_gate_4(capsys):
 def test_provider_of_spec():
     import skill.scripts.run_delivery as rd
     assert rd._provider_of_spec("antigravity") == "antigravity"
-    assert rd._provider_of_spec("antigravity:Gemini 3.1 Pro (High)") == "antigravity"
+    assert rd._provider_of_spec("antigravity:Gemini 4 Argon (High)") == "antigravity"
     assert rd._provider_of_spec("opencode:opencode/deepseek-v4-pro") == "opencode"
     assert rd._provider_of_spec("cursor:composer-2.5") == "cursor"
     # a removed/unknown provider falls back to the default workhorse provider, not "gemini"
@@ -250,7 +250,7 @@ def test_build_rung_planner_untagged_uses_provider_workhorse():
     planner = rd.build_rung_planner("antigravity", evidence={})
     rungs = planner(SliceTask(id="S", brief="b", files=["x"], acceptance_test_path="t.py",
                               complexity="standard"))
-    assert rungs == [("workhorse", "antigravity:Gemini 3.1 Pro (High)", 2)]
+    assert rungs == [("workhorse", "antigravity:Gemini 4 Argon (High)", 2)]
 
 
 def test_build_rung_planner_honors_explicit_model_at_entry():

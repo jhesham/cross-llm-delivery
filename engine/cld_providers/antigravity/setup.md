@@ -2,7 +2,12 @@
 
 1. Install the Antigravity CLI; ensure `agy` (or `%LOCALAPPDATA%\agy\bin\agy.exe`) is on PATH.
 2. Authenticate once: run `agy` interactively and complete the browser login (reuses `~/.gemini/`).
-3. Verify: `agy models` (in an interactive terminal) lists your models.
+3. Verify: `agy models` works in any terminal and lists your models.
+
+The default model is `Gemini 4 Argon (High)`. Select a label with
+`--executor "antigravity:Gemini 4 Argon (High)"`; slugs such as
+`antigravity:gemini-4-argon-high` also work. Current models include Gemini 3.8
+Flash, Gemini 4 Argon, Claude Sonnet 5.5, Claude Opus 5.5 and GPT-OSS 120B.
 
 The executor runs `agy` from its selected home directory and looks for the
 transcript under that same home. An explicit `home` passed to the executor

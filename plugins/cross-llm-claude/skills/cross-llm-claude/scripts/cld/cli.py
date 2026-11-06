@@ -580,6 +580,11 @@ def prepare_dispatch(args, slices, ledger):
         selected = [s for s in selected if layer and s.id in layer[1]]
     if not selected:
         return None, None
+    if not args.executor and len(all_providers()) > 1 and any(not s.executor for s in selected):
+        raise ValueError(
+            "No executor chosen: pass --executor <provider>:<exact-model-id>@<effort>; "
+            "this installation includes several executors and never picks one for you."
+        )
     default, _, _ = resolve_spec(args.executor or _default_spec())
     # Preflight entry providers before asking a provider to list available models.
     entries = [resolve_spec(s.executor or default)[0] for s in selected]

@@ -24,18 +24,18 @@ def _events():
          "total": 3, "run_id": "a1b2", "ts": _ts(0)},
         # T1 done (completed)
         {"type": "slice_start", "slice_id": "T1", "run_id": "a1b2", "ts": _ts(1)},
-        {"type": "dispatch_start", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_start", "slice_id": "T1", "model": "antigravity:Gemini 4 Argon (High)",
          "rung": "workhorse", "attempt": 1, "source": "default", "run_id": "a1b2", "ts": _ts(1)},
-        {"type": "dispatch_end", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_end", "slice_id": "T1", "model": "antigravity:Gemini 4 Argon (High)",
          "rc": 0, "tokens": {"total": 1000}, "ms": 1200, "run_id": "a1b2", "ts": _ts(3)},
         {"type": "judge_verdict", "slice_id": "T1", "passed": True, "attempt": 1,
          "run_id": "a1b2", "ts": _ts(3)},
         {"type": "slice_done", "slice_id": "T1", "status": "completed", "run_id": "a1b2", "ts": _ts(3)},
         # T2 done (completed)
         {"type": "slice_start", "slice_id": "T2", "run_id": "a1b2", "ts": _ts(3)},
-        {"type": "dispatch_start", "slice_id": "T2", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_start", "slice_id": "T2", "model": "antigravity:Gemini 4 Argon (High)",
          "rung": "workhorse", "attempt": 1, "source": "default", "run_id": "a1b2", "ts": _ts(3)},
-        {"type": "dispatch_end", "slice_id": "T2", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_end", "slice_id": "T2", "model": "antigravity:Gemini 4 Argon (High)",
          "rc": 0, "tokens": {"total": 2000}, "ms": 900, "run_id": "a1b2", "ts": _ts(5)},
         {"type": "slice_done", "slice_id": "T2", "status": "completed", "run_id": "a1b2", "ts": _ts(5)},
         # T3 RUNNING: dispatch_start at +13s, _NOW is +60s -> elapsed 47s. No slice_done.

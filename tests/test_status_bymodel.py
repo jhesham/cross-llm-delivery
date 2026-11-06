@@ -19,9 +19,9 @@ def _events():
         {"type": "run_start", "run_id": "a1", "ts": _ts(0)},
         {"type": "layer_start", "layer": 0, "slice_ids": ["T1", "T2"], "total": 1, "ts": _ts(0)},
         {"type": "slice_start", "slice_id": "T1", "ts": _ts(0)},
-        {"type": "dispatch_start", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_start", "slice_id": "T1", "model": "antigravity:Gemini 4 Argon (High)",
          "rung": "workhorse", "attempt": 1, "source": "default", "ts": _ts(0)},
-        {"type": "dispatch_end", "slice_id": "T1", "model": "antigravity:Gemini 3.1 Pro (High)",
+        {"type": "dispatch_end", "slice_id": "T1", "model": "antigravity:Gemini 4 Argon (High)",
          "rc": 0, "tokens": {"total": 1000}, "ms": 10, "ts": _ts(1)},
         {"type": "slice_done", "slice_id": "T1", "status": "completed", "ts": _ts(1)},
         {"type": "slice_start", "slice_id": "T2", "ts": _ts(1)},
@@ -37,7 +37,7 @@ def test_by_model_rollup_groups_slices_tokens_source():
     out = render_status(_events(), now=_BASE + datetime.timedelta(seconds=3))
     low = out.lower()
     assert "by model" in low                                   # the rollup line/section
-    assert "antigravity:Gemini 3.1 Pro (High)" in out          # model 1
+    assert "antigravity:Gemini 4 Argon (High)" in out          # model 1
     assert "opencode:opencode/glm-5.2" in out                  # model 2
     assert "T1" in out and "T2" in out                         # slices attributed
     assert "1000" in out and "5000" in out                     # per-model token sums

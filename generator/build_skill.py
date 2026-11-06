@@ -390,6 +390,19 @@ def build_unified(*, out_root: str | Path = "dist", smoke: bool = True) -> Path:
     for provider in known:
         shutil.copy2(PROVIDERS_DIR / provider / "setup.md", providers_ref / f"{provider}-setup.md")
         shutil.copy2(PROVIDERS_DIR / provider / "SKILL.fragment.md", providers_ref / f"{provider}.md")
+    provider_labels = {
+        "antigravity": "Antigravity",
+        "claude": "Claude Code",
+        "codex": "Codex",
+        "cursor": "Cursor",
+        "opencode": "OpenCode",
+    }
+    setup_index = "# Executor setup\n\nThis bundle includes every executor. Choose its setup page:\n\n"
+    setup_index += "".join(
+        f"- [{provider_labels.get(provider, provider)}](providers/{provider}-setup.md)\n"
+        for provider in known
+    )
+    (out / "references" / "provider-setup.md").write_text(setup_index, encoding="utf-8")
     shutil.copytree(SKILL_SRC / "examples", out / "examples", ignore=_ignore)
     banner = _banner("all")
     skill = (SKILL_SRC / "SKILL.unified.template.md").read_text(encoding="utf-8")

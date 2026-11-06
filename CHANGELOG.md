@@ -6,6 +6,23 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.5.4 — 2026-11-06
+
+### Fixed
+- Antigravity executor works with current `agy` (1.5.1): it reads `agy`'s JSON
+  result (reply, errors and token usage, including on failed dispatches, so
+  token budgets now apply), hands a dispatch that `agy` reports as successful
+  to the candidate check even without a closing reply or uncommitted changes, passes
+  `--effort`, and prefers the `agy` on PATH. The model catalog now lists current
+  models (default `Gemini 4 Argon (High)`), `agy models` feeds the model picker,
+  and models outside the catalog are treated as flat-rate instead of being
+  refused.
+- With several executors installed (the `cross-llm-delivery` plugin or a source
+  checkout), a build without `--executor` now stops with "No executor chosen"
+  instead of silently picking one. Single-executor plugins are unchanged.
+- The `cross-llm-delivery` plugin includes `references/provider-setup.md`, so
+  every reference link inside it resolves, including links followed from that page.
+
 ### Added
 - `cross-llm-delivery`: one Claude Code plugin containing every executor, chosen
   per build with `--executor`. The five single-executor plugins remain available.

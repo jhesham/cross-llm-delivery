@@ -43,6 +43,7 @@ class Provider:
     config_inputs   : optional callable(repository directory) -> configuration
                       paths selected by this provider for validation identity.
     supports_evidence: whether the provider supports one-task evidence execution.
+    uncatalogued_cost_class: cost classification for models absent from the catalog.
     """
     name: str
     make_executor: Callable[..., "Executor"]
@@ -62,6 +63,7 @@ class Provider:
     config_env: Optional[Callable] = None  # (config paths) -> tuple of env names referenced by provider config
     config_inputs: Optional[Callable] = None  # (repository directory) -> iterable of config paths
     supports_evidence: bool = False
+    uncatalogued_cost_class: str = "metered-unknown"
 
 
 # ---------------------------------------------------------------------------

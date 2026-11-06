@@ -98,11 +98,11 @@ def test_dispatch_argv_shape(tmp_path):
     conv = "11111111-1111-1111-1111-111111111111"
     _seed_transcript(tmp_path, conv)
     r = _Runner(conv)
-    ex = AntigravityExecutor(runner=r, model="Gemini 3.1 Pro (High)", home=str(tmp_path))
+    ex = AntigravityExecutor(runner=r, model="Gemini 4 Argon (High)", home=str(tmp_path))
     ex.run(_task(), str(tmp_path / "wt"))
     argv, cwd = r.calls[0]
     assert "-p" in argv
-    assert "--model" in argv and "Gemini 3.1 Pro (High)" in argv
+    assert "--model" in argv and "Gemini 4 Argon (High)" in argv
     assert "--add-dir" in argv and str(tmp_path / "wt") in argv
     assert "--dangerously-skip-permissions" in argv
     assert "--log-file" in argv
@@ -125,8 +125,10 @@ def test_nonzero_dispatch_not_ok(tmp_path):
 
 
 def test_missing_transcript_not_ok_with_hint(tmp_path):
-    # runner reports success + a conv id, but no transcript on disk -> ok False + cwd hint
-    ex = AntigravityExecutor(runner=_Runner("33333333-3333-3333-3333-333333333333"), home=str(tmp_path))
+    # runner reports success + a conv id, but no transcript and no worktree changes
+    # -> ok False + cwd hint (a non-empty diff would be kept as work since v0.5.4)
+    ex = AntigravityExecutor(runner=_Runner("33333333-3333-3333-3333-333333333333", diff="", names=""),
+                             home=str(tmp_path))
     res = ex.run(_task(), str(tmp_path / "wt"))
     assert res.ok is False and "transcript" in res.raw_log.lower()
     if os.name == "nt":

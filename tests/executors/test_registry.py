@@ -52,8 +52,8 @@ def test_known_executors_exposed():
 
 
 def test_kwargs_passed_through_to_antigravity():
-    ex = get_executor("antigravity", runner=_fake_runner, model="Gemini 3.1 Pro (High)")
-    assert ex._model == "Gemini 3.1 Pro (High)"
+    ex = get_executor("antigravity", runner=_fake_runner, model="Gemini 4 Argon (High)")
+    assert ex._model == "Gemini 4 Argon (High)"
 
 
 def test_get_opencode():

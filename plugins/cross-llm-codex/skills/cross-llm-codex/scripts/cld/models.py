@@ -81,8 +81,9 @@ def model_policy(spec):
     from cld.providers_api import get_provider
     _, name, kwargs = resolve_spec(spec)
     ids = (kwargs["model"], name + ":" + kwargs["model"])
-    info = next((m for m in get_provider(name).catalog if m.id in ids), None)
-    return (info.headless_status, info.cost_class) if info else ("untested", "metered-unknown")
+    provider = get_provider(name)
+    info = next((m for m in provider.catalog if m.id in ids), None)
+    return (info.headless_status, info.cost_class) if info else ("untested", provider.uncatalogued_cost_class)
 
 @dataclass(frozen=True)
 class ModelInfo:
@@ -400,8 +401,9 @@ def pick_executor(recs, *, index=None, input_fn=input, output_fn=print) -> str:
 
 
 
-def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=(), claude_models=()) -> List[ModelChoice]:
-    from cld.providers_api import load_providers, catalog, default_workhorse
+def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=(), claude_models=(),
+                      antigravity_models=()) -> List[ModelChoice]:
+    from cld.providers_api import load_providers, catalog, default_workhorse, get_provider
     load_providers()
     _catalog = catalog()
     _default_workhorse_id = default_workhorse()
@@ -416,7 +418,7 @@ def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=(),
             ModelChoice(
                 spec=default_id,
                 executor=default_executor,
-                provider=_provider_of(default_id),
+                provider="antigravity" if default_executor == "antigravity" else _provider_of(default_id),
                 model=default_id.split(":", 1)[1] if ":" in default_id else default_id,
                 label=def_info.note,
                 cost_class=def_info.cost_class,
@@ -535,6 +537,19 @@ def build_model_index(*, opencode_ids, cursor_models, evidence, codex_models=(),
             provider="claude", model=model.id, label=model.label + " (subscription)",
             cost_class="metered-unknown", headless_status="untested",
             efforts=list(model.efforts), default_effort="low"))
+
+    emitted = {choice.spec for choice in out}
+    for label in antigravity_models:
+        spec = "antigravity:" + label
+        if spec in emitted:
+            continue
+        info = _catalog.get(spec)
+        cost_class = info.cost_class if info else get_provider("antigravity").uncatalogued_cost_class
+        status = evidence.get(spec, info.headless_status if info else "untested")
+        out.append(ModelChoice(spec=spec, executor="antigravity", provider="antigravity",
+            model=label, label=label, cost_class=cost_class, headless_status=status,
+            efforts=[], default_effort=None))
+        emitted.add(spec)
     return out
 
 

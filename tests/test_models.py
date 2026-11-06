@@ -19,8 +19,8 @@ def test_metadata_has_opencode_gemini_workhorse():
 
 
 def test_metadata_has_seed_workhorse():
-    # the default flat-rate workhorse is antigravity's Gemini 3.1 Pro (High)
-    g = MODEL_METADATA["antigravity:Gemini 3.1 Pro (High)"]
+    # the default flat-rate workhorse is antigravity's Gemini 4 Argon (High)
+    g = MODEL_METADATA["antigravity:Gemini 4 Argon (High)"]
     assert g.cost_class == "flat"
     assert g.capability_class == "workhorse"
     assert g.headless_status == "verified"
@@ -83,7 +83,7 @@ from cld.models import pick_executor
 
 def _recs_for_picker():
     return recommend(available_ids=[
-        "antigravity:Gemini 3.1 Pro (High)",  # flat-rate workhorse (default)
+        "antigravity:Gemini 4 Argon (High)",  # flat-rate workhorse (default)
         "opencode/claude-opus-4-8",           # premium -> confirm_cost
         "opencode/deepseek-v4-flash-free",    # free / untested
     ])
@@ -93,7 +93,7 @@ def test_pick_executor_default_on_empty_input():
     # pressing enter selects the default (flat-rate workhorse) -> antigravity spec
     out = []
     spec = pick_executor(_recs_for_picker(), input_fn=lambda _: "", output_fn=out.append)
-    assert spec == "antigravity:Gemini 3.1 Pro (High)"
+    assert spec == "antigravity:Gemini 4 Argon (High)"
     # the shortlist was actually shown
     shown = "\n".join(out)
     assert "deepseek" in shown and "claude-opus" in shown
@@ -121,7 +121,7 @@ def test_pick_executor_premium_requires_confirmation():
     answers = iter([str(idx), "n"])
     out = []
     spec = pick_executor(recs, input_fn=lambda _: next(answers), output_fn=out.append)
-    assert spec == "antigravity:Gemini 3.1 Pro (High)"  # declined -> default
+    assert spec == "antigravity:Gemini 4 Argon (High)"  # declined -> default
     assert any("bill" in line.lower() or "$" in line for line in out)  # warned about cost
 
 
@@ -208,14 +208,14 @@ def test_recommend_always_includes_verified_default_even_if_unavailable():
     # recommend() must always surface the default workhorse.
     recs = recommend(available_ids=["opencode/deepseek-v4-flash-free"])  # no antigravity
     ids = [r.id for r in recs]
-    assert "antigravity:Gemini 3.1 Pro (High)" in ids
+    assert "antigravity:Gemini 4 Argon (High)" in ids
     default = next(r for r in recs if r.is_default)
-    assert default.id == "antigravity:Gemini 3.1 Pro (High)"
+    assert default.id == "antigravity:Gemini 4 Argon (High)"
     assert default.headless_status == "verified"
 
 
 def test_recommend_default_is_verified_workhorse():
-    recs = recommend(available_ids=["antigravity:Gemini 3.1 Pro (High)",
+    recs = recommend(available_ids=["antigravity:Gemini 4 Argon (High)",
                                     "opencode/deepseek-v4-flash-free"])
     defaults = [r for r in recs if r.is_default]
     assert len(defaults) == 1
@@ -224,7 +224,7 @@ def test_recommend_default_is_verified_workhorse():
 
 
 def test_recommend_buckets_and_cost_flags():
-    available = ["antigravity:Gemini 3.1 Pro (High)", "opencode/claude-opus-4-8",
+    available = ["antigravity:Gemini 4 Argon (High)", "opencode/claude-opus-4-8",
                  "opencode/deepseek-v4-flash-free"]
     recs = recommend(available_ids=available)
     buckets = {r.bucket for r in recs}
@@ -250,7 +250,7 @@ def test_recommend_hides_session_known_bad():
     assert "opencode/deepseek-v4-flash-free" not in ids
     assert "opencode/claude-opus-4-8" in ids
     # the default is still there and still default
-    assert any(r.is_default and r.id == "antigravity:Gemini 3.1 Pro (High)" for r in recs)
+    assert any(r.is_default and r.id == "antigravity:Gemini 4 Argon (High)" for r in recs)
 
 
 def test_recommend_evidence_overlay():
@@ -296,7 +296,7 @@ def test_recommend_surfaces_kimi_and_sonnet():
     ids = [r.id for r in recs]
     assert "opencode/kimi-k2.6" in ids
     assert "opencode/claude-sonnet-4-6" in ids
-    assert any(r.is_default and r.id == "antigravity:Gemini 3.1 Pro (High)" for r in recs)
+    assert any(r.is_default and r.id == "antigravity:Gemini 4 Argon (High)" for r in recs)
 
 
 def test_recommend_surfaces_kimi_k27_when_available():
@@ -328,7 +328,7 @@ def test_cursor_composer_now_in_shortlist_after_validation():
 def test_catalog_uses_verified_not_proven():
     from cld.models import MODEL_METADATA
     # the verified default uses the new vocabulary
-    assert MODEL_METADATA["antigravity:Gemini 3.1 Pro (High)"].headless_status == "verified"
+    assert MODEL_METADATA["antigravity:Gemini 4 Argon (High)"].headless_status == "verified"
     # no entry may carry the old vocabulary
     assert all(m.headless_status != "proven" for m in MODEL_METADATA.values())
     assert all(m.headless_status != "known-bad" for m in MODEL_METADATA.values())
@@ -345,7 +345,7 @@ def test_recommend_hides_revalidate_via_evidence():
 
 def test_recommend_default_workhorse_still_resolves():
     from cld.models import recommend
-    recs = recommend(available_ids=["antigravity:Gemini 3.1 Pro (High)"])
+    recs = recommend(available_ids=["antigravity:Gemini 4 Argon (High)"])
     assert any(r.is_default and r.headless_status == "verified" for r in recs)
 
 
@@ -358,7 +358,7 @@ def test_modelinfo_has_tier_and_values_are_valid():
 
 def test_catalog_tier_assignments():
     from cld.models import MODEL_METADATA as M
-    assert M["antigravity:Gemini 3.1 Pro (High)"].tier == "workhorse"
+    assert M["antigravity:Gemini 4 Argon (High)"].tier == "workhorse"
     assert M["opencode/deepseek-v4-flash-free"].tier == "quick"
     assert M["opencode/deepseek-v4-pro"].tier == "workhorse"
     assert M["opencode/gemini-3.1-pro"].tier == "workhorse"
@@ -387,7 +387,7 @@ def test_resolve_tier_model_antigravity_default_always_available():
     # provider antigravity, workhorse: the flat workhorse resolves even with empty available_ids
     # (antigravity is the default workhorse, so it is always injected into the available set)
     spec = resolve_tier_model("antigravity", "workhorse", evidence={}, available_ids=[])
-    assert spec == "antigravity:Gemini 3.1 Pro (High)"
+    assert spec == "antigravity:Gemini 4 Argon (High)"
 
 
 def test_resolve_tier_model_skips_revalidate_returns_none():
@@ -438,13 +438,13 @@ def test_plan_rungs_standard_workhorse_only():
     from cld.models import plan_rungs
     rungs = plan_rungs(_task(complexity="standard"), provider="antigravity", evidence={}, available_ids=[])
     assert [r[0] for r in rungs] == ["workhorse"]
-    assert rungs[0][1] == "antigravity:Gemini 3.1 Pro (High)" and rungs[0][2] == 2
+    assert rungs[0][1] == "antigravity:Gemini 4 Argon (High)" and rungs[0][2] == 2
 
 
 def test_plan_rungs_complex_workhorse_budget_1():
     from cld.models import plan_rungs
     rungs = plan_rungs(_task(complexity="complex"), provider="antigravity", evidence={}, available_ids=[])
-    assert rungs == [("workhorse", "antigravity:Gemini 3.1 Pro (High)", 1)]
+    assert rungs == [("workhorse", "antigravity:Gemini 4 Argon (High)", 1)]
 
 
 def test_plan_rungs_tagged_slice_pins_single_rung():
@@ -468,7 +468,7 @@ def test_render_routing_plan_basics():
     out = render_routing_plan(slices, provider="antigravity", evidence={}, available_ids=[])
     assert "S1" in out and "S2" in out and "S3" in out
     # easy/standard slices recommend the workhorse for the build provider (antigravity default)
-    assert "antigravity:Gemini 3.1 Pro (High)" in out
+    assert "antigravity:Gemini 4 Argon (High)" in out
     # complex slice flagged
     assert "!" in out
     # pinned slice shows its tag + [you]; auto-routed show [rec]
@@ -488,7 +488,7 @@ def test_render_routing_plan_shows_complexity():
 
 def test_provider_of_maps_antigravity_to_family():
     from cld.models import _provider_of
-    assert _provider_of("antigravity:Gemini 3.1 Pro (High)") == "gemini"
-    assert _provider_of("antigravity:Claude Opus 4.6 (Thinking)") == "claude"
+    assert _provider_of("antigravity:Gemini 4 Argon (High)") == "gemini"
+    assert _provider_of("antigravity:Claude Opus 5.5 (High)") == "claude"
     assert _provider_of("antigravity:GPT-OSS 120B (Medium)") == "gpt"
     assert _provider_of("gemini:gemini-3.1-pro-preview") == "gemini"   # unchanged

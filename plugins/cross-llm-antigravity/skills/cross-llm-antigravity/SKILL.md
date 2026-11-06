@@ -4,7 +4,7 @@ description: >-
   Run a multi-slice build with Claude Code as lead and the antigravity
   headless executor, using committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.5.3) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: antigravity, v0.5.4) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 
@@ -12,7 +12,7 @@ Claude authors the slice contracts and acceptance tests, reviews candidates,
 and integrates verified commits. The antigravity CLI implements each
 slice. The engine and driver are vendored under `scripts/`; no package install
 or source checkout is needed on the target machine.
-The configured default workhorse is `antigravity:Gemini 3.1 Pro (High)`; preserve the user's selection.
+The configured default workhorse is `antigravity:Gemini 4 Argon (High)`; preserve the user's selection.
 
 ## Before dispatch
 
