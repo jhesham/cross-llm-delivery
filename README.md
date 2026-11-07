@@ -45,6 +45,27 @@ differ). Maintainers bump `VERSION` through the existing checked release workflo
 distributable plugin updates; adding the current version is not a new release.
 [Publication verification record](docs/plans/v0.5.3/PUBLICATION-0.5.3.md).
 
+## How a build flows
+
+```mermaid
+flowchart LR
+    You["You: plan, executor and budget"] --> Lead["Lead host: Claude Code, Codex or Antigravity"]
+    Lead -->|"commits plan and failing tests"| Step
+    subgraph CLD["CLD engine"]
+        Step["--step: admit, one worktree per slice"]
+        Judge["Judge: protected tests, file allowlist, frozen snapshot"]
+        Integrate["--integrate: merge accepted work, run integration tests"]
+    end
+    Step -->|"dispatch slice"| Exec["Executor CLI: Codex, Claude, OpenCode, Cursor or Antigravity"]
+    Exec -->|"edits in its worktree"| Judge
+    Judge -->|"fail: feedback, retry"| Step
+    Judge -->|"pass: accepted commit, gate 6"| Integrate
+    Integrate -->|"gate 3: verified"| Lead
+    Lead -->|"you merge"| You
+```
+
+The [architecture reference](docs/architecture/README.md) covers each part in more detail.
+
 ## What installing and using it does
 
 - Runs the bundled Python engine locally and launches the selected executor

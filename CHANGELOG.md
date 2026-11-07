@@ -6,6 +6,15 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.6.1 — 2026-11-07
+
+### Added
+- Architecture reference in `docs/architecture/`: an index and nine Mermaid diagrams covering
+  the system context, build and packaging, engine subsystems, the `--step` / `--integrate`
+  sequence, candidate judging, provider dispatch and process supervision, evidence mode,
+  slice and recovery states, and on-disk and Git ref storage. The README gains a high-level
+  build-flow diagram that links to it.
+
 ## 0.6.0 — 2026-11-07
 
 ### Added
