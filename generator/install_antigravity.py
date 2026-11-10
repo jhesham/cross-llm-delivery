@@ -31,7 +31,7 @@ INSTALLER_MARKER = "cross-llm-delivery/install_antigravity.py"
 def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Safely manage Antigravity bundles under an explicit scope root.")
-    actions = parser.add_mutually_exclusive_group(required=True)
+    actions = parser.add_mutually_exclusive_group()
     actions.add_argument("--preview", action="store_true",
                          help="Report the destination and outcome without writing.")
     actions.add_argument("--install", action="store_true",
@@ -42,6 +42,7 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--scope-root", required=True, metavar="PATH")
     parser.add_argument("--bundle", metavar="PATH")
     parser.add_argument("--name", metavar="NAME")
+    shared._add_mcp_arguments(parser)
     return parser.parse_args(argv)
 
 
@@ -62,21 +63,31 @@ def _workspace_warnings(root: Path, name: str) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    action = "preview" if args.preview else "install" if args.install else "uninstall"
+    action = shared._action(args)
     target_str = None
     warnings: dict[str, str] = {}
     ownership = {"marker": INSTALLER_MARKER, "collision_on_modified": True}
     try:
+        shared._check_actions(args)
         root = Path(args.scope_root).absolute()
         skills = (root / ".agents" / "skills" if args.scope == "workspace"
                   else root / ".gemini" / "config" / "skills")
-        if action == "uninstall":
+        config = root / ".gemini" / "config" / "mcp_config.json"
+        if args.register_mcp or args.unregister_mcp:
+            target_str = str(config)
+            if args.scope != "user":
+                raise shared.Reject("Antigravity MCP registration requires --scope user")
+            payload = shared._mcp_action(
+                args, root, skills / "cross-llm-delivery-agy", config,
+                host="antigravity", marker=INSTALLER_MARKER)
+        elif action == "uninstall":
             if not args.name:
                 raise shared.Reject("--uninstall requires --name cross-llm-<provider>-agy")
             name = shared._validate_name(args.name, SUPPORTED_NAMES)
             target = skills / name
             target_str = str(target)
-            payload = shared._uninstall(root, target, name, **ownership)
+            payload = shared._locked_uninstall(
+                root, target, name, config, host="antigravity", **ownership)
         else:
             source, name = shared._validate_bundle(
                 args.bundle, SUPPORTED_NAMES,
@@ -91,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 payload = shared._install(
                     source, root, target, name, host="Antigravity", **ownership)
-    except (shared.Reject, OSError) as exc:
+    except (shared.Reject, shared.OwnerBusy, OSError) as exc:
         payload = {
             "action": action,
             "target": target_str,

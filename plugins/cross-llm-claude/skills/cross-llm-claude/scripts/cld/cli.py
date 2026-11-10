@@ -1513,13 +1513,16 @@ def _budget_field(ledger) -> dict:
 
 
 def _artifacts_field(args, ledger) -> dict:
+    artifacts = dict(cli_response._DEFAULT_ARTIFACTS)
     if ledger is None or ledger.build is None:
-        return {"run_directory": None, "events": None}
+        return artifacts
+    artifacts["ledger_backup"] = ledger.build.get("backup")
     try:
         directory = run_directory(args.repo, ledger.build["run_id"])
     except StateError:
-        return {"run_directory": None, "events": None}
-    return {"run_directory": str(directory), "events": str(directory / "events.jsonl")}
+        return artifacts
+    artifacts.update(run_directory=str(directory), events=str(directory / "events.jsonl"))
+    return artifacts
 
 
 def _accepted_refs(ledger) -> list:

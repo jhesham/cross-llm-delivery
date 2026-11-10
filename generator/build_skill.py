@@ -259,10 +259,11 @@ def _vendor_provider(provider: str, out: Path) -> None:
 
 
 def _vendor_driver(out: Path) -> None:
-    """Copy run_delivery.py (with sys.path shim) verbatim into scripts/."""
+    """Copy the CLI and MCP entry scripts verbatim into scripts/."""
     (out / "scripts").mkdir(parents=True, exist_ok=True)
     shutil.copy2(SKILL_SRC / "scripts" / "run_delivery.py", out / "scripts" / "run_delivery.py")
     shutil.copy2(SKILL_SRC / "scripts" / "list_models.py", out / "scripts" / "list_models.py")
+    shutil.copy2(SKILL_SRC / "scripts" / "cld_mcp.py", out / "scripts" / "cld_mcp.py")
 
 
 def _vendor_aux(out: Path, provider: str) -> None:

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "cld": {
+      "command": "python",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/skills/cross-llm-delivery/scripts/cld_mcp.py"
+      ],
+      "env": {
+        "CLD_HOST": "claude-code"
+      }
+    }
+  }
+}

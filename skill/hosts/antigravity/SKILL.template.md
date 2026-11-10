@@ -57,6 +57,17 @@ IDs and supported efforts; discovery does not authorize dispatch.
   count: parallel `agy -p` children share one local state store and account
   limits. Other executors in the same layer still run in parallel.
 
+## MCP tools
+
+When `cld_*` tools are available, use them with absolute plan/repo paths.
+Preview with `cld_preview`, then `cld_new_build` only when starting a new build.
+Call `cld_step` with explicit `executor`, `validation_policy` and `budget_attempts`
+under the user's authorization. Poll its `job_id` using `cld_job` with
+`wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
+then call `cld_integrate` with `integration_tests` and poll the same way.
+Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+Use the CLI instructions below when tools are unavailable.
+
 ## Drive the build
 
 Call the driver by its absolute path in a single command, where `<skill-dir>` is

@@ -32,6 +32,17 @@ CLI/auth access and [provider.md](provider.md) for the selected adapter.
   skills are named `cross-llm-<provider>` and `cross-llm-delivery`; yours end in
   `-agy`. Use only the `-agy` skill.
 
+## MCP tools
+
+When `cld_*` tools are available, use them with absolute plan/repo paths.
+Preview with `cld_preview`, then `cld_new_build` only when starting a new build.
+Call `cld_step` with explicit `executor`, `validation_policy` and `budget_attempts`
+under the user's authorization. Poll its `job_id` using `cld_job` with
+`wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
+then call `cld_integrate` with `integration_tests` and poll the same way.
+Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+Use the CLI instructions below when tools are unavailable.
+
 ## Preview, step and integrate
 
 ```bash

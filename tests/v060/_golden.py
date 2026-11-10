@@ -1,11 +1,15 @@
-"""Snapshot of the v0.5.4 Claude Code and Codex bundles, which v0.6.0 must leave unchanged.
+"""Snapshot of the v0.6.1 Claude Code and Codex bundles, which v0.7.0 may change only as allowed.
+
+v0.7.0 allowances are optional (the check passes before and after GENMCP): files in
+ALLOWED_CHANGES may be added or changed but need not be, and NEW_ENGINE_FILES are
+subtracted from both the generated and the golden engine sets.
 
 Generator-owned files are compared by content against golden/claude_codex_bundles.json,
 normalising only the generated banner and line endings (the generator writes platform
 newlines). Vendored engine files under scripts/cld and scripts/cld_providers are compared
 byte-for-byte against the current engine source, because v0.6.0 changes the engine.
 
-Regenerate (only from the v0.5.4 generator):
+Regenerate (only from the v0.6.1 generator):
     python tests/v060/_golden.py      # from the repo root
 """
 import hashlib
@@ -20,8 +24,11 @@ BUNDLES = tuple(f"{host}/{p}" for host in ("claude-code", "codex") for p in PROV
     "claude-code/unified",)
 BANNER = re.compile(r"<!-- GENERATED from cross-llm-delivery[^\n]*-->")
 ENGINE_DIRS = ("scripts/cld/", "scripts/cld_providers/")
-# AGYSERIAL adds this engine module, and every bundle vendors the whole core.
-NEW_ENGINE_FILES = {"scripts/cld/dispatch_limits.py"}
+# v0.7.0 adds these engine modules, and every bundle vendors the whole core.
+NEW_ENGINE_FILES = {"scripts/cld/mcp_server.py", "scripts/cld/mcp_jobs.py"}
+# v0.7.0 GENMCP may add the entry script and change the skill text.
+ALLOWED_CHANGES = {"scripts/cld_mcp.py", "SKILL.md", "references/codex-workflow.md",
+                   "references/antigravity-workflow.md"}
 
 
 def _digest(path):
@@ -48,16 +55,17 @@ def inventory(bundle):
 
 
 def assert_unchanged(key, bundle):
-    """Fail with the differing paths when a Claude Code or Codex bundle drifts from v0.5.4."""
+    """Fail with the differing paths when a Claude Code or Codex bundle drifts from v0.6.1."""
     want = json.loads(GOLDEN.read_text(encoding="utf-8"))[key]
     got = inventory(bundle)
-    extra = sorted(set(got["files"]) - set(want["files"]))
+    extra = sorted(set(got["files"]) - set(want["files"]) - ALLOWED_CHANGES)
     missing = sorted(set(want["files"]) - set(got["files"]))
     assert not extra and not missing, (key, "added:", extra, "removed:", missing)
-    changed = sorted(rel for rel, digest in want["files"].items() if got["files"][rel] != digest)
+    changed = sorted(rel for rel, digest in want["files"].items()
+                     if rel not in ALLOWED_CHANGES and got["files"][rel] != digest)
     assert not changed, (key, "content changed:", changed)
     engine = set(got["engine"]) - NEW_ENGINE_FILES
-    assert engine == set(want["engine"]), (
+    assert engine == set(want["engine"]) - NEW_ENGINE_FILES, (
         key, "vendored engine files added:", sorted(engine - set(want["engine"])),
         "removed:", sorted(set(want["engine"]) - engine))
     stale = sorted(rel for rel in got["engine"]

@@ -29,7 +29,7 @@ GATES = {
 }
 _GATES_BY_CODE = {code: gate for gate, (code, _action) in GATES.items()}
 
-_DEFAULT_ARTIFACTS = {"run_directory": None, "events": None}
+_DEFAULT_ARTIFACTS = {"run_directory": None, "events": None, "ledger_backup": None}
 
 
 def gate_code(gate: str) -> int:

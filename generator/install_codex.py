@@ -31,10 +31,17 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import sys
+import tempfile
+import time
+import tomllib
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "engine"))
+from cld.locking import OwnerBusy, file_owner
 
 # The only skill folder names this installer will ever create or delete.
 SUPPORTED_NAMES = frozenset({
@@ -481,6 +488,246 @@ def _uninstall(
 
 
 # ---------------------------------------------------------------------------
+# MCP registration (also shared by the Antigravity installer)
+# ---------------------------------------------------------------------------
+
+MCP_TOOLS = ["cld_preview", "cld_status", "cld_list_models", "cld_new_build",
+             "cld_step", "cld_integrate", "cld_mark_repaired", "cld_job"]
+MCP_READ_ONLY = ["cld_preview", "cld_status", "cld_list_models", "cld_job"]
+_OWNER = re.compile(
+    r"^# cld-mcp owner=([^\r\n]+) sha256=([0-9a-f]{64})\r?$", re.M)
+_BLOCK = re.compile(
+    r"(?:\n|^)# cld-mcp owner=([^\r\n]+) sha256=([0-9a-f]{64})\r?\n"
+    r"(.*?)^# end cld-mcp\r?(?:\n|$)", re.M | re.S)
+
+
+def _entry_hash(entry: dict) -> str:
+    canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _parse_config(text: str, host: str) -> dict:
+    try:
+        # Antigravity creates a zero-byte mcp_config.json; treat blank as no servers.
+        data = (tomllib.loads(text) if host == "codex"
+                else json.loads(text) if text.strip() else {})
+    except (ValueError, TypeError) as exc:
+        raise Reject(f"invalid MCP configuration: {exc}") from exc
+    if not isinstance(data, dict):
+        raise Reject("MCP configuration must be an object")
+    servers = data.get("mcp_servers" if host == "codex" else "mcpServers", {})
+    if not isinstance(servers, dict):
+        raise Reject("MCP servers must be an object")
+    return data
+
+
+def _read_config(config: Path, host: str) -> tuple[str, dict]:
+    try:
+        text = config.read_bytes().decode("utf-8")
+    except FileNotFoundError:
+        text = "" if host == "codex" else "{}"
+    except UnicodeDecodeError as exc:
+        raise Reject(f"invalid UTF-8 configuration: {exc}") from exc
+    return text, _parse_config(text, host)
+
+
+def _mcp_paths_safe(scope: Path, target: Path, config: Path) -> Path:
+    # Check lexical paths before resolving: resolution must not hide a link.
+    for path in (target, config, target.parent / ".cld-mcp.lock"):
+        _check_target_safe(scope, path)
+    for path in (scope, *scope.parents):
+        if _is_link(path):
+            raise Reject(f"refusing symlink or junction in scope: {path}")
+    return _real(target.parent / ".cld-mcp.lock")
+
+
+def _owned_mcp_entry(text: str, data: dict, bundle: Path, host: str):
+    """Validate ownership before replacing/removing any existing cld entry."""
+    servers = data.get("mcp_servers" if host == "codex" else "mcpServers", {})
+    if host == "codex":
+        blocks = list(_BLOCK.finditer(text))
+        if "cld" not in servers and not blocks and "# cld-mcp owner=" not in text:
+            return None
+        if (len(blocks) != 1 or len(_OWNER.findall(text)) != 1
+                or "cld" not in servers):
+            raise Reject("cld registration is unowned or has invalid ownership markers")
+        block = blocks[0]
+        owner, digest, body = block.group(1, 2, 3)
+        if (owner != str(bundle)
+                or hashlib.sha256(body.encode("utf-8")).hexdigest() != digest):
+            raise Reject("cld registration belongs to another bundle or was edited")
+        body_data = _parse_config(body, host)
+        remainder = _parse_config(text[:block.start()] + text[block.end():], host)
+        if (body_data != {"mcp_servers": {"cld": servers["cld"]}}
+                or "cld" in remainder.get("mcp_servers", {})):
+            raise Reject("cld ownership block does not contain the entire entry")
+        return block
+    if "cld" not in servers:
+        return None
+    entry = servers["cld"]
+    if not isinstance(entry, dict):
+        raise Reject("cld registration is unowned")
+    owner = entry.get("_cld_owner")
+    content = {key: value for key, value in entry.items() if key != "_cld_owner"}
+    if (not isinstance(owner, dict) or owner.get("bundle") != str(bundle)
+            or owner.get("sha256") != _entry_hash(content)):
+        raise Reject("cld registration is unowned, belongs to another bundle or was edited")
+    return entry
+
+
+def _codex_mcp_block(bundle: Path, approve: str) -> str:
+    if "\n" in str(bundle) or "\r" in str(bundle):
+        raise Reject("bundle path cannot contain newlines in a TOML ownership comment")
+    body = (
+        '[mcp_servers.cld]\n'
+        f'command = {json.dumps(str(_real(Path(sys.executable))))}\n'
+        f'args = [{json.dumps(str(bundle / "scripts" / "cld_mcp.py"))}]\n'
+        'env = { CLD_HOST = "codex" }\n'
+        f'enabled_tools = {json.dumps(MCP_TOOLS)}\n'
+    )
+    if approve == "all":
+        body += 'default_tools_approval_mode = "approve"\n'
+    else:
+        for tool in MCP_READ_ONLY:
+            body += f'\n[mcp_servers.cld.tools.{tool}]\napproval_mode = "approve"\n'
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    # The leading newline is part of the owned block, so unregister restores
+    # even a pre-existing file without a final newline byte for byte.
+    return f"\n# cld-mcp owner={bundle} sha256={digest}\n{body}# end cld-mcp\n"
+
+
+def _atomic_config(config: Path, text: str, host: str) -> None:
+    config.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=config.parent, prefix=".cld-mcp-",
+                                         suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(text.encode("utf-8"))
+            stream.flush()
+            _parse_config(temporary.read_bytes().decode("utf-8"), host)
+            os.fsync(stream.fileno())
+        os.replace(temporary, config)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _mcp_action(args, scope: Path, target: Path, config: Path, *,
+                host: str, marker: str) -> dict:
+    action = "register-mcp" if args.register_mcp else "unregister-mcp"
+    lock = _mcp_paths_safe(scope, target, config)
+
+    def plan():
+        _mcp_paths_safe(scope, target, config)
+        if not args.bundle:
+            raise Reject(f"--{action} requires --bundle PATH")
+        supplied = Path(args.bundle).absolute()
+        _check_target_safe(scope, supplied)
+        if _real(supplied) != _real(target):
+            raise Reject("MCP requires the all-executors installation in the same scope")
+        _validate_bundle(str(target), frozenset({target.name}),
+                         required_files=(Path("scripts/cld_mcp.py"),))
+        _verify_owned(target, marker)
+        bundle = _real(target)
+        text, data = _read_config(config, host)
+        owned = _owned_mcp_entry(text, data, bundle, host)
+        if host == "codex":
+            if owned is not None:
+                text = text[:owned.start()] + text[owned.end():]
+            result = (text + _codex_mcp_block(bundle, args.mcp_approve)
+                      if args.register_mcp else text)
+        else:
+            if args.register_mcp:
+                entry = {"command": str(_real(Path(sys.executable))),
+                         "args": [str(bundle / "scripts" / "cld_mcp.py")],
+                         "env": {"CLD_HOST": "antigravity"}}
+                entry["_cld_owner"] = {"bundle": str(bundle), "sha256": _entry_hash(entry)}
+                data.setdefault("mcpServers", {})["cld"] = entry
+            elif owned is not None:
+                del data["mcpServers"]["cld"]
+            result = json.dumps(data, indent=2, sort_keys=True) + "\n"
+        _parse_config(result, host)
+        return result, owned is not None
+
+    result, existed = plan()  # All refusals and preview happen before lock creation.
+    if not args.preview:
+        with file_owner(lock, wait_seconds=10):
+            result, existed = plan()  # Re-read and validate inside the transaction.
+            if (os.environ.get("CLD_MCP_TESTING") == "1"
+                    and os.environ.get("CLD_MCP_PAUSE_AFTER_CHECKS")):
+                pause = Path(os.environ["CLD_MCP_PAUSE_AFTER_CHECKS"])
+                (pause / "paused").write_text("paused", encoding="utf-8")
+                deadline = time.monotonic() + 30
+                while not (pause / "go").exists():
+                    if time.monotonic() >= deadline:
+                        raise Reject("timed out waiting for registration test barrier")
+                    time.sleep(0.02)
+            _mcp_paths_safe(scope, target, config)
+            if args.register_mcp or existed:
+                _atomic_config(config, result, host)
+    payload = {"action": action, "target": str(config),
+               "outcome": ("register" if args.register_mcp else "unregister")
+               if args.preview else ("registered" if args.register_mcp else "unregistered")}
+    if args.preview:
+        payload["preview"] = True
+    if host == "antigravity":
+        payload["permissions.allow"] = [f"mcp(cld/{tool})" for tool in MCP_TOOLS]
+    return payload
+
+
+def _locked_uninstall(scope: Path, target: Path, name: str, config: Path, *,
+                      host: str, marker: str = INSTALLER_MARKER,
+                      collision_on_modified: bool = False) -> dict:
+    lock = _mcp_paths_safe(scope, target, config)
+
+    def check():
+        _mcp_paths_safe(scope, target, config)
+        if not target.is_dir():
+            raise Reject(f"nothing to uninstall: {target} is not an installed directory")
+        _verify_owned(target, marker, collision_on_modified=collision_on_modified)
+        text, data = _read_config(config, host)
+        if host == "codex":
+            owners = [owner for owner, _digest in _OWNER.findall(text)]
+        else:
+            entry = data.get("mcpServers", {}).get("cld", {})
+            owner = entry.get("_cld_owner", {}) if isinstance(entry, dict) else {}
+            owners = [owner.get("bundle")] if isinstance(owner, dict) else []
+        if str(_real(target)) in owners:
+            raise Reject("bundle still has an owned MCP registration; --unregister-mcp first")
+
+    check()
+    with file_owner(lock, wait_seconds=10):
+        check()
+        return _uninstall(scope, target, name, marker=marker,
+                          collision_on_modified=collision_on_modified)
+
+
+def _add_mcp_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--register-mcp", action="store_true",
+                        help="Register the owned all-executors bundle as MCP server cld.")
+    parser.add_argument("--unregister-mcp", action="store_true",
+                        help="Remove an intact MCP entry owned by --bundle.")
+    parser.add_argument("--mcp-approve", choices=("read-only", "all"), default="read-only")
+
+
+def _action(args) -> str:
+    if args.register_mcp or args.unregister_mcp:
+        return "register-mcp" if args.register_mcp else "unregister-mcp"
+    return "preview" if args.preview else "install" if args.install else "uninstall"
+
+
+def _check_actions(args) -> None:
+    if args.register_mcp and args.unregister_mcp:
+        raise Reject("choose either --register-mcp or --unregister-mcp")
+    if args.register_mcp or args.unregister_mcp:
+        if args.install or args.uninstall:
+            raise Reject("MCP actions are separate from skill install/uninstall")
+    elif not (args.preview or args.install or args.uninstall):
+        raise Reject("an action is required")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -493,7 +740,7 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
             "root is always explicit; nothing is inferred from the environment."
         ),
     )
-    actions = parser.add_mutually_exclusive_group(required=True)
+    actions = parser.add_mutually_exclusive_group()
     actions.add_argument("--preview", action="store_true",
                          help="Report the exact target and outcome; writes nothing.")
     actions.add_argument("--install", action="store_true",
@@ -506,27 +753,30 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
                         help="Generated bundle folder (required for --preview/--install).")
     parser.add_argument("--name", metavar="NAME",
                         help="Skill name to uninstall (required for --uninstall).")
+    _add_mcp_arguments(parser)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    if args.preview:
-        action = "preview"
-    elif args.install:
-        action = "install"
-    else:
-        action = "uninstall"
+    action = _action(args)
     target_str: str | None = None
     try:
+        _check_actions(args)
         scope = Path(args.scope_root).absolute()
-        if action == "uninstall":
+        config = scope / ".codex" / "config.toml"
+        if args.register_mcp or args.unregister_mcp:
+            target = scope / ".agents" / "skills" / "cross-llm-delivery"
+            target_str = str(config)
+            payload = _mcp_action(args, scope, target, config,
+                                  host="codex", marker=INSTALLER_MARKER)
+        elif action == "uninstall":
             if not args.name:
                 raise Reject("--uninstall requires --name cross-llm-<provider>")
             name = _validate_name(args.name)
             target = scope / ".agents" / "skills" / name
             target_str = str(target)
-            payload = _uninstall(scope, target, name)
+            payload = _locked_uninstall(scope, target, name, config, host="codex")
         else:
             source, name = _validate_bundle(args.bundle)
             target = scope / ".agents" / "skills" / name
@@ -536,14 +786,14 @@ def main(argv: list[str] | None = None) -> int:
                 payload = _preview(scope, target)
             else:
                 payload = _install(source, scope, target, name)
-    except Reject as exc:
+    except (Reject, OwnerBusy) as exc:
         payload = {
             "action": action,
             "target": target_str,
             "outcome": "error",
             "error": str(exc),
         }
-        if exc.collision:
+        if isinstance(exc, Reject) and exc.collision:
             payload["collision"] = "unowned"
         print(json.dumps(payload, sort_keys=True))
         return 1
