@@ -78,6 +78,10 @@ def finished_job(repo, root, shim, stub):
     job = start(repo, root, shim, stub)
     st = wait_terminal(job["job_id"], root)
     assert st["state"] == "finished", st
+    # The runner writes exit.json, then releases its reservation and exits; tests that
+    # damage the records must not race that last step.
+    runner = (read_json(Path(root) / job["job_id"] / "runner.json") or {}).get("runner")
+    assert wait_for(lambda: not _stubs.alive(runner), 20), "runner did not exit after finishing"
     return job["job_id"], Path(root) / job["job_id"]
 
 

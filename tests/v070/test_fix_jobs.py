@@ -16,6 +16,13 @@ def _start(repo, root, shim, stub):
                               entry_script=str(shim), jobs_root=str(root))
 
 
+def _runner_gone(job_dir):
+    """The runner writes exit.json and then exits; do not race that last step."""
+    import json
+    runner = json.loads((job_dir / "runner.json").read_text(encoding="utf-8")).get("runner")
+    assert _stubs.wait_for(lambda: not _stubs.alive(runner), 20), "runner did not exit"
+
+
 @pytest.fixture
 def stub(tmp_path):
     return _stubs.write_wrapper(tmp_path / "driver.py", "driver_main")
@@ -46,6 +53,7 @@ def test_missing_registry_after_a_recorded_driver_is_incomplete(tmp_path, jobs_r
     assert status["state"] == "finished", status
     job_dir = jobs_root / job["job_id"]
     assert (job_dir / "processes.jsonl").is_file(), "the runner must create the registry up front"
+    _runner_gone(job_dir)
     (job_dir / "exit.json").unlink()
     (job_dir / "processes.jsonl").unlink()
     assert _jobs("job_status")(job["job_id"], jobs_root=str(jobs_root))["identities_incomplete"]
@@ -65,6 +73,7 @@ def test_orphan_started_from_a_removed_subdirectory_still_fences_the_worktree(
     status = _jobs("job_status")(job["job_id"], jobs_root=str(jobs_root), wait_seconds=30)
     assert status["state"] == "finished", status
     job_dir = jobs_root / job["job_id"]
+    _runner_gone(job_dir)
     # Simulate an orphan: the runner is gone, a recorded driver is still alive.
     record = json.loads((job_dir / "runner.json").read_text(encoding="utf-8"))
     original = json.dumps(record)
