@@ -158,8 +158,12 @@ def kill_tree(pid):
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(int(pid))],
                        capture_output=True)
         return
+    if int(pid) == os.getpid():
+        return
     try:
-        os.killpg(os.getpgid(pid), 9)
+        group = os.getpgid(pid)
+        if group != os.getpgrp():  # never signal the test runner's own group
+            os.killpg(group, 9)
     except (ProcessLookupError, PermissionError):
         pass
     try:
@@ -224,10 +228,13 @@ def reap_job_dir(job_dir):
     idents = [runner.get("runner"), runner.get("driver")]
     idents += [r for r in registry_lines(job_dir / "processes.jsonl")
                if isinstance(r, dict) and r.get("event") == "spawn"]
+    own_group = None if WINDOWS else os.getpgrp()
     for ident in idents:
-        if isinstance(ident, dict) and alive(ident):
+        if not isinstance(ident, dict) or ident.get("pid") == os.getpid():
+            continue  # a test may record its own identity (with a fake start time)
+        if alive(ident):
             kill_tree(ident["pid"])
-        if isinstance(ident, dict) and ident.get("pgid") and not WINDOWS:
+        if ident.get("pgid") and not WINDOWS and ident["pgid"] != own_group:
             try:
                 os.killpg(ident["pgid"], 9)
             except (ProcessLookupError, PermissionError):
