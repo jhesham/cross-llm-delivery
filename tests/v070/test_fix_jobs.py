@@ -78,3 +78,20 @@ def test_orphan_started_from_a_removed_subdirectory_still_fences_the_worktree(
     finally:
         # Never leave this test process recorded: the fixture reaps live identities.
         (job_dir / "runner.json").write_text(original, encoding="utf-8")
+
+
+def test_worktree_lookup_never_inherits_the_server_stdin(tmp_path, monkeypatch):
+    # The MCP server reads requests from stdin; on Windows a child that inherits that
+    # synchronous pipe can stall while the server's reader thread holds it.
+    import subprocess
+    jobs = _jobs("start_job") and resolve("cld.mcp_jobs")
+    seen = []
+    real = subprocess.run
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("stdin"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    jobs._repo_root(str(tmp_path))
+    assert seen and all(value is subprocess.DEVNULL for value in seen), seen

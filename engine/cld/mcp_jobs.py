@@ -89,8 +89,11 @@ def _repo_root(repo):
     """Share reservations within a Git worktree, keeping other paths distinct."""
     path = Path(repo).resolve()
     try:
+        # Never inherit the MCP server's stdin: on Windows a child sharing that
+        # synchronous pipe can stall while the server's reader holds it.
         result = subprocess.run(["git", "-C", str(path), "rev-parse", "--show-toplevel"],
-                                capture_output=True, text=True, timeout=10)
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                timeout=10)
         if result.returncode == 0 and result.stdout.strip():
             return Path(result.stdout.strip()).resolve()
     except (OSError, subprocess.SubprocessError, UnicodeError):
@@ -218,11 +221,11 @@ def _start_time(pid):
             return None if fields[0] in ("Z", "X") else int(fields[19])
         # lstart alone includes zombies on some platforms.
         state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)],
-                               capture_output=True, text=True).stdout.strip()
+                               stdin=subprocess.DEVNULL, capture_output=True, text=True).stdout.strip()
         if not state or state.startswith("Z"):
             return None
         token = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)],
-                               capture_output=True, text=True).stdout.strip()
+                               stdin=subprocess.DEVNULL, capture_output=True, text=True).stdout.strip()
         return token or None
     except (OSError, ValueError, IndexError):
         return None
