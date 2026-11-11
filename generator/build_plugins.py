@@ -244,6 +244,17 @@ def _main_claude(dist_root: Path, out_root: Path) -> int:
         (plug / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
         _copy_skill(unified, plug / "skills" / UNIFIED_NAME)
+        mcp_config = {
+            "mcpServers": {
+                "cld": {
+                    "command": "python",
+                    "args": ["${CLAUDE_PLUGIN_ROOT}/skills/cross-llm-delivery/scripts/cld_mcp.py"],
+                    "env": {"CLD_HOST": "claude-code"},
+                },
+            },
+        }
+        (plug / ".mcp.json").write_text(
+            json.dumps(mcp_config, indent=2) + "\n", encoding="utf-8", newline="\n")
         # Directory listing icon: read once, at the first portal save/submission.
         shutil.copyfile(ROOT / "docs/assets/cld-icon.png", plug / ".claude-plugin" / "icon.png")
         if before != _snapshot(plug):

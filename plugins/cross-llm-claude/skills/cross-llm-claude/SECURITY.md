@@ -63,6 +63,17 @@ sources depend entirely on layer 1. A full-access executor could also write
 `approvals.jsonl` directly; layer 1 is what prevents harm in that case. Use
 sandbox environments for materialisation unless a write is explicitly intended.
 
+## MCP adapter (v0.7.0)
+
+The optional MCP server runs local stdio only, with no network listener and no
+credentials. Tools run the bundle's own driver with absolute paths; relative
+paths are refused. Mutating tools are refused when `CLD_EXECUTOR_DEPTH` is set,
+and executor sessions cannot see the tools (Claude Code strict MCP config, Codex
+servers disabled, Antigravity deny rule). Jobs record every process CLD starts
+and refuse a new mutating job for a repository while a process from an
+unresolved job may still be running. Registration edits only an entry CLD owns,
+refuses linked configuration paths, and replaces files atomically.
+
 ## Data and recovery
 
 Prompts, model output, patches, worktrees, test/process logs and telemetry may

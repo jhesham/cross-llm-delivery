@@ -135,6 +135,7 @@ class AntigravityExecutor:
             "--add-dir", str(workdir), "--dangerously-skip-permissions",
             "--log-file", log_file,
             "--output-format", "json",
+            "--settings", '{"permissions":{"deny":["mcp(cld/*)"]}}',
         ]
         if self._effort:
             dispatch.extend(["--effort", self._effort])

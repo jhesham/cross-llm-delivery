@@ -51,6 +51,17 @@ IDs and supported efforts; discovery does not authorize dispatch.
   use the host's supported authorization flow; do not bypass its restrictions.
   CLD blocks dispatch when `CODEX_SANDBOX_NETWORK_DISABLED=1` is set.
 
+## MCP tools
+
+When `cld_*` tools are available, use them with absolute plan/repo paths.
+Preview with `cld_preview`, then `cld_new_build` only when starting a new build.
+Call `cld_step` with explicit `executor`, `validation_policy` and `budget_attempts`
+under the user's authorization. Poll its `job_id` using `cld_job` with
+`wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
+then call `cld_integrate` with `integration_tests` and poll the same way.
+Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+Use the CLI instructions below when tools are unavailable.
+
 ## Drive the build
 
 Run these commands from the installed skill directory, using absolute plan and

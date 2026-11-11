@@ -4,7 +4,7 @@ No argv, environment or stdin is written to diagnostics. Output is intentionally
 retained verbatim and can itself contain sensitive provider content.
 """
 from dataclasses import dataclass, asdict
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 import json
 import math
@@ -141,6 +141,67 @@ with open(payload["status"], "w", encoding="utf-8") as stream:
 '''
 
 
+_POSIX_LAUNCHER = '''import json, os, sys
+gate = int(sys.argv[1])
+ready = os.read(gate, 1)
+os.close(gate)
+if ready != b"1":
+    sys.exit(1)
+try:
+    os.execvp(sys.argv[3], sys.argv[3:])
+except FileNotFoundError:
+    error = "missing_binary"
+except PermissionError:
+    error = "access_denied"
+except OSError:
+    error = "launch_error"
+with open(sys.argv[2], "w", encoding="utf-8") as stream:
+    json.dump({"error": error}, stream)
+sys.exit(1)
+'''
+
+
+def _registry_identity(process):
+    """Identify the still-gated child using the pinned native start token."""
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        api = ctypes.WinDLL("kernel32", use_last_error=True)
+        get_times = api.GetProcessTimes
+        get_times.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        get_times.restype = wintypes.BOOL
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not get_times(int(process._handle), *(ctypes.byref(t) for t in times)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        token = (times[0].dwHighDateTime << 32) | times[0].dwLowDateTime
+        pgid = None
+    else:
+        pgid = os.getpgid(process.pid)
+        if sys.platform.startswith("linux"):
+            fields = Path(f"/proc/{process.pid}/stat").read_text().rpartition(")")[2].split()
+            try:
+                token = int(fields[19])
+            except (IndexError, ValueError) as exc:
+                raise OSError("Process start time unavailable") from exc
+        else:
+            try:
+                token = subprocess.check_output(
+                    ["ps", "-o", "lstart=", "-p", str(process.pid)], text=True).strip()
+            except subprocess.CalledProcessError as exc:
+                raise OSError("Process start time unavailable") from exc
+            if not token:
+                raise OSError("Process start time unavailable")
+    return {"pid": process.pid, "pgid": pgid, "start_time": token}
+
+
+def _append_process_record(path, record):
+    with open(path, "a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
 def _stop_posix(process, timeout=5):
     deadline = time.monotonic() + timeout
     try:
@@ -192,9 +253,10 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
     out_path, err_path = directory / "stdout.bin", directory / "stderr.bin"
     started = time.monotonic()
     process = job = None
+    registry = recorded = None
     rc = error = None
     interrupted = None
-    with out_path.open("wb") as out, err_path.open("wb") as err, tempfile.TemporaryFile() as source:
+    with out_path.open("wb") as out, err_path.open("wb") as err, tempfile.TemporaryFile() as source, ExitStack() as gates:
         try:
             if cancel is not None and cancel.is_set():
                 error = "cancelled"
@@ -205,20 +267,39 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                 merged = {**os.environ, **(env or {})}
                 drop = {name.upper() for name in (unset_env or ())}
                 merged = {key: value for key, value in merged.items() if key.upper() not in drop}
+                registry = merged.get("CLD_PROCESS_REGISTRY")
                 options = dict(cwd=cwd, env=merged, stdout=out, stderr=err)
+                status_path = directory / "exit.json"
                 if os.name == "nt":
                     from cld._windows_job import Job
                     job = Job()
                     process = subprocess.Popen([sys.executable, "-I", "-S", "-c", _BOOTSTRAP],
                                                stdin=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW, **options)
                     job.assign(process)
-                    status_path = directory / "exit.json"
+                    if registry:
+                        identity = _registry_identity(process)
+                        _append_process_record(registry, {"event": "spawn", **identity})
+                        recorded = identity
                     payload = json.dumps(dict(argv=list(argv), stdin=stdin, status=str(status_path))).encode() + b"\n"
                 else:
                     if stdin is not None:
                         source.write(stdin.encode("utf-8")); source.seek(0)
-                    process = subprocess.Popen(argv, stdin=source if stdin is not None else subprocess.DEVNULL,
-                                               start_new_session=True, **options)
+                    if registry:
+                        gate_read, gate_write = os.pipe()
+                        gates.callback(os.close, gate_write)
+                        with os.fdopen(gate_read, "rb") as gate:
+                            process = subprocess.Popen(
+                                [sys.executable, "-I", "-S", "-c", _POSIX_LAUNCHER,
+                                 str(gate.fileno()), str(status_path), *argv],
+                                stdin=source if stdin is not None else subprocess.DEVNULL,
+                                pass_fds=(gate.fileno(),), start_new_session=True, **options)
+                        identity = _registry_identity(process)
+                        _append_process_record(registry, {"event": "spawn", **identity})
+                        recorded = identity
+                        os.write(gate_write, b"1")
+                    else:
+                        process = subprocess.Popen(argv, stdin=source if stdin is not None else subprocess.DEVNULL,
+                                                   start_new_session=True, **options)
                     payload = None
                 while True:
                     remaining = seconds - (time.monotonic() - started)
@@ -230,7 +311,7 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                         break
                     try:
                         process.communicate(input=payload, timeout=min(0.05, remaining))
-                        if os.name == "nt":
+                        if os.name == "nt" or (registry and status_path.exists()):
                             try:
                                 status = json.loads(status_path.read_text(encoding="utf-8"))
                                 rc, error = status.get("returncode"), status.get("error")
@@ -266,6 +347,12 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                     _stop_posix(process)
             except BaseException as exc:
                 raise ProcessCleanupError(f"Process cleanup unconfirmed; retain worktree and logs at {directory}") from exc
+            if recorded is not None:
+                try:
+                    _append_process_record(registry, {"event": "reap", "pid": recorded["pid"],
+                                                      "start_time": recorded["start_time"]})
+                except OSError:
+                    error = error or "launch_error"
     result = ProcessResult(rc, str(out_path), str(err_path), error, time.monotonic() - started)
     if result.error is None:
         classification = (exit_error(rc, result.output) if classify_output else

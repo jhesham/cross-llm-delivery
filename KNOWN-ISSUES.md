@@ -187,3 +187,25 @@ evidence and not actively owned, the worktree must hold no changes or ignored
 non-cache data, and the ledger must belong to `--repo`. Anything unprovable is
 kept. It never deletes run evidence or refs. Optional OTLP export is separate from local
 durable state and should be enabled only under the user's data-sharing policy.
+
+## MCP adapter (v0.7.0)
+
+- No cancel tool in v0.7.0. Stop a job by ending its runner process; on POSIX
+  also stop the driver and executors (see [docs/MCP.md](docs/MCP.md)). Planned
+  for v0.7.1.
+- The Claude Code plugin starts the server with `python`. On systems where only
+  `python3` is on `PATH`, register the standalone entry with an explicit
+  interpreter instead.
+- Antigravity reads MCP configuration globally, so registration is user scope
+  only; workspace registration is refused.
+- Codex registration writes absolute paths (Codex does not substitute plugin-root
+  variables). Before moving the skill or Python, run `--unregister-mcp`, then
+  install and register at the new location. If it was already moved, run
+  `--unregister-mcp` with `--bundle` naming the old installed path; the owned
+  entry is removed even when that bundle is gone.
+- Antigravity can update itself in place. A validation or dispatch that overlaps
+  an update can hang or stop with "CLI/configuration changed during validation";
+  rerun it after the update finishes.
+- An Antigravity executor may run its tests as a background task and then wait
+  without resuming; the dispatch ends at its timeout. Rerun the step.
+

@@ -248,6 +248,16 @@ explicitly into the intended clean branch. Dependent slices wait for verified
 integration. `--gc --repo <dir> --json` previews safe cleanup of CLD-managed
 worktrees; add `--apply` to remove them. [Two worked host examples](docs/WORKED-EXAMPLES.md).
 
+### MCP tools (v0.7.0, optional)
+
+Leads can drive CLD through an MCP server instead of the shell: `cld_preview`,
+`cld_status`, `cld_list_models`, `cld_new_build`, and long-running `cld_step`,
+`cld_integrate` and `cld_mark_repaired` jobs polled with `cld_job`. The tools run
+the same CLI and return its JSON unchanged; executors never see them. The
+`cross-llm-delivery` Claude Code plugin includes the server, and the Codex and
+Antigravity installers register it with `--register-mcp`. See
+[docs/MCP.md](docs/MCP.md).
+
 ## Validation, costs and recovery
 
 Validation defaults to `--validation-policy deny`: needed validation is a gate

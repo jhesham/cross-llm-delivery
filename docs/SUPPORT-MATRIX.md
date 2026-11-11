@@ -66,6 +66,17 @@ ran on Windows with CLI 2.1.286. Their results do not verify every lead surface.
   A full Antigravity-led build is not recorded; user-scope discovery and the
   Antigravity IDE are unverified.
 
+## MCP adapter (v0.7.0)
+
+Live checks on Windows, through integration (gate 3) with the generated bundles:
+
+| Host | Version | Evidence |
+|---|---|---|
+| Claude Code | 2.1.318 | Plugin `--plugin-dir`, headless `claude -p` with `--allowedTools`: `cld_status` returned the repository gate. |
+| Codex CLI | 0.167.0 | Installer-written `[mcp_servers.cld]`: read-only tools ran in `codex exec`; `cld_step` was refused (approval required); unregister restored the file. |
+| Antigravity | agy 1.5.5 | User-scope registration, headless `agy -p` with an allow rule (no bypass flag): `cld_status` returned the gate. Executor sessions load the `mcp(cld/*)` deny rule. |
+| MCP job flow | Codex and Antigravity executors | `cld_preview`, `cld_new_build`, `cld_step` job, `cld_integrate` job polled through `cld_job` to gate 3. |
+
 ## Boundaries to retain
 
 - A successful `codex:gpt-6-luna@max+fast` dispatch proves the requested spec was

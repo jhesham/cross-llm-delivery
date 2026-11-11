@@ -166,6 +166,16 @@ cannot ask for approval, so it refuses the driver commands. Run `--step` and
 `--integrate` outside Antigravity's terminal sandbox,
 which mounts `.git` read-only. Antigravity plugins are not packaged yet.
 
+## MCP tools (optional)
+
+Every bundle carries an MCP server, `scripts/cld_mcp.py`, that exposes the lead
+commands as typed tools. The `cross-llm-delivery` Claude Code plugin declares it;
+for standalone Claude Code, Codex and Antigravity, register the all-executors
+skill after installing it (`claude mcp add`, `install_codex.py --register-mcp`,
+`install_antigravity.py --register-mcp --scope user`). Unregister before you
+uninstall the skill. See [docs/MCP.md](docs/MCP.md) for the commands, approval
+settings, jobs, and how to stop a job.
+
 ## Executor setup and read-only verification
 
 Read `references/provider-setup.md` in the chosen generated bundle. It preserves

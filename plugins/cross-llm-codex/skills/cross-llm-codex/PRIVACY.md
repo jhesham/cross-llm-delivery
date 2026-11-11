@@ -120,6 +120,17 @@ Git history (including integrated commits), provider CLI caches, sessions and
 authentication have separate lifecycles managed by Git and by each provider.
 Provider-side retention follows your account's policies, not CLD guarantees.
 
+### MCP job files and registrations (v0.7.0)
+
+When you use the optional MCP tools, each job keeps a directory under
+`~/.cld/mcp-jobs/` (or `CLD_MCP_JOBS`) on your machine: the request (tool
+arguments, plan and repository paths), the driver's stdout and stderr, process
+identities (pids and start times) and the exit record. Nothing is sent anywhere.
+Finished jobs are deleted after 7 days when a server starts; unresolved jobs are
+kept until resolved. `--register-mcp` writes one `cld` entry (interpreter path,
+script path, host name, owner hash) into your Codex or Antigravity configuration;
+`--unregister-mcp` removes it.
+
 ## Evidence mode data
 
 Evidence tasks keep their inputs and outputs locally under `.cld/runs/ask/` (and

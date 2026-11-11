@@ -5,7 +5,7 @@ description: >-
   chosen per build (codex, claude, opencode, cursor or antigravity), using
   committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: all, v0.6.1) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: all, v0.7.0) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 
@@ -41,6 +41,17 @@ budgets or retry paid work. Preserve existing project instructions.
 For executor choices, run `python scripts/list_models.py --json` and follow
 the picker section of `references/delivery-core.md`. Present exact returned
 IDs and supported efforts; discovery does not authorize dispatch.
+
+## MCP tools
+
+When `cld_*` tools are available, use them with absolute plan/repo paths.
+Preview with `cld_preview`, then `cld_new_build` only when starting a new build.
+Call `cld_step` with explicit `executor`, `validation_policy` and `budget_attempts`
+under the user's authorization. Poll its `job_id` using `cld_job` with
+`wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
+then call `cld_integrate` with `integration_tests` and poll the same way.
+Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+Use the CLI instructions below when tools are unavailable.
 
 ## Plan and run
 

@@ -50,6 +50,17 @@ For executor choices, run `python scripts/list_models.py --json` and follow
 the picker section of `references/delivery-core.md`. Present exact returned
 IDs and supported efforts; discovery does not authorize dispatch.
 
+## MCP tools
+
+When `cld_*` tools are available, use them with absolute plan/repo paths.
+Preview with `cld_preview`, then `cld_new_build` only when starting a new build.
+Call `cld_step` with explicit `executor`, `validation_policy` and `budget_attempts`
+under the user's authorization. Poll its `job_id` using `cld_job` with
+`wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
+then call `cld_integrate` with `integration_tests` and poll the same way.
+Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+Use the CLI instructions below when tools are unavailable.
+
 ## Plan and run
 
 Author and commit failing acceptance tests first. Keep tests and pytest

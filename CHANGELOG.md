@@ -6,6 +6,27 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.7.0 — 2026-11-11
+
+### Added
+- Optional MCP server (`scripts/cld_mcp.py`) in every bundle, with eight tools:
+  `cld_preview`, `cld_status`, `cld_list_models`, `cld_new_build`, `cld_step`,
+  `cld_integrate`, `cld_mark_repaired` and `cld_job`. Long-running commands run as
+  durable jobs with a per-repository reservation, a process registry and a
+  containment check. See `docs/MCP.md`.
+- The `cross-llm-delivery` Claude Code plugin declares the server in `.mcp.json`.
+- `install_codex.py` and `install_antigravity.py` gain `--register-mcp` and
+  `--unregister-mcp` (owned entries, preview, atomic writes, shared scope lock);
+  Codex gets per-tool approval with `--mcp-approve read-only|all`.
+- Skills on all three hosts describe the MCP tools; the CLI remains the fallback.
+- `--new-build --json` reports `artifacts.ledger_backup`.
+
+### Changed
+- Antigravity executor dispatches deny the `cld` MCP tools
+  (`--settings '{"permissions":{"deny":["mcp(cld/*)"]}}'`).
+- With `CLD_PROCESS_REGISTRY` set, `cld.process` records each child before it
+  runs and refuses to run it if the record cannot be written.
+
 ## 0.6.1 — 2026-11-07
 
 ### Added
