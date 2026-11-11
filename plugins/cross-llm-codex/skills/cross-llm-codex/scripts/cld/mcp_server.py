@@ -19,7 +19,8 @@ from cld.process import ProcessCleanupError, run_process
 
 
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
-_MUTATING_TOOLS = {"cld_new_build", "cld_step", "cld_integrate", "cld_mark_repaired"}
+_MUTATING_TOOLS = {"cld_new_build", "cld_step", "cld_integrate", "cld_mark_repaired",
+                   "cld_cancel"}
 _TOOL_ARGUMENTS = {
     "cld_preview": ("plan", "repo"),
     "cld_status": ("repo",),
@@ -29,6 +30,7 @@ _TOOL_ARGUMENTS = {
     "cld_integrate": ("plan", "repo", "integration_tests"),
     "cld_mark_repaired": ("plan", "repo", "slice_id"),
     "cld_job": ("job_id",),
+    "cld_cancel": ("job_id",),
 }
 _ARGUMENT_SCHEMAS = {
     "plan": {"type": "string", "description": "Absolute plan path"},
@@ -52,6 +54,7 @@ _DESCRIPTIONS = {
     "cld_integrate": "Integrate accepted slices as a durable job.",
     "cld_mark_repaired": "Mark a slice repaired as a durable job.",
     "cld_job": "Read or wait for a durable job's status.",
+    "cld_cancel": "Request cancellation of a durable job.",
 }
 
 
@@ -211,6 +214,11 @@ class Server:
                     arguments["job_id"], wait_seconds=arguments.get("wait_seconds", 30)))
             except (OSError, ValueError, LookupError, RuntimeError) as exc:
                 return _tool_error(f"Job lookup failed: {exc}")
+        if name == "cld_cancel":
+            try:
+                return _tool_result(mcp_jobs.cancel_job(arguments["job_id"]))
+            except (OSError, ValueError, LookupError, RuntimeError) as exc:
+                return _tool_error(f"Job cancellation failed: {exc}")
         if name == "cld_list_models":
             script = os.environ.get("CLD_MODELS", str(self.scripts_dir / "list_models.py"))
             argv = [sys.executable, script, "--json"]

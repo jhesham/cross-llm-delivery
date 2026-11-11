@@ -1,4 +1,4 @@
-# MCP tools (v0.7.0)
+# MCP tools (v0.7.0; cancellation v0.7.1)
 
 CLD ships an optional MCP server, `scripts/cld_mcp.py`, in every bundle. It exposes
 CLD's lead commands as typed tools, so a lead (Claude Code, Codex or Antigravity)
@@ -21,11 +21,13 @@ If the tools are not available, the skills fall back to the CLI instructions.
 | `cld_integrate` | job | `--integrate --integration-tests <selector> --json` |
 | `cld_mark_repaired` | job | `--mark-repaired <slice> --json` |
 | `cld_job` | read-only | Poll a job: `job_id`, `wait_seconds` 0-45 (default 30) |
+| `cld_cancel` | mutating | Ask a running job to stop: `job_id`; returns at once |
 
 All paths must be absolute. `cld_step` has no defaults for the executor,
 validation policy or attempt budget. Job tools return a `job_id` at once; poll
-`cld_job` with `wait_seconds` 45 until the state is `finished`, `died`,
-`exit_unconfirmed` or `lost`, then act on the result's `gate_code`.
+`cld_job` with `wait_seconds` 45 while the state is `running` or `cancelling`;
+any other state (`finished`, `died`, `cancelled`, `exit_unconfirmed`,
+`cancel_unconfirmed`, `lost`) is final. Act on the result's `gate_code`.
 
 Executors never get these tools. The Claude Code executor runs with
 `--strict-mcp-config` and no servers, the Codex executor disables every
@@ -63,7 +65,7 @@ python generator/install_codex.py --register-mcp --scope-root <home> --bundle <h
 This writes an owned `[mcp_servers.cld]` table into `<home>/.codex/config.toml`
 with absolute paths. `--mcp-approve read-only` (the default) pre-approves
 `cld_preview`, `cld_status`, `cld_list_models` and `cld_job`; the mutating tools
-follow Codex's normal approval (refused in `codex exec`). `--mcp-approve all`
+(including `cld_cancel`) follow Codex's normal approval (refused in `codex exec`). `--mcp-approve all`
 approves every tool. Codex plugins do not declare the server.
 
 **Antigravity.** Antigravity reads MCP configuration globally, so registration is
@@ -96,14 +98,28 @@ running job.
 
 Job files live in `~/.cld/mcp-jobs/<job-id>/` (or `CLD_MCP_JOBS`):
 `request.json`, `runner.json`, `stdout.txt`, `stderr.txt`, `processes.jsonl`,
-`exit.json` and, after a fence resolution, `resolution.json`. Finished jobs older
+`exit.json`, `cancel.request` and `state.lock` when a job is cancelled, and,
+after a fence resolution, `resolution.json`. Finished jobs older
 than 7 days are deleted when a server starts; unresolved ones are kept.
 
-**Stopping a job.** v0.7.0 has no cancel tool (planned for v0.7.1). End the
-runner process named by `runner.json` (`runner.pid`). On Windows the runner's Job
-Object stops the driver and every executor with it. On POSIX the driver keeps
-running in its own session; also stop the driver and executor processes. CLD's
-ledger recovery reconciles the interrupted step on the next command.
+**Stopping a job (v0.7.1).** Call `cld_cancel` with the job id, then keep polling
+`cld_job`. The job shows `cancelling`; CLD interrupts the step the way Ctrl+C does
+(in-flight executor and test processes are stopped and nothing is recorded as a
+failure), waits up to `CLD_MCP_CANCEL_GRACE` seconds (default 30), then terminates
+whatever is left. It ends `cancelled` once everything it started is gone, or
+`cancel_unconfirmed` (which fences the repository) if it cannot confirm that. A
+slice already being collected when the cancel arrives is still accepted. If the
+command finished before the cancel took effect, the job ends `finished` with
+reason `cancel_too_late`. CLD's ledger recovery reconciles the interrupted
+command on the next run.
+
+Jobs started by a v0.7.0 server cannot be cancelled (`legacy_runner`). Stop them
+by ending the runner process named by `runner.json` (`runner.pid`); on POSIX also
+stop the driver and executor processes.
+
+**Upgrading a registration.** Re-run `--register-mcp` after updating the skill so
+Codex lists `cld_cancel` (`enabled_tools` is explicit); an intact entry owned by
+the same bundle is rewritten in place.
 
 **A blocked repository.** If a runner died (`lost`) or could not confirm that
 everything stopped (`exit_unconfirmed`), the next mutating job for that
@@ -125,3 +141,4 @@ It never overrides a live recorded CLD process.
 | `CLD_HOST` | Host name passed as `--host` (set by each registration). |
 | `CLD_MCP_JOBS` | Job directory root (default `~/.cld/mcp-jobs`). |
 | `CLD_MCP_SYNC_TIMEOUT` | Deadline for synchronous tools in seconds (default 45). |
+| `CLD_MCP_CANCEL_GRACE` | Seconds a cancelled job may take to stop before termination (default 30). |

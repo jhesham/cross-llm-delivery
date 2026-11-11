@@ -6,6 +6,28 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.7.1 — 2026-11-12
+
+### Added
+- `cld_cancel` MCP tool (nine tools in total): ask a running job to stop. Jobs show
+  `cancelling`, then `cancelled` or `cancel_unconfirmed`; the step is interrupted
+  like Ctrl+C (nothing recorded as a failure), with termination after
+  `CLD_MCP_CANCEL_GRACE` seconds (default 30). A cancel that arrives after the
+  command completed reports `finished` with reason `cancel_too_late`.
+- Architecture reference: Level 3E diagram for the MCP adapter, durable jobs and
+  cancellation; the system-context, packaging, engine, process-supervision and
+  storage views describe the adapter.
+
+### Changed
+- Codex and Antigravity registrations list `cld_cancel`; re-run `--register-mcp`
+  to upgrade a v0.7.0 entry in place.
+- `cld_job` long polls keep waiting while a job is `cancelling`.
+
+### Fixed
+- Windows: a lock file that another process had just initialised could raise
+  `PermissionError` instead of reporting contention (seen as a rare `start_job`
+  error under load).
+
 ## 0.7.0 — 2026-11-11
 
 ### Added

@@ -264,11 +264,14 @@ def _csv_preview(text: str, capped: bool, byte_count: int) -> dict:
 
 def _append_ledger(directory: Path, entry: dict) -> None:
     from cld.locking import file_owner
+    from cld.process import EXTERNAL_CANCEL
 
     lock_path = directory / "ledger.lock"
     ledger_path = directory / "ledger.jsonl"
     line = json.dumps(entry, ensure_ascii=False, separators=(",", ":"))
-    with file_owner(lock_path, wait_seconds=10):
+    with file_owner(lock_path, wait_seconds=10, cancel=EXTERNAL_CANCEL):
+        if EXTERNAL_CANCEL.is_set():
+            raise KeyboardInterrupt("Evidence task cancelled")
         with ledger_path.open("a", encoding="utf-8", newline="\n") as stream:
             stream.write(line + "\n")
             stream.flush()
@@ -314,7 +317,7 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
     # Recursion and sandbox gates run before task/provider inspection or writes.
     if os.environ.get("CLD_EXECUTOR_DEPTH", "0") != "0":
         return _result(task_id, problems=["Recursive CLD dispatch blocked: CLD_EXECUTOR_DEPTH is set"])
-    from cld.process import network_block_reason
+    from cld.process import EXTERNAL_CANCEL, network_block_reason
     reason = network_block_reason(os.environ)
     if reason:
         return _result(task_id, problems=[reason])
@@ -410,6 +413,8 @@ def run_ask(repo, task, *, executor_spec, make_executor=None, admit=None) -> dic
     created_objects = bundle.get("created_objects") if isinstance(bundle, dict) else None
     if task["kind"] == "materialise" and isinstance(created_objects, list):
         ledger_entry["created"] = created_objects
+    if EXTERNAL_CANCEL.is_set():
+        raise KeyboardInterrupt("Evidence task cancelled")
     try:
         _append_ledger(ask_root, ledger_entry)
     except Exception as exc:

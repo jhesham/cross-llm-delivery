@@ -8,6 +8,8 @@ Ledger writes, the Git worktree registry and Antigravity dispatch use separate l
 
 Solid arrows show containment; dotted, labeled arrows show ownership or runtime relationships. Braces in the diagram denote variable path components. All named components are under `engine/cld/`.
 
+**MCP job state (v0.7.0+), outside the repository.** Jobs live under `~/.cld/mcp-jobs/<job-id>/` (or `CLD_MCP_JOBS`): `request.json`, `runner.json`, `processes.jsonl`, `stdout.txt`, `stderr.txt`, `exit.json`, optional `cancel.request`, `state.lock` and `resolution.json`, with reservation and spawn locks under `~/.cld/mcp-jobs/locks/`. Finished and cancelled jobs are deleted after 7 days; unresolved ones are kept. See [Level 3E](10-l3e-mcp-adapter.md).
+
 ## Rendered Diagram
 
 ```mermaid

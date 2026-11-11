@@ -245,8 +245,8 @@ def reap_job_dir(job_dir):
 # Stub driver and picker
 # ---------------------------------------------------------------------------
 
-def _echo(extra=None):
-    payload = {"schema_version": 1, "command": "stub", "gate_code": 0,
+def _echo(extra=None, gate_code=0):
+    payload = {"schema_version": 1, "command": "stub", "gate_code": gate_code,
                "argv": sys.argv[1:], "cwd": os.getcwd(), **(extra or {})}
     sys.stdout.write(json.dumps(payload) + "\n")
     sys.stdout.flush()
@@ -292,8 +292,24 @@ def driver_main():
     mode = os.environ.get("CLD_STUB_MODE", "echo")
     child_file = os.environ.get("CLD_STUB_CHILD", os.path.join(os.getcwd(), "stub-child.pid"))
     if mode == "sleep":
-        time.sleep(float(os.environ.get("CLD_STUB_SECONDS", "30")))
+        # Like the real CLI under v0.7.1: a cancel file interrupts it (no JSON, exit 130).
+        cancel_file = os.environ.get("CLD_CANCEL_FILE")
+        deadline = time.monotonic() + float(os.environ.get("CLD_STUB_SECONDS", "30"))
+        while time.monotonic() < deadline:
+            if cancel_file and os.path.exists(cancel_file):
+                sys.stderr.write("KeyboardInterrupt: cancelled\n")
+                sys.exit(130)
+            time.sleep(0.05)
         _echo()
+    elif mode == "late":
+        # Completes with gate 6 at the moment a cancel is admitted.
+        _echo(gate_code=6)
+        cancel_file = os.environ.get("CLD_CANCEL_FILE")
+        if cancel_file:
+            with open(cancel_file, "w", encoding="utf-8") as stream:
+                stream.write('{"schema": 1, "requested_at": "late"}')
+        time.sleep(0.3)
+        sys.exit(6)
     elif mode == "fail":
         sys.stderr.write("stub failure\n")
         sys.exit(1)

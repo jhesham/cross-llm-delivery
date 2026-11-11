@@ -15,10 +15,47 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from typing import Mapping
+from weakref import WeakSet
 
 _scope = ContextVar("cld_process_scope", default={})
+EXTERNAL_CANCEL = threading.Event()
+_cancel_lock = threading.Lock()
+_cancel_watcher = None
+_linked_cancels = WeakSet()
+
+
+def link_external_cancel(event):
+    """Make a scoped event observe external cancellation, including an earlier one."""
+    with _cancel_lock:
+        _linked_cancels.add(event)
+        if EXTERNAL_CANCEL.is_set():
+            event.set()
+
+
+def start_cancel_watcher():
+    """Start one daemon polling CLD_CANCEL_FILE, or do nothing when unset."""
+    global _cancel_watcher
+    path = os.environ.get("CLD_CANCEL_FILE")
+    if not path:
+        return
+
+    def watch():
+        while not EXTERNAL_CANCEL.is_set():
+            if os.path.exists(path):
+                with _cancel_lock:
+                    EXTERNAL_CANCEL.set()
+                    for event in _linked_cancels:
+                        event.set()
+                return
+            time.sleep(0.1)
+
+    with _cancel_lock:
+        if _cancel_watcher is None:
+            _cancel_watcher = threading.Thread(target=watch, name="cld-cancel-watcher", daemon=True)
+            _cancel_watcher.start()
 
 
 _NETWORK_ERROR_PATTERNS = re.compile(
@@ -258,6 +295,8 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
     interrupted = None
     with out_path.open("wb") as out, err_path.open("wb") as err, tempfile.TemporaryFile() as source, ExitStack() as gates:
         try:
+            if EXTERNAL_CANCEL.is_set():
+                raise KeyboardInterrupt("External cancellation requested")
             if cancel is not None and cancel.is_set():
                 error = "cancelled"
             else:
@@ -303,6 +342,8 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                     payload = None
                 while True:
                     remaining = seconds - (time.monotonic() - started)
+                    if EXTERNAL_CANCEL.is_set():
+                        raise KeyboardInterrupt("External cancellation requested")
                     if cancel is not None and cancel.is_set():
                         error = "cancelled"
                         break
@@ -359,6 +400,10 @@ def run_process(argv, cwd, *, env=None, stdin=None, timeout=None, cancel=None, a
                           (None if rc == 0 else "nonzero_exit"))
         result = ProcessResult(rc, str(out_path), str(err_path), classification, result.elapsed)
     (directory / "result.json").write_text(json.dumps(result.metadata()), encoding="utf-8")
+    if interrupted is None and result.error == "cancelled" and EXTERNAL_CANCEL.is_set():
+        # The watcher sets the external flag and linked scoped events together; if
+        # the scoped check won the race, this is still an external interrupt.
+        interrupted = KeyboardInterrupt("External cancellation requested")
     if interrupted is not None:
         interrupted.process_result = result
         raise interrupted

@@ -25,10 +25,11 @@ from tests.v070._stubs import WINDOWS, wait_for
 
 ROOT = Path(__file__).resolve().parents[2]
 CODEX, AGY = "generator.install_codex", "generator.install_antigravity"
+# v0.7.1 appends cld_cancel (mutating, never pre-approved under read-only).
 ALL_TOOLS = ["cld_preview", "cld_status", "cld_list_models", "cld_new_build", "cld_step",
-             "cld_integrate", "cld_mark_repaired", "cld_job"]
+             "cld_integrate", "cld_mark_repaired", "cld_job", "cld_cancel"]
 READ_ONLY = ["cld_preview", "cld_status", "cld_list_models", "cld_job"]
-MUTATING = ["cld_new_build", "cld_step", "cld_integrate", "cld_mark_repaired"]
+MUTATING = ["cld_new_build", "cld_step", "cld_integrate", "cld_mark_repaired", "cld_cancel"]
 OWNER_RE = re.compile(r"^# cld-mcp owner=(.+) sha256=([0-9a-f]{64})\s*$", re.M)
 
 

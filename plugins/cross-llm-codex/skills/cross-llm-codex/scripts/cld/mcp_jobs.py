@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -118,7 +119,7 @@ def _lock(root, key, *, spawn=False):
 
 def _fault(name):
     return (os.environ.get("CLD_MCP_TESTING") == "1" and
-            os.environ.get("CLD_MCP_FAULT") == name)
+            name in {fault.strip() for fault in os.environ.get("CLD_MCP_FAULT", "").split(",")})
 
 
 if _WINDOWS:
@@ -342,7 +343,8 @@ def _records(directory):
 
 def _exit_record(directory):
     record = _read(directory / "exit.json")
-    if (record and record.get("state") in ("finished", "died", "exit_unconfirmed")
+    if (record and record.get("state") in ("finished", "died", "exit_unconfirmed",
+                                           "cancelled", "cancel_unconfirmed")
             and record.get("containment") in ("clean", "unconfirmed")):
         return record
     return None
@@ -352,9 +354,14 @@ def _status(directory):
     runner, _, _, _, incomplete = _records(directory)
     record = _exit_record(directory)
     if record:
-        state = "exit_unconfirmed" if record["containment"] == "unconfirmed" else record["state"]
+        state = record["state"]
+        if record["containment"] == "unconfirmed":
+            state = ("cancel_unconfirmed" if state in ("cancelled", "cancel_unconfirmed")
+                     else "exit_unconfirmed")
     else:
-        state = "running" if runner and _alive(runner.get("runner")) else "lost"
+        state = "lost"
+        if runner and _alive(runner.get("runner")):
+            state = "cancelling" if (directory / "cancel.request").exists() else "running"
     return {"job_id": directory.name, "state": state,
             **{key: record.get(key) if record else None
                for key in ("returncode", "result", "reason", "containment")},
@@ -367,9 +374,27 @@ def job_status(job_id, *, jobs_root=None, wait_seconds=0):
     while True:
         result = _status(directory)
         remaining = deadline - time.monotonic()
-        if result["state"] != "running" or remaining <= 0:
+        if result["state"] not in ("running", "cancelling") or remaining <= 0:
             return result
         time.sleep(min(0.1, remaining))
+
+
+def cancel_job(job_id, *, jobs_root=None):
+    """Admit a cooperative cancel, serialized with the runner's terminal record."""
+    directory = _job_path(job_id, jobs_root)
+    with file_owner((directory / "state.lock").resolve(), wait_seconds=10):
+        status = _status(directory)
+        reply = {"job_id": job_id, "state": status["state"], "requested": False,
+                 "reason": status["reason"]}
+        if (directory / "exit.json").exists() or status["state"] == "lost":
+            return reply
+        runner = _read(directory / "runner.json")
+        if not runner or runner.get("cancel") != 1:
+            return {**reply, "reason": "legacy_runner"}
+        cancel_file = directory / "cancel.request"
+        if not cancel_file.exists():
+            _atomic(cancel_file, {"schema": 1, "requested_at": _now()})
+        return {**reply, "state": "cancelling", "requested": True}
 
 
 def _directories(root):
@@ -402,7 +427,7 @@ def _check_fence(root, repo_root):
         if _read(directory / "resolution.json"):
             continue
         status = _status(directory)
-        if status["state"] not in ("lost", "exit_unconfirmed"):
+        if status["state"] not in ("lost", "exit_unconfirmed", "cancel_unconfirmed"):
             continue
         _, identities, all_identities, groups, incomplete = _records(directory)
         alive = [ident for ident in identities if _alive(ident)]
@@ -435,7 +460,7 @@ def resolve_job(job_id, *, jobs_root=None, confirm=False):
 
 def _conflict(root, repo_root):
     directories = list(_repo_jobs(root, repo_root))
-    active = [d.name for d in directories if _status(d)["state"] == "running"]
+    active = [d.name for d in directories if _status(d)["state"] in ("running", "cancelling")]
     return JobConflict("Repository reservation is held; jobs: " +
                        ", ".join(active or [d.name for d in directories]))
 
@@ -581,10 +606,28 @@ def _cleanup(directory, process, job):
 
 
 def _write_exit(directory, state, returncode, result, reason, clean):
-    _atomic(directory / "exit.json", {"schema": 1,
-            "state": state if clean else "exit_unconfirmed", "returncode": returncode,
-            "ended_at": _now(), "result": result, "reason": reason,
-            "containment": "clean" if clean else "unconfirmed"})
+    with file_owner((directory / "state.lock").resolve(), wait_seconds=10):
+        # Recheck after containment: a request admitted during cleanup must not
+        # be lost, and none can be admitted after this publication.
+        if (directory / "cancel.request").exists():
+            normal_exit = (isinstance(result, dict) and
+                           type(result.get("schema_version")) is int and
+                           result["schema_version"] == 1 and
+                           type(result.get("gate_code")) is int and
+                           result["gate_code"] in (0, 2, 3, 4, 5, 6) and
+                           result["gate_code"] == returncode)
+            if normal_exit:
+                state, reason = "finished", "cancel_too_late"
+            else:
+                state = "cancelled"
+                reason = "cancel_escalated" if reason == "cancel_escalated" else "cancel_requested"
+        if not clean:
+            state = "cancel_unconfirmed" if state == "cancelled" else "exit_unconfirmed"
+        _atomic(directory / "exit.json", {"schema": 1,
+                "state": state, "returncode": returncode,
+                "ended_at": _now(), "result": result, "reason": reason,
+                "containment": "clean" if clean else "unconfirmed"})
+        return state
 
 
 def run_job(job_dir):
@@ -604,7 +647,7 @@ def run_job(job_dir):
             _write_exit(directory, "died", None, None, "conflict", True)
             return 1
         record = {"schema": 1, "runner": _identity(os.getpid()),
-                  "reservation": key, "driver": None}
+                  "reservation": key, "driver": None, "cancel": 1}
         _atomic(directory / "runner.json", record)
         # Create durable evidence before the driver can spawn anything. Append
         # mode also preserves existing process evidence if the runner re-enters.
@@ -615,9 +658,20 @@ def run_job(job_dir):
         gate_read = gate_write = None
         state, rc, result, reason = "died", None, None, None
         try:
+            try:
+                grace = float(os.environ.get("CLD_MCP_CANCEL_GRACE", "30"))
+                if not math.isfinite(grace):
+                    raise ValueError("Non-finite cancellation grace")
+                grace = max(0, grace)
+            except ValueError:
+                grace = 30
+            cancel_deadline = None
+            env = {**os.environ, "CLD_PROCESS_REGISTRY": str(directory / "processes.jsonl"),
+                   "CLD_CANCEL_FILE": str(directory / "cancel.request")}
+            if _fault("ignore_cancel"):
+                env.pop("CLD_CANCEL_FILE", None)
             with (directory / "stdout.txt").open("wb") as out, (directory / "stderr.txt").open("wb") as err:
-                options = dict(cwd=request["repo"], stdout=out, stderr=err,
-                               env={**os.environ, "CLD_PROCESS_REGISTRY": str(directory / "processes.jsonl")})
+                options = dict(cwd=request["repo"], stdout=out, stderr=err, env=env)
                 if _WINDOWS:
                     from .process import _BOOTSTRAP
                     job = _WindowsJob()
@@ -652,12 +706,17 @@ def run_job(job_dir):
                     os.close(gate_write)
                     gate_write = None
                 while process.poll() is None:
+                    if cancel_deadline is None and (directory / "cancel.request").exists():
+                        cancel_deadline = time.monotonic() + grace
+                    if cancel_deadline is not None and time.monotonic() >= cancel_deadline:
+                        reason = "cancel_escalated"
+                        break
                     time.sleep(0.05)
                 rc = process.returncode
                 if _WINDOWS:
                     driver_exit = _read(directory / "driver-exit.json")
                     rc = driver_exit.get("returncode") if driver_exit else None
-                    reason = driver_exit.get("error") if driver_exit else "driver_exit_missing"
+                    reason = reason or (driver_exit.get("error") if driver_exit else "driver_exit_missing")
             result = _read(directory / "stdout.txt")
             if result is not None:
                 state = "finished"
@@ -673,7 +732,7 @@ def run_job(job_dir):
             if process is not None and process.stdin is not None and not process.stdin.closed:
                 process.stdin.close()
             clean = _cleanup(directory, process, job)
-            _write_exit(directory, state, rc, result, reason, clean)
+            state = _write_exit(directory, state, rc, result, reason, clean)
             if job is not None:
                 job.close()
         return 0 if state == "finished" and clean else 1
@@ -688,7 +747,7 @@ def purge(jobs_root=None, max_age_days=7):
         record = _exit_record(directory)
         resolved = _read(directory / "resolution.json")
         if not request or not (resolved or record and record["containment"] == "clean"
-                              and record["state"] in ("finished", "died")):
+                              and record["state"] in ("finished", "died", "cancelled")):
             continue
         try:
             key = _key(_request_repo_root(request))

@@ -4,7 +4,7 @@ description: >-
   Run a multi-slice build with Claude Code as lead and the cursor
   headless executor, using committed acceptance tests and isolated Git worktrees.
 ---
-<!-- GENERATED from cross-llm-delivery (provider: cursor, v0.7.0) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: cursor, v0.7.1) - do not edit here; edit the monorepo source. -->
 
 # Cross-LLM Delivery -- Claude Code lead
 
@@ -46,6 +46,7 @@ under the user's authorization. Poll its `job_id` using `cld_job` with
 `wait_seconds=45` until terminal. For finished jobs, act on `result.gate_code`;
 then call `cld_integrate` with `integration_tests` and poll the same way.
 Inspect `died`, `lost` or `exit_unconfirmed` jobs before further mutation.
+To stop a job, call `cld_cancel`, then keep polling `cld_job` while its state is `running` or `cancelling`; any other state is final, and an unconfirmed or lost job blocks the repository until the processes it names are gone.
 Use the CLI instructions below when tools are unavailable.
 
 ## Plan and run

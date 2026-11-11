@@ -6,6 +6,8 @@ This view follows model resolution and admission through the provider concurrenc
 
 The executor wrapper makes both `run` and `run_evidence` enter `dispatch_slot(spec)`. Antigravity waits for a machine-wide lock and gives up without dispatching if the build is cancelled. The other four providers dispatch in parallel. Executor children receive `CLD_EXECUTOR_DEPTH=1`, bounded timeouts, and process-tree containment through a Windows Job Object or POSIX process group.
 
+**Registry and external cancel (v0.7.0+).** With `CLD_PROCESS_REGISTRY` set, `run_process` records each child (pid, start-time token, POSIX group) before it runs and kills it unrun if the record cannot be written. `EXTERNAL_CANCEL` stops supervised children like a scoped cancel and then raises `KeyboardInterrupt`, so a cancelled MCP job is interrupted, never recorded as a failure. Antigravity executor sessions add `--settings` denying `mcp(cld/*)`. See [Level 3E](10-l3e-mcp-adapter.md).
+
 ## Rendered Diagram
 
 ```mermaid

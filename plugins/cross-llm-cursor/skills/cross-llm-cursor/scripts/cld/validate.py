@@ -24,7 +24,7 @@ from cld.acceptance import acceptance_command
 import os
 from cld.executors._capture import checked
 from cld.recovery import RecoverySession, atomic_write
-from cld.process import process_scope
+from cld.process import EXTERNAL_CANCEL, process_scope
 from cld._windows_workspace import prepare_windows_workspace
 
 _TEST_SRC = (
@@ -129,6 +129,8 @@ def validate_model(model: str, *, executor, git_runner, base_dir: str) -> Valida
         result = ValidationResult(model, outcome.accepted, status, attempted, note,
             dict(getattr(last, "token_usage", {}) or {}), str(directory), error)
     except BaseException as exc:
+        if EXTERNAL_CANCEL.is_set():
+            raise
         from cld.process import ProcessCleanupError
         if session is not None:
             if isinstance(exc, ProcessCleanupError):

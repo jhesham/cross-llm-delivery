@@ -6,6 +6,8 @@ This view groups the modules of `engine/cld/` into seven runtime subsystems and 
 
 Plan admission precedes dispatch of a ready DAG layer. Each slice runs in an isolated Git worktree, and baseline preflight runs before the executor. The engine captures a candidate tree and verifies it in a frozen snapshot. Acceptance records the slice as `done` and preserves its commit; explicit integration merges accepted commits and verifies the integration tests before recording `integrated`.
 
+**MCP adapter (v0.7.0+).** Two further modules sit beside the CLI: `mcp_server.py` (the stdio tool server) and `mcp_jobs.py` (durable jobs, reservation, fence, cancellation). `process.py` gains the process registry (`CLD_PROCESS_REGISTRY`) and the external cancel flag (`EXTERNAL_CANCEL`, set by the `CLD_CANCEL_FILE` watcher) used by the orchestrator, `dispatch_limits.py`, validation and recovery. See [Level 3E](10-l3e-mcp-adapter.md).
+
 ## Rendered Diagram
 
 ```mermaid

@@ -17,11 +17,17 @@ def file_owner(path, *, wait_seconds=0, cancel=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.resolve() != path.absolute():
         raise RuntimeError(f"Lock path is redirected: {path}")
-    with path.open("a+b") as stream:
+    # Unbuffered: a refused initialising write must not linger and resurface on seek.
+    with path.open("a+b", buffering=0) as stream:
         stream.seek(0, 2)
         if stream.tell() == 0:
-            stream.write(b"0")
-            stream.flush()
+            try:
+                stream.write(b"0")
+                stream.flush()
+            except OSError:
+                # Another opener initialised and locked the byte first (Windows
+                # byte-range lock); that is contention, decided by the lock below.
+                pass
         stream.seek(0)
         deadline = time.monotonic() + wait_seconds
         while True:

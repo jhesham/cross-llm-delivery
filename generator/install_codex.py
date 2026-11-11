@@ -492,7 +492,7 @@ def _uninstall(
 # ---------------------------------------------------------------------------
 
 MCP_TOOLS = ["cld_preview", "cld_status", "cld_list_models", "cld_new_build",
-             "cld_step", "cld_integrate", "cld_mark_repaired", "cld_job"]
+             "cld_step", "cld_integrate", "cld_mark_repaired", "cld_job", "cld_cancel"]
 MCP_READ_ONLY = ["cld_preview", "cld_status", "cld_list_models", "cld_job"]
 _OWNER = re.compile(
     r"^# cld-mcp owner=([^\r\n]+) sha256=([0-9a-f]{64})\r?$", re.M)
@@ -589,7 +589,7 @@ def _codex_mcp_block(bundle: Path, approve: str) -> str:
         body += 'default_tools_approval_mode = "approve"\n'
     else:
         for tool in MCP_READ_ONLY:
-            body += f'\n[mcp_servers.cld.tools.{tool}]\napproval_mode = "approve"\n'
+            body += f'\n[mcp_servers.cld.tools.{json.dumps(tool)}]\napproval_mode = "approve"\n'
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     # The leading newline is part of the owned block, so unregister restores
     # even a pre-existing file without a final newline byte for byte.

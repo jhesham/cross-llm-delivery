@@ -125,7 +125,8 @@ Provider-side retention follows your account's policies, not CLD guarantees.
 When you use the optional MCP tools, each job keeps a directory under
 `~/.cld/mcp-jobs/` (or `CLD_MCP_JOBS`) on your machine: the request (tool
 arguments, plan and repository paths), the driver's stdout and stderr, process
-identities (pids and start times) and the exit record. Nothing is sent anywhere.
+identities (pids and start times), the exit record and, when a job is cancelled,
+a `cancel.request` file with the request time. Nothing is sent anywhere.
 Finished jobs are deleted after 7 days when a server starts; unresolved jobs are
 kept until resolved. `--register-mcp` writes one `cld` entry (interpreter path,
 script path, host name, owner hash) into your Codex or Antigravity configuration;

@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 
 from cld.locking import OwnerBusy, file_owner
-from cld.process import _scope
+from cld.process import EXTERNAL_CANCEL, _scope
 from cld.providers_api import get_provider, load_providers
 
 
@@ -26,6 +26,8 @@ def lock_path(provider: str) -> Path:
 @contextmanager
 def dispatch_slot(spec: str, cancel=None):
     """Hold a limited provider's slot only while the caller dispatches."""
+    if EXTERNAL_CANCEL.is_set():
+        raise KeyboardInterrupt("Executor dispatch cancelled")
     load_providers()
     try:
         provider = get_provider(spec.split(":", 1)[0])
@@ -40,7 +42,7 @@ def dispatch_slot(spec: str, cancel=None):
     path = lock_path(provider.name)
     with ExitStack() as ownership:
         while True:
-            if cancel is not None and cancel.is_set():
+            if EXTERNAL_CANCEL.is_set() or (cancel is not None and cancel.is_set()):
                 raise KeyboardInterrupt("Executor dispatch cancelled")
             try:
                 ownership.enter_context(file_owner(path))
@@ -48,7 +50,7 @@ def dispatch_slot(spec: str, cancel=None):
                 time.sleep(0.02)
             else:
                 break
-        if cancel is not None and cancel.is_set():
+        if EXTERNAL_CANCEL.is_set() or (cancel is not None and cancel.is_set()):
             raise KeyboardInterrupt("Executor dispatch cancelled")
         yield
 

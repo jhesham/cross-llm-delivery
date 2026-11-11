@@ -175,6 +175,11 @@ class RecoverySession:
                 raise CaptureError("Recovery patch does not reconstruct the captured tree")
 
     def failure(self, error):
+        from cld.process import EXTERNAL_CANCEL
+
+        if EXTERNAL_CANCEL.is_set():
+            self.save(state="interrupted")
+            return
         # Each operation may itself fail (disk/Git). Caller retains the worktree
         # and includes the failure path in the outcome when evidence is incomplete.
         self.save(state="failed", error=str(error))

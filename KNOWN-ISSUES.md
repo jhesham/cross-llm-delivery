@@ -190,9 +190,12 @@ durable state and should be enabled only under the user's data-sharing policy.
 
 ## MCP adapter (v0.7.0)
 
-- No cancel tool in v0.7.0. Stop a job by ending its runner process; on POSIX
-  also stop the driver and executors (see [docs/MCP.md](docs/MCP.md)). Planned
-  for v0.7.1.
+- `cld_cancel` (v0.7.1) cannot stop jobs started by a v0.7.0 server; end their
+  runner process instead (see [docs/MCP.md](docs/MCP.md)). Git commands are not
+  interrupted mid-command; a hung Git hook is stopped by the grace-period
+  escalation.
+- Codex lists only the tools in its registration's `enabled_tools`; re-run
+  `--register-mcp` after upgrading to v0.7.1 to add `cld_cancel`.
 - The Claude Code plugin starts the server with `python`. On systems where only
   `python3` is on `PATH`, register the standalone entry with an explicit
   interpreter instead.

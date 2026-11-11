@@ -6,6 +6,8 @@ This view follows shared templates, host overlays, the core engine and provider 
 
 Freshness checking compares committed Claude Code plugins with newly packaged bundles. Release validation checks generated manifest versions and waits for CI on the exact pushed SHA before tagging and publishing. The Codex and Antigravity installers enforce ownership and filesystem boundaries before replacing an installed skill.
 
+**MCP adapter (v0.7.0+).** `build_skill.py` vendors `skill/scripts/cld_mcp.py` into every bundle as `scripts/cld_mcp.py`; `build_plugins.py` writes `.mcp.json` only into the `cross-llm-delivery` Claude Code plugin. `install_codex.py` and `install_antigravity.py` add `--register-mcp` / `--unregister-mcp` for the all-executors install in the same scope, under a scope lock shared with skill uninstall. See [Level 3E](10-l3e-mcp-adapter.md).
+
 ## Rendered Diagram
 ```mermaid
 flowchart TB

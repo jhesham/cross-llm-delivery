@@ -27,6 +27,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 from contextvars import ContextVar
 from pathlib import Path
 
@@ -35,7 +36,7 @@ from cld.executors import get_executor
 from cld.judge import judge
 from cld.evidence import EvidenceError
 from cld.test_run import TestRun
-from cld.process import run_process
+from cld.process import link_external_cancel, process_scope, run_process, start_cancel_watcher
 from cld.candidate import acceptance_args
 from cld.acceptance import acceptance_command
 from cld.executors._capture import CaptureError, GitOutput
@@ -1822,22 +1823,30 @@ def main(argv=None) -> int:
     host = _scan_option(argv, "--host")
     if host:
         telemetry.set_host(host)
-    try:
-        if "--json" in argv:
-            try:
-                return _main_json(argv)
-            except Exception as exc:
-                # Machine callers must also receive structured diagnostics for
-                # malformed optional state or an unexpected provider failure.
-                return _blocked(_guess_command(argv), str(exc),
-                    raw_repo=_scan_option(argv, "--repo"), raw_ledger=_scan_option(argv, "--ledger"))
+    with contextlib.ExitStack() as scope:
+        if any(option.split("=", 1)[0] in {"--new-build", "--step", "--integrate", "--mark-repaired"}
+               for option in argv):
+            start_cancel_watcher()
+        if any(option.split("=", 1)[0] in {"--integrate", "--mark-repaired"} for option in argv):
+            cancellation = threading.Event()
+            link_external_cancel(cancellation)
+            scope.enter_context(process_scope(cancel=cancellation))
         try:
-            return _main(argv)
-        except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError, ValueError) as exc:
-            print(f"State blocked: {exc}", file=sys.stderr)
-            return 5
-    finally:
-        telemetry.set_host(None)
+            if "--json" in argv:
+                try:
+                    return _main_json(argv)
+                except Exception as exc:
+                    # Machine callers must also receive structured diagnostics for
+                    # malformed optional state or an unexpected provider failure.
+                    return _blocked(_guess_command(argv), str(exc),
+                        raw_repo=_scan_option(argv, "--repo"), raw_ledger=_scan_option(argv, "--ledger"))
+            try:
+                return _main(argv)
+            except (StateError, OwnerBusy, CaptureError, PlanError, EvidenceError, ValueError) as exc:
+                print(f"State blocked: {exc}", file=sys.stderr)
+                return 5
+        finally:
+            telemetry.set_host(None)
 
 
 if __name__ == "__main__":

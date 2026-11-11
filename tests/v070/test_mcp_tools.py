@@ -61,10 +61,11 @@ def _step_args(repo, **over):
     return {k: v for k, v in args.items() if v is not None}
 
 
-def test_tools_list_has_all_eight_and_no_cancel(stub_env):
+def test_tools_list_has_the_v070_tools(stub_env):
+    # v0.7.1 adds cld_cancel; its exact nine-tool list is tests/v071/test_cancel_server.py.
     reply = by_id(serve(init(), req(1, "tools/list"), scripts_dir=stub_env.scripts), 1)
     names = {t["name"] for t in reply["result"]["tools"]}
-    assert names == EIGHT, sorted(names)
+    assert EIGHT <= names <= EIGHT | {"cld_cancel"}, sorted(names)
 
 
 @pytest.mark.parametrize("workers", [None, 3])

@@ -15,7 +15,8 @@ from cld.candidate import Candidate, CandidateVerifier
 from cld.executors._capture import CaptureError, checked
 from cld.judge import JudgeResult, judge
 from cld.test_run import test_result, legacy_result
-from cld.process import process_scope, ProcessCleanupError, network_error
+from cld.process import (EXTERNAL_CANCEL, link_external_cancel, start_cancel_watcher,
+                         process_scope, ProcessCleanupError, network_error)
 from cld.admission import AdmissionBlocked
 from cld.ledger import Ledger, DONE, FAILED, IN_PROGRESS, PENDING, StateError
 from cld.integration import integrate, pending_integration, verified_base, dependency_block, configure_suite
@@ -25,6 +26,11 @@ from cld.worktree import (worktree, remove_worktree, managed_location, validate_
                           repository_refs)
 from cld.attempts import ActiveAttempt, slice_owner, previous_attempt, recovery_feedback
 from cld.recovery import RecoverySession, recover_collected, task_fingerprint
+
+
+def _check_external_cancel():
+    if EXTERNAL_CANCEL.is_set():
+        raise KeyboardInterrupt("Delivery cancelled")
 
 
 def _count_diff_lines(diff: str | None) -> int:
@@ -176,6 +182,7 @@ def deliver_slice(
         verifier.preflight(run_at)
 
     for attempt in range(1, total_attempts + 1):
+        _check_external_cancel()
         if evidence is not None:
             evidence.start_attempt(attempt)
         # Telemetry: one dispatch_start per attempt (best-effort, never raises).
@@ -192,6 +199,7 @@ def deliver_slice(
                 result = executor.run(deepcopy(task), effective_workdir)
             else:
                 result = executor.run(deepcopy(task), effective_workdir, feedback=feedback)
+        _check_external_cancel()
         if evidence is not None:
             evidence.dispatch(result)
         if isinstance(result, ExecutorResult) and result.process.get("error") == "cancelled":
@@ -502,12 +510,16 @@ def run_plan_parallel(
     `result.deferred` so a later run (after the quota window resets) picks them up.
     This protects the flat-rate executor's quota bucket during large fan-outs.
     """
+    start_cancel_watcher()
+    _check_external_cancel()
     if simulation:
         if repo_dir is not None or git_runner is not None:
             raise CaptureError("Simulation cannot be combined with a real Git boundary")
     elif repo_dir is None or git_runner is None:
         raise CaptureError("Plan delivery requires repo_dir and git_runner; use simulation=True only for test doubles")
     result = PlanResult()
+    cancellation = threading.Event()
+    link_external_cancel(cancellation)
 
     def _resolve_spec(task):
         # Resolution order: explicit tag wins, then the build default (pick-once-stick).
@@ -576,10 +588,12 @@ def run_plan_parallel(
                     max_retries=retries, workdir=wt, test_runner=test_runner,
                     model=spec, source=source, rung=rung, git_runner=git_runner, evidence=session,
                     initial_feedback=recovery_feedback(previous))
+                _check_external_cancel()
                 if res.accepted:
                     session.save(delivery=dict(attempts=res.attempts, model=res.model,
                         effort=res.effort, token_usage=res.token_usage, final_rung=rung,
                         final=asdict(res.final)))
+                    _check_external_cancel()
                     collected = session.collect(res.candidate)
                     if not collected.ok:
                         raise CaptureError(collected.error)
@@ -588,6 +602,8 @@ def run_plan_parallel(
                 else:
                     session.save(state="failed", error="; ".join(res.final.failing_tests)[:4000])
         except BaseException as exc:
+            if EXTERNAL_CANCEL.is_set():
+                raise
             started = created or os.path.exists(wt)
             detail = (f"{exc}; worktree retained at {wt}" if started
                       else f"{exc}; no worktree was created and nothing was dispatched")
@@ -796,6 +812,8 @@ def run_plan_parallel(
                 result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
             return
         except Exception as exc:
+            if EXTERNAL_CANCEL.is_set():
+                raise
             # A build-time error (e.g. unknown executor spec) must FAIL only this
             # slice — record it FAILED and let the rest of the build continue.
             with ledger_lock:
@@ -812,6 +830,10 @@ def run_plan_parallel(
             emit("slice_done", slice_id=task.id, status="failed")
             return
 
+        # Collection is durable: finish its ledger write even if cancelled now.
+        # Simulations and uncollected outcomes have not crossed that boundary.
+        if not deliver_res.collection:
+            _check_external_cancel()
         with ledger_lock:
             failing = list(deliver_res.final.failing_tests) if deliver_res.final is not None else []
             status = "deferred" if deliver_res.final_error is not None else (
@@ -865,13 +887,12 @@ def run_plan_parallel(
             result.details[task.id] = detail
             emit("slice_done", slice_id=task.id, status=status)
 
-    cancellation = threading.Event()
-
     def _process(task):
-        if cancellation.is_set():
+        if EXTERNAL_CANCEL.is_set() or cancellation.is_set():
             raise KeyboardInterrupt("Delivery cancelled")
         with process_scope(cancel=cancellation):
-            return _process_with_scope(task)
+            _process_with_scope(task)
+        _check_external_cancel()
 
     def _process_with_scope(task):
         if simulation:
@@ -887,6 +908,7 @@ def run_plan_parallel(
                 result.details[task.id] = SliceDetail(task.id, "deferred", failing_tests=[str(exc)])
 
     for layer in parallel_batches(deps):
+        _check_external_cancel()
         if not simulation:
             run_base = verified_base(ledger, git_runner)
         # A layer may include dep-only ids not in this plan — keep only real tasks
@@ -916,17 +938,22 @@ def run_plan_parallel(
         if runnable:
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
                 try:
-                    futures = [pool.submit(_process, task) for task in runnable]
+                    futures = []
+                    for task in runnable:
+                        _check_external_cancel()
+                        futures.append(pool.submit(_process, task))
                     for future in as_completed(futures):
                         future.result()
                 except BaseException:
                     # Signal running providers before the pool waits for workers.
                     cancellation.set()
                     raise
+        _check_external_cancel()
         if not simulation and integration_test_path and pending_integration(ledger):
-            gate = integrate(plan_slices or slices, ledger, repo_dir=repo_dir,
-                git_runner=git_runner, test_runner=integration_test_runner or test_runner,
-                selector=integration_test_path, worktree_root=worktree_root)
+            with process_scope(cancel=cancellation):
+                gate = integrate(plan_slices or slices, ledger, repo_dir=repo_dir,
+                    git_runner=git_runner, test_runner=integration_test_runner or test_runner,
+                    selector=integration_test_path, worktree_root=worktree_root)
             if not gate.passed:
                 result.integration_error = f"{gate.error}; evidence: {gate.evidence}"
                 break
@@ -934,4 +961,5 @@ def run_plan_parallel(
         result.integration_required = pending_integration(ledger)
         result.build_complete = bool(ledger.entries) and all(e.status == "integrated" for e in ledger.entries.values())
 
+    _check_external_cancel()
     return result

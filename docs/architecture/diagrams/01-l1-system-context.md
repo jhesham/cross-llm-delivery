@@ -8,6 +8,8 @@ A lead running in Claude Code (`claude-code`), OpenAI Codex (`codex`), or Google
 
 The `run_delivery.py` entry point delegates to `engine/cld/cli.py`, with responses assembled by `engine/cld/cli_response.py`. Schema-1 JSON on stdout carries the authoritative `gate_code`: on Windows a shell wrapper may report exit 1 for any failure, so the lead must read the JSON code. Each executor child runs in its slice's own Git worktree with `CLD_EXECUTOR_DEPTH=1`; the engine refuses recursive dispatch. Accepted candidate commits still await `--integrate`, and build completion requires all slices to be integrated and verified.
 
+**MCP adapter (v0.7.0+).** Each lead host can also drive CLD through the optional `cld` MCP server (`scripts/cld_mcp.py`) instead of a shell: the same driver runs underneath, long commands run as durable jobs, and executors never see the tools. See [Level 3E](10-l3e-mcp-adapter.md).
+
 ## Rendered Diagram
 
 ```mermaid
