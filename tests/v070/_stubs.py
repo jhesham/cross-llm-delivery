@@ -434,13 +434,32 @@ class McpProcess:
                                      text=True, encoding="utf-8", bufsize=1)
         self.lines = queue.Queue()
         self.raw = []
+        self.errors = []
+        self.jobs = (env or os.environ).get("CLD_MCP_JOBS")
         self.next_id = 100
 
         def pump():
             for line in self.proc.stdout:
                 self.raw.append(line)
                 self.lines.put(line)
+
+        def drain():  # an unread stderr pipe can fill and block the server
+            for line in self.proc.stderr:
+                self.errors.append(line)
         threading.Thread(target=pump, daemon=True).start()
+        threading.Thread(target=drain, daemon=True).start()
+
+    def diagnostics(self):
+        """Server stderr and job files, for a timeout message."""
+        parts = ["server stderr:\n" + "".join(self.errors[-40:])]
+        if self.jobs and Path(self.jobs).is_dir():
+            for path in sorted(Path(self.jobs).rglob("*")):
+                if path.is_file() and path.suffix in (".json", ".jsonl", ".txt"):
+                    try:
+                        parts.append(f"{path.name}: {path.read_text(encoding='utf-8', errors='replace')[-800:]}")
+                    except OSError:
+                        pass
+        return "\n".join(parts)
 
     def send(self, message):
         self.proc.stdin.write((message if isinstance(message, str) else json.dumps(message)) + "\n")
@@ -453,11 +472,11 @@ class McpProcess:
         deadline = time.monotonic() + timeout
         while True:
             remaining = deadline - time.monotonic()
-            assert remaining > 0, f"no reply to {method}"
+            assert remaining > 0, f"no reply to {method}\n{self.diagnostics()}"
             try:
                 line = self.lines.get(timeout=remaining)
             except queue.Empty:
-                raise AssertionError(f"no reply to {method}") from None
+                raise AssertionError(f"no reply to {method}\n{self.diagnostics()}") from None
             reply = json.loads(line)
             if reply.get("id") == self.next_id:
                 return reply
