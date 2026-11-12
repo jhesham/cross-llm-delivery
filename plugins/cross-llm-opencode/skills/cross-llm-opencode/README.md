@@ -1,4 +1,4 @@
-<!-- GENERATED from cross-llm-delivery (provider: opencode, v0.7.1) - do not edit here; edit the monorepo source. -->
+<!-- GENERATED from cross-llm-delivery (provider: opencode, v0.7.2) - do not edit here; edit the monorepo source. -->
 
 # cross-llm-opencode (Claude Code lead)
 

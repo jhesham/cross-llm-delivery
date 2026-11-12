@@ -10,6 +10,19 @@
    successful headless execution. Use CLD's explicit validation policy for an
    authorized one-slice validation; do not dispatch an unsolicited live probe.
 
+### API keys expire
+
+OpenCode models (`opencode/...`) authenticate with an API key that OpenCode stores
+in `~/.local/share/opencode/auth.json` (on Windows,
+`%USERPROFILE%\.local\share\opencode\auth.json`). These keys expire. An expired
+key makes every dispatch fail with `401 UNAUTHENTICATED` and the message "This API
+key has expired"; CLD reports it as an executor dispatch failure, not a model
+verdict, so a validation probe that hit it leaves the model untested. Signing in
+again does not renew the key. Create a new key in the OpenCode Console
+(https://opencode.ai/console/account#api-keys), run `opencode auth login`, choose
+OpenCode and paste the new key (it replaces the stored one), and confirm with
+`opencode auth list`. Then rerun the step; CLD validates the model again.
+
 ### Windows note
 
 The launcher resolves an explicit absolute `OPENCODE_CLI_CMD` override first, then a native

@@ -6,6 +6,15 @@ changes land; on a release, rename that section to the version + date. Plugin in
 
 ## [Unreleased]
 
+## 0.7.2 — 2026-11-12
+
+### Documentation
+- OpenCode API keys expire. An expired key fails every dispatch with
+  `401 UNAUTHENTICATED` and validation reports a dispatch failure, not a model
+  verdict; signing in again does not renew it. The OpenCode setup reference and
+  KNOWN-ISSUES explain how to replace the key (`opencode auth login` with a new key
+  from the OpenCode Console).
+
 ## 0.7.1 — 2026-11-12
 
 ### Added

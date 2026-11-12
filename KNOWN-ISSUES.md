@@ -40,6 +40,12 @@ Offline success must not be advertised as live support on those surfaces.
 
 ## Usage, timeouts and model access
 
+- OpenCode API keys expire. Dispatches then fail with `401 UNAUTHENTICATED`
+  ("This API key has expired") and validation reports a dispatch failure, not a
+  model verdict. Signing in again does not renew the key: create a new key in the
+  OpenCode Console and replace it with `opencode auth login`. See the OpenCode
+  setup reference in the bundle (`references/provider-setup.md`).
+
 Only reported usage is known. Antigravity usage may be entirely unavailable;
 Cursor/Codex dollar cost is unknown when no CLI cost field is supplied.
 OpenCode `step_finish` events can supply usage/cost, but an unfinished turn may

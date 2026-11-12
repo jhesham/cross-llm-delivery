@@ -29,7 +29,9 @@ NEW_ENGINE_FILES = {"scripts/cld/mcp_server.py", "scripts/cld/mcp_jobs.py"}
 # v0.7.0 GENMCP may add the entry script and change the skill text; the vendored
 # policy documents describe the MCP job files and registrations.
 ALLOWED_CHANGES = {"scripts/cld_mcp.py", "SKILL.md", "references/codex-workflow.md",
-                   "references/antigravity-workflow.md", "PRIVACY.md", "SECURITY.md"}
+                   "references/antigravity-workflow.md", "PRIVACY.md", "SECURITY.md",
+                   # OpenCode setup notes (API key expiry) after v0.7.1.
+                   "references/provider-setup.md", "references/providers/opencode-setup.md"}
 
 
 def _digest(path):
